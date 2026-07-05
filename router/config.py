@@ -141,7 +141,7 @@ CLOUD_MODEL_PRICING: dict[str, dict] = {
         "cost_per_m_output": 10.00,
         "max_context": 128_000,
     },
-    "gpt-5.5": {                                # VERIFY model ID string
+    "gpt-5.5": {                                # verified live 2026-07-05
         "provider": "openai",
         "cost_per_m_input": 5.00,
         "cost_per_m_output": 30.00,
@@ -178,7 +178,7 @@ CLOUD_MODEL_PRICING: dict[str, dict] = {
         "cost_per_m_output": 2.50,
         "max_context": 1_000_000,
     },
-    "gemini-3.1-pro-preview": {                 # VERIFY model ID string
+    "gemini-3.1-pro-preview": {                 # verified live 2026-07-05
         "provider": "google",
         "cost_per_m_input": 2.00,
         "cost_per_m_output": 12.00,

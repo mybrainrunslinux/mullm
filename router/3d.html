@@ -1256,11 +1256,26 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 
     // ── Expose to global scope for onclick handlers ──────────────
     window._THREE = THREE;
     window._OrbitControls = OrbitControls;
     window._GLTFLoader = GLTFLoader;
+
+    // Compressed-asset support: Draco geometry + KTX2/Basis textures.
+    const _draco = new DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+    const _ktx2 = new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/libs/basis/');
+    window._makeGLTFLoader = (renderer) => {
+      const l = new GLTFLoader();
+      l.setDRACOLoader(_draco);
+      try {
+        const r = renderer || (window.__mullmProbeRenderer ||= new THREE.WebGLRenderer());
+        l.setKTX2Loader(_ktx2.detectSupport(r));
+      } catch (e) { console.warn('KTX2 support unavailable:', e); }
+      return l;
+    };
 
     // ── Hero Canvas ─────────────────────────────────────────────
     (function initHero() {
@@ -1452,7 +1467,7 @@
 
     function loadGLB(url) {
       if (!modalScene) return;
-      const loader = new _GLTFLoader();
+      const loader = window._makeGLTFLoader ? window._makeGLTFLoader(modalRenderer) : new _GLTFLoader();
       loader.load(url, (gltf) => {
         modalGLTF = gltf.scene;
         // Center and scale

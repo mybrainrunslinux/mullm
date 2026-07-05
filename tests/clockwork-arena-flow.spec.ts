@@ -1,4 +1,14 @@
 import { test, expect } from '@playwright/test';
+import * as path from 'path';
+import * as fs from 'fs';
+
+// Resolve the game locally so specs work on any checkout; skip when the
+// game HTML is not shipped in this tree.
+function gameUrl(name: string): string | null {
+  const p = path.resolve(__dirname, '..', 'code', 'ready', name);
+  return fs.existsSync(p) ? 'file://' + p : null;
+}
+
 
 test('arena full flow — start match, fight, no errors', async ({ page }) => {
   const errors: string[] = [];
@@ -7,7 +17,9 @@ test('arena full flow — start match, fight, no errors', async ({ page }) => {
   });
   page.on('pageerror', (err) => errors.push('PAGEERROR: ' + err.message + '\n' + (err.stack||'').split('\n').slice(0,3).join(' | ')));
 
-  await page.goto('file:///home/peter/mullm/code/ready/clockwork-arena-blitz.html');
+  const __url = gameUrl('clockwork-arena-blitz.html');
+  test.skip(!__url, 'clockwork-arena-blitz.html not shipped in this tree');
+  await page.goto(__url!);
   await page.waitForTimeout(800);
 
   const titleInfo = await page.evaluate(() => {

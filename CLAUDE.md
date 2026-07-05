@@ -26,7 +26,7 @@ Local 30B model. $0. 1-30 seconds. If you skip this and use Opus instead, you ar
 ```bash
 # Development (activate project venv first):
 source .venv/bin/activate
-python -m router.main            # starts on :8100
+python -m router.main            # starts on :6856 (mullm0.9-server → :16856)
 
 # Install (with security constraints):
 pip install -c constraints.txt -e .

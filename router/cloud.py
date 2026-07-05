@@ -36,6 +36,12 @@ from router.config import CLOUD_MODEL_PRICING, settings
 logger = logging.getLogger("mullm.cloud")
 
 # Module-level API keys (readable by tests via patch)
+# Test-override hooks: patch these to force a key (""/value); None → dynamic.
+_ANTHROPIC_KEY: str | None = None
+_OPENAI_KEY: str | None = None
+_GOOGLE_KEY: str | None = None
+
+
 def _provider_key(provider: str) -> str:
     """Resolve a provider API key at call time.
 
@@ -43,6 +49,9 @@ def _provider_key(provider: str) -> str:
     actually loads .env / MULLM_ENV_FILE. Import-time env snapshots miss
     keys that arrive via env files or `pass` after module import.
     """
+    override = {"anthropic": _ANTHROPIC_KEY, "openai": _OPENAI_KEY, "google": _GOOGLE_KEY}.get(provider)
+    if override is not None:
+        return override
     env_names = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY", "google": "GOOGLE_API_KEY"}
     attrs = {"anthropic": "anthropic_api_key", "openai": "openai_api_key", "google": "google_api_key"}
     key = os.environ.get(env_names.get(provider, ""), "")
@@ -241,7 +250,7 @@ async def _google_complete(
         system_instruction=system,
     )
     contents = prompt
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     response = await loop.run_in_executor(
         None,
         lambda: client.models.generate_content(model=model, contents=contents, config=config),

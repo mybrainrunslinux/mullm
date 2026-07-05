@@ -1,4 +1,14 @@
 import { test, expect } from '@playwright/test';
+import * as path from 'path';
+import * as fs from 'fs';
+
+// Resolve the game locally so specs work on any checkout; skip when the
+// game HTML is not shipped in this tree.
+function gameUrl(name: string): string | null {
+  const p = path.resolve(__dirname, '..', 'code', 'ready', name);
+  return fs.existsSync(p) ? 'file://' + p : null;
+}
+
 
 test('tower — puzzle solve → stair beacon → ascend → floor advances', async ({ page }) => {
   const errors: string[] = [];
@@ -7,7 +17,9 @@ test('tower — puzzle solve → stair beacon → ascend → floor advances', as
     if (msg.type() === 'error' && !msg.text().includes('file://')) errors.push(msg.text());
   });
 
-  await page.goto('file:///home/peter/mullm/code/ready/clockwork-tower-3d.html?test=1');
+  const __url = gameUrl('clockwork-tower-3d.html');
+  test.skip(!__url, 'clockwork-tower-3d.html not shipped in this tree');
+  await page.goto(__url! + '?test=1');
   await page.waitForTimeout(2000);
 
   // Click start
@@ -91,7 +103,9 @@ test('tower — showVictory function is callable and shows the win screen', asyn
   const errors: string[] = [];
   page.on('pageerror', (err) => errors.push('PAGEERROR: ' + err.message));
 
-  await page.goto('file:///home/peter/mullm/code/ready/clockwork-tower-3d.html?test=1');
+  const __url = gameUrl('clockwork-tower-3d.html');
+  test.skip(!__url, 'clockwork-tower-3d.html not shipped in this tree');
+  await page.goto(__url! + '?test=1');
   await page.waitForTimeout(2000);
   await page.locator('#start-btn').click();
   await page.waitForTimeout(500);

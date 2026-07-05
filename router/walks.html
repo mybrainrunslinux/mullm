@@ -257,6 +257,22 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+// Compressed-asset support (Draco geometry + KTX2/Basis textures)
+const _mullmDraco = new DRACOLoader().setDecoderPath('/static/three/libs/draco/');
+const _mullmKtx2 = new KTX2Loader().setTranscoderPath('/static/three/libs/basis/');
+function makeGLTFLoader(renderer) {
+  const l = new GLTFLoader();
+  l.setDRACOLoader(_mullmDraco);
+  try {
+    const r = renderer || (window.__mullmProbeRenderer ||= new THREE.WebGLRenderer());
+    l.setKTX2Loader(_mullmKtx2.detectSupport(r));
+  } catch (e) { console.warn('KTX2 support unavailable:', e); }
+  return l;
+}
+window.makeGLTFLoader = makeGLTFLoader;
+
 
 // 1. Renderer setup - fill viewport, use antialias for quality
 const renderer = new THREE.WebGLRenderer({
@@ -423,7 +439,7 @@ class WalkCycleController {
             this.loadFallbackWalker();
             return;
         }
-        const loader = new GLTFLoader();
+        const loader = window.makeGLTFLoader ? window.makeGLTFLoader(renderer) : new GLTFLoader();
 
         loader.load(
             path,

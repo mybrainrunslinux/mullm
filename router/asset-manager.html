@@ -91,6 +91,21 @@ h1{font-size:1.4rem;margin-bottom:8px;color:var(--teal);font-family:var(--mono)}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+// Compressed-asset support (Draco geometry + KTX2/Basis textures)
+const _mullmDraco = new DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+const _mullmKtx2 = new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/libs/basis/');
+function makeGLTFLoader(renderer) {
+  const l = new GLTFLoader();
+  l.setDRACOLoader(_mullmDraco);
+  try {
+    const r = renderer || (window.__mullmProbeRenderer ||= new THREE.WebGLRenderer());
+    l.setKTX2Loader(_mullmKtx2.detectSupport(r));
+  } catch (e) { console.warn('KTX2 support unavailable:', e); }
+  return l;
+}
+
 
 // Expose to window for onclick handlers
 window.THREE = THREE;
@@ -247,7 +262,7 @@ function viewAsset(name, url) {
         controls.autoRotate = true;
         controls.autoRotateSpeed = 1.2;
 
-        new GLTFLoader().load(url, gltf => {
+        makeGLTFLoader(typeof renderer !== 'undefined' ? renderer : null).load(url, gltf => {
           const model = gltf.scene;
           const box = new THREE.Box3().setFromObject(model);
           const size = box.getSize(new THREE.Vector3()).length();

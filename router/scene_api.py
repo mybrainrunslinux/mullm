@@ -240,6 +240,9 @@ def _compressed_variants(path: Path) -> dict[str, str]:
         (".glb.gz", "gzip"),
         ("-draco.glb", "draco"),
         ("-meshopt.glb", "meshopt"),
+        ("-ktx2.glb", "ktx2"),
+        ("-web.glb", "draco_ktx2"),
+        ("-game.glb", "game_ready"),
     ):
         candidate = path.with_name(path.stem + suffix) if suffix.startswith("-") else Path(str(path) + suffix[4:])
         if candidate.exists():
@@ -313,7 +316,7 @@ def asset_storage_status_payload() -> dict[str, Any]:
         "max_local_gb": settings.asset_max_local_gb,
         "local_total_gb": round(total_bytes / (1024 ** 3), 4),
         "asset_count": count,
-        "compression_options": ["none", "gzip", "brotli", "draco", "meshopt", "ktx2", "auto"],
+        "compression_options": ["none", "gzip", "brotli", "draco", "meshopt", "ktx2", "draco_ktx2", "game_ready", "auto"],
         "compression_status": compression_status(),
         "storage_options": ["local", "s3", "azure_blob", "external_api"],
         "notes": [

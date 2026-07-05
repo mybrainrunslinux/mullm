@@ -127,9 +127,9 @@ async def evict_all_models(*, wait_seconds: float = 15.0) -> dict:
         logger.info("VRAM nuke: evicted %s", name)
 
     # 4. Wait for VRAM to actually drop
-    deadline = asyncio.get_event_loop().time() + wait_seconds
+    deadline = asyncio.get_running_loop().time() + wait_seconds
     free_gb = 0.0
-    while asyncio.get_event_loop().time() < deadline:
+    while asyncio.get_running_loop().time() < deadline:
         await asyncio.sleep(1.5)
         remaining = await _loaded_models()
         if not remaining:

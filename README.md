@@ -86,6 +86,12 @@
 
 Choose the path that fits your setup. All three expose the same API on port **6856**.
 
+> **0.9 pre-release note:** this tree also installs `mullm0.9` / `mullm0.9-server`
+> entry points that default to port **16856**, so the pre-release can run
+> side-by-side with an existing muLLM install. Same code, same API — only the
+> port and command name differ. Python 3.11–3.14 supported (3.14 verified,
+> including the ChromaDB vector-cache extra).
+
 ### Path 1 — pip (simplest)
 
 ```bash

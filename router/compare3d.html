@@ -440,6 +440,21 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+// Compressed-asset support (Draco geometry + KTX2/Basis textures)
+const _mullmDraco = new DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+const _mullmKtx2 = new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/libs/basis/');
+function makeGLTFLoader(renderer) {
+  const l = new GLTFLoader();
+  l.setDRACOLoader(_mullmDraco);
+  try {
+    const r = renderer || (window.__mullmProbeRenderer ||= new THREE.WebGLRenderer());
+    l.setKTX2Loader(_mullmKtx2.detectSupport(r));
+  } catch (e) { console.warn('KTX2 support unavailable:', e); }
+  return l;
+}
+
 
 // ── Helpers ────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -657,7 +672,7 @@ function setStatus(id, state, text) {
 }
 
 // ── Load GLB into viewport ──────────────────────────────────
-const loader = new GLTFLoader();
+const loader = makeGLTFLoader(typeof renderer !== 'undefined' ? renderer : null);
 
 function loadGLB(id, url, applyCanvas, prompt) {
   return new Promise((resolve, reject) => {

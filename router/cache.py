@@ -370,7 +370,7 @@ async def _embed(text: str) -> list[float] | None:
     if vec is not None:
         return vec
     # Run sync fallback in executor to avoid blocking event loop
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _embed_sentence_transformers, text)
 
 

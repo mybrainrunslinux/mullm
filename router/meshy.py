@@ -13,11 +13,17 @@ from router.config import settings
 
 MESHY_BASE_URL = os.getenv("MESHY_BASE_URL", "https://api.meshy.ai").rstrip("/")
 
+# Test-override hook: patch to force a key (""/value); None → dynamic.
+_MESHY_KEY: str | None = None
+
+
 class MeshyError(RuntimeError):
     """Raised when Meshy is unavailable or rejects a request."""
 
 
 def api_key() -> str:
+    if _MESHY_KEY is not None:
+        return _MESHY_KEY
     # Resolve at call time: env first, then settings (loads .env / MULLM_ENV_FILE).
     return os.getenv("MESHY_API_KEY", "") or (getattr(settings, "meshy_api_key", None) or "")
 

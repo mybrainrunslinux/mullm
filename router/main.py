@@ -3003,7 +3003,7 @@ async def _translate(text: str, target_lang: str, source_lang: str) -> dict:
 
     # MarianMT fast-path: free, instant, no cloud cost
     if _marian_available(src, target_lang):
-        results = await asyncio.get_event_loop().run_in_executor(
+        results = await asyncio.get_running_loop().run_in_executor(
             None, _marian_translate, [text], src, target_lang
         )
         return {
