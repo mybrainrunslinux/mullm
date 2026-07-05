@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio — muLLM Scene Editor</title>
+<style>
+/* ── Design tokens ── */
+:root {
+  --bg:        #0a0a0f;
+  --bg2:       #111118;
+  --bg3:       #1a1a25;
+  --bg4:       #22223a;
+  --border:    #2a2a50;
+  --gold:      #d4af37;
+  --gold-dim:  #8a6f20;
+  --blue:      #38bdf8;
+  --green:     #22c55e;
+  --red:       #ef4444;
+  --purple:    #a855f7;
+  --text:      #e2e8f0;
+  --text-dim:  #94a3b8;
+  --text-faint:#475569;
+  --radius:    10px;
+  --radius-lg: 16px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Header ── */
+.header {
+  height: 48px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.header h1 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.header-badge {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.nav-links {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.nav-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.nav-links a:hover { color: var(--gold); border-color: var(--gold-dim); }
+.nav-links a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ── Main layout ── */
+.app-body {
+  display: flex;
+  height: calc(100vh - 48px);
+}
+
+/* ── Left sidebar: asset browser ── */
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-header span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+#asset-count {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  margin-left: auto;
+}
+
+.sidebar-search {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-search input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 5px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.sidebar-search input:focus { border-color: var(--gold-dim); }
+.sidebar-search input::placeholder { color: var(--text-faint); }
+
+.asset-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  align-content: start;
+}
+
+.asset-grid::-webkit-scrollbar { width: 4px; }
+.asset-grid::-webkit-scrollbar-track { background: transparent; }
+.asset-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.asset-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+  overflow: hidden;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px;
+  position: relative;
+}
+
+.asset-card:hover {
+  border-color: var(--gold-dim);
+  transform: scale(1.03);
+}
+
+.asset-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.asset-card:active {
+  transform: scale(0.97);
+}
+
+.asset-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--bg4);
+  display: block;
+}
+
+.asset-thumb-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--bg4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+}
+
+.asset-name {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* ── Right sidebar: properties panel ── */
+.props-panel {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.props-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.props-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prop-group label {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.prop-row {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 4px;
+  align-items: center;
+}
+
+.prop-axis {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.prop-row input[type="number"] {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.75rem;
+  padding: 3px 6px;
+  outline: none;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+
+.prop-row input[type="number"]::-webkit-inner-spin-button,
+.prop-row input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+.prop-row input[type="number"]:focus { border-color: var(--gold-dim); }
+
+#selected-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+.no-selection {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  text-align: center;
+  margin-top: 20px;
+  line-height: 1.6;
+}
+
+.props-actions {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Scene objects list ── */
+.objects-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.objects-list::-webkit-scrollbar { width: 4px; }
+.objects-list::-webkit-scrollbar-track { background: transparent; }
+.objects-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.object-row {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  transition: background 0.1s;
+}
+
+.object-row:hover { background: var(--bg3); color: var(--text); }
+
+.object-row.active {
+  background: var(--bg4);
+  color: var(--gold);
+  border-left: 2px solid var(--gold);
+}
+
+.object-row .obj-icon { font-size: 0.9rem; flex-shrink: 0; }
+.object-row .obj-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.object-row .obj-del {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 2px;
+  line-height: 1;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+.object-row .obj-del:hover { color: var(--red); }
+
+/* ── Center: viewport + chat ── */
+.center-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.viewport-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #08080d;
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.viewport-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 5;
+}
+
+.vp-btn {
+  background: rgba(17,17,24,0.85);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  backdrop-filter: blur(4px);
+}
+
+.vp-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+.vp-btn.active { color: var(--gold); border-color: var(--gold); }
+.vp-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.viewport-status {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  background: rgba(17,17,24,0.75);
+  padding: 3px 8px;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+/* ── Chat panel ── */
+.chat-panel {
+  height: 180px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+}
+
+.chat-log::-webkit-scrollbar { width: 4px; }
+.chat-log::-webkit-scrollbar-track { background: transparent; }
+.chat-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.chat-msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.chat-msg .role {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-top: 2px;
+  width: 40px;
+}
+
+.chat-msg.user .role { color: var(--gold-dim); }
+.chat-msg.assistant .role { color: var(--blue); }
+.chat-msg.system .role { color: var(--text-faint); }
+.chat-msg .body { color: var(--text); flex: 1; line-height: 1.4; }
+.chat-msg.system .body { color: var(--text-faint); font-style: italic; }
+
+.chat-input-row {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#chat-input {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 6px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+#chat-input:focus { border-color: var(--gold-dim); }
+#chat-input::placeholder { color: var(--text-faint); }
+
+/* ── Buttons ── */
+.btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.btn:active { transform: scale(0.97); }
+.btn.btn-gold {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: #000;
+  font-weight: 700;
+}
+.btn.btn-gold:hover { background: var(--gold); }
+.btn.btn-danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+.btn.btn-danger:hover { background: rgba(239,68,68,0.1); }
+
+.spin {
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Loading overlay ── */
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,10,15,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  backdrop-filter: blur(4px);
+}
+
+#loading-overlay.hidden { display: none; }
+/* Asset card hover preview */
+.asset-card-preview {
+  position: fixed;
+  pointer-events: none;
+  background: var(--bg2);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius);
+  padding: 10px;
+  min-width: 160px;
+  max-width: 200px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  z-index: 1000;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.12s, transform 0.12s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.asset-card-preview.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+.asset-card-preview img, .asset-card-preview .preview-placeholder {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--bg4);
+  display: flex; align-items: center; justify-content: center; font-size: 3rem;
+}
+.asset-card-preview .preview-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  word-break: break-word;
+}
+.asset-card-preview .preview-meta {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay while Three.js initializes -->
+<div id="loading-overlay" role="status" aria-live="polite">
+  <span class="spin">⧖</span>
+  <span id="loading-msg">Loading scene editor…</span>
+</div>
+
+<!-- Header -->
+<header class="header">
+  <h1>⬡ Studio</h1>
+  <span class="header-badge">Scene Editor · Phase 1</span>
+  <nav class="nav-links" aria-label="Main navigation">
+    <a href="/assets" aria-label="Asset manager">Assets</a>
+    <a href="/games" aria-label="Games">Games</a>
+    <a href="/chat" aria-label="Chat">Chat</a>
+    <a href="/" aria-label="Home">Home</a>
+  </nav>
+</header>
+
+<!-- Main layout -->
+<div class="app-body" role="main">
+
+  <!-- Left: asset browser -->
+  <aside class="sidebar" aria-label="3D asset browser">
+    <div class="sidebar-header">
+      <span>Assets</span>
+      <span id="asset-count" aria-live="polite">…</span>
+    </div>
+    <div class="sidebar-search" role="search">
+      <input
+        id="asset-search"
+        type="search"
+        placeholder="Filter assets…"
+        aria-label="Filter 3D assets by name"
+        autocomplete="off"
+      />
+    </div>
+    <div
+      class="asset-grid"
+      id="asset-grid"
+      role="list"
+      aria-label="Available 3D models — click to place in scene"
+    ></div>
+  </aside>
+
+  <!-- Center: viewport + chat -->
+  <div class="center-col">
+    <!-- 3D viewport -->
+    <div class="viewport-wrap" id="viewport">
+      <canvas id="canvas" aria-label="3D scene viewport"></canvas>
+
+      <!-- Toolbar overlaid on viewport -->
+      <div class="viewport-toolbar" role="toolbar" aria-label="Transform controls">
+        <button class="vp-btn active" id="btn-translate" title="Translate (G)" aria-pressed="true">Move</button>
+        <button class="vp-btn" id="btn-rotate" title="Rotate (R)" aria-pressed="false">Rotate</button>
+        <button class="vp-btn" id="btn-scale" title="Scale (S)" aria-pressed="false">Scale</button>
+        <button class="vp-btn" id="btn-deselect" title="Deselect (Escape)" aria-label="Deselect object">✕ Deselect</button>
+        <button class="vp-btn" id="btn-focus" title="Focus selected (F)" aria-label="Focus camera on selection">Focus</button>
+      </div>
+
+      <div class="viewport-status" id="viewport-status" aria-live="polite">
+        Click an asset to place · Click scene object to select
+      </div>
+    </div>
+
+    <!-- Chat panel -->
+    <section class="chat-panel" aria-label="AI scene assistant">
+      <div
+        class="chat-log"
+        id="chat-log"
+        role="log"
+        aria-live="polite"
+        aria-label="Chat history"
+      >
+        <div class="chat-msg system">
+          <span class="role" aria-hidden="true">sys</span>
+          <span class="body">Type commands: "place sword at 0 0 0", "move it to 2 0 1", "scale it to 2", "rotate it 45 degrees", "remove it", "clear scene"</span>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <input
+          id="chat-input"
+          type="text"
+          placeholder="Type a scene command or question…"
+          aria-label="Scene command input"
+          autocomplete="off"
+        />
+        <button class="btn btn-gold" id="btn-send" aria-label="Send command">Send</button>
+        <button class="btn" id="btn-export" title="Export scene layout as JSON" aria-label="Export scene as JSON">⬇ Export</button>
+        <button class="btn btn-danger" id="btn-clear" title="Clear all objects from scene" aria-label="Clear scene">Clear</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Right: properties + scene list -->
+  <aside class="props-panel" aria-label="Selected object properties">
+    <div class="props-header">Properties</div>
+    <div class="props-body" id="props-body">
+      <p class="no-selection" id="no-sel-msg">Select an object in the scene to edit its transform.</p>
+    </div>
+    <div class="objects-list" id="scene-list" role="list" aria-label="Scene objects"></div>
+  </aside>
+
+</div>
+
+<!-- Three.js r168 via importmap (ES module) -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "/static/three/three.module.js",
+    "three/addons/": "/static/three/addons/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ──────────────────────────────────────────────────────────
+// Globals
+// ──────────────────────────────────────────────────────────
+const canvas        = document.getElementById('canvas');
+const viewport      = document.getElementById('viewport');
+const loadingOverlay = document.getElementById('loading-overlay');
+const loadingMsg    = document.getElementById('loading-msg');
+const chatLog       = document.getElementById('chat-log');
+const chatInput     = document.getElementById('chat-input');
+const sceneList     = document.getElementById('scene-list');
+const propsBody     = document.getElementById('props-body');
+const statusBar     = document.getElementById('viewport-status');
+
+let allAssets = [];          // {name, file, url, thumbnail}
+let sceneObjects = [];       // {id, name, file, mesh}
+let selectedObj  = null;     // currently selected sceneObject
+let transformMode = 'translate'; // 'translate'|'rotate'|'scale'
+let objCounter   = 0;
+const propEls = {};          // cached references to prop input elements
+let draggedAsset = null;     // asset being dragged onto the canvas
+
+// ──────────────────────────────────────────────────────────
+// Three.js scene setup
+// ──────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace  = THREE.SRGBColorSpace;
+renderer.toneMapping       = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+const scene  = new THREE.Scene();
+scene.background = new THREE.Color(0x0d0d14);
+scene.fog = new THREE.Fog(0x0d0d14, 40, 120);
+
+// Camera
+const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 500);
+camera.position.set(6, 5, 10);
+camera.lookAt(0, 0, 0);
+
+// Orbit controls (disabled while transform controls are active)
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.dampingFactor = 0.08;
+orbit.minDistance   = 0.5;
+orbit.maxDistance   = 100;
+orbit.maxPolarAngle = Math.PI / 2 + 0.1;
+
+// Transform controls
+const transformCtrl = new TransformControls(camera, renderer.domElement);
+const transformHelper = transformCtrl.getHelper();
+transformCtrl.addEventListener('dragging-changed', e => {
+  orbit.enabled = !e.value;
+});
+transformCtrl.addEventListener('objectChange', () => {
+  if (selectedObj) updatePropValues();
+});
+scene.add(transformHelper);
+
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+
+const sun = new THREE.DirectionalLight(0xfff8e7, 2.2);
+sun.position.set(8, 15, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near  = 0.5;
+sun.shadow.camera.far   = 100;
+sun.shadow.camera.left  = -20;
+sun.shadow.camera.right = 20;
+sun.shadow.camera.top   = 20;
+sun.shadow.camera.bottom = -20;
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const fillLight = new THREE.HemisphereLight(0x223355, 0x112233, 0.4);
+scene.add(fillLight);
+
+// Grid floor
+const grid = new THREE.GridHelper(40, 40, 0x2a2a50, 0x1a1a30);
+grid.material.opacity = 0.7;
+grid.material.transparent = true;
+scene.add(grid);
+
+// Shadow-receiving plane
+const groundGeo  = new THREE.PlaneGeometry(40, 40);
+const groundMat  = new THREE.ShadowMaterial({ opacity: 0.25 });
+const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+groundMesh.rotation.x = -Math.PI / 2;
+groundMesh.position.y = -0.001;
+groundMesh.receiveShadow = true;
+scene.add(groundMesh);
+
+// ── Resize handling ──
+function resizeRenderer() {
+  const w = viewport.clientWidth;
+  const h = viewport.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+const ro = new ResizeObserver(resizeRenderer);
+ro.observe(viewport);
+resizeRenderer();
+
+// ── Animation loop ──
+function animate() {
+  requestAnimationFrame(animate);
+  orbit.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// ──────────────────────────────────────────────────────────
+// Loading indicator hide once Three.js is ready
+// ──────────────────────────────────────────────────────────
+loadingMsg.textContent = 'Fetching assets…';
+loadAssets();
+
+// ──────────────────────────────────────────────────────────
+// Asset browser
+// ──────────────────────────────────────────────────────────
+async function loadAssets() {
+  try {
+    const res  = await fetch('/api/3d-assets');
+    const data = await res.json();
+    allAssets  = data.assets || [];
+    renderAssetGrid(allAssets);
+    document.getElementById('asset-count').textContent = `${allAssets.length}`;
+  } catch (err) {
+    document.getElementById('asset-count').textContent = 'error';
+    addChatMsg('system', `Failed to load assets: ${err.message}`);
+  } finally {
+    loadingOverlay.classList.add('hidden');
+  }
+}
+
+function renderAssetGrid(assets) {
+  const grid = document.getElementById('asset-grid');
+  grid.innerHTML = '';
+  assets.forEach(a => {
+    const card = document.createElement('div');
+    card.className     = 'asset-card';
+    card.role          = 'listitem';
+    card.tabIndex      = 0;
+    card.title         = `${a.name} (${a.size_kb ?? '?'} KB) — click to place`;
+    card.setAttribute('aria-label', `Place ${a.name} in scene`);
+
+    if (a.thumbnail) {
+      const img    = document.createElement('img');
+      img.src      = a.thumbnail;
+      img.alt      = a.name;
+      img.className = 'asset-thumb';
+      img.loading  = 'lazy';
+      img.onerror  = () => { img.replaceWith(makePlaceholder()); };
+      card.appendChild(img);
+    } else {
+      card.appendChild(makePlaceholder());
+    }
+
+    const label    = document.createElement('span');
+    label.className = 'asset-name';
+    label.textContent = a.name;
+    card.appendChild(label);
+
+    card.draggable = true;
+    const placeAsset = () => placeGLB(a);
+    card.addEventListener('click',  placeAsset);
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); placeAsset(); } });
+    card.addEventListener('mouseenter', e => showCardPreview(card, a, e));
+    card.addEventListener('mousemove',  e => positionPreview(e));
+    card.addEventListener('mouseleave', hideCardPreview);
+    card.addEventListener('dragstart', e => {
+      draggedAsset = a;
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+    card.addEventListener('dragend', () => { draggedAsset = null; });
+    grid.appendChild(card);
+  });
+
+  if (assets.length === 0) {
+    const msg = document.createElement('p');
+    msg.style.cssText = 'color:var(--text-faint);font-size:0.75rem;text-align:center;grid-column:1/-1;padding:10px';
+    msg.textContent = 'No assets found';
+    grid.appendChild(msg);
+  }
+}
+
+function makePlaceholder() {
+  const div = document.createElement('div');
+  div.className   = 'asset-thumb-placeholder';
+  div.setAttribute('aria-hidden', 'true');
+  div.textContent = '🧊';
+  return div;
+}
+
+// ── Floating card preview on hover ──
+const preview = document.createElement('div');
+preview.className = 'asset-card-preview';
+document.body.appendChild(preview);
+
+let previewTimeout = null;
+
+function showCardPreview(card, asset, e) {
+  clearTimeout(previewTimeout);
+  preview.innerHTML = '';
+  if (asset.thumbnail) {
+    const img = document.createElement('img');
+    img.src = asset.thumbnail;
+    img.alt = asset.name;
+    preview.appendChild(img);
+  } else {
+    const ph = document.createElement('div');
+    ph.className = 'preview-placeholder';
+    ph.textContent = '🧊';
+    preview.appendChild(ph);
+  }
+  const name = document.createElement('div');
+  name.className = 'preview-name';
+  name.textContent = asset.name;
+  preview.appendChild(name);
+  const meta = document.createElement('div');
+  meta.className = 'preview-meta';
+  meta.textContent = asset.size_kb ? `${asset.size_kb} KB` : asset.file || '';
+  preview.appendChild(meta);
+  positionPreview(e);
+  preview.classList.add('visible');
+}
+
+function hideCardPreview() {
+  previewTimeout = setTimeout(() => preview.classList.remove('visible'), 80);
+}
+
+function positionPreview(e) {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX + 12, y = e.clientY - 80;
+  if (x + 210 > vw) x = e.clientX - 220;
+  if (y < 8) y = 8;
+  if (y + 220 > vh) y = vh - 230;
+  preview.style.left = x + 'px';
+  preview.style.top  = y + 'px';
+}
+
+// ── Asset search filter ──
+document.getElementById('asset-search').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase().trim();
+  const filtered = q ? allAssets.filter(a => a.name.toLowerCase().includes(q)) : allAssets;
+  renderAssetGrid(filtered);
+  document.getElementById('asset-count').textContent = `${filtered.length}`;
+});
+
+// ──────────────────────────────────────────────────────────
+// GLB placement
+// ──────────────────────────────────────────────────────────
+const loader = new GLTFLoader();
+
+function placeGLB(asset, position) {
+  const pos = position || { x: 0, y: 0, z: 0 };
+  setStatus(`Loading ${asset.name}…`);
+
+  loader.load(
+    asset.url,
+    gltf => {
+      const mesh = gltf.scene;
+
+      // Normalize size to roughly 1 unit tall
+      const box    = new THREE.Box3().setFromObject(mesh);
+      const size   = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      if (maxDim > 0) mesh.scale.setScalar(1 / maxDim);
+
+      // Sit on the grid floor
+      const box2  = new THREE.Box3().setFromObject(mesh);
+      const minY  = box2.min.y;
+      mesh.position.set(pos.x, pos.y - minY, pos.z);
+
+      mesh.castShadow    = true;
+      mesh.receiveShadow = true;
+      mesh.traverse(c => {
+        if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
+      });
+
+      scene.add(mesh);
+
+      const id  = ++objCounter;
+      const obj = { id, name: asset.name, file: asset.file, url: asset.url, mesh };
+      sceneObjects.push(obj);
+
+      addToSceneList(obj);
+      selectObject(obj);
+      setStatus(`Placed "${asset.name}" at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`);
+    },
+    undefined,
+    err => {
+      setStatus(`Error loading ${asset.name}`);
+      addChatMsg('system', `Error loading ${asset.name}: ${err.message || err}`);
+    }
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// Selection
+// ──────────────────────────────────────────────────────────
+function selectObject(obj) {
+  selectedObj = obj;
+  transformCtrl.attach(obj.mesh);
+  transformCtrl.setMode(transformMode);
+  refreshProps();
+  refreshSceneListHighlight();
+}
+
+function deselectObject() {
+  selectedObj = null;
+  transformCtrl.detach();
+  showNoSelection();
+  refreshSceneListHighlight();
+}
+
+// Raycaster for click-to-select
+const raycaster = new THREE.Raycaster();
+const mouse     = new THREE.Vector2();
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  // Only process left-click when orbit isn't dragging
+  if (e.button !== 0) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+  mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+
+  // Collect all meshes from scene objects
+  const meshes = [];
+  sceneObjects.forEach(o => {
+    o.mesh.traverse(c => { if (c.isMesh) meshes.push(c); });
+  });
+
+  const hits = raycaster.intersectObjects(meshes, false);
+  if (hits.length === 0) {
+    deselectObject();
+    return;
+  }
+
+  // Walk up to find the root sceneObject
+  let hitMesh = hits[0].object;
+  const found = sceneObjects.find(o => {
+    let check = hitMesh;
+    while (check) {
+      if (check === o.mesh) return true;
+      check = check.parent;
+    }
+    return false;
+  });
+
+  if (found) selectObject(found);
+});
+
+// ──────────────────────────────────────────────────────────
+// Scene object list (right panel bottom)
+// ──────────────────────────────────────────────────────────
+function addToSceneList(obj) {
+  const row = document.createElement('div');
+  row.className = 'object-row';
+  row.dataset.id = obj.id;
+  row.role = 'listitem';
+  row.setAttribute('aria-label', `Scene object: ${obj.name}`);
+
+  const icon  = document.createElement('span');
+  icon.className = 'obj-icon';
+  icon.textContent = '🧊';
+  icon.setAttribute('aria-hidden', 'true');
+
+  const label = document.createElement('span');
+  label.className = 'obj-label';
+  label.textContent = obj.name;
+  label.title = obj.name;
+
+  const del = document.createElement('button');
+  del.className = 'obj-del';
+  del.textContent = '✕';
+  del.title = `Remove ${obj.name} from scene`;
+  del.setAttribute('aria-label', `Remove ${obj.name}`);
+  del.addEventListener('click', e => {
+    e.stopPropagation();
+    removeObject(obj);
+  });
+
+  row.appendChild(icon);
+  row.appendChild(label);
+  row.appendChild(del);
+
+  row.addEventListener('click', () => selectObject(obj));
+  sceneList.appendChild(row);
+}
+
+function refreshSceneListHighlight() {
+  sceneList.querySelectorAll('.object-row').forEach(row => {
+    const active = selectedObj && row.dataset.id == selectedObj.id;
+    row.classList.toggle('active', active);
+    row.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+}
+
+function removeObject(obj) {
+  scene.remove(obj.mesh);
+  if (selectedObj === obj) deselectObject();
+  sceneObjects = sceneObjects.filter(o => o !== obj);
+  const row = sceneList.querySelector(`[data-id="${obj.id}"]`);
+  if (row) row.remove();
+  setStatus(`Removed "${obj.name}"`);
+}
+
+// ──────────────────────────────────────────────────────────
+// Properties panel
+// ──────────────────────────────────────────────────────────
+function showNoSelection() {
+  propsBody.innerHTML = `<p class="no-selection" id="no-sel-msg">Select an object in the scene to edit its transform.</p>`;
+}
+
+function buildPropsDOM(obj) {
+  const m = obj.mesh;
+  propsBody.innerHTML = `
+    <div id="selected-name" title="${obj.name}">${obj.name}</div>
+    <div class="prop-group">
+      <label>Position</label>
+      <div class="prop-row"><span class="prop-axis">X</span><input type="number" id="px" step="0.1" aria-label="Position X"/></div>
+      <div class="prop-row"><span class="prop-axis">Y</span><input type="number" id="py" step="0.1" aria-label="Position Y"/></div>
+      <div class="prop-row"><span class="prop-axis">Z</span><input type="number" id="pz" step="0.1" aria-label="Position Z"/></div>
+    </div>
+    <div class="prop-group">
+      <label>Rotation (deg)</label>
+      <div class="prop-row"><span class="prop-axis">X</span><input type="number" id="rx" step="1" aria-label="Rotation X degrees"/></div>
+      <div class="prop-row"><span class="prop-axis">Y</span><input type="number" id="ry" step="1" aria-label="Rotation Y degrees"/></div>
+      <div class="prop-row"><span class="prop-axis">Z</span><input type="number" id="rz" step="1" aria-label="Rotation Z degrees"/></div>
+    </div>
+    <div class="prop-group">
+      <label>Scale (uniform)</label>
+      <div class="prop-row"><span class="prop-axis">X</span><input type="number" id="sx" step="0.1" min="0.001" aria-label="Scale X"/></div>
+      <div class="prop-row"><span class="prop-axis">Y</span><input type="number" id="sy" step="0.1" min="0.001" aria-label="Scale Y"/></div>
+      <div class="prop-row"><span class="prop-axis">Z</span><input type="number" id="sz" step="0.1" min="0.001" aria-label="Scale Z"/></div>
+    </div>
+  `;
+  // Cache references
+  ['px','py','pz','rx','ry','rz','sx','sy','sz'].forEach(id => {
+    propEls[id] = document.getElementById(id);
+  });
+  // Wire live changes
+  propEls.px.addEventListener('input', () => { if(!isNaN(+propEls.px.value)) m.position.x = +propEls.px.value; });
+  propEls.py.addEventListener('input', () => { if(!isNaN(+propEls.py.value)) m.position.y = +propEls.py.value; });
+  propEls.pz.addEventListener('input', () => { if(!isNaN(+propEls.pz.value)) m.position.z = +propEls.pz.value; });
+  propEls.rx.addEventListener('input', () => { if(!isNaN(+propEls.rx.value)) m.rotation.x = THREE.MathUtils.degToRad(+propEls.rx.value); });
+  propEls.ry.addEventListener('input', () => { if(!isNaN(+propEls.ry.value)) m.rotation.y = THREE.MathUtils.degToRad(+propEls.ry.value); });
+  propEls.rz.addEventListener('input', () => { if(!isNaN(+propEls.rz.value)) m.rotation.z = THREE.MathUtils.degToRad(+propEls.rz.value); });
+  propEls.sx.addEventListener('input', () => { if(!isNaN(+propEls.sx.value)) m.scale.x = Math.max(0.001,+propEls.sx.value); });
+  propEls.sy.addEventListener('input', () => { if(!isNaN(+propEls.sy.value)) m.scale.y = Math.max(0.001,+propEls.sy.value); });
+  propEls.sz.addEventListener('input', () => { if(!isNaN(+propEls.sz.value)) m.scale.z = Math.max(0.001,+propEls.sz.value); });
+  updatePropValues();
+}
+
+function updatePropValues() {
+  if (!selectedObj || !propEls.px) return;
+  const m = selectedObj.mesh;
+  // Don't update a field if it's currently focused (user is typing)
+  const focused = document.activeElement;
+  const set = (el, v) => { if (el && el !== focused) el.value = v; };
+  set(propEls.px, m.position.x.toFixed(3));
+  set(propEls.py, m.position.y.toFixed(3));
+  set(propEls.pz, m.position.z.toFixed(3));
+  set(propEls.rx, THREE.MathUtils.radToDeg(m.rotation.x).toFixed(1));
+  set(propEls.ry, THREE.MathUtils.radToDeg(m.rotation.y).toFixed(1));
+  set(propEls.rz, THREE.MathUtils.radToDeg(m.rotation.z).toFixed(1));
+  set(propEls.sx, m.scale.x.toFixed(3));
+  set(propEls.sy, m.scale.y.toFixed(3));
+  set(propEls.sz, m.scale.z.toFixed(3));
+}
+
+function refreshProps() {
+  if (!selectedObj) { showNoSelection(); return; }
+  buildPropsDOM(selectedObj);
+}
+
+// ──────────────────────────────────────────────────────────
+// Transform mode toolbar
+// ──────────────────────────────────────────────────────────
+function setTransformMode(mode) {
+  transformMode = mode;
+  transformCtrl.setMode(mode);
+  document.querySelectorAll('.vp-btn[id^="btn-"]').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-pressed', 'false');
+  });
+  const active = document.getElementById(`btn-${mode}`);
+  if (active) { active.classList.add('active'); active.setAttribute('aria-pressed', 'true'); }
+}
+
+document.getElementById('btn-translate').addEventListener('click', () => setTransformMode('translate'));
+document.getElementById('btn-rotate').addEventListener('click',    () => setTransformMode('rotate'));
+document.getElementById('btn-scale').addEventListener('click',     () => setTransformMode('scale'));
+
+document.getElementById('btn-deselect').addEventListener('click', deselectObject);
+
+document.getElementById('btn-focus').addEventListener('click', () => {
+  if (!selectedObj) return;
+  const box    = new THREE.Box3().setFromObject(selectedObj.mesh);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  orbit.target.copy(center);
+  const size   = new THREE.Vector3();
+  box.getSize(size);
+  const dist   = Math.max(size.x, size.y, size.z) * 2.5;
+  camera.position.set(center.x + dist, center.y + dist * 0.7, center.z + dist);
+  orbit.update();
+});
+
+// Keyboard shortcuts
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'g' || e.key === 'G') setTransformMode('translate');
+  if (e.key === 'r' || e.key === 'R') setTransformMode('rotate');
+  if (e.key === 's' || e.key === 'S') setTransformMode('scale');
+  if (e.key === 'Escape') deselectObject();
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObj) {
+    const obj = selectedObj;
+    deselectObject();
+    removeObject(obj);
+  }
+  if (e.key === 'f' || e.key === 'F') document.getElementById('btn-focus').click();
+});
+
+// ──────────────────────────────────────────────────────────
+// Chat panel
+// ──────────────────────────────────────────────────────────
+function addChatMsg(role, text) {
+  const msg  = document.createElement('div');
+  msg.className = `chat-msg ${role}`;
+  msg.innerHTML = `<span class="role" aria-hidden="true">${role === 'assistant' ? 'ai' : role}</span><span class="body"></span>`;
+  msg.querySelector('.body').textContent = text;
+  chatLog.appendChild(msg);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
+document.getElementById('btn-send').addEventListener('click', sendChat);
+
+async function sendChat() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  chatInput.value = '';
+  addChatMsg('user', text);
+
+  const btn = document.getElementById('btn-send');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⧖</span>';
+
+  // Build scene context summary for the AI
+  const sceneDesc = sceneObjects.length === 0
+    ? 'Scene is empty.'
+    : 'Scene objects:\n' + sceneObjects.map(o => {
+        const p = o.mesh.position;
+        const box = new THREE.Box3().setFromObject(o.mesh);
+        const sz = new THREE.Vector3();
+        box.getSize(sz);
+        return `  - "${o.name}" at (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}), size ${sz.x.toFixed(2)}×${sz.y.toFixed(2)}×${sz.z.toFixed(2)}`;
+      }).join('\n');
+
+  const selected = selectedObj ? `Currently selected: "${selectedObj.name}".` : 'Nothing selected.';
+  const words = text.toLowerCase().split(/\s+/);
+  const relevantAssets = allAssets
+    .filter(a => words.some(w => w.length > 3 && a.name.toLowerCase().includes(w)))
+    .slice(0, 20);
+  const assetSample = (relevantAssets.length ? relevantAssets : allAssets.slice(0, 20))
+    .map(a => a.name).join(', ');
+
+  const prompt = `You are a 3D scene editor AI assistant for muLLM Studio.
+
+${sceneDesc}
+${selected}
+Available assets: ${assetSample} (${allAssets.length} total)
+
+User command: ${text}
+
+Respond with a short description of what you are doing, then on a new line output ONE action JSON like:
+{"action":"place","asset":"<name>","x":<num>,"y":<num>,"z":<num>}
+{"action":"move","x":<num>,"y":<num>,"z":<num>}
+{"action":"scale","value":<num>}
+{"action":"rotate","y":<degrees>}
+{"action":"remove"}
+{"action":"clear"}
+{"action":"none"}
+
+If you cannot determine the action, use {"action":"none"} and explain why.`;
+
+  try {
+    const deterministic = await fetch('/api/scene/action', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        selected: selectedObj ? selectedObj.name : '',
+        scene_object_count: sceneObjects.length
+      }),
+    });
+    if (deterministic.ok) {
+      const parsed = await deterministic.json();
+      if (parsed.action && parsed.action.action && parsed.action.action !== 'none') {
+        addChatMsg('assistant', `Scene action parsed locally (${parsed.cache_policy}).`);
+        executeAction(parsed.action, text);
+        return;
+      }
+    }
+
+    const res  = await fetch('/query', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: prompt, skip_cache: true }),
+    });
+    const data = await res.json();
+    const reply = data.response || data.error || 'No response';
+    addChatMsg('assistant', reply);
+    parseAndExecuteAction(reply, text);
+  } catch (err) {
+    addChatMsg('system', `Error: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send';
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+// Action parser — extracts JSON from AI response
+// ──────────────────────────────────────────────────────────
+function parseAndExecuteAction(reply, originalText) {
+  // Try to parse JSON from the response
+  const jsonMatch = reply.match(/\{[^}]+\}/);
+  if (!jsonMatch) {
+    // Fallback: try regex patterns on original user text
+    executeFallbackParse(originalText);
+    return;
+  }
+
+  let action;
+  try {
+    action = JSON.parse(jsonMatch[0]);
+  } catch {
+    executeFallbackParse(originalText);
+    return;
+  }
+
+  executeAction(action, originalText);
+}
+
+function executeAction(action, originalText) {
+  switch (action.action) {
+    case 'place': {
+      const name = action.asset || '';
+      const asset = allAssets.find(a =>
+        a.name.toLowerCase() === name.toLowerCase() ||
+        a.name.toLowerCase().includes(name.toLowerCase())
+      );
+      if (!asset) {
+        addChatMsg('system', `Asset "${name}" not found. Available: ${allAssets.slice(0,5).map(a=>a.name).join(', ')}…`);
+        return;
+      }
+      placeGLB(asset, { x: action.x || 0, y: action.y || 0, z: action.z || 0 });
+      break;
+    }
+
+    case 'move': {
+      if (!selectedObj) { addChatMsg('system', 'No object selected.'); return; }
+      selectedObj.mesh.position.set(action.x || 0, action.y || 0, action.z || 0);
+      refreshProps();
+      setStatus(`Moved "${selectedObj.name}" to (${action.x}, ${action.y}, ${action.z})`);
+      break;
+    }
+
+    case 'scale': {
+      if (!selectedObj) { addChatMsg('system', 'No object selected.'); return; }
+      const s = action.value || 1;
+      selectedObj.mesh.scale.setScalar(s);
+      refreshProps();
+      setStatus(`Scaled "${selectedObj.name}" to ${s}`);
+      break;
+    }
+
+    case 'rotate': {
+      if (!selectedObj) { addChatMsg('system', 'No object selected.'); return; }
+      const deg = action.y || 0;
+      selectedObj.mesh.rotation.y = THREE.MathUtils.degToRad(deg);
+      refreshProps();
+      setStatus(`Rotated "${selectedObj.name}" Y to ${deg}°`);
+      break;
+    }
+
+    case 'remove': {
+      if (!selectedObj) { addChatMsg('system', 'No object selected.'); return; }
+      const obj = selectedObj;
+      deselectObject();
+      removeObject(obj);
+      break;
+    }
+
+    case 'clear': {
+      const count = sceneObjects.length;
+      [...sceneObjects].forEach(o => removeObject(o));
+      sceneObjects = [];
+      setStatus(`Cleared ${count} object(s) from scene`);
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+
+// Regex fallback for simple commands if AI doesn't return JSON
+function executeFallbackParse(text) {
+  const t = text.toLowerCase();
+
+  // place [asset] at X Y Z
+  let m = t.match(/place\s+([\w-]+)\s+at\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)/);
+  if (m) {
+    const asset = allAssets.find(a => a.name.toLowerCase().includes(m[1]));
+    if (asset) placeGLB(asset, { x: +m[2], y: +m[3], z: +m[4] });
+    return;
+  }
+
+  // move to X Y Z
+  m = t.match(/move\s+(?:it\s+)?to\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)/);
+  if (m && selectedObj) {
+    selectedObj.mesh.position.set(+m[1], +m[2], +m[3]);
+    refreshProps();
+    return;
+  }
+
+  // scale to N
+  m = t.match(/scale\s+(?:it\s+)?to\s+([\d.]+)/);
+  if (m && selectedObj) {
+    selectedObj.mesh.scale.setScalar(+m[1]);
+    refreshProps();
+    return;
+  }
+
+  // rotate Y degrees
+  m = t.match(/rotate\s+(?:it\s+)?([-\d.]+)\s+deg/);
+  if (m && selectedObj) {
+    selectedObj.mesh.rotation.y = THREE.MathUtils.degToRad(+m[1]);
+    refreshProps();
+    return;
+  }
+
+  // clear scene
+  if (/clear\s+scene/.test(t)) {
+    [...sceneObjects].forEach(o => removeObject(o));
+    sceneObjects = [];
+    return;
+  }
+
+  // remove / delete
+  if (/remove|delete/.test(t) && selectedObj) {
+    const obj = selectedObj;
+    deselectObject();
+    removeObject(obj);
+    return;
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+// Export scene
+// ──────────────────────────────────────────────────────────
+document.getElementById('btn-export').addEventListener('click', exportScene);
+
+function exportScene() {
+  const layout = {
+    version: 1,
+    exported: new Date().toISOString(),
+    objects: sceneObjects.map(o => ({
+      id:       o.id,
+      name:     o.name,
+      file:     o.file,
+      url:      o.url,
+      position: { x: o.mesh.position.x, y: o.mesh.position.y, z: o.mesh.position.z },
+      rotation: {
+        x: THREE.MathUtils.radToDeg(o.mesh.rotation.x),
+        y: THREE.MathUtils.radToDeg(o.mesh.rotation.y),
+        z: THREE.MathUtils.radToDeg(o.mesh.rotation.z),
+      },
+      scale: { x: o.mesh.scale.x, y: o.mesh.scale.y, z: o.mesh.scale.z },
+    })),
+  };
+
+  const blob = new Blob([JSON.stringify(layout, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `mullm-scene-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  addChatMsg('system', `Exported scene with ${sceneObjects.length} object(s).`);
+}
+
+// ──────────────────────────────────────────────────────────
+// Clear scene button
+// ──────────────────────────────────────────────────────────
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (sceneObjects.length === 0) { addChatMsg('system', 'Scene is already empty.'); return; }
+  const count = sceneObjects.length;
+  [...sceneObjects].forEach(o => removeObject(o));
+  sceneObjects = [];
+  addChatMsg('system', `Cleared ${count} object(s).`);
+});
+
+// ──────────────────────────────────────────────────────────
+// Drag-to-scene: place asset at 3D world position on drop
+// ──────────────────────────────────────────────────────────
+const dropPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const dropPoint = new THREE.Vector3();
+
+renderer.domElement.addEventListener('dragover', e => {
+  if (!draggedAsset) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+
+renderer.domElement.addEventListener('drop', e => {
+  e.preventDefault();
+  if (!draggedAsset) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+  mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  if (raycaster.ray.intersectPlane(dropPlane, dropPoint)) {
+    placeGLB(draggedAsset, { x: dropPoint.x, y: 0, z: dropPoint.z });
+  } else {
+    placeGLB(draggedAsset);  // fallback to origin
+  }
+  draggedAsset = null;
+});
+
+// ──────────────────────────────────────────────────────────
+// Status bar helper
+// ──────────────────────────────────────────────────────────
+function setStatus(msg) {
+  statusBar.textContent = msg;
+}
+
+</script>
+</body>
+</html>

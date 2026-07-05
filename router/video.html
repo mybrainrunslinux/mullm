@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Generation — muLLM Wan2.2</title>
+<style>
+/* ── Design tokens ── */
+:root {
+  --bg:        #0a0a0f;
+  --bg2:       #111118;
+  --bg3:       #1a1a25;
+  --bg4:       #22223a;
+  --border:    #2a2a50;
+  --gold:      #d4af37;
+  --gold-dim:  #8a6f20;
+  --blue:      #38bdf8;
+  --green:     #22c55e;
+  --red:       #ef4444;
+  --purple:    #a855f7;
+  --text:      #e2e8f0;
+  --text-dim:  #94a3b8;
+  --text-faint:#475569;
+  --radius:    10px;
+  --radius-lg: 16px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Header ── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header h1 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: -0.02em;
+}
+
+.header-sub {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.nav-links {
+  margin-left: auto;
+  display: flex;
+  gap: 12px;
+}
+
+.nav-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.nav-links a:hover { color: var(--gold); border-color: var(--gold-dim); }
+
+/* ── Main layout ── */
+.main {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 24px;
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .main { grid-template-columns: 1fr; }
+}
+
+/* ── Form panel ── */
+.form-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-card h2 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.mode-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mode-btn.active {
+  background: var(--bg4);
+  color: var(--gold);
+}
+
+/* Form elements */
+label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+}
+
+textarea, input[type="text"], input[type="url"], select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 10px 12px;
+  transition: border-color 0.15s;
+  outline: none;
+  resize: vertical;
+}
+
+textarea:focus, input:focus, select:focus {
+  border-color: var(--gold-dim);
+}
+
+textarea { min-height: 120px; }
+
+select option { background: var(--bg3); }
+
+/* Slider */
+.slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.slider-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.slider-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--gold);
+  min-width: 32px;
+  text-align: right;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+/* Toggle */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.toggle-label {
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.toggle-sub {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input { display: none; }
+
+.toggle-switch .slider {
+  position: absolute;
+  inset: 0;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.toggle-switch .slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: var(--text-dim);
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch input:checked + .slider {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+}
+
+.toggle-switch input:checked + .slider::before {
+  transform: translateX(18px);
+  background: var(--gold);
+}
+
+/* Generate button */
+.generate-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--gold-dim), #a07820);
+  border: 1px solid var(--gold);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 14px 24px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.generate-btn:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
+.generate-btn:active:not(:disabled) { transform: translateY(0); }
+.generate-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Right column ── */
+.right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Progress / Status */
+.status-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.status-card h2 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.status-empty {
+  color: var(--text-faint);
+  font-size: 0.88rem;
+  margin: auto;
+  text-align: center;
+}
+
+.job-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.job-status {
+  font-weight: 700;
+  min-width: 70px;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.job-status.queued    { color: var(--text-dim); }
+.job-status.running   { color: var(--blue); }
+.job-status.upscaling { color: var(--purple); }
+.job-status.done      { color: var(--green); }
+.job-status.error     { color: var(--red); }
+
+.job-prompt {
+  flex: 1;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Gallery ── */
+.gallery-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.gallery-card h2 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.gallery-item {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s;
+  animation: fadeIn 0.3s ease;
+}
+
+.gallery-item:hover { border-color: var(--gold-dim); }
+
+.gallery-item video {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+.gallery-caption {
+  padding: 8px 10px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gallery-empty {
+  color: var(--text-faint);
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 32px;
+}
+
+/* Image upload area */
+.upload-area {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.upload-area:hover, .upload-area.drag-over {
+  border-color: var(--gold-dim);
+  background: var(--bg3);
+}
+
+.upload-area.has-image {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+#image-file-input { display: none; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <h1>muLLM Video</h1>
+    <div class="header-sub">Wan2.2 Generation</div>
+  </div>
+  <nav class="nav-links">
+    <a href="/chat">Chat</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/review">Review</a>
+    <a href="/comfyui">Presets</a>
+    <a href="http://10.0.0.165:8188" target="_blank" rel="noopener" title="Open ComfyUI node graph editor" style="color:var(--purple);border-color:var(--purple)">ComfyUI ↗</a>
+  </nav>
+</header>
+
+<div class="main">
+
+  <!-- ── Left: Form panel ── -->
+  <div class="form-panel">
+
+    <div class="panel-card">
+      <h2>Mode</h2>
+      <div class="mode-toggle" role="group" aria-label="Generation mode">
+        <button class="mode-btn active" id="mode-t2v" onclick="setMode('t2v')">Text to Video</button>
+        <button class="mode-btn" id="mode-i2v" onclick="setMode('i2v')">Image to Video</button>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <h2>Prompt</h2>
+      <div>
+        <label for="prompt-input">Positive prompt</label>
+        <textarea id="prompt-input" placeholder="A majestic eagle soaring over snow-capped mountains at golden hour, cinematic, slow motion..." rows="5"></textarea>
+      </div>
+      <div id="image-section" class="hidden">
+        <label>Reference image</label>
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('image-file-input').click()" title="Click or drag to upload an image">
+          <div id="upload-hint">Click or drag image here</div>
+        </div>
+        <input type="file" id="image-file-input" accept="image/*" onchange="handleFileSelect(event)">
+        <div style="margin-top:6px;">
+          <label for="image-url-input" style="margin-top:8px;">Or image URL</label>
+          <input type="url" id="image-url-input" placeholder="https://...">
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <h2>Model</h2>
+      <div>
+        <label for="model-select">Diffusion model</label>
+        <select id="model-select">
+          <option value="wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors" data-mode="t2v">Wan2.2 T2V 14B low-noise (fp8)</option>
+          <option value="wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors" data-mode="i2v">Wan2.2 I2V 14B low-noise (fp8)</option>
+          <option value="wan2.2_ti2v_5B_fp16.safetensors" data-mode="ti2v">Wan2.2 TI2V 5B (fp16)</option>
+        </select>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">LightX2V LoRA</div>
+          <div class="toggle-sub">4-step fast generation (lightx2v_I2V)</div>
+        </div>
+        <label class="toggle-switch" title="Enable LightX2V LoRA for faster generation">
+          <input type="checkbox" id="lora-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">AI Upscale ×4 <span style="color:var(--gold);font-size:0.7rem;">Real-ESRGAN</span></div>
+          <div class="toggle-sub">720p → 2880p after generation (+3–5 min on GPU)</div>
+        </div>
+        <label class="toggle-switch" title="Run Real-ESRGAN x4 upscaling on generated video frames">
+          <input type="checkbox" id="upscale-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <h2>Parameters</h2>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Steps</span>
+          <span class="slider-value" id="steps-val">20</span>
+        </div>
+        <input type="range" id="steps-slider" min="4" max="50" value="20"
+               oninput="document.getElementById('steps-val').textContent=this.value">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Frames</span>
+          <span class="slider-value" id="frames-val">49</span>
+        </div>
+        <input type="range" id="frames-slider" min="1" max="81" value="49"
+               oninput="document.getElementById('frames-val').textContent=this.value">
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="slider-row">
+          <div class="slider-header">
+            <span class="slider-label">Width</span>
+            <span class="slider-value" id="width-val">640</span>
+          </div>
+          <input type="range" id="width-slider" min="256" max="1024" step="64" value="640"
+                 oninput="document.getElementById('width-val').textContent=this.value">
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span class="slider-label">Height</span>
+            <span class="slider-value" id="height-val">640</span>
+          </div>
+          <input type="range" id="height-slider" min="256" max="1024" step="64" value="640"
+                 oninput="document.getElementById('height-val').textContent=this.value">
+        </div>
+      </div>
+    </div>
+
+    <button class="generate-btn" id="gen-btn" onclick="generate()">Generate Video</button>
+  </div>
+
+  <!-- ── Right column ── -->
+  <div class="right-col">
+
+    <!-- Status / Jobs -->
+    <div class="status-card" id="status-card">
+      <h2>Active Jobs</h2>
+      <div class="status-empty" id="status-empty">No jobs yet. Generate a video to get started.</div>
+      <div id="jobs-list"></div>
+    </div>
+
+    <!-- Gallery -->
+    <div class="gallery-card">
+      <h2 style="display:flex;align-items:center;justify-content:space-between;">
+        Gallery
+        <label title="Upload an existing .mp4/.webm/.mov file" style="cursor:pointer;">
+          <input type="file" id="video-upload-input" accept=".mp4,.webm,.mov" style="display:none">
+          <span id="upload-video-btn" style="font-size:0.78rem;font-weight:600;padding:5px 12px;border:1px solid var(--gold-dim);border-radius:6px;color:var(--gold);background:transparent;cursor:pointer;transition:border-color 0.15s,color 0.15s;" onmouseenter="this.style.borderColor='var(--gold)'" onmouseleave="this.style.borderColor='var(--gold-dim)'">↑ Upload Video</span>
+        </label>
+      </h2>
+      <div class="gallery-grid" id="gallery-grid">
+        <div class="gallery-empty" id="gallery-empty">No videos yet. Your generated videos will appear here.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+const state = {
+  mode: 't2v',
+  jobs: {},          // job_id -> job object
+  pollingTimers: {}, // job_id -> setInterval id
+};
+
+// ── Mode switching ──────────────────────────────────────
+function setMode(mode) {
+  state.mode = mode;
+  document.getElementById('mode-t2v').classList.toggle('active', mode === 't2v');
+  document.getElementById('mode-i2v').classList.toggle('active', mode === 'i2v');
+  document.getElementById('image-section').classList.toggle('hidden', mode === 't2v');
+
+  // Update model select
+  const sel = document.getElementById('model-select');
+  for (const opt of sel.options) {
+    opt.hidden = opt.dataset.mode !== mode && opt.dataset.mode !== 'ti2v';
+  }
+  // Auto-select appropriate model
+  const targetVal = mode === 'i2v'
+    ? 'wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors'
+    : 'wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors';
+  sel.value = targetVal;
+}
+
+// ── Image upload ────────────────────────────────────────
+let uploadedImageName = null;
+
+function handleFileSelect(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  uploadedImageName = file.name;
+  const area = document.getElementById('upload-area');
+  area.classList.add('has-image');
+  document.getElementById('upload-hint').textContent = file.name;
+}
+
+// Drag and drop
+const uploadArea = document.getElementById('upload-area');
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadArea.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    uploadedImageName = file.name;
+    uploadArea.classList.add('has-image');
+    document.getElementById('upload-hint').textContent = file.name;
+  }
+});
+
+// ── Generate ────────────────────────────────────────────
+async function generate() {
+  const prompt = document.getElementById('prompt-input').value.trim();
+  if (!prompt) {
+    document.getElementById('prompt-input').focus();
+    return;
+  }
+
+  const genBtn = document.getElementById('gen-btn');
+  genBtn.disabled = true;
+  genBtn.textContent = 'Queueing...';
+
+  const frames = parseInt(document.getElementById('frames-slider').value);
+  const duration = Math.max(1, Math.ceil(frames / 16));
+  const body = {
+    prompt,
+    duration,
+    negative: '',
+    upscale: document.getElementById('upscale-toggle').checked,
+  };
+
+  if (state.mode === 'i2v') {
+    const urlInput = document.getElementById('image-url-input').value.trim();
+    body.image_url = urlInput || uploadedImageName || '';
+    if (!body.image_url) {
+      alert('Please provide an image for Image-to-Video mode');
+      genBtn.disabled = false;
+      genBtn.textContent = 'Generate Video';
+      return;
+    }
+  }
+
+  try {
+    const resp = await fetch('/api/video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      showError(data.error || 'Generation failed');
+    } else {
+      addJob(data.job_id, prompt, 'queued');
+      startPolling(data.job_id);
+    }
+  } catch (err) {
+    showError('Network error: ' + err.message);
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = 'Generate Video';
+  }
+}
+
+function showError(msg) {
+  const div = document.createElement('div');
+  div.className = 'job-row';
+  div.innerHTML = `<span class="job-status error">Error</span><span class="job-prompt" style="color:var(--red)">${escHtml(msg)}</span>`;
+  document.getElementById('jobs-list').prepend(div);
+  document.getElementById('status-empty').classList.add('hidden');
+}
+
+// ── Job management ──────────────────────────────────────
+function addJob(jobId, prompt, status) {
+  state.jobs[jobId] = { jobId, prompt, status, videoUrl: null };
+  renderJobs();
+}
+
+function renderJobs() {
+  const list = document.getElementById('jobs-list');
+  const empty = document.getElementById('status-empty');
+
+  if (Object.keys(state.jobs).length === 0) {
+    empty.classList.remove('hidden');
+    list.innerHTML = '';
+    return;
+  }
+  empty.classList.add('hidden');
+
+  list.innerHTML = Object.values(state.jobs)
+    .slice(-10)
+    .reverse()
+    .map(job => {
+      const hasSpinner = job.status === 'queued' || job.status === 'running' || job.status === 'upscaling';
+      const statusClass = job.status;
+      return `<div class="job-row" id="job-${job.jobId}">
+        ${hasSpinner ? '<div class="spinner"></div>' : ''}
+        <span class="job-status ${statusClass}">${job.status}</span>
+        <span class="job-prompt" title="${escAttr(job.prompt)}">${escHtml(job.prompt)}</span>
+        ${job.videoUrl ? `<a href="${job.videoUrl}" target="_blank" style="color:var(--gold);font-size:0.75rem;white-space:nowrap;">View</a>` : ''}
+      </div>`;
+    })
+    .join('');
+}
+
+function startPolling(jobId) {
+  const timer = setInterval(async () => {
+    try {
+      const resp = await fetch(`/api/video/${jobId}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+
+      const job = state.jobs[jobId];
+      if (job) {
+        job.status = data.status;
+        job.videoUrl = data.output_url || null;
+      }
+      renderJobs();
+
+      if (data.status === 'done') {
+        clearInterval(timer);
+        delete state.pollingTimers[jobId];
+        loadGallery();
+      } else if (data.status === 'error') {
+        clearInterval(timer);
+        delete state.pollingTimers[jobId];
+      }
+      // 'upscaling' keeps polling
+    } catch (err) {
+      // Ignore transient errors
+    }
+  }, 3000);
+
+  state.pollingTimers[jobId] = timer;
+}
+
+// ── Gallery ─────────────────────────────────────────────
+async function loadGallery() {
+  try {
+    const resp = await fetch('/api/video/list');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    renderGallery(data.videos || []);
+  } catch (err) {
+    // Ignore
+  }
+}
+
+function renderGallery(videos) {
+  const grid = document.getElementById('gallery-grid');
+  const empty = document.getElementById('gallery-empty');
+
+  if (!videos.length) {
+    empty.classList.remove('hidden');
+    grid.innerHTML = '<div class="gallery-empty" id="gallery-empty">No videos yet. Your generated videos will appear here.</div>';
+    return;
+  }
+
+  empty.classList.add('hidden');
+
+  // Only add new items
+  const existingUrls = new Set(
+    Array.from(grid.querySelectorAll('video')).map(v => v.src.replace(location.origin, ''))
+  );
+
+  const newVideos = videos.filter(v => !existingUrls.has(v.url));
+
+  for (const vid of newVideos) {
+    const item = document.createElement('div');
+    item.className = 'gallery-item';
+    const caption = vid.prompt || vid.filename || '';
+    const dlName = (vid.filename || 'video.mp4').replace(/[^a-z0-9._-]/gi,'_');
+    const thumbUrl = vid.thumbnail_url || '';
+    // Show thumbnail as poster; clicking swaps to the actual video
+    if (thumbUrl) {
+      item.innerHTML = `
+        <div style="position:relative;line-height:0;" onclick="swapThumbToVideo(this,${JSON.stringify(escAttr(vid.url))})">
+          <img src="${escAttr(thumbUrl)}" alt="${escAttr(caption)}"
+               style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block;cursor:pointer;border-radius:var(--radius) var(--radius) 0 0;"
+               title="Click to play">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+              <circle cx="22" cy="22" r="21" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+              <polygon points="17,13 35,22 17,31" fill="white"/>
+            </svg>
+          </div>
+        </div>
+        <div class="gallery-caption" title="${escAttr(caption)}" style="display:flex;align-items:center;gap:6px;">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(caption)}</span>
+          <a href="${escAttr(vid.url)}" download="${escAttr(dlName)}"
+             title="Download video"
+             style="color:var(--gold);font-size:0.8rem;text-decoration:none;flex-shrink:0;padding:2px 6px;border:1px solid var(--gold-dim);border-radius:4px;"
+             onclick="event.stopPropagation()">↓</a>
+        </div>`;
+    } else {
+      item.innerHTML = `
+        <video src="${escAttr(vid.url)}" autoplay loop muted playsinline
+               title="${escAttr(caption)}"
+               onclick="this.paused ? this.play() : this.pause()"></video>
+        <div class="gallery-caption" title="${escAttr(caption)}" style="display:flex;align-items:center;gap:6px;">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(caption)}</span>
+          <a href="${escAttr(vid.url)}" download="${escAttr(dlName)}"
+             title="Download video"
+             style="color:var(--gold);font-size:0.8rem;text-decoration:none;flex-shrink:0;padding:2px 6px;border:1px solid var(--gold-dim);border-radius:4px;"
+             onclick="event.stopPropagation()">↓</a>
+        </div>`;
+    }
+    grid.prepend(item);
+  }
+
+  // Remove placeholder if present
+  const placeholderEl = document.getElementById('gallery-empty');
+  if (placeholderEl && grid.children.length > 1) placeholderEl.remove();
+}
+
+// ── Thumbnail → video swap ───────────────────────────────
+function swapThumbToVideo(container, videoUrl) {
+  const vid = document.createElement('video');
+  vid.src = videoUrl;
+  vid.autoplay = true;
+  vid.loop = true;
+  vid.muted = true;
+  vid.playsInline = true;
+  vid.style.cssText = 'width:100%;aspect-ratio:16/9;object-fit:cover;display:block;cursor:pointer;border-radius:var(--radius) var(--radius) 0 0;';
+  vid.onclick = () => vid.paused ? vid.play() : vid.pause();
+  container.parentNode.replaceChild(vid, container);
+}
+
+// ── Video upload ─────────────────────────────────────────
+document.getElementById('video-upload-input').addEventListener('change', async function() {
+  const file = this.files[0];
+  if (!file) return;
+  const btn = document.getElementById('upload-video-btn');
+  const origText = btn.textContent;
+  btn.textContent = 'Uploading…';
+  btn.style.pointerEvents = 'none';
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const resp = await fetch('/api/video/upload', { method: 'POST', body: form });
+    const data = await resp.json();
+    if (!resp.ok) {
+      alert('Upload failed: ' + (data.error || resp.status));
+      return;
+    }
+    // Add to gallery immediately
+    const vid = {
+      url: data.output_url,
+      thumbnail_url: data.thumbnail_url,
+      filename: data.filename,
+      prompt: '',
+    };
+    renderGallery([vid]);
+  } catch (err) {
+    alert('Upload error: ' + err.message);
+  } finally {
+    btn.textContent = origText;
+    btn.style.pointerEvents = '';
+    this.value = '';
+  }
+});
+
+// ── Util ────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(s) {
+  return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Init ────────────────────────────────────────────────
+setMode('t2v');
+loadGallery();
+// Refresh gallery every 30s
+setInterval(loadGallery, 30000);
+</script>
+
+</body>
+</html>

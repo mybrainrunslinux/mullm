@@ -1,0 +1,13 @@
+include LICENSE
+include README.md
+include pyproject.toml
+include constraints.txt
+
+include docs/NGINX_MULLM_COM.md
+recursive-include docs/site/mullm.com *
+
+recursive-include router *.html
+recursive-include router/code/ready *
+
+recursive-include router/static *
+recursive-include code/ready *

@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mu|LLM — Security</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;--bg4:#0d1421;
+  --border:#1e2d3d;--border2:#2a3a4d;
+  --gold:#f59e0b;--teal:#14b8a6;--blue:#3b82f6;--green:#22c55e;
+  --coral:#ef6c4c;--purple:#a78bfa;--rose:#fb7185;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,sans-serif;
+  --c1:#f59e0b;--c2:#14b8a6;--c3:#a78bfa;--c4:#22c55e;
+  --c5:#3b82f6;--c6:#ef6c4c;--c7:#fb7185;
+}
+
+body{font-family:var(--sans);background:var(--bg);color:var(--text);margin:0;min-height:100vh}
+
+/* ── Nav ── */
+.logo{font-weight:700;font-size:14px;display:flex;align-items:center;gap:0;text-decoration:none;border:none!important;padding:0!important}
+.logo-mu{color:var(--gold);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{display:flex;gap:8px;padding:16px 24px;font-size:11px;font-family:var(--mono);flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border)}
+.nav a{color:var(--text3);text-decoration:none;padding:4px 12px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s}
+.nav a:hover,.nav a.active{color:var(--teal);border-color:var(--teal)}
+
+/* ── Hero ── */
+.hero{position:relative;text-align:center;padding:56px 24px 40px;overflow:hidden}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 70%),
+    repeating-linear-gradient(90deg, rgba(30,45,61,0.3) 0px, rgba(30,45,61,0.3) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(0deg,  rgba(30,45,61,0.3) 0px, rgba(30,45,61,0.3) 1px, transparent 1px, transparent 40px);
+  pointer-events:none;
+}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border:1px solid rgba(245,158,11,0.3);border-radius:20px;font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;background:rgba(245,158,11,0.05)}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:pulse-gold 2s ease-in-out infinite}
+@keyframes pulse-gold{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(245,158,11,0.4)}50%{opacity:0.7;box-shadow:0 0 0 4px rgba(245,158,11,0)}}
+.hero h1{font-size:clamp(24px,4vw,36px);font-weight:700;margin-bottom:10px;letter-spacing:-0.5px}
+.hero h1 .mu{color:var(--gold);font-family:'Times New Roman',serif;font-style:italic}
+.hero h1 .pipe{color:var(--text3);opacity:0.5}
+.hero h1 .llm{color:var(--teal)}
+.hero .subtitle{color:var(--text2);font-size:15px;max-width:620px;margin:0 auto 24px;line-height:1.65}
+.feature-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.feature-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 14px;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;font-size:11px;color:var(--text2);font-family:var(--mono)}
+.feature-pill .icon{font-size:13px}
+
+/* ── TOC ── */
+.toc{max-width:860px;margin:0 auto 32px;padding:0 24px}
+.toc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
+.toc-item{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text2);font-size:12px;font-family:var(--mono);transition:all 0.2s;cursor:pointer}
+.toc-item:hover{border-color:var(--teal);color:var(--teal)}
+.toc-item .num{font-size:10px;color:var(--text3);min-width:14px}
+.toc-item .ico{font-size:15px}
+
+/* ── Content ── */
+.content{max-width:860px;margin:0 auto;padding:0 24px 80px}
+
+/* ── Sections ── */
+.section{
+  margin-bottom:56px;
+  scroll-margin-top:24px;
+  opacity:0;transform:translateY(16px);
+  transition:opacity 0.5s ease,transform 0.5s ease;
+}
+.section.visible{opacity:1;transform:none}
+
+.section-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.section-icon{
+  flex-shrink:0;width:44px;height:44px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;border:1px solid;
+}
+.section-meta{flex:1}
+.section-meta h2{font-size:18px;font-weight:600;margin-bottom:5px}
+.section-meta .lead{color:var(--text2);font-size:13px;line-height:1.65}
+.section-meta .lead code{font-family:var(--mono);font-size:11px;color:var(--teal);background:rgba(20,184,166,0.1);padding:1px 5px;border-radius:3px}
+.section-meta .lead a{color:var(--teal);text-decoration:none}
+.section-meta .lead a:hover{text-decoration:underline}
+
+/* ── Code blocks ── */
+.code-block{
+  position:relative;margin:16px 0;
+  background:var(--bg4);border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;
+}
+.code-block-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;background:var(--bg3);border-bottom:1px solid var(--border);
+  font-family:var(--mono);font-size:10px;color:var(--text3);
+  gap:12px;
+}
+.code-block-header .lang{color:var(--teal);text-transform:uppercase;letter-spacing:1px;flex-shrink:0}
+.code-block-header .label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-btn{
+  flex-shrink:0;display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;border:1px solid var(--border);border-radius:4px;
+  background:transparent;color:var(--text3);font-family:var(--mono);font-size:10px;
+  cursor:pointer;transition:all 0.2s;
+}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.copy-btn.copied{border-color:var(--green);color:var(--green)}
+.code-block pre{
+  padding:16px 18px;overflow-x:auto;
+  font-family:var(--mono);font-size:12px;line-height:1.75;
+  color:var(--text);
+}
+/* Syntax highlight tokens */
+code .kw{color:var(--gold)}
+code .val{color:var(--green)}
+code .cmt{color:var(--text3);font-style:italic}
+code .cmd{color:var(--teal)}
+code .flag{color:var(--purple)}
+code .str{color:var(--coral)}
+
+/* ── Info grid ── */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
+.info-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;transition:border-color 0.2s}
+.info-card:hover{border-color:var(--border2)}
+.info-card h3{font-size:11px;font-weight:600;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.8px}
+.info-card p{font-size:12px;color:var(--text2);line-height:1.58}
+.info-card p code{font-family:var(--mono);font-size:11px;color:var(--teal);background:rgba(20,184,166,0.1);padding:1px 5px;border-radius:3px}
+.info-card .meta{margin-top:10px}
+
+/* ── Feature list ── */
+.feature-list{list-style:none;margin:12px 0;display:flex;flex-direction:column;gap:6px}
+.feature-list li{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:12px 14px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;font-size:12px;color:var(--text2);
+}
+.feature-list li .check{font-size:14px;flex-shrink:0;margin-top:1px}
+.feature-list li strong{color:var(--text);display:block;margin-bottom:3px;font-size:12px}
+
+/* ── Env table ── */
+.env-table{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+.env-table th{text-align:left;color:var(--text3);padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase}
+.env-table td{padding:8px 10px;border-bottom:1px solid rgba(30,45,61,0.5);vertical-align:top}
+.env-table td:first-child{font-family:var(--mono);font-size:11px;color:var(--gold);white-space:nowrap}
+.env-table td:nth-child(2){font-family:var(--mono);font-size:11px;color:var(--green);white-space:nowrap}
+.env-table td:last-child{color:var(--text2)}
+.env-table tr:last-child td{border-bottom:none}
+
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:20px;font-family:var(--mono);font-size:10px;letter-spacing:0.5px}
+.badge.green{background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2)}
+.badge.amber{background:rgba(245,158,11,0.1);color:var(--gold);border:1px solid rgba(245,158,11,0.2)}
+.badge.blue{background:rgba(59,130,246,0.1);color:var(--blue);border:1px solid rgba(59,130,246,0.2)}
+.badge.purple{background:rgba(167,139,250,0.1);color:var(--purple);border:1px solid rgba(167,139,250,0.2)}
+.badge.teal{background:rgba(20,184,166,0.1);color:var(--teal);border:1px solid rgba(20,184,166,0.2)}
+
+/* ── Callout ── */
+.callout{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--bg2);border:1px solid var(--border);border-left-width:3px;border-radius:8px;font-size:12px;color:var(--text2);margin:16px 0}
+.callout a{color:var(--teal);font-family:var(--mono);font-size:11px;text-decoration:none}
+.callout a:hover{text-decoration:underline}
+
+/* ── Divider ── */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:8px 0 40px}
+
+/* ── Footer ── */
+.footer{text-align:center;padding:24px;font-size:10px;color:var(--text3);font-family:var(--mono);border-top:1px solid var(--border);margin-top:40px;line-height:1.9}
+.footer a{color:var(--teal);text-decoration:none}
+.footer a:hover{text-decoration:underline}
+
+/* ── Scroll progress ── */
+.progress-bar{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--gold),var(--teal));z-index:999;width:0%;transition:width 0.1s linear}
+
+/* ── Section color accents ── */
+.s1 .section-icon{background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);color:var(--c1)}
+.s1 .section-meta h2{color:var(--c1)}
+.s2 .section-icon{background:rgba(20,184,166,0.08);border-color:rgba(20,184,166,0.25);color:var(--c2)}
+.s2 .section-meta h2{color:var(--c2)}
+.s3 .section-icon{background:rgba(167,139,250,0.08);border-color:rgba(167,139,250,0.25);color:var(--c3)}
+.s3 .section-meta h2{color:var(--c3)}
+.s4 .section-icon{background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);color:var(--c4)}
+.s4 .section-meta h2{color:var(--c4)}
+.s5 .section-icon{background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.25);color:var(--c5)}
+.s5 .section-meta h2{color:var(--c5)}
+.s6 .section-icon{background:rgba(239,108,76,0.08);border-color:rgba(239,108,76,0.25);color:var(--c6)}
+.s6 .section-meta h2{color:var(--c6)}
+.s7 .section-icon{background:rgba(251,113,133,0.08);border-color:rgba(251,113,133,0.25);color:var(--c7)}
+.s7 .section-meta h2{color:var(--c7)}
+
+/* ── Responsive ── */
+@media(max-width:600px){
+  .nav{padding:12px 16px;gap:6px}
+  .hero{padding:36px 16px 28px}
+  .content,.toc{padding-left:16px;padding-right:16px}
+  .section-header{flex-direction:column;gap:12px}
+  .info-grid{grid-template-columns:1fr}
+  .code-block pre{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){
+  .section{opacity:1;transform:none;transition:none}
+  .hero-badge .dot{animation:none}
+  .progress-bar{transition:none}
+}
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+
+<nav class="nav" aria-label="Site navigation">
+  <a href="/" class="logo" aria-label="muLLM home">
+    <span class="logo-mu">m&mu;</span><span class="logo-pipe">|</span><span class="logo-llm">LLM</span>
+    <img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade mascot" title="Tardigrade mascot">
+  </a>
+  <a href="/chat">Chat</a>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/performance">Performance</a>
+  <a href="/privacy">Privacy</a>
+  <a href="/security" class="active" aria-current="page">Security</a>
+  <a href="/games">Games</a>
+</nav>
+
+<!-- ── Hero ── -->
+<header class="hero" role="banner">
+  <div class="hero-badge"><span class="dot" aria-hidden="true"></span>Security Reference</div>
+  <h1>
+    <span class="mu">m&mu;</span><span class="pipe">|</span><span class="llm">LLM</span>
+    Security
+  </h1>
+  <p class="subtitle">
+    A hardened-by-default local AI router. Every security control documented here — from atomic secret storage to mutual TLS, append-only audit logs, and weekly dependency scanning.
+  </p>
+  <div class="feature-row" role="list" aria-label="Security features">
+    <div class="feature-pill" role="listitem"><span class="icon" aria-hidden="true">&#128273;</span>Secrets: fcntl + chmod 440</div>
+    <div class="feature-pill" role="listitem"><span class="icon" aria-hidden="true">&#128737;</span>Sensitive data mode</div>
+    <div class="feature-pill" role="listitem"><span class="icon" aria-hidden="true">&#128274;</span>Mutual TLS</div>
+    <div class="feature-pill" role="listitem"><span class="icon" aria-hidden="true">&#129717;</span>Append-only audit log</div>
+    <div class="feature-pill" role="listitem"><span class="icon" aria-hidden="true">&#128269;</span>Grype dep scanning</div>
+  </div>
+</header>
+
+<!-- ── Table of contents ── -->
+<nav class="toc" aria-label="Page sections">
+  <div class="toc-grid">
+    <a class="toc-item" href="#secrets"><span class="num" aria-hidden="true">01</span><span class="ico" aria-hidden="true">&#128273;</span>Secrets &amp; API Keys</a>
+    <a class="toc-item" href="#sensitive"><span class="num" aria-hidden="true">02</span><span class="ico" aria-hidden="true">&#128737;</span>Sensitive Data Mode</a>
+    <a class="toc-item" href="#mtls"><span class="num" aria-hidden="true">03</span><span class="ico" aria-hidden="true">&#128274;</span>Mutual TLS</a>
+    <a class="toc-item" href="#audit"><span class="num" aria-hidden="true">04</span><span class="ico" aria-hidden="true">&#129717;</span>Audit Log</a>
+    <a class="toc-item" href="#retention"><span class="num" aria-hidden="true">05</span><span class="ico" aria-hidden="true">&#128450;</span>Data Retention</a>
+    <a class="toc-item" href="#deps"><span class="num" aria-hidden="true">06</span><span class="ico" aria-hidden="true">&#128269;</span>Dep Scanning</a>
+    <a class="toc-item" href="#network"><span class="num" aria-hidden="true">07</span><span class="ico" aria-hidden="true">&#127760;</span>Network</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="content" id="main">
+
+  <!-- 01 Secrets -->
+  <section class="section s1" id="secrets" aria-labelledby="h-secrets">
+    <div class="section-header">
+      <div class="section-icon" aria-hidden="true">&#128273;</div>
+      <div class="section-meta">
+        <h2 id="h-secrets">Secrets &amp; API Keys</h2>
+        <p class="lead">
+          API keys live in <code>.env</code> with file-level advisory locking and restricted permissions. The server acquires <code>fcntl.LOCK_SH</code> on every read and <code>LOCK_EX</code> on every write — preventing torn reads during live key rotation. Permissions are hardened to <code>chmod 440</code> (owner + group read-only) on first write and on each server startup.
+        </p>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <h3 style="color:var(--c1)">File Locking</h3>
+        <p>Uses <code>fcntl.flock()</code> with <code>LOCK_SH</code> for reads and <code>LOCK_EX</code> for writes. Concurrent processes cannot read a partially-written key file.</p>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c1)">Atomic Write</h3>
+        <p>Updates are staged to <code>.env.tmp</code> first, then <code>os.rename()</code>'d atomically. A failed write can never corrupt the live key store.</p>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c1)">chmod 440</h3>
+        <p>On startup and after every key write, permissions are enforced to <code>440</code>. Owner and group may read; world access is unconditionally removed.</p>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c1)">Never Logged</h3>
+        <p>Key values never appear in stdout, structlog, Redis, the scoring log, or any HTTP response. Only key names appear in logs — e.g. <code>ANTHROPIC_API_KEY: set</code>.</p>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">shell</span>
+        <span class="label">Harden .env permissions manually</span>
+        <button class="copy-btn" data-copy="chmod 440 .env
+ls -la .env">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="cmt"># Set owner+group read-only, remove world access</span>
+<span class="cmd">chmod</span> <span class="val">440</span> .env
+
+<span class="cmt"># Verify — expect: -r--r----- 1 peter peter</span>
+<span class="cmd">ls -la</span> .env</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">python</span>
+        <span class="label">Atomic write pattern used internally</span>
+        <button class="copy-btn" data-copy="import fcntl, os, pathlib
+
+def write_env_atomic(path, content):
+    tmp = path.with_suffix('.tmp')
+    with open(tmp, 'w') as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        f.write(content)
+        f.flush(); os.fsync(f.fileno())
+    os.chmod(tmp, 0o440)
+    os.rename(tmp, path)  # atomic on POSIX">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="kw">import</span> fcntl, os, pathlib
+
+<span class="kw">def</span> <span class="cmd">write_env_atomic</span>(path, content):
+    tmp = path.with_suffix(<span class="str">'.tmp'</span>)
+    <span class="kw">with</span> <span class="cmd">open</span>(tmp, <span class="str">'w'</span>) <span class="kw">as</span> f:
+        fcntl.<span class="cmd">flock</span>(f, fcntl.LOCK_EX)
+        f.<span class="cmd">write</span>(content)
+        f.<span class="cmd">flush</span>(); os.<span class="cmd">fsync</span>(f.fileno())
+    os.<span class="cmd">chmod</span>(tmp, <span class="val">0o440</span>)
+    os.<span class="cmd">rename</span>(tmp, path)  <span class="cmt"># atomic on POSIX</span></code></pre>
+    </div>
+  </section>
+
+  <!-- 02 Sensitive Mode -->
+  <section class="section s2" id="sensitive" aria-labelledby="h-sensitive">
+    <div class="section-header">
+      <div class="section-icon" aria-hidden="true">&#128737;</div>
+      <div class="section-meta">
+        <h2 id="h-sensitive">Sensitive Data Mode</h2>
+        <p class="lead">
+          Set <code>MULLM_SENSITIVE=1</code> to activate an additional data-protection layer. The router strips, refuses to cache, or replaces with a redaction token any content that could contain PII, credentials, or user-defined sensitive patterns.
+        </p>
+      </div>
+    </div>
+
+    <ul class="feature-list" aria-label="What Sensitive Data Mode changes">
+      <li>
+        <span class="check" aria-hidden="true">&#10003;</span>
+        <div>
+          <strong>Vector cache writes blocked</strong>
+          No query text is written to the semantic cache. Semantic similarity matching is disabled for the session. Cache reads still work for non-sensitive queries stored in prior sessions.
+        </div>
+      </li>
+      <li>
+        <span class="check" aria-hidden="true">&#10003;</span>
+        <div>
+          <strong>Scoring log content stripped</strong>
+          The <code>content_preview</code> field (first 80 chars stored for routing diagnostics) is replaced with <code>[SENSITIVE REDACTED]</code>. Tier, model, cost, and latency are still logged.
+        </div>
+      </li>
+      <li>
+        <span class="check" aria-hidden="true">&#10003;</span>
+        <div>
+          <strong>Redis trace suppressed</strong>
+          Query content is omitted from the in-memory routing trace. Only intent ID and tier are stored — no content preview of any length in Redis.
+        </div>
+      </li>
+      <li>
+        <span class="check" aria-hidden="true">&#10003;</span>
+        <div>
+          <strong>Dashboard obfuscation</strong>
+          The <code>/dashboard</code> query trace panel shows only block characters in place of content previews. No text fragments are visible to other sessions sharing the LAN.
+        </div>
+      </li>
+    </ul>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">shell</span>
+        <span class="label">Enable sensitive data mode</span>
+        <button class="copy-btn" data-copy="MULLM_SENSITIVE=1 python -m router.main --https">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="cmt"># Enable for a single server run</span>
+<span class="kw">MULLM_SENSITIVE</span>=<span class="val">1</span> python -m router.main <span class="flag">--https</span>
+
+<span class="cmt"># Or persist in .env</span>
+<span class="cmd">echo</span> <span class="str">'MULLM_SENSITIVE=1'</span> >> .env</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">shell</span>
+        <span class="label">Verify the mode is active</span>
+        <button class="copy-btn" data-copy='curl -sk https://127.0.0.1:6856/api/system | python3 -m json.tool | grep sensitive'>&#128203; Copy</button>
+      </div>
+      <pre><code><span class="cmd">curl</span> <span class="flag">-sk</span> https://127.0.0.1:6856/api/system \
+  | python3 -m json.tool \
+  | <span class="cmd">grep</span> sensitive
+<span class="cmt"># "sensitive_mode": true</span></code></pre>
+    </div>
+  </section>
+
+  <!-- 03 mTLS -->
+  <section class="section s3" id="mtls" aria-labelledby="h-mtls">
+    <div class="section-header">
+      <div class="section-icon" aria-hidden="true">&#128274;</div>
+      <div class="section-meta">
+        <h2 id="h-mtls">Mutual TLS (mTLS)</h2>
+        <p class="lead">
+          Standard HTTPS authenticates the server to the client. With <code>MULLM_MTLS=1</code> the client must also present a certificate signed by a CA you control — set via <code>MULLM_CLIENT_CA</code>. Connections without a valid client cert are rejected at the TLS handshake, before any HTTP is parsed.
+        </p>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <h3 style="color:var(--c3)">How it works</h3>
+        <p>uvicorn's TLS layer is configured with <code>ssl_ca_certs</code> and <code>ssl_cert_reqs=CERT_REQUIRED</code>. The OS TLS stack rejects uncertified clients before the first HTTP byte is read.</p>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c3)">Client CA file</h3>
+        <p>Point <code>MULLM_CLIENT_CA</code> at a PEM-encoded CA certificate or chain. Issue per-device leaf certs from this CA using <code>openssl req</code> or <code>step ca certificate</code>.</p>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c3)">Cert identity logging</h3>
+        <p>The <code>CN</code> field of the client cert is extracted and attached to every structlog event as <code>client_cn</code> — giving per-device audit trails without passwords.</p>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c3)">Hot reload</h3>
+        <p>Sending <code>SIGHUP</code> to the server reloads the CA bundle without dropping live connections. New certs issued from the CA are accepted within one reload cycle, no restart required.</p>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">shell</span>
+        <span class="label">Generate a CA + client cert with step-ca</span>
+        <button class="copy-btn" data-copy="# 1. Create a local CA
+step ca init --name=mullm-ca --dns=localhost --address=:8443 --provisioner=peter
+
+# 2. Issue a client cert for this machine
+step ca certificate peter@mullm client.crt client.key
+
+# 3. Start muLLM with mTLS enforced
+MULLM_MTLS=1 MULLM_CLIENT_CA=/path/to/ca.crt python -m router.main --https">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="cmt"># 1. Create a local CA</span>
+<span class="cmd">step ca init</span> <span class="flag">--name</span>=mullm-ca <span class="flag">--dns</span>=localhost \
+  <span class="flag">--address</span>=:8443 <span class="flag">--provisioner</span>=peter
+
+<span class="cmt"># 2. Issue a client cert for this machine</span>
+<span class="cmd">step ca certificate</span> peter@mullm client.crt client.key
+
+<span class="cmt"># 3. Start with mTLS enforced</span>
+<span class="kw">MULLM_MTLS</span>=<span class="val">1</span> <span class="kw">MULLM_CLIENT_CA</span>=<span class="val">/path/to/ca.crt</span> \
+  python -m router.main <span class="flag">--https</span></code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">shell</span>
+        <span class="label">Test with and without client cert</span>
+        <button class="copy-btn" data-copy="# With valid client cert — should return 200
+curl -sk --cert client.crt --key client.key https://127.0.0.1:6856/api/system
+
+# Without cert — rejected at TLS layer (curl exits 35)
+curl -sk https://127.0.0.1:6856/api/system">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="cmt"># With valid client cert — expect 200</span>
+<span class="cmd">curl</span> <span class="flag">-sk</span> <span class="flag">--cert</span> client.crt <span class="flag">--key</span> client.key \
+  https://127.0.0.1:6856/api/system
+
+<span class="cmt"># Without cert — rejected at TLS layer (curl exits 35)</span>
+<span class="cmd">curl</span> <span class="flag">-sk</span> https://127.0.0.1:6856/api/system</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">env</span>
+        <span class="label">Environment variables</span>
+        <button class="copy-btn" data-copy="MULLM_MTLS=1
+MULLM_CLIENT_CA=/home/peter/mullm/certs/ca.crt">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="kw">MULLM_MTLS</span>=<span class="val">1</span>
+<span class="kw">MULLM_CLIENT_CA</span>=<span class="val">/home/peter/mullm/certs/ca.crt</span></code></pre>
+    </div>
+  </section>
+
+  <!-- 04 Audit Log -->
+  <section class="section s4" id="audit" aria-labelledby="h-audit">
+    <div class="section-header">
+      <div class="section-icon" aria-hidden="true">&#129717;</div>
+      <div class="section-meta">
+        <h2 id="h-audit">Immutable Audit Log</h2>
+        <p class="lead">
+          Set <code>AUDIT_LOG_ENABLED=1</code> to activate append-only routing audit logging. The file descriptor is opened with <code>O_APPEND</code> and never truncated. Monthly rotation gzips the previous month's log and <code>chmod 440</code>s it — old entries are never deleted, only archived.
+        </p>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <h3 style="color:var(--c4)">Append-only writes</h3>
+        <p>Opened with <code>open(path, 'a')</code> — no seek, no truncate. Each JSON line is flushed immediately. Even a <code>kill -9</code> mid-write produces a valid partial line; prior entries are never corrupted.</p>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c4)">Monthly gzip rotation</h3>
+        <p>On the first request after month rollover, the previous month's file is renamed to <code>audit_YYYY_MM.jsonl.gz</code> and compressed in a background thread. The current file starts fresh.</p>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c4)">What is recorded</h3>
+        <p>Timestamp (ISO-8601 UTC), intent ID, category, complexity score, tier, model, token counts, cost USD, latency ms, and <code>client_cn</code> when mTLS is active. Query content is never recorded.</p>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c4)">Archive permissions</h3>
+        <p>Rotated <code>.gz</code> archives are immediately <code>chmod 440</code>'d — read-only for owner and group. The active log is <code>640</code> to permit appends.</p>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">env</span>
+        <span class="label">Enable audit logging</span>
+        <button class="copy-btn" data-copy="AUDIT_LOG_ENABLED=1
+AUDIT_LOG_DIR=/home/peter/mullm/logs/audit">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="kw">AUDIT_LOG_ENABLED</span>=<span class="val">1</span>
+<span class="kw">AUDIT_LOG_DIR</span>=<span class="val">/home/peter/mullm/logs/audit</span>  <span class="cmt"># optional; defaults to logs/</span></code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">jsonl</span>
+        <span class="label">Example audit log entry</span>
+        <button class="copy-btn" data-copy='{"ts":"2026-04-19T14:23:01.042Z","intent_id":"q_8f3a","category":"code","complexity":0.72,"tier":"local","model":"qwen3:30b","input_tokens":312,"output_tokens":489,"cost_usd":0.00,"latency_ms":1842,"client_cn":null}'>&#128203; Copy</button>
+      </div>
+      <pre><code>{
+  <span class="str">"ts"</span>: <span class="val">"2026-04-19T14:23:01.042Z"</span>,
+  <span class="str">"intent_id"</span>: <span class="val">"q_8f3a"</span>,
+  <span class="str">"category"</span>: <span class="val">"code"</span>,
+  <span class="str">"complexity"</span>: <span class="val">0.72</span>,
+  <span class="str">"tier"</span>: <span class="val">"local"</span>,
+  <span class="str">"model"</span>: <span class="val">"qwen3:30b"</span>,
+  <span class="str">"input_tokens"</span>: <span class="val">312</span>,
+  <span class="str">"output_tokens"</span>: <span class="val">489</span>,
+  <span class="str">"cost_usd"</span>: <span class="val">0.00</span>,
+  <span class="str">"latency_ms"</span>: <span class="val">1842</span>,
+  <span class="str">"client_cn"</span>: <span class="val">null</span>  <span class="cmt">// populated when mTLS is active</span>
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">shell</span>
+        <span class="label">Inspect the audit log</span>
+        <button class="copy-btn" data-copy="# Count entries by tier
+jq -r '.tier' logs/audit/audit_current.jsonl | sort | uniq -c
+
+# Total cost this month (USD)
+jq '[.cost_usd] | add' logs/audit/audit_current.jsonl
+
+# List rotated archives
+ls -lh logs/audit/*.jsonl.gz">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="cmt"># Count entries by tier</span>
+<span class="cmd">jq</span> <span class="flag">-r</span> <span class="str">'.tier'</span> logs/audit/audit_current.jsonl | <span class="cmd">sort</span> | <span class="cmd">uniq -c</span>
+
+<span class="cmt"># Total cost this month (USD)</span>
+<span class="cmd">jq</span> <span class="str">'[.cost_usd] | add'</span> logs/audit/audit_current.jsonl
+
+<span class="cmt"># List rotated archives</span>
+<span class="cmd">ls -lh</span> logs/audit/*.jsonl.gz</code></pre>
+    </div>
+  </section>
+
+  <!-- 05 Data Retention -->
+  <section class="section s5" id="retention" aria-labelledby="h-retention">
+    <div class="section-header">
+      <div class="section-icon" aria-hidden="true">&#128450;</div>
+      <div class="section-meta">
+        <h2 id="h-retention">Data Retention</h2>
+        <p class="lead">
+          muLLM stores two kinds of operational data: the scoring log (routing metadata) and the semantic cache (SQLite by default, optional ChromaDB). Both obey configurable retention or purge controls. Export and purge controls are on <a href="/privacy">the Privacy page</a>.
+        </p>
+      </div>
+    </div>
+
+    <table class="env-table" aria-label="Data retention environment variables">
+      <thead>
+        <tr>
+          <th scope="col">Env Var</th>
+          <th scope="col">Default</th>
+          <th scope="col">Effect</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>DATA_RETENTION_DAYS</td>
+          <td>90</td>
+          <td>Scoring log entries older than this are purged on next server start. Set to <code>0</code> to disable auto-purge.</td>
+        </tr>
+        <tr>
+          <td>CHROMA_RETENTION_DAYS</td>
+          <td>90</td>
+          <td>Optional ChromaDB documents older than this are deleted from the local vector store. The default SQLite semantic cache is controlled through the cache purge/export APIs.</td>
+        </tr>
+        <tr>
+          <td>AUDIT_RETENTION_MONTHS</td>
+          <td>24</td>
+          <td>Gzipped audit archives older than this many months are deleted. The active log is never auto-deleted.</td>
+        </tr>
+        <tr>
+          <td>MULLM_SENSITIVE</td>
+          <td>0</td>
+          <td>When <code>1</code>, no query content is written anywhere. Retention settings still apply to metadata.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">env</span>
+        <span class="label">Tight retention example (30 days)</span>
+        <button class="copy-btn" data-copy="DATA_RETENTION_DAYS=30
+CHROMA_RETENTION_DAYS=30
+AUDIT_RETENTION_MONTHS=12">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="kw">DATA_RETENTION_DAYS</span>=<span class="val">30</span>
+<span class="kw">CHROMA_RETENTION_DAYS</span>=<span class="val">30</span>
+<span class="kw">AUDIT_RETENTION_MONTHS</span>=<span class="val">12</span></code></pre>
+    </div>
+
+    <div class="callout" style="border-left-color:var(--c5)">
+      <span aria-hidden="true">&#128279;</span>
+      <span>For GDPR right-to-deletion and data export (right-to-portability), see &nbsp;<a href="/privacy">/privacy</a></span>
+    </div>
+  </section>
+
+  <!-- 06 Dep Scanning -->
+  <section class="section s6" id="deps" aria-labelledby="h-deps">
+    <div class="section-header">
+      <div class="section-icon" aria-hidden="true">&#128269;</div>
+      <div class="section-meta">
+        <h2 id="h-deps">Dependency Scanning</h2>
+        <p class="lead">
+          The dependency tree is scanned weekly with <a href="https://github.com/anchore/grype" target="_blank" rel="noopener noreferrer">Grype</a> — Anchore's open-source vulnerability scanner backed by NVD + GitHub Advisory Database. <code>scripts/grype_scan.sh</code> fails the build on any high or critical CVE and produces a CycloneDX SBOM.
+        </p>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <h3 style="color:var(--c6)">Grype scanner</h3>
+        <p>Scans pip-frozen requirements against Grype's daily-updated NVD + GHSA database. No external API calls after the local DB is synced — works offline if the DB is under 24 hours old.</p>
+        <div class="meta"><span class="badge amber">Weekly scheduled</span></div>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c6)">GitHub Actions gate</h3>
+        <p>The weekly CI job runs <code>scripts/grype_scan.sh</code> and uploads a SARIF report to the GitHub Security tab. PRs that introduce a new high or critical CVE are blocked from merging.</p>
+        <div class="meta"><span class="badge blue">CI gated</span></div>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c6)">SBOM generation</h3>
+        <p>The scan also generates a CycloneDX JSON SBOM at <code>reports/sbom.json</code>. This can be attached to release artifacts for supply-chain auditability and vendor attestations.</p>
+        <div class="meta"><span class="badge teal">CycloneDX</span></div>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c6)">Local scan</h3>
+        <p>Run <code>scripts/grype_scan.sh</code> at any time for an immediate report. Uses the cached local Grype DB — no outbound requests unless the DB is stale (older than 24 hours).</p>
+        <div class="meta"><span class="badge green">Offline-capable</span></div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">shell</span>
+        <span class="label">scripts/grype_scan.sh</span>
+        <button class="copy-btn" data-copy="#!/usr/bin/env bash
+set -euo pipefail
+
+# Update Grype vulnerability database
+grype db update
+
+# Scan project — exit non-zero on high/critical CVE
+grype dir:. --fail-on high --output sarif > reports/grype.sarif
+
+# Generate CycloneDX SBOM
+syft dir:. -o cyclonedx-json > reports/sbom.json
+
+echo 'Scan complete. See reports/grype.sarif'">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="cmt">#!/usr/bin/env bash</span>
+<span class="cmd">set</span> <span class="flag">-euo pipefail</span>
+
+<span class="cmt"># Update Grype vulnerability database</span>
+<span class="cmd">grype db update</span>
+
+<span class="cmt"># Scan project — exit non-zero on high/critical CVE</span>
+<span class="cmd">grype</span> <span class="val">dir:.</span> <span class="flag">--fail-on</span> high <span class="flag">--output</span> sarif > reports/grype.sarif
+
+<span class="cmt"># Generate CycloneDX SBOM</span>
+<span class="cmd">syft</span> <span class="val">dir:.</span> <span class="flag">-o</span> cyclonedx-json > reports/sbom.json
+
+<span class="cmd">echo</span> <span class="str">'Scan complete. See reports/grype.sarif'</span></code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">yaml</span>
+        <span class="label">.github/workflows/security.yml (weekly scan)</span>
+        <button class="copy-btn" data-copy="name: Security Scan
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Monday 06:00 UTC
+  push:
+    branches: [main]
+jobs:
+  grype:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anchore/scan-action@v3
+        with:
+          path: '.'
+          fail-build: 'true'
+          severity-cutoff: high">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="kw">name</span>: <span class="val">Security Scan</span>
+<span class="kw">on</span>:
+  <span class="kw">schedule</span>:
+    - <span class="kw">cron</span>: <span class="str">'0 6 * * 1'</span>  <span class="cmt"># Monday 06:00 UTC</span>
+  <span class="kw">push</span>:
+    <span class="kw">branches</span>: [main]
+<span class="kw">jobs</span>:
+  <span class="kw">grype</span>:
+    <span class="kw">runs-on</span>: <span class="val">ubuntu-latest</span>
+    <span class="kw">steps</span>:
+      - <span class="kw">uses</span>: <span class="val">actions/checkout@v4</span>
+      - <span class="kw">uses</span>: <span class="val">anchore/scan-action@v3</span>
+        <span class="kw">with</span>:
+          <span class="kw">path</span>: <span class="str">'.'</span>
+          <span class="kw">fail-build</span>: <span class="str">'true'</span>
+          <span class="kw">severity-cutoff</span>: <span class="val">high</span></code></pre>
+    </div>
+  </section>
+
+  <!-- 07 Network -->
+  <section class="section s7" id="network" aria-labelledby="h-network">
+    <div class="section-header">
+      <div class="section-icon" aria-hidden="true">&#127760;</div>
+      <div class="section-meta">
+        <h2 id="h-network">Network Security</h2>
+        <p class="lead">
+          HTTPS is optional and off by default; HTTP is the default for local use. Enable with ssl_certfile + ssl_keyfile, or set auto_generate_cert=true for a self-signed certificate. A <code>/.well-known/security.txt</code> endpoint follows RFC 9116 for responsible disclosure. Security contact: <a href="mailto:security@mullm.com">security@mullm.com</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <h3 style="color:var(--c7)">HTTPS only</h3>
+        <p>Started with <code>--https</code>, uvicorn binds TLS-only. If cert files are absent, a self-signed cert is auto-generated for <code>localhost</code> and the detected LAN IP. No plaintext fallback is created.</p>
+        <div class="meta"><span class="badge teal">TLS 1.3 (ECDHE-384)</span></div>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c7)">security.txt</h3>
+        <p>The <code>/.well-known/security.txt</code> endpoint serves a standard RFC 9116 disclosure file. Researchers can report vulnerabilities to <code>security@mullm.com</code> using PGP if preferred.</p>
+        <div class="meta"><span class="badge blue">RFC 9116</span></div>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c7)">LAN binding</h3>
+        <p>Binds <code>0.0.0.0:6856</code> by default for LAN access. Set <code>MULLM_BIND=127.0.0.1</code> for single-machine loopback-only mode. The auto-generated cert SANs cover both <code>localhost</code> and the detected LAN IP.</p>
+        <div class="meta"><span class="badge amber">LAN-scope by default</span></div>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--c7)">CORS policy</h3>
+        <p>CORS origins are restricted to <code>https://localhost:*</code> and <code>https://10.0.0.*</code> (or your configured LAN subnet). Wildcard CORS is never set on authenticated endpoints.</p>
+        <div class="meta"><span class="badge green">No wildcard CORS</span></div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">shell</span>
+        <span class="label">Start muLLM (HTTPS required)</span>
+        <button class="copy-btn" data-copy="# LAN-accessible (default)
+python -m router.main --https
+
+# Loopback-only (single machine)
+MULLM_BIND=127.0.0.1 python -m router.main --https">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="cmt"># LAN-accessible (default, auto-generates cert)</span>
+<span class="cmd">python -m router.main</span> <span class="flag">--https</span>
+
+<span class="cmt"># Loopback-only (single machine)</span>
+<span class="kw">MULLM_BIND</span>=<span class="val">127.0.0.1</span> <span class="cmd">python -m router.main</span> <span class="flag">--https</span></code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">text</span>
+        <span class="label">/.well-known/security.txt</span>
+        <button class="copy-btn" data-copy="Contact: mailto:security@mullm.com
+Expires: 2027-01-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://mullm.com/.well-known/security.txt
+Policy: https://mullm.com/security">&#128203; Copy</button>
+      </div>
+      <pre><code>Contact: <span class="val">mailto:security@mullm.com</span>
+Expires: <span class="val">2027-01-01T00:00:00.000Z</span>
+Preferred-Languages: <span class="val">en</span>
+Canonical: <span class="val">https://mullm.com/.well-known/security.txt</span>
+Policy: <span class="val">https://mullm.com/security</span></code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-block-header">
+        <span class="lang">shell</span>
+        <span class="label">Verify the security.txt endpoint</span>
+        <button class="copy-btn" data-copy="curl -sk https://127.0.0.1:6856/.well-known/security.txt">&#128203; Copy</button>
+      </div>
+      <pre><code><span class="cmd">curl</span> <span class="flag">-sk</span> https://127.0.0.1:6856/.well-known/security.txt</code></pre>
+    </div>
+  </section>
+
+  <div class="divider" role="separator"></div>
+
+</main>
+
+<footer class="footer" role="contentinfo">
+  mu|LLM Security Reference &mdash; static documentation, no live data<br>
+  Security contact: <a href="mailto:security@mullm.com">security@mullm.com</a>
+  &nbsp;&bull;&nbsp; <a href="/privacy">Privacy &amp; Compliance</a>
+  &nbsp;&bull;&nbsp; <a href="/.well-known/security.txt">security.txt</a>
+</footer>
+
+<script>
+(function(){
+  // ── Scroll progress bar ──────────────────────────────────────
+  var bar = document.getElementById('progress');
+  function onScroll(){
+    var total = document.documentElement.scrollHeight - window.innerHeight;
+    var pct = total > 0 ? Math.round(window.scrollY / total * 100) : 0;
+    bar.style.width = pct + '%';
+    bar.setAttribute('aria-valuenow', pct);
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+
+  // ── Section reveal on scroll ─────────────────────────────────
+  var sections = document.querySelectorAll('.section');
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting) e.target.classList.add('visible'); });
+    }, {threshold:0.07});
+    sections.forEach(function(s){ io.observe(s); });
+  } else {
+    // Fallback: just show everything
+    sections.forEach(function(s){ s.classList.add('visible'); });
+  }
+
+  // ── Copy-to-clipboard ─────────────────────────────────────────
+  document.querySelectorAll('.copy-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var text = btn.dataset.copy || '';
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function(){
+        var orig = btn.innerHTML;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(function(){ btn.innerHTML = orig; btn.classList.remove('copied'); }, 1800);
+      }).catch(function(){
+        btn.textContent = 'Failed';
+        setTimeout(function(){ btn.innerHTML = '&#128203; Copy'; }, 1500);
+      });
+    });
+  });
+
+  // ── Smooth scroll for TOC anchors ─────────────────────────────
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      var target = document.querySelector(a.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({behavior:'smooth', block:'start'});
+        // Move focus for keyboard / screen reader users
+        target.setAttribute('tabindex', '-1');
+        target.focus({preventScroll:true});
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

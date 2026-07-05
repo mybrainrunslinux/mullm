@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capy Ballista - muLLM Studio</title>
+  <link rel="stylesheet" href="/static/mullm.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101417;
+      --panel: #182026;
+      --line: #33414b;
+      --text: #f4f7f8;
+      --muted: #b7c3c8;
+      --accent: #f59e0b;
+      --green: #22c55e;
+      --red: #ef4444;
+      --blue: #38bdf8;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      width: min(1280px, calc(100vw - 24px));
+      margin: 0 auto;
+      padding: 16px 0 24px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2.4vw, 2.1rem);
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: .95rem;
+    }
+
+    .hud {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .pill, button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: .9rem;
+      line-height: 1;
+    }
+
+    button {
+      cursor: pointer;
+      min-height: 36px;
+    }
+
+    button:hover, button:focus-visible {
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    .board {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0b1114;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: calc(100vh - 190px);
+      min-height: 360px;
+      background: #12212b;
+      touch-action: none;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border-top: 1px solid var(--line);
+      background: rgba(24, 32, 38, .96);
+    }
+
+    .status {
+      color: var(--muted);
+      min-height: 1.3em;
+    }
+
+    kbd {
+      border: 1px solid #4b5b66;
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      padding: 1px 5px;
+      background: #0f171b;
+      color: var(--text);
+      font-size: .82rem;
+    }
+
+    @media (max-width: 760px) {
+      header, .controls { grid-template-columns: 1fr; }
+      .hud { justify-content: flex-start; }
+      canvas { min-height: 420px; aspect-ratio: 4 / 5; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Capy Ballista</h1>
+        <div class="sub">A compact muLLM Studio physics prototype for siege-arcade feel testing.</div>
+      </div>
+      <div class="hud" aria-live="polite">
+        <span class="pill" id="score">Score 0</span>
+        <span class="pill" id="round">Round 1</span>
+        <span class="pill" id="ammo">Bolts 8</span>
+        <span class="pill" id="wind">Wind 0</span>
+      </div>
+    </header>
+
+    <section class="board" aria-label="Capy Ballista game">
+      <canvas id="game" width="1280" height="720"></canvas>
+      <div class="controls">
+        <div class="status" id="status">
+          Drag from the ballista to aim. Release to fire. Use <kbd>A</kbd>/<kbd>D</kbd> to roll and <kbd>R</kbd> to restart.
+        </div>
+        <button type="button" id="restart">Restart</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const roundEl = document.getElementById('round');
+    const ammoEl = document.getElementById('ammo');
+    const windEl = document.getElementById('wind');
+    const statusEl = document.getElementById('status');
+    const restartBtn = document.getElementById('restart');
+
+    const state = {
+      score: 0,
+      round: 1,
+      ammo: 8,
+      wind: 0,
+      x: 150,
+      projectiles: [],
+      particles: [],
+      targets: [],
+      dragging: false,
+      pointer: {x: 0, y: 0},
+      last: 0,
+      won: false
+    };
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(640, Math.floor(rect.width * ratio));
+      canvas.height = Math.max(360, Math.floor(rect.height * ratio));
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      canvas.logicalWidth = rect.width;
+      canvas.logicalHeight = rect.height;
+    }
+
+    function rand(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function groundY() {
+      return canvas.logicalHeight - 78;
+    }
+
+    function ballista() {
+      return {x: state.x, y: groundY() - 42};
+    }
+
+    function spawnRound() {
+      state.targets = [];
+      state.projectiles = [];
+      state.particles = [];
+      state.ammo = 7 + Math.min(5, state.round);
+      state.wind = Math.round(rand(-18, 18));
+      const count = Math.min(4 + state.round, 9);
+      const w = canvas.logicalWidth || 1000;
+      for (let i = 0; i < count; i++) {
+        state.targets.push({
+          x: rand(w * .52, w - 72),
+          y: groundY() - rand(46, 155),
+          r: rand(18, 28),
+          hp: i % 3 === 0 ? 2 : 1,
+          drift: rand(-.18, .18),
+          phase: rand(0, Math.PI * 2)
+        });
+      }
+      statusEl.textContent = 'Round ' + state.round + ': clear the targets before you run out of bolts.';
+      syncHud();
+    }
+
+    function reset() {
+      state.score = 0;
+      state.round = 1;
+      state.x = 150;
+      state.won = false;
+      spawnRound();
+    }
+
+    function syncHud() {
+      scoreEl.textContent = 'Score ' + state.score;
+      roundEl.textContent = 'Round ' + state.round;
+      ammoEl.textContent = 'Bolts ' + state.ammo;
+      windEl.textContent = 'Wind ' + state.wind;
+    }
+
+    function canvasPoint(event) {
+      const rect = canvas.getBoundingClientRect();
+      const touch = event.touches && event.touches[0] ? event.touches[0] : event;
+      return {x: touch.clientX - rect.left, y: touch.clientY - rect.top};
+    }
+
+    function fire() {
+      if (!state.dragging || state.ammo <= 0 || state.won) return;
+      const b = ballista();
+      const dx = b.x - state.pointer.x;
+      const dy = b.y - state.pointer.y;
+      const power = Math.min(980, Math.hypot(dx, dy) * 5.2);
+      if (power < 90) {
+        state.dragging = false;
+        return;
+      }
+      const angle = Math.atan2(dy, dx);
+      state.projectiles.push({
+        x: b.x + Math.cos(angle) * 36,
+        y: b.y + Math.sin(angle) * 36,
+        vx: Math.cos(angle) * power,
+        vy: Math.sin(angle) * power,
+        life: 5,
+        spin: 0
+      });
+      state.ammo--;
+      state.dragging = false;
+      syncHud();
+    }
+
+    function explode(x, y, color, amount) {
+      for (let i = 0; i < amount; i++) {
+        state.particles.push({
+          x, y,
+          vx: rand(-160, 160),
+          vy: rand(-190, 40),
+          life: rand(.35, .8),
+          color
+        });
+      }
+    }
+
+    function update(dt) {
+      const w = canvas.logicalWidth;
+      const g = groundY();
+      state.targets.forEach((t) => {
+        t.phase += dt;
+        t.x += Math.sin(t.phase) * t.drift * 16 * dt;
+      });
+
+      for (const p of state.projectiles) {
+        p.vx += state.wind * dt;
+        p.vy += 620 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.spin += dt * 12;
+        p.life -= dt;
+      }
+
+      for (const p of state.projectiles) {
+        for (const t of state.targets) {
+          if (t.hp <= 0) continue;
+          const hit = Math.hypot(p.x - t.x, p.y - t.y) < t.r + 8;
+          if (hit) {
+            t.hp--;
+            p.life = 0;
+            state.score += t.hp <= 0 ? 150 : 60;
+            explode(t.x, t.y, t.hp <= 0 ? '#f59e0b' : '#fef3c7', t.hp <= 0 ? 28 : 12);
+          }
+        }
+      }
+
+      state.projectiles = state.projectiles.filter(p => p.life > 0 && p.y < g + 25 && p.x > -80 && p.x < w + 120);
+      state.targets = state.targets.filter(t => t.hp > 0);
+
+      for (const p of state.particles) {
+        p.vy += 360 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+      }
+      state.particles = state.particles.filter(p => p.life > 0);
+
+      if (!state.targets.length && !state.won) {
+        state.round++;
+        state.score += state.ammo * 30;
+        spawnRound();
+      } else if (state.ammo <= 0 && !state.projectiles.length && state.targets.length && !state.won) {
+        state.won = true;
+        statusEl.textContent = 'Out of bolts. Final score ' + state.score + '. Press R to restart.';
+      }
+      syncHud();
+    }
+
+    function drawSky(w, h) {
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#123144');
+      sky.addColorStop(.58, '#26475a');
+      sky.addColorStop(1, '#5f6f66');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = 'rgba(240,248,255,.22)';
+      for (let i = 0; i < 7; i++) {
+        const x = (i * 220 + (performance.now() * .015)) % (w + 260) - 180;
+        const y = 56 + (i % 3) * 38;
+        ctx.beginPath();
+        ctx.ellipse(x, y, 70, 16, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + 52, y + 5, 55, 13, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = '#1c3133';
+      for (let i = -1; i < 7; i++) {
+        const x = i * 250;
+        ctx.beginPath();
+        ctx.moveTo(x, h - 110);
+        ctx.lineTo(x + 145, h - 320 - (i % 2) * 40);
+        ctx.lineTo(x + 320, h - 110);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    function drawBallista() {
+      const b = ballista();
+      ctx.save();
+      ctx.translate(b.x, b.y);
+
+      let angle = -.4;
+      if (state.dragging) {
+        angle = Math.atan2(b.y - state.pointer.y, b.x - state.pointer.x);
+      }
+
+      ctx.strokeStyle = '#7c4a20';
+      ctx.lineWidth = 9;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-40, 32);
+      ctx.lineTo(32, -10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(42, 32);
+      ctx.lineTo(-20, -14);
+      ctx.stroke();
+
+      ctx.fillStyle = '#6b3f1d';
+      ctx.fillRect(-52, 24, 104, 16);
+      ctx.fillStyle = '#2a1b12';
+      ctx.beginPath();
+      ctx.arc(-36, 44, 18, 0, Math.PI * 2);
+      ctx.arc(42, 44, 18, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.rotate(angle);
+      ctx.strokeStyle = '#d8a352';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(-34, 0);
+      ctx.lineTo(64, 0);
+      ctx.stroke();
+      ctx.strokeStyle = '#f8e7c8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-20, -25);
+      ctx.quadraticCurveTo(18, 0, -20, 25);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = '#8b5f3c';
+      ctx.beginPath();
+      ctx.ellipse(b.x - 24, b.y + 6, 25, 17, 0, 0, Math.PI * 2);
+      ctx.arc(b.x - 4, b.y - 4, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#101417';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y - 8, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawTarget(t) {
+      ctx.save();
+      ctx.translate(t.x, t.y);
+      ctx.fillStyle = '#8b5f3c';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, t.r * 1.35, t.r, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#c08457';
+      ctx.beginPath();
+      ctx.arc(t.r * .58, -t.r * .18, t.r * .72, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#111827';
+      ctx.beginPath();
+      ctx.arc(t.r * .78, -t.r * .36, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = t.hp > 1 ? '#fef3c7' : '#451a03';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, t.r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function draw() {
+      const w = canvas.logicalWidth;
+      const h = canvas.logicalHeight;
+      const g = groundY();
+      drawSky(w, h);
+
+      ctx.fillStyle = '#203b2e';
+      ctx.fillRect(0, g, w, h - g);
+      ctx.fillStyle = 'rgba(255,255,255,.16)';
+      for (let x = -60; x < w; x += 90) {
+        ctx.beginPath();
+        ctx.ellipse(x, g + 10, 80, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (const t of state.targets) drawTarget(t);
+      drawBallista();
+
+      if (state.dragging) {
+        const b = ballista();
+        ctx.strokeStyle = 'rgba(254,243,199,.75)';
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(state.pointer.x, state.pointer.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      for (const p of state.projectiles) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.spin);
+        ctx.fillStyle = '#f8e7c8';
+        ctx.fillRect(-14, -3, 28, 6);
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.moveTo(15, 0);
+        ctx.lineTo(5, -7);
+        ctx.lineTo(5, 7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      for (const p of state.particles) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, 4, 4);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function tick(now) {
+      if (!state.last) state.last = now;
+      const dt = Math.min(.033, (now - state.last) / 1000);
+      state.last = now;
+      update(dt);
+      draw();
+      requestAnimationFrame(tick);
+    }
+
+    canvas.addEventListener('pointerdown', (event) => {
+      state.pointer = canvasPoint(event);
+      state.dragging = true;
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener('pointermove', (event) => {
+      state.pointer = canvasPoint(event);
+    });
+    canvas.addEventListener('pointerup', fire);
+    canvas.addEventListener('pointercancel', () => { state.dragging = false; });
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'a' || event.key === 'A') state.x = Math.max(70, state.x - 24);
+      if (event.key === 'd' || event.key === 'D') state.x = Math.min((canvas.logicalWidth || 1000) * .43, state.x + 24);
+      if (event.key === 'r' || event.key === 'R') reset();
+    });
+    restartBtn.addEventListener('click', reset);
+
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      spawnRound();
+    });
+
+    resizeCanvas();
+    reset();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

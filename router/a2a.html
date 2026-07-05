@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<title>muLLM — A2A Agent-to-Agent Protocol</title>
+<meta name="description" content="muLLM A2A agent-to-agent protocol documentation — register agents, queue tasks, federated AI routing.">
+<meta name="theme-color" content="#a78bfa">
+<link rel="manifest" href="/manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;--border:#1e2d3d;
+  --green:#22c55e;--teal:#14b8a6;--blue:#3b82f6;--amber:#f59e0b;
+  --coral:#ef6c4c;--purple:#a78bfa;--pink:#ec4899;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code','SF Mono',monospace;
+  --sans:'Inter',-apple-system,sans-serif;
+  color-scheme:dark;
+}
+@media(prefers-color-scheme:light){
+  :root{
+    --bg:#f8fafc;--bg2:#f1f5f9;--bg3:#e2e8f0;--border:#cbd5e1;
+    --green:#16a34a;--teal:#0d9488;--blue:#2563eb;--amber:#d97706;
+    --coral:#dc2626;--purple:#7c3aed;--pink:#db2777;
+    --text:#0f172a;--text2:#475569;--text3:#64748b;
+    color-scheme:light;
+  }
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;overflow-x:hidden}
+a{color:var(--teal);text-decoration:none}
+a:hover{text-decoration:underline}
+*:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.skip-link{position:absolute;top:-40px;left:0;background:var(--teal);color:#000;padding:8px 16px;z-index:10000;font-weight:600;border-radius:0 0 8px 0;transition:top 0.2s}
+.skip-link:focus{top:0}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:13px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.logo{font-weight:700;font-size:14px;letter-spacing:1px;display:flex;align-items:center;gap:0}
+.logo-mu{color:var(--amber);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{display:flex;gap:8px;margin-left:auto}
+.nav a{color:var(--text2);font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;transition:all .2s;font-family:var(--mono)}
+.nav a:hover,.nav a.active{color:var(--purple);border-color:var(--purple);text-decoration:none}
+.container{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+h1{font-family:var(--mono);font-size:24px;color:var(--purple);margin:32px 0 8px;letter-spacing:1px}
+h2{font-family:var(--mono);font-size:16px;color:var(--green);margin:28px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+h3{font-family:var(--mono);font-size:13px;color:var(--amber);margin:20px 0 6px;text-transform:uppercase;letter-spacing:1px}
+p{color:var(--text2);margin:6px 0 12px;font-size:14px}
+ul{color:var(--text2);margin:6px 0 12px 20px;font-size:14px}
+li{margin:4px 0}
+pre{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.6;margin:8px 0 16px;position:relative}
+code{font-family:var(--mono);font-size:12px}
+.lang-tag{position:absolute;top:4px;right:8px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+.copy-btn{position:absolute;top:4px;right:60px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-family:var(--mono);font-size:10px;color:var(--text3);cursor:pointer;transition:all .2s}
+.copy-btn:hover{color:var(--purple);border-color:var(--purple)}
+.inline-code{background:var(--bg3);padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:12px;color:var(--purple)}
+.diagram{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;margin:12px 0 20px;font-family:var(--mono);font-size:11px;line-height:2.2;color:var(--text2)}
+.diagram .arrow{color:var(--purple)}
+.diagram .box{display:inline-block;padding:4px 12px;border:1px solid var(--border);border-radius:4px;margin:0 4px}
+.diagram .box.highlight{border-color:var(--purple);color:var(--purple)}
+.tabs{display:flex;gap:0;margin:12px 0 0;border-bottom:2px solid var(--border)}
+.tab{padding:6px 16px;font-family:var(--mono);font-size:11px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+</style>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<div class="topbar">
+  <a href="/" class="logo" style="text-decoration:none">
+    <span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot">
+  </a>
+  <div class="nav">
+    <a href="/">Chat</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/mcp">MCP</a>
+    <a href="/a2a" class="active">A2A</a>
+    <a href="/cost">Cost</a>
+    <a href="/games">Games</a>
+  </div>
+</div>
+
+<main id="main" class="container">
+
+<h1>A2A — Agent-to-Agent Protocol</h1>
+<p>muLLM implements an HTTP A2A-style registry for federated multi-agent coordination. Agents register capabilities, discover each other, and queue tasks via HTTP or JSON-RPC 2.0.</p>
+
+<div class="diagram" style="text-align:center">
+  <span class="box">Agent A</span>
+  <span class="arrow">&rarr; JSON-RPC 2.0 &rarr;</span>
+  <span class="box highlight">muLLM Registry</span>
+  <span class="arrow">&larr; discovery &larr;</span>
+  <span class="box">Agent B</span>
+  <br>
+  <span class="box">Agent A</span>
+  <span class="arrow">&rarr; queue task &rarr;</span>
+  <span class="box highlight">muLLM Registry</span>
+  <span class="arrow">&rarr; route &rarr;</span>
+  <span class="box">Best Agent</span>
+</div>
+
+<h2>How It Works</h2>
+<ul>
+  <li><strong>Register</strong> — Agents register with muLLM, declaring their capabilities (e.g., "code", "classify", "translate")</li>
+  <li><strong>Discover</strong> — Agents query the registry to find other agents with specific capabilities</li>
+  <li><strong>Queue</strong> — Tasks are added to a registered agent's in-process task queue</li>
+  <li><strong>Integrate</strong> — Remote worker dispatch is not enabled in this install; use the queue for discovery, coordination, and integration testing</li>
+</ul>
+
+<h2>API Endpoints</h2>
+
+<h3>Register an agent</h3>
+<pre><span class="lang-tag">http</span>POST /api/agents/register
+Content-Type: application/json
+
+{"agent_id":"my-translator","capabilities":["translate","summarize"],"endpoint":"https://my-agent:9000","name":"Translator Agent"}</pre>
+
+<h3>List registered agents</h3>
+<pre><span class="lang-tag">http</span>GET /api/agents</pre>
+
+<h3>Add a task</h3>
+<pre><span class="lang-tag">http</span>POST /api/agents/{agent_id}/task
+Content-Type: application/json
+
+{"content":"Translate this to French: Hello world"}</pre>
+
+<h3>Get agent's task queue</h3>
+<pre><span class="lang-tag">http</span>GET /api/agents/{agent_id}/tasks</pre>
+
+<h2>Usage Examples</h2>
+
+<div class="tabs" data-group="a2a">
+  <div class="tab active" onclick="switchTab(this,'curl')">curl</div>
+  <div class="tab" onclick="switchTab(this,'python')">Python</div>
+  <div class="tab" onclick="switchTab(this,'node')">Node.js</div>
+</div>
+
+<div class="tab-content active" data-tab="curl">
+<h3>Register an agent</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button># Register a custom agent with muLLM
+curl -s -X POST https://localhost:6856/api/agents/register \
+  -H 'Content-Type: application/json' \
+  -d '{"agent_id":"my-code-agent","capabilities":["code","debug","refactor"],"endpoint":"https://my-agent:9000","name":"Code Specialist"}'</pre>
+
+<h3>List agents</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s https://localhost:6856/api/agents | jq</pre>
+
+<h3>Add a task</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button># Queue a task for a registered agent
+curl -s -X POST https://localhost:6856/api/agents/my-code-agent/task \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"Explain the difference between async and threads"}'</pre>
+
+<h3>Check task results</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s https://localhost:6856/api/agents/my-code-agent/tasks | jq</pre>
+</div>
+
+<div class="tab-content" data-tab="python">
+<h3>Full A2A workflow</h3>
+<pre><span class="lang-tag">python</span><button class="copy-btn" onclick="copyCode(this)">copy</button>import httpx, time
+
+client = httpx.Client(base_url="https://localhost:6856", verify=False)
+
+# 1. Register our agent
+client.post("/api/agents/register", json={
+    "agent_id": "my-analyzer",
+    "capabilities": ["analyze", "summarize"],
+    "endpoint": "https://my-agent:9000",
+    "name": "Analysis Agent"
+})
+
+# 2. Discover available agents
+agents = client.get("/api/agents").json()["agents"]
+for a in agents:
+    print(f"  {a['agent_id']}: {a.get('capabilities', [])}")
+
+# 3. Queue a task for the registered agent
+client.post("/api/agents/my-analyzer/task", json={
+    "content": "Analyze this code for performance issues: def fib(n): return fib(n-1)+fib(n-2) if n>1 else n"
+})
+
+# 4. Poll for results (in production, use webhooks)
+time.sleep(5)
+tasks = client.get("/api/agents/my-analyzer/tasks").json()
+for task in tasks:
+    print(f"  Status: {task.get('status')}")
+    print(f"  Content: {task.get('content', '')[:100]}")</pre>
+</div>
+
+<div class="tab-content" data-tab="node">
+<h3>Full A2A workflow</h3>
+<pre><span class="lang-tag">javascript</span><button class="copy-btn" onclick="copyCode(this)">copy</button>const BASE = 'https://localhost:6856';
+
+// 1. Register agent
+await fetch(`${BASE}/api/agents/register`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({agent_id: 'my-agent', capabilities: ['code', 'test'], endpoint: 'https://my-agent:9000', name: 'Test Agent'})
+});
+
+// 2. List agents
+const agents = await fetch(`${BASE}/api/agents`).then(r => r.json());
+console.log('Registered agents:', agents.agents.map(a => a.agent_id));
+
+// 3. Queue task
+await fetch(`${BASE}/api/agents/my-agent/task`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({content: 'Write unit tests for a fibonacci function'})
+});
+
+// 4. Check results
+const tasks = await fetch(`${BASE}/api/agents/my-agent/tasks`).then(r => r.json());
+console.log('Tasks:', tasks);</pre>
+</div>
+
+<h2>JSON-RPC 2.0 A2A Envelope</h2>
+<p>The A2A protocol wraps all communication in JSON-RPC 2.0 envelopes. muLLM's <span class="inline-code">/rpc</span> endpoint accepts these directly.</p>
+
+<pre><span class="lang-tag">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button>// Request: register an agent
+{
+  "jsonrpc": "2.0",
+  "id": "agent-001",
+  "method": "agents.register",
+  "params": {
+    "agent_id": "mullm-primary",
+    "endpoint": "https://localhost:6856",
+    "capabilities": ["query", "code", "classify"]
+  }
+}
+
+// Response: registered
+{
+  "jsonrpc": "2.0",
+  "id": "agent-001",
+  "result": {
+    "registered": true,
+    "agent": {"agent_id": "mullm-primary"}
+  }
+}</pre>
+
+<h2>Agent Card (.well-known/agent.json)</h2>
+<p>Each A2A agent exposes a discovery card. muLLM's card is available at <span class="inline-code">/.well-known/agent.json</span>.</p>
+
+<pre><span class="lang-tag">json</span>{
+  "name": "muLLM Primary",
+  "description": "Cost-optimized LLM router — routes queries to cheapest capable model",
+  "url": "https://localhost:6856",
+  "capabilities": ["query", "code", "classify", "cache", "stream"],
+  "protocols": ["mcp", "a2a"],
+  "version": "0.2.0"
+}</pre>
+
+</main>
+
+<script>
+function switchTab(el, tab) {
+  const group = el.closest('.tabs');
+  group.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  let sibling = group.nextElementSibling;
+  while (sibling && !sibling.classList.contains('tabs')) {
+    if (sibling.classList.contains('tab-content')) {
+      sibling.classList.toggle('active', sibling.dataset.tab === tab);
+    }
+    sibling = sibling.nextElementSibling;
+  }
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('pre');
+  const text = pre.textContent.replace(/^(bash|python|javascript|json|http|text)\s*copy\s*/, '');
+  navigator.clipboard.writeText(text.trim());
+  btn.textContent = 'copied!';
+  setTimeout(() => btn.textContent = 'copy', 1500);
+}
+</script>
+</body>
+</html>

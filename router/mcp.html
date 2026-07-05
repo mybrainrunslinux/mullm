@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<title>muLLM — MCP & A2A Integration Guide</title>
+<meta name="description" content="muLLM MCP tools and A2A agent-to-agent protocol documentation with examples.">
+<meta name="theme-color" content="#14b8a6">
+<link rel="manifest" href="/manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;--border:#1e2d3d;
+  --green:#22c55e;--teal:#14b8a6;--blue:#3b82f6;--amber:#f59e0b;
+  --coral:#ef6c4c;--purple:#a78bfa;--pink:#ec4899;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code','SF Mono',monospace;
+  --sans:'Inter',-apple-system,sans-serif;
+  color-scheme:dark;
+}
+@media(prefers-color-scheme:light){
+  :root{
+    --bg:#f8fafc;--bg2:#f1f5f9;--bg3:#e2e8f0;--border:#cbd5e1;
+    --green:#16a34a;--teal:#0d9488;--blue:#2563eb;--amber:#d97706;
+    --coral:#dc2626;--purple:#7c3aed;--pink:#db2777;
+    --text:#0f172a;--text2:#475569;--text3:#64748b;
+    color-scheme:light;
+  }
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;overflow-x:hidden}
+a{color:var(--teal);text-decoration:none}
+a:hover{text-decoration:underline}
+*:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.skip-link{position:absolute;top:-40px;left:0;background:var(--teal);color:#000;padding:8px 16px;z-index:10000;font-weight:600;border-radius:0 0 8px 0;transition:top 0.2s}
+.skip-link:focus{top:0}
+
+/* topbar */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:13px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.logo{font-weight:700;font-size:14px;letter-spacing:1px;display:flex;align-items:center;gap:0}
+.logo-mu{color:var(--amber);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{display:flex;gap:8px;margin-left:auto}
+.nav a{color:var(--text2);font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;transition:all .2s;font-family:var(--mono)}
+.nav a:hover,.nav a.active{color:var(--teal);border-color:var(--teal);text-decoration:none}
+
+/* content */
+.container{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+h1{font-family:var(--mono);font-size:24px;color:var(--teal);margin:32px 0 8px;letter-spacing:1px}
+h2{font-family:var(--mono);font-size:16px;color:var(--green);margin:28px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+h3{font-family:var(--mono);font-size:13px;color:var(--amber);margin:20px 0 6px;text-transform:uppercase;letter-spacing:1px}
+p{color:var(--text2);margin:6px 0 12px;font-size:14px}
+ul{color:var(--text2);margin:6px 0 12px 20px;font-size:14px}
+li{margin:4px 0}
+
+/* code blocks */
+pre{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.6;margin:8px 0 16px;position:relative}
+code{font-family:var(--mono);font-size:12px}
+.lang-tag{position:absolute;top:4px;right:8px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+.copy-btn{position:absolute;top:4px;right:60px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-family:var(--mono);font-size:10px;color:var(--text3);cursor:pointer;transition:all .2s}
+.copy-btn:hover{color:var(--teal);border-color:var(--teal)}
+.inline-code{background:var(--bg3);padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:12px;color:var(--teal)}
+
+/* tabs */
+.tabs{display:flex;gap:0;margin:12px 0 0;border-bottom:2px solid var(--border)}
+.tab{padding:6px 16px;font-family:var(--mono);font-size:11px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--teal);border-bottom-color:var(--teal)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* diagram */
+.diagram{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;margin:12px 0 20px;font-family:var(--mono);font-size:11px;line-height:2;text-align:center;color:var(--text2)}
+.diagram .arrow{color:var(--teal)}
+.diagram .box{display:inline-block;padding:4px 12px;border:1px solid var(--border);border-radius:4px;margin:0 4px}
+.diagram .box.highlight{border-color:var(--teal);color:var(--teal)}
+
+/* tool card */
+.tool-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:8px 0;transition:border-color .2s}
+.tool-card:hover{border-color:var(--teal)}
+.tool-name{font-family:var(--mono);font-size:13px;color:var(--teal);font-weight:600}
+.tool-desc{font-size:12px;color:var(--text2);margin:4px 0}
+.tool-params{font-size:11px;color:var(--text3);font-family:var(--mono)}
+</style>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<div class="topbar">
+  <a href="/" class="logo" style="text-decoration:none">
+    <span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot">
+  </a>
+  <div class="nav">
+    <a href="/">Chat</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/mcp" class="active">MCP</a>
+    <a href="/a2a">A2A</a>
+    <a href="/cost">Cost</a>
+    <a href="/games">Games</a>
+  </div>
+</div>
+
+<main id="main" class="container">
+
+<h1>MCP — Model Context Protocol</h1>
+<p>muLLM exposes its routing pipeline as MCP tools, allowing any MCP-compatible client (Claude Code, Cursor, custom agents) to use muLLM for cost-optimized AI queries.</p>
+
+<div class="diagram">
+  <span class="box">MCP Client</span>
+  <span class="arrow">&rarr; JSON-RPC 2.0 &rarr;</span>
+  <span class="box highlight">muLLM MCP Server</span>
+  <span class="arrow">&rarr; classify &rarr; route &rarr;</span>
+  <span class="box">Cheapest Model</span>
+</div>
+
+<h2>Available MCP Tools</h2>
+
+<div class="tool-card">
+  <div class="tool-name">mullm_query</div>
+  <div class="tool-desc">Route an AI query through the cost-optimized pipeline. Returns response from the cheapest capable model.</div>
+  <div class="tool-params">params: content (string, required), skip_cache (bool), force_tier (string)</div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-name">mullm_split</div>
+  <div class="tool-desc">Decompose a multi-part query and route each sub-task to the cheapest appropriate tier.</div>
+  <div class="tool-params">params: content (string, required)</div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-name">mullm_budget</div>
+  <div class="tool-desc">Get current budget and savings counters.</div>
+  <div class="tool-params">params: none</div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-name">mullm_classify</div>
+  <div class="tool-desc">Classify a prompt without executing it. Returns category, complexity, freshness, and suggested tier.</div>
+  <div class="tool-params">params: content (string, required)</div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-name">mullm_budget</div>
+  <div class="tool-desc">Return current budget counters and spend-limit state.</div>
+  <div class="tool-params">params: none</div>
+</div>
+
+<div class="tool-card">
+  <div class="tool-name">mullm_system</div>
+  <div class="tool-desc">Return CPU, RAM, GPU, VRAM, and Ollama status.</div>
+  <div class="tool-params">params: none</div>
+</div>
+
+<h2>Usage Examples</h2>
+
+<div class="tabs" data-group="mcp">
+  <div class="tab active" onclick="switchTab(this,'curl')">curl</div>
+  <div class="tab" onclick="switchTab(this,'python')">Python</div>
+  <div class="tab" onclick="switchTab(this,'node')">Node.js</div>
+  <div class="tab" onclick="switchTab(this,'claude')">Claude Code</div>
+</div>
+
+<div class="tab-content active" data-tab="curl">
+<h3>List tools</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s https://localhost:6856/mcp/tools | jq</pre>
+
+<h3>Call a tool (MCP tools/call)</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s -X POST https://localhost:6856/mcp/call \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "mullm_query",
+      "arguments": {
+        "content": "What is the capital of France?"
+      }
+    }
+  }' | jq</pre>
+
+<h3>Query the pipeline directly</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s -X POST https://localhost:6856/query \
+  -H 'Content-Type: application/json' \
+  -d '{"content": "Explain quicksort", "source": "api"}' | jq</pre>
+
+<h3>Split routing</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s -X POST https://localhost:6856/query/split \
+  -H 'Content-Type: application/json' \
+  -d '{"content": "What is 2+2? Also write a haiku about rain."}' | jq</pre>
+
+<h3>Get budget status</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s https://localhost:6856/api/budget | jq</pre>
+
+<h3>Get cost stats</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s https://localhost:6856/api/stats | jq</pre>
+</div>
+
+<div class="tab-content" data-tab="python">
+<h3>Basic query</h3>
+<pre><span class="lang-tag">python</span><button class="copy-btn" onclick="copyCode(this)">copy</button>import httpx
+
+client = httpx.Client(base_url="https://localhost:6856", verify=False)
+
+# Simple query
+r = client.post("/query", json={"content": "What is quicksort?", "source": "api"})
+data = r.json()
+print(f"Tier: {data['tier_used']}, Cost: ${data['cost']:.4f}")
+print(data["response"])</pre>
+
+<h3>MCP tool call</h3>
+<pre><span class="lang-tag">python</span><button class="copy-btn" onclick="copyCode(this)">copy</button>import httpx
+
+client = httpx.Client(base_url="https://localhost:6856", verify=False)
+
+# List available tools
+tools = client.get("/mcp/tools").json()
+for tool in tools["tools"]:
+    print(f"  {tool['name']}: {tool['description']}")
+
+# Call a tool via MCP protocol
+r = client.post("/mcp/call", json={
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "mullm_query",
+        "arguments": {"content": "Explain async/await"}
+    }
+})
+print(r.json())</pre>
+
+<h3>Streaming (SSE)</h3>
+<pre><span class="lang-tag">python</span><button class="copy-btn" onclick="copyCode(this)">copy</button>import httpx
+
+with httpx.stream("GET", "https://localhost:6856/query/stream",
+                   params={"q": "Write a poem about code"},
+                   verify=False) as r:
+    for line in r.iter_lines():
+        if line.startswith("data: "):
+            chunk = line[6:]
+            if chunk == "[DONE]":
+                break
+            print(chunk, end="", flush=True)</pre>
+
+<h3>Dashboard + Budget</h3>
+<pre><span class="lang-tag">python</span><button class="copy-btn" onclick="copyCode(this)">copy</button>import httpx
+
+client = httpx.Client(base_url="https://localhost:6856", verify=False)
+
+# Cost stats (real numbers, no estimates)
+stats = client.get("/api/stats").json()
+print(f"All-time cost: ${stats['all_time']['total_cost']:.4f}")
+print(f"Total queries: {stats['all_time']['total_queries']}")
+for tier, info in stats["by_tier"].items():
+    print(f"  {tier}: {info['queries']}q, ${info['cost']:.4f}")
+
+# Budget status
+budget = client.get("/api/budget").json()
+print(f"Daily: ${budget['daily_spend']:.2f} / ${budget['effective_daily_limit']:.2f}")</pre>
+</div>
+
+<div class="tab-content" data-tab="node">
+<h3>Basic query</h3>
+<pre><span class="lang-tag">javascript</span><button class="copy-btn" onclick="copyCode(this)">copy</button>const r = await fetch('https://localhost:6856/query', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({content: 'What is quicksort?', source: 'api'})
+});
+const data = await r.json();
+console.log(`Tier: ${data.tier_used}, Cost: $${data.cost.toFixed(4)}`);
+console.log(data.response);</pre>
+
+<h3>MCP tool call</h3>
+<pre><span class="lang-tag">javascript</span><button class="copy-btn" onclick="copyCode(this)">copy</button>// List tools
+const tools = await fetch('https://localhost:6856/mcp/tools').then(r => r.json());
+tools.tools.forEach(t => console.log(`  ${t.name}: ${t.description}`));
+
+// Call tool
+const r = await fetch('https://localhost:6856/mcp/call', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    jsonrpc: '2.0', id: 1,
+    method: 'tools/call',
+    params: {name: 'mullm_query', arguments: {content: 'Explain closures'}}
+  })
+});
+console.log(await r.json());</pre>
+
+<h3>Streaming (SSE)</h3>
+<pre><span class="lang-tag">javascript</span><button class="copy-btn" onclick="copyCode(this)">copy</button>const es = new EventSource(
+  'https://localhost:6856/query/stream?content=' + encodeURIComponent('Write a haiku')
+);
+es.onmessage = (e) => {
+  if (e.data === '[DONE]') { es.close(); return; }
+  process.stdout.write(e.data);
+};</pre>
+</div>
+
+<div class="tab-content" data-tab="claude">
+<h3>HTTP client note</h3>
+<pre><span class="lang-tag">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button>{
+  "endpoint": "https://localhost:6856/mcp/call",
+  "transport": "http-json-rpc"
+}</pre>
+
+<h3>Usage</h3>
+<pre><span class="lang-tag">text</span>Once configured, Claude Code can call muLLM tools directly:
+
+"Use mullm_query to ask 'What is the time complexity of quicksort?'"
+"Use mullm_split to decompose this multi-part question"
+"Use mullm_budget to check current savings"
+
+muLLM will route each query to the cheapest capable model,
+saving you money on every call.</pre>
+</div>
+
+<h2>JSON-RPC 2.0 Protocol</h2>
+<p>All MCP communication follows the <a href="https://www.jsonrpc.org/specification" target="_blank" rel="noopener">JSON-RPC 2.0</a> specification.</p>
+
+<div class="diagram">
+  <div style="text-align:left;display:inline-block">
+    <strong style="color:var(--teal)">Request</strong><br>
+    {"jsonrpc":"2.0", "id":1, "method":"tools/call", "params":{...}}<br><br>
+    <strong style="color:var(--green)">Response (success)</strong><br>
+    {"jsonrpc":"2.0", "id":1, "result":{...}}<br><br>
+    <strong style="color:var(--coral)">Response (error)</strong><br>
+    {"jsonrpc":"2.0", "id":1, "error":{"code":-32601, "message":"Method not found"}}
+  </div>
+</div>
+
+<h2>Error Codes</h2>
+<pre><span class="lang-tag">reference</span>-32700  Parse error       Invalid JSON
+-32600  Invalid request   Missing required fields
+-32601  Method not found  Unknown tool/method
+-32602  Invalid params    Wrong argument types
+-32603  Internal error    Server-side failure</pre>
+
+</main>
+
+<script>
+function switchTab(el, tab) {
+  const group = el.closest('.tabs');
+  group.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  // Find all tab-content siblings after this tabs element
+  let sibling = group.nextElementSibling;
+  while (sibling && !sibling.classList.contains('tabs')) {
+    if (sibling.classList.contains('tab-content')) {
+      sibling.classList.toggle('active', sibling.dataset.tab === tab);
+    }
+    sibling = sibling.nextElementSibling;
+  }
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('pre');
+  const text = pre.textContent.replace(/^(bash|python|javascript|json|text|reference)\s*copy\s*/, '');
+  navigator.clipboard.writeText(text.trim());
+  btn.textContent = 'copied!';
+  setTimeout(() => btn.textContent = 'copy', 1500);
+}
+</script>
+</body>
+</html>

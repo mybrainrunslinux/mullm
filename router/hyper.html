@@ -1,0 +1,1678 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — Hyper-Decomposer</title>
+  <meta name="description" content="muLLM Hyper-Decomposer — automatically decomposes multi-intent prompts into parallel tasks, routes each to the optimal model, and assembles results faster than any single model could." />
+  <meta name="theme-color" content="#d4af37" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+/* ── muLLM Theme System ── */
+/* ── Theme 2: Midnight (GitHub-dark inspired) ── */
+body.theme-midnight {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --bg4: #30363d;
+  --surface: #161b22; --border: #30363d; --border2: #484f58;
+  --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  --text-muted: #8b949e;
+  --gold: #58a6ff; --gold-dim: rgba(88,166,255,0.15); --gold2: #79b8ff;
+  --gold-glow: 0 0 16px rgba(88,166,255,0.3);
+  --accent: #388bfd; color-scheme: dark;
+}
+/* ── Theme 3: Terminal (green-on-black, monospace) ── */
+body.theme-terminal {
+  --bg: #0a0a0a; --bg2: #111; --bg3: #181818; --bg4: #222;
+  --surface: #111; --border: #00ff41; --border2: #00cc33;
+  --text: #00ff41; --text2: #00cc33; --text3: #007a1f;
+  --text-muted: #007a1f;
+  --gold: #00ff41; --gold-dim: rgba(0,255,65,0.15); --gold2: #66ff88;
+  --gold-glow: 0 0 12px rgba(0,255,65,0.4);
+  --accent: #00cc33; color-scheme: dark;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace !important;
+}
+body.theme-terminal .card, body.theme-terminal .panel,
+body.theme-terminal .badge, body.theme-terminal nav,
+body.theme-terminal #mullm-nav, body.theme-terminal .nav,
+body.theme-terminal .stat-card, body.theme-terminal .mode-card,
+body.theme-terminal button, body.theme-terminal input,
+body.theme-terminal select, body.theme-terminal textarea,
+body.theme-terminal [class*="card"], body.theme-terminal [class*="panel"],
+body.theme-terminal [class*="badge"], body.theme-terminal [class*="pill"] {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* ── Theme 4: Paper (warm sepia, printed document) ── */
+body.theme-paper {
+  --bg: #fefcf7; --bg2: #f5f0e8; --bg3: #ede8dc; --bg4: #e0d8c8;
+  --surface: #f5f0e8; --border: #d4c5a9; --border2: #c0ae8c;
+  --text: #2c2416; --text2: #4a3c28; --text3: #6b5a3e;
+  --text-muted: #6b5a3e;
+  --gold: #8b6914; --gold-dim: rgba(139,105,20,0.15); --gold2: #a07820;
+  --gold-glow: 0 0 8px rgba(139,105,20,0.2);
+  --accent: #a07820; color-scheme: light;
+}
+/* ── Theme 5: Neon Tokyo ── */
+body.theme-neon {
+  --bg: #0f0018; --bg2: #1a0030; --bg3: #250045; --bg4: #2f0055;
+  --surface: #1a0030; --border: #ff006e; --border2: #bf00ff;
+  --text: #ffffff; --text2: #cc99ff; --text3: #9966cc;
+  --text-muted: #cc99ff;
+  --gold: #ff006e; --gold-dim: rgba(255,0,110,0.15); --gold2: #ff4d9e;
+  --gold-glow: 0 0 16px rgba(255,0,110,0.5);
+  --accent: #bf00ff; color-scheme: dark;
+}
+body.theme-neon h1, body.theme-neon h2, body.theme-neon h3,
+body.theme-neon .title, body.theme-neon .mn-brand,
+body.theme-neon .logo-mu, body.theme-neon .logo-llm,
+body.theme-neon .hero-title { text-shadow: 0 0 20px #ff006e, 0 0 40px #bf00ff; }
+body.theme-neon .badge, body.theme-neon [class*="badge"],
+body.theme-neon [class*="pill"] { box-shadow: 0 0 8px currentColor; }
+/* ── Theme picker UI ── */
+#theme-picker-wrap { position: relative; display: inline-flex; align-items: center; margin-left: 8px; }
+#theme-btn {
+  background: none;
+  border: 1px solid var(--border, #444);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text, #eee);
+  font-size: 13px;
+  line-height: 1;
+  min-width: 32px; min-height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+#theme-btn:hover { background: rgba(128,128,128,0.1); border-color: var(--gold, #c8a84b); }
+#theme-btn:focus-visible { outline: 2px solid var(--gold, #d4af37); outline-offset: 2px; }
+#theme-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--bg2, var(--surface, #222));
+  border: 1px solid var(--border, #444);
+  border-radius: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  min-width: 140px;
+  z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+#theme-menu li {
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text, #eee);
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+#theme-menu li:hover { background: rgba(128,128,128,0.12); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:      #0a0a0f;
+      --bg2:     #111118;
+      --bg3:     #18181f;
+      --bg4:     #1e1e28;
+      --bg5:     #242430;
+      --border:  #2a2a3a;
+      --border2: #363648;
+      --gold:    #d4af37;
+      --gold2:   #e8c84a;
+      --gold-dim: rgba(212,175,55,0.15);
+      --teal:    #14b8a6;
+      --teal-dim: rgba(20,184,166,0.15);
+      --blue:    #3b82f6;
+      --blue-dim: rgba(59,130,246,0.15);
+      --purple:  #a78bfa;
+      --purple-dim: rgba(167,139,250,0.15);
+      --orange:  #f97316;
+      --orange-dim: rgba(249,115,22,0.15);
+      --green:   #22c55e;
+      --green-dim: rgba(34,197,94,0.15);
+      --coral:   #ef6c4c;
+      --red:     #f87171;
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --text3:   #64748b;
+      --mono:    "JetBrains Mono", "Fira Code", "SF Mono", ui-monospace, monospace;
+      --sans:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --radius:  8px;
+      --radius-lg: 12px;
+      --glow-gold: 0 0 20px rgba(212,175,55,0.2);
+      --glow-teal: 0 0 20px rgba(20,184,166,0.2);
+      color-scheme: dark;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background grid ──────────────────────── */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(212,175,55,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212,175,55,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       mµLLM Shared Nav
+    ═══════════════════════════════════════════════════ */
+    #mullm-nav {
+      background: #0a0a0f;
+      border-bottom: 1px solid #2a2a3a;
+      padding: 0 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      height: 48px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      flex-shrink: 0;
+    }
+    #mullm-nav .mn-brand {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #d4af37;
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding: 0 0.25rem;
+      outline-offset: 3px;
+    }
+    #mullm-nav .mn-brand:focus-visible { outline: 2px solid #d4af37; border-radius: 4px; }
+    #mullm-nav .mn-spacer { flex: 1; }
+    #mullm-nav .mn-links {
+      display: flex; align-items: center; gap: 0.15rem;
+      list-style: none; margin: 0; padding: 0;
+    }
+    #mullm-nav .mn-links a {
+      color: #888899; text-decoration: none;
+      font-size: 0.82rem; font-weight: 500;
+      padding: 0.35rem 0.65rem; border-radius: 5px;
+      transition: color 0.15s, background 0.15s;
+      min-height: 44px; display: inline-flex; align-items: center;
+      white-space: nowrap; outline-offset: 2px;
+    }
+    #mullm-nav .mn-links a:focus-visible { outline: 2px solid #d4af37; border-radius: 5px; }
+    #mullm-nav .mn-links a:hover { color: #e8e8f0; background: rgba(255,255,255,0.06); }
+    #mullm-nav .mn-links a.mn-active {
+      color: #d4af37;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1.5px;
+    }
+    #mullm-nav .mn-artistic-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.1rem; padding: 0.3rem 0.5rem;
+      margin-left: 0.25rem; border-radius: 5px; line-height: 1;
+      min-width: 44px; min-height: 44px;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background 0.15s, transform 0.2s;
+      opacity: 0.7; outline-offset: 2px; color: inherit;
+    }
+    #mullm-nav .mn-artistic-btn:hover { opacity: 1; background: rgba(255,255,255,0.06); }
+    #mullm-nav .mn-artistic-btn:focus-visible { outline: 2px solid #d4af37; border-radius: 5px; }
+    #mullm-nav .mn-artistic-btn.mn-art-on {
+      opacity: 1; transform: rotate(15deg) scale(1.1);
+    }
+    #mullm-nav .mn-hamburger {
+      display: none; background: none; border: none; cursor: pointer;
+      padding: 0.35rem; min-width: 44px; min-height: 44px;
+      align-items: center; justify-content: center;
+      border-radius: 5px; color: #888899;
+      transition: color 0.15s, background 0.15s;
+      margin-left: 0.25rem; outline-offset: 2px;
+    }
+    #mullm-nav .mn-hamburger:focus-visible { outline: 2px solid #d4af37; border-radius: 5px; }
+    #mullm-nav .mn-hamburger:hover { color: #e8e8f0; background: rgba(255,255,255,0.06); }
+    #mullm-nav .mn-hamburger svg { width: 20px; height: 20px; display: block; }
+    #mullm-nav-dropdown {
+      display: none; position: fixed; top: 48px; left: 0; right: 0;
+      background: #0a0a0f; border-bottom: 1px solid #2a2a3a;
+      z-index: 999; padding: 0.5rem 1rem;
+      flex-direction: column; gap: 0.25rem;
+    }
+    #mullm-nav-dropdown.mn-open { display: flex; }
+    #mullm-nav-dropdown a {
+      color: #888899; text-decoration: none;
+      font-size: 0.9rem; font-weight: 500;
+      padding: 0.6rem 0.75rem; border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+      min-height: 44px; display: flex; align-items: center;
+    }
+    #mullm-nav-dropdown a:hover { color: #e8e8f0; background: rgba(255,255,255,0.06); }
+    #mullm-nav-dropdown a.mn-active { color: #d4af37; }
+    @media (max-width: 639px) {
+      #mullm-nav .mn-links { display: none; }
+      #mullm-nav .mn-hamburger { display: inline-flex; }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       Page layout
+    ═══════════════════════════════════════════════════ */
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Hero header ──────────────────────────────────── */
+    .hero {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .hero-eyebrow {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 0.75rem;
+      opacity: 0.9;
+    }
+    .hero-title {
+      font-size: clamp(1.75rem, 4vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin-bottom: 0.75rem;
+    }
+    .hero-title .accent-gold { color: var(--gold); }
+    .hero-title .accent-teal { color: var(--teal); }
+    .hero-sub {
+      font-size: clamp(0.9rem, 2vw, 1.05rem);
+      color: var(--text2);
+      max-width: 580px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    /* ── Demo mode badge ──────────────────────────────── */
+    .demo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: rgba(167,139,250,0.12);
+      border: 1px solid rgba(167,139,250,0.3);
+      color: var(--purple);
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      margin-top: 0.75rem;
+    }
+    .demo-badge .demo-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--purple);
+      animation: demoPulse 1.5s ease-in-out infinite;
+    }
+
+    /* ── Input panel ──────────────────────────────────── */
+    .input-panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-panel:focus-within {
+      border-color: rgba(212,175,55,0.4);
+      box-shadow: 0 0 0 1px rgba(212,175,55,0.1), var(--glow-gold);
+    }
+    .input-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 0.6rem;
+    }
+    #hyper-input {
+      width: 100%;
+      min-height: 130px;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 0.95rem;
+      line-height: 1.65;
+      padding: 0.85rem 1rem;
+      resize: vertical;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    #hyper-input::placeholder { color: var(--text3); }
+    #hyper-input:focus {
+      border-color: rgba(212,175,55,0.35);
+    }
+    .input-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 0.9rem;
+      flex-wrap: wrap;
+    }
+    .btn-hyper {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--gold);
+      color: #0a0a0f;
+      font-family: var(--sans);
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 0.65rem 1.4rem;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+      min-height: 44px;
+      outline-offset: 3px;
+      letter-spacing: 0.01em;
+    }
+    .btn-hyper:hover:not(:disabled) {
+      background: var(--gold2);
+      box-shadow: var(--glow-gold);
+      transform: translateY(-1px);
+    }
+    .btn-hyper:active:not(:disabled) { transform: translateY(0); }
+    .btn-hyper:focus-visible { outline: 2px solid var(--gold); }
+    .btn-hyper:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .btn-hyper .btn-icon {
+      font-style: normal;
+      font-size: 1.1em;
+    }
+    .btn-demo-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: none;
+      border: 1px solid var(--border2);
+      color: var(--text2);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      min-height: 44px;
+      outline-offset: 2px;
+    }
+    .btn-demo-toggle:hover {
+      color: var(--purple);
+      border-color: rgba(167,139,250,0.4);
+      background: rgba(167,139,250,0.06);
+    }
+    .btn-demo-toggle.active {
+      color: var(--purple);
+      border-color: rgba(167,139,250,0.4);
+      background: rgba(167,139,250,0.1);
+    }
+    .btn-demo-toggle:focus-visible { outline: 2px solid var(--purple); }
+    .input-hint {
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: var(--text3);
+      font-family: var(--mono);
+    }
+    .example-prompt {
+      margin-top: 0.75rem;
+      padding: 0.6rem 0.85rem;
+      background: rgba(20,184,166,0.05);
+      border: 1px solid rgba(20,184,166,0.12);
+      border-radius: var(--radius);
+      font-size: 0.78rem;
+      color: var(--text3);
+      line-height: 1.5;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .example-prompt:hover {
+      background: rgba(20,184,166,0.09);
+      border-color: rgba(20,184,166,0.25);
+      color: var(--text2);
+    }
+    .example-label {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--teal);
+      margin-bottom: 0.25rem;
+    }
+
+    /* ── Status bar ───────────────────────────────────── */
+    #status-bar {
+      display: none;
+      align-items: center;
+      gap: 1rem;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 0.9rem 1.25rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    #status-bar.visible { display: flex; }
+    .status-label {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--text2);
+      flex: 1;
+      min-width: 0;
+    }
+    .status-label strong { color: var(--gold); }
+    .status-elapsed {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--teal);
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    .timeline-wrap {
+      width: 100%;
+      height: 3px;
+      background: var(--bg4);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .timeline-bar {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--teal) 0%, var(--gold) 100%);
+      border-radius: 2px;
+      transition: width 0.25s ease;
+    }
+    .timeline-bar.indeterminate {
+      animation: indeterminateBar 1.8s ease-in-out infinite;
+      width: 40%;
+    }
+
+    /* ── Cards grid ───────────────────────────────────── */
+    #cards-section {
+      display: none;
+      margin-bottom: 2rem;
+    }
+    #cards-section.visible { display: block; }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.1rem;
+    }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .section-sub {
+      font-size: 0.78rem;
+      color: var(--text3);
+      font-family: var(--mono);
+    }
+    .section-divider {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 0.9rem;
+    }
+
+    /* ── Task card ────────────────────────────────────── */
+    .task-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.1rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+      animation: cardIn 0.3s ease both;
+      will-change: transform, opacity;
+    }
+    .task-card.running {
+      border-color: rgba(20,184,166,0.3);
+      box-shadow: 0 0 0 1px rgba(20,184,166,0.08), var(--glow-teal);
+    }
+    .task-card.done {
+      border-color: rgba(34,197,94,0.25);
+    }
+    .task-card.error {
+      border-color: rgba(239,68,68,0.25);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .priority-num {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text3);
+      background: var(--bg4);
+      border: 1px solid var(--border);
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-weight: 700;
+    }
+    .service-badge {
+      font-family: var(--mono);
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.55rem;
+      border-radius: 20px;
+      flex-shrink: 0;
+    }
+    .badge-local  { background: var(--teal-dim);   color: var(--teal);   border: 1px solid rgba(20,184,166,0.25); }
+    .badge-cloud  { background: var(--gold-dim);    color: var(--gold);   border: 1px solid rgba(212,175,55,0.25); }
+    .badge-vision { background: var(--purple-dim);  color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+    .badge-meshy  { background: var(--orange-dim);  color: var(--orange); border: 1px solid rgba(249,115,22,0.25); }
+    .badge-search { background: var(--blue-dim);    color: var(--blue);   border: 1px solid rgba(59,130,246,0.25); }
+
+    .model-name {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--text3);
+      margin-left: auto;
+    }
+
+    .card-task-text {
+      font-size: 0.82rem;
+      color: var(--text2);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+    }
+    .status-icon { font-style: normal; }
+    .status-queued  { color: var(--text3); }
+    .status-running { color: var(--teal); }
+    .status-done    { color: var(--green); }
+    .status-error   { color: var(--red); }
+    .pulse-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--teal);
+      animation: pulseRing 1.1s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    .card-result {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.8rem;
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 2.5rem;
+      font-family: var(--sans);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 140px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border2) transparent;
+      display: none;
+    }
+    .card-result.visible { display: block; }
+
+    .card-bottom {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .cost-badge {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      font-weight: 600;
+    }
+    .cost-free { color: var(--teal); }
+    .cost-cloud { color: var(--gold); }
+    .time-badge {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--text3);
+      margin-left: auto;
+    }
+
+    /* ── Assembly section ─────────────────────────────── */
+    #assembly-section {
+      display: none;
+      margin-bottom: 2rem;
+    }
+    #assembly-section.visible { display: block; }
+
+    .assembly-panel {
+      background: var(--bg2);
+      border: 1px solid rgba(212,175,55,0.2);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(212,175,55,0.05);
+    }
+    .assembly-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .assembly-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .assembly-title-icon { font-style: normal; }
+    .btn-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      color: var(--text2);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+      min-height: 36px;
+      outline-offset: 2px;
+    }
+    .btn-copy:hover {
+      color: var(--gold);
+      border-color: rgba(212,175,55,0.35);
+      background: rgba(212,175,55,0.06);
+    }
+    .btn-copy:focus-visible { outline: 2px solid var(--gold); }
+    .btn-copy.copied { color: var(--green); border-color: rgba(34,197,94,0.35); }
+
+    #assembly-results {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .assembly-result-item {
+      border-left: 2px solid var(--border2);
+      padding-left: 1rem;
+      animation: slideUp 0.35s ease both;
+    }
+    .assembly-result-item.priority-1 { border-left-color: var(--gold); }
+    .assembly-result-item.priority-2 { border-left-color: var(--teal); }
+    .assembly-result-item.priority-3 { border-left-color: var(--blue); }
+    .assembly-result-item.priority-4 { border-left-color: var(--purple); }
+    .assembly-result-item.priority-5 { border-left-color: var(--orange); }
+    .ari-label {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .ari-content {
+      font-size: 0.88rem;
+      color: var(--text);
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* ── Stats bar ────────────────────────────────────── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem;
+      padding: 1rem 1.25rem;
+      border-top: 1px solid var(--border);
+      background: rgba(212,175,55,0.03);
+    }
+    .stat-item {
+      text-align: center;
+    }
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--gold);
+      display: block;
+      line-height: 1.2;
+    }
+    .stat-value.good { color: var(--teal); }
+    .stat-value.great { color: var(--green); }
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-top: 0.2rem;
+    }
+
+    /* ── Comparison panel ─────────────────────────────── */
+    #compare-panel {
+      margin-bottom: 2rem;
+    }
+    .compare-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text3);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      min-height: 36px;
+      outline-offset: 2px;
+    }
+    .compare-toggle:hover { color: var(--text2); border-color: var(--border2); background: var(--bg2); }
+    .compare-toggle:focus-visible { outline: 2px solid var(--gold); }
+    .compare-toggle .ct-arrow {
+      transition: transform 0.2s;
+      font-style: normal;
+    }
+    .compare-toggle.open .ct-arrow { transform: rotate(90deg); }
+    .compare-body {
+      display: none;
+      margin-top: 0.6rem;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+    }
+    .compare-body.open { display: block; }
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+    .compare-table th {
+      text-align: left;
+      color: var(--text3);
+      font-weight: 600;
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.68rem;
+    }
+    .compare-table td {
+      padding: 0.5rem 0.6rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text2);
+      vertical-align: top;
+    }
+    .compare-table tr:last-child td { border-bottom: none; }
+    .compare-table .td-label { color: var(--text); font-weight: 600; }
+    .compare-winner { color: var(--green); }
+    .compare-loser  { color: var(--coral); }
+
+    /* ═══════════════════════════════════════════════════
+       Keyframe animations
+    ═══════════════════════════════════════════════════ */
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulseRing {
+      0%, 100% { transform: scale(1);   opacity: 1; }
+      50%       { transform: scale(1.5); opacity: 0.5; }
+    }
+    @keyframes demoPulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    @keyframes indeterminateBar {
+      0%   { transform: translateX(-100%); width: 40%; }
+      50%  { transform: translateX(100%);  width: 60%; }
+      100% { transform: translateX(200%);  width: 40%; }
+    }
+    @keyframes typeChar {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes shimmerIn {
+      from { background-position: -200% center; }
+      to   { background-position: 200% center; }
+    }
+
+    /* ── Typing cursor ──────────────────────────────── */
+    .typing-cursor::after {
+      content: "▋";
+      color: var(--teal);
+      opacity: 0.8;
+      animation: demoPulse 0.7s ease-in-out infinite;
+      font-size: 0.85em;
+    }
+
+    /* ── Reduced motion ─────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      .task-card { animation: none; }
+      .assembly-result-item { animation: none; }
+      .pulse-dot { animation: none; }
+      .demo-badge .demo-dot { animation: none; }
+      .timeline-bar.indeterminate { animation: none; width: 60%; }
+      .btn-hyper { transition: none; }
+    }
+
+    /* ── Mobile layout ──────────────────────────────── */
+    @media (max-width: 640px) {
+      .page { padding: 1.5rem 0.9rem 3.5rem; }
+      .hero-title { font-size: 1.55rem; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .input-actions { gap: 0.6rem; }
+      .input-hint { display: none; }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 380px) {
+      .stats-bar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ──────────────────────────────────────────── -->
+<nav id="mullm-nav" role="navigation" aria-label="muLLM main navigation">
+  <a class="mn-brand" href="/" aria-label="muLLM home">m&#956;LLM</a>
+  <div class="mn-spacer" aria-hidden="true"></div>
+  <ul class="mn-links" role="list">
+    <li><a href="/" aria-current="false">Chat</a></li>
+    <li><a href="/dashboard" aria-current="false">Dashboard</a></li>
+    <li><a href="/bench" aria-current="false">Bench</a></li>
+    <li><a href="/research" aria-current="false">Research</a></li>
+    <li><a href="/setup" aria-current="false">Setup</a></li>
+    <li><a href="/hyper" class="mn-active" aria-current="page">Hyper</a></li>
+  </ul>
+  <div id="theme-picker-wrap">
+  <button id="theme-btn" aria-label="Change theme" title="Change theme">&#127912;</button>
+  <ul id="theme-menu" role="listbox" aria-label="Theme">
+    <li role="option" data-theme="">Default</li>
+    <li role="option" data-theme="theme-midnight">Midnight</li>
+    <li role="option" data-theme="theme-terminal">Terminal</li>
+    <li role="option" data-theme="theme-paper">Paper</li>
+    <li role="option" data-theme="theme-neon">Neon Tokyo</li>
+  </ul>
+</div>
+  <button class="mn-hamburger" id="mn-hamburger"
+          aria-expanded="false"
+          aria-controls="mullm-nav-dropdown"
+          aria-label="Toggle navigation menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+</nav>
+<div id="mullm-nav-dropdown" role="menu" aria-label="Navigation menu">
+  <a href="/"        role="menuitem" aria-current="false">Chat</a>
+  <a href="/dashboard" role="menuitem" aria-current="false">Dashboard</a>
+  <a href="/bench"   role="menuitem" aria-current="false">Bench</a>
+  <a href="/research" role="menuitem" aria-current="false">Research</a>
+  <a href="/setup"   role="menuitem" aria-current="false">Setup</a>
+  <a href="/hyper"   class="mn-active" role="menuitem" aria-current="page">Hyper</a>
+</div>
+
+<!-- ── Main page ────────────────────────────────────── -->
+<main class="page" id="main-content">
+
+  <!-- Hero -->
+  <header class="hero" aria-labelledby="hero-heading">
+    <p class="hero-eyebrow" aria-hidden="true">mµLLM Parallel Engine</p>
+    <h1 class="hero-title" id="hero-heading">
+      <span class="accent-gold">Hyper</span>-<span class="accent-teal">Decomposer</span>
+    </h1>
+    <p class="hero-sub">
+      Paste any multi-intent message. We decompose it into parallel sub-tasks,
+      route each to the cheapest capable model, and assemble the response
+      in a fraction of the time.
+    </p>
+  </header>
+
+  <!-- Input panel -->
+  <section class="input-panel" aria-label="Prompt input">
+    <label class="input-label" for="hyper-input">Your prompt</label>
+    <textarea
+      id="hyper-input"
+      placeholder="Paste your rambling message here — we'll decompose and parallelize it"
+      aria-describedby="input-hint-text"
+      spellcheck="true"
+      autocomplete="off"
+    ></textarea>
+    <div class="example-prompt" role="button" tabindex="0"
+         aria-label="Load example prompt"
+         id="example-prompt-btn">
+      <div class="example-label">Example prompt — click to load</div>
+      Can you write a short poem about tardigrades surviving in space, then explain to me like I'm 5
+      what makes them special, then generate a 3D model of one for my game, also fix this Python
+      error: AttributeError: 'NoneType' has no attribute 'split', and finally search for the latest
+      tardigrade research papers from 2025 and summarize the top 3 findings.
+    </div>
+    <div class="input-actions">
+      <button class="btn-hyper" id="btn-execute" aria-label="Hyper-Execute: decompose and parallelize prompt">
+        <span class="btn-icon" aria-hidden="true">&#9889;</span>
+        Hyper-Execute
+      </button>
+      <span class="input-hint" id="input-hint-text" aria-hidden="true">SSE streaming &bull; results fastest-first</span>
+    </div>
+  </section>
+
+  <!-- Status bar -->
+  <div id="status-bar" role="status" aria-live="polite" aria-atomic="false">
+    <span class="status-label" id="status-text">
+      Decomposing prompt&hellip;
+    </span>
+    <span class="status-elapsed" id="status-elapsed" aria-live="polite" aria-atomic="true">0.0s</span>
+    <div class="timeline-wrap" role="progressbar" aria-label="Execution progress"
+         aria-valuemin="0" aria-valuemax="100" id="timeline-progress" aria-valuenow="0">
+      <div class="timeline-bar indeterminate" id="timeline-bar"></div>
+    </div>
+  </div>
+
+  <!-- Task cards -->
+  <section id="cards-section" aria-label="Parallel task execution" aria-live="polite">
+    <div class="section-header">
+      <h2 class="section-title" id="cards-heading"></h2>
+      <div class="section-divider" aria-hidden="true"></div>
+      <span class="section-sub" id="cards-sub" aria-live="polite"></span>
+    </div>
+    <div class="cards-grid" id="cards-grid" role="list" aria-label="Task cards"></div>
+  </section>
+
+  <!-- Assembly -->
+  <section id="assembly-section" aria-label="Assembled response" aria-live="polite">
+    <div class="section-header">
+      <h2 class="section-title">Assembled Response</h2>
+      <div class="section-divider" aria-hidden="true"></div>
+    </div>
+    <div class="assembly-panel">
+      <div class="assembly-header">
+        <div class="assembly-title">
+          <span class="assembly-title-icon" aria-hidden="true">&#128203;</span>
+          Results in priority order
+        </div>
+        <button class="btn-copy" id="btn-copy-assembly"
+                aria-label="Copy assembled response to clipboard">
+          <span aria-hidden="true">&#128203;</span>
+          Copy
+        </button>
+      </div>
+      <div id="assembly-results" aria-label="Assembled task results"></div>
+      <div class="stats-bar" role="region" aria-label="Execution statistics">
+        <div class="stat-item">
+          <span class="stat-value" id="stat-wall" aria-label="Wall clock time">—</span>
+          <div class="stat-label">Wall Time</div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="stat-seq" aria-label="Estimated sequential time">—</span>
+          <div class="stat-label">Sequential Est.</div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value great" id="stat-saved" aria-label="Time saved">—</span>
+          <div class="stat-label">Time Saved</div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="stat-cost" aria-label="Total cost">—</span>
+          <div class="stat-label">Total Cost</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Compare panel -->
+  <div id="compare-panel" style="display:none;">
+    <button class="compare-toggle" id="btn-compare-toggle"
+            aria-expanded="false"
+            aria-controls="compare-body"
+            aria-label="Toggle sequential cost comparison">
+      <span aria-hidden="true">&#128202;</span>
+      <em class="ct-arrow" aria-hidden="true">&#9658;</em>
+      What this would have cost sequentially
+    </button>
+    <div class="compare-body" id="compare-body" role="region" aria-label="Sequential cost comparison">
+      <table class="compare-table" aria-label="Cost comparison: parallel vs sequential">
+        <thead>
+          <tr>
+            <th scope="col">Approach</th>
+            <th scope="col">Model</th>
+            <th scope="col">Time</th>
+            <th scope="col">Cost</th>
+          </tr>
+        </thead>
+        <tbody id="compare-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  'use strict';
+
+  // ── Nav hamburger ────────────────────────────────────
+  (function() {
+    const btn = document.getElementById('mn-hamburger');
+    const drop = document.getElementById('mullm-nav-dropdown');
+    if (!btn || !drop) return;
+    btn.addEventListener('click', function() {
+      const open = drop.classList.toggle('mn-open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', function(e) {
+      if (!btn.contains(e.target) && !drop.contains(e.target)) {
+        drop.classList.remove('mn-open');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && drop.classList.contains('mn-open')) {
+        drop.classList.remove('mn-open');
+        btn.setAttribute('aria-expanded', 'false');
+        btn.focus();
+      }
+    });
+  })();
+
+  // ── Hyper Decomposer ─────────────────────────────────
+  const EXAMPLE_PROMPT =
+    "Can you write a short poem about tardigrades surviving in space, then explain to me like I'm 5 what makes them special, then generate a 3D model of one for my game, also fix this Python error: AttributeError: 'NoneType' has no attribute 'split', and finally search for the latest tardigrade research papers from 2025 and summarize the top 3 findings.";
+
+  // ── State ─────────────────────────────────────────────
+  let running          = false;
+  let elapsedTimer     = null;
+  let startTime        = 0;
+  let completedCount   = 0;
+  let totalTasks       = 0;
+  let assembledResults = [];
+  let allTaskData      = [];
+  let uiTimeouts       = [];
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── DOM refs ──────────────────────────────────────────
+  const $input          = document.getElementById('hyper-input');
+  const $btnExec        = document.getElementById('btn-execute');
+  const $statusBar      = document.getElementById('status-bar');
+  const $statusText     = document.getElementById('status-text');
+  const $statusElapsed  = document.getElementById('status-elapsed');
+  const $timelineBar    = document.getElementById('timeline-bar');
+  const $timelineWrap   = document.getElementById('timeline-progress');
+  const $cardsSection   = document.getElementById('cards-section');
+  const $cardsHeading   = document.getElementById('cards-heading');
+  const $cardsSub       = document.getElementById('cards-sub');
+  const $cardsGrid      = document.getElementById('cards-grid');
+  const $assemblySection= document.getElementById('assembly-section');
+  const $assemblyResults= document.getElementById('assembly-results');
+  const $btnCopy        = document.getElementById('btn-copy-assembly');
+  const $comparePanel   = document.getElementById('compare-panel');
+  const $compareTbody   = document.getElementById('compare-tbody');
+  const $statWall       = document.getElementById('stat-wall');
+  const $statSeq        = document.getElementById('stat-seq');
+  const $statSaved      = document.getElementById('stat-saved');
+  const $statCost       = document.getElementById('stat-cost');
+
+  // ── Example prompt loader ─────────────────────────────
+  document.getElementById('example-prompt-btn').addEventListener('click', function() {
+    $input.value = EXAMPLE_PROMPT;
+    $input.focus();
+  });
+  document.getElementById('example-prompt-btn').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      $input.value = EXAMPLE_PROMPT;
+      $input.focus();
+    }
+  });
+
+  // ── Execute button ────────────────────────────────────
+  $btnExec.addEventListener('click', handleExecute);
+  $input.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') handleExecute();
+  });
+
+  function handleExecute() {
+    const prompt = $input.value.trim();
+    if (!prompt || running) return;
+
+    reset();
+    running = true;
+    $btnExec.disabled = true;
+
+    showStatusBar();
+    startElapsedTimer();
+
+    runLive(prompt);
+  }
+
+  // ── Reset ─────────────────────────────────────────────
+  function reset() {
+    clearAllTimeouts();
+    clearInterval(elapsedTimer);
+    completedCount   = 0;
+    totalTasks       = 0;
+    assembledResults = [];
+    allTaskData      = [];
+    $cardsGrid.innerHTML      = '';
+    $assemblyResults.innerHTML = '';
+    $cardsSection.classList.remove('visible');
+    $assemblySection.classList.remove('visible');
+    $comparePanel.style.display = 'none';
+    $compareTbody.innerHTML     = '';
+    $timelineBar.classList.add('indeterminate');
+    $timelineBar.style.width    = '';
+    $timelineWrap.setAttribute('aria-valuenow', '0');
+  }
+
+  function clearAllTimeouts() {
+    uiTimeouts.forEach(id => clearTimeout(id));
+    uiTimeouts = [];
+  }
+
+  // ── Status bar ────────────────────────────────────────
+  function showStatusBar() {
+    $statusBar.classList.add('visible');
+    $statusText.innerHTML = 'Decomposing prompt&hellip;';
+  }
+
+  function startElapsedTimer() {
+    startTime = performance.now();
+    elapsedTimer = setInterval(() => {
+      const s = ((performance.now() - startTime) / 1000).toFixed(1);
+      $statusElapsed.textContent = s + 's';
+    }, 100);
+  }
+
+  function stopElapsedTimer() {
+    clearInterval(elapsedTimer);
+    const s = ((performance.now() - startTime) / 1000).toFixed(1);
+    $statusElapsed.textContent = s + 's';
+    return parseFloat(s);
+  }
+
+  // ── Live SSE path ─────────────────────────────────────
+  function runLive(prompt) {
+    const url = '/query/hyper?q=' + encodeURIComponent(prompt);
+    let es;
+    try {
+      es = new EventSource(url);
+    } catch (err) {
+      showLiveError('EventSource is not available in this browser.');
+      return;
+    }
+
+    const connTimeout = setTimeout(() => {
+      es.close();
+      showLiveError('Hyper endpoint did not respond.');
+    }, 4000);
+
+    es.addEventListener('open', function() {
+      clearTimeout(connTimeout);
+    });
+
+    es.onmessage = function(e) {
+      clearTimeout(connTimeout);
+      try {
+        const d = JSON.parse(e.data);
+        if (d.type === 'decomposed') {
+          onDecomposed(d.tasks);
+        } else if (d.type === 'result') {
+          onTaskResult(d.task);
+        } else if (d.type === 'done') {
+          es.close();
+          onDone(d);
+        }
+      } catch (err) {
+        console.error('SSE parse error:', err);
+      }
+    };
+
+    es.onerror = function() {
+      es.close();
+      if (totalTasks === 0) {
+        showLiveError('Hyper endpoint returned an error.');
+      }
+    };
+  }
+
+  function showLiveError(reason) {
+    running = false;
+    $btnExec.disabled = false;
+    stopElapsedTimer();
+    $timelineBar.classList.remove('indeterminate');
+    $timelineBar.style.width = '0%';
+    $timelineWrap.setAttribute('aria-valuenow', '0');
+    $statusText.innerHTML = '<strong style="color:var(--coral)">' + escHtml(reason) + '</strong>';
+  }
+
+  // ── Event handlers ────────────────────────────────────
+  function onDecomposed(tasks) {
+    totalTasks = tasks.length;
+    allTaskData = tasks.map(t => Object.assign({}, t));
+
+    $cardsHeading.textContent = 'Decomposed into ' + tasks.length + ' tasks — executing in parallel';
+    $cardsSub.textContent     = '0 / ' + tasks.length + ' complete';
+    $cardsSection.classList.add('visible');
+
+    $statusText.innerHTML =
+      'Routing <strong>' + tasks.length + ' tasks</strong> in parallel&hellip;';
+
+    tasks.forEach((t, i) => {
+      const delay = prefersReducedMotion ? 0 : i * 70;
+      uiTimeouts.push(setTimeout(() => renderCard(t, 'queued'), delay));
+    });
+  }
+
+  function onTaskResult(result) {
+    completedCount++;
+    const card = document.getElementById('card-' + result.id);
+    if (card) updateCard(card, result);
+
+    // Add to assembly immediately in priority order
+    const taskMeta = allTaskData.find(t => t.id === result.id);
+    if (taskMeta) {
+      taskMeta.result    = result.result;
+      taskMeta.cost      = result.cost;
+      taskMeta.costLabel = result.costLabel;
+      taskMeta.durationMs = result.durationMs;
+      taskMeta.status    = result.status;
+    }
+
+    // Show assembly section as results arrive
+    appendAssemblyResult(result.id, taskMeta, completedCount);
+
+    $cardsSub.textContent = completedCount + ' / ' + totalTasks + ' complete';
+
+    // Progress bar
+    const pct = Math.round((completedCount / totalTasks) * 100);
+    if (!$timelineBar.classList.contains('indeterminate')) {
+      $timelineBar.style.width = pct + '%';
+      $timelineWrap.setAttribute('aria-valuenow', pct);
+    }
+  }
+
+  function onDone(data) {
+    running = false;
+    $btnExec.disabled = false;
+    const wall = stopElapsedTimer();
+
+    $timelineBar.classList.remove('indeterminate');
+    $timelineBar.style.width = '100%';
+    $timelineWrap.setAttribute('aria-valuenow', 100);
+
+    $statusText.innerHTML = '<strong style="color:var(--green)">All tasks complete</strong> — response assembled';
+
+    const wallS  = (data.wallMs  / 1000).toFixed(1);
+    const seqS   = (data.seqMs   / 1000).toFixed(1);
+    const savedPct = Math.round((1 - data.wallMs / data.seqMs) * 100);
+    const costStr  = data.totalCost === 0
+      ? 'FREE'
+      : '$' + data.totalCost.toFixed(4);
+
+    $statWall.textContent  = wallS  + 's';
+    $statSeq.textContent   = seqS   + 's';
+    $statSaved.textContent = savedPct + '%';
+    $statCost.textContent  = costStr;
+
+    $assemblySection.classList.add('visible');
+
+    // Comparison table
+    renderCompare(data, wallS, seqS, costStr);
+  }
+
+  // ── Card renderer ─────────────────────────────────────
+  function renderCard(task, initialStatus) {
+    const card = document.createElement('article');
+    card.className = 'task-card';
+    card.id        = 'card-' + task.id;
+    card.setAttribute('role', 'listitem');
+    card.setAttribute('aria-label', 'Task ' + task.priority + ': ' + task.task);
+
+    const serviceClass = 'badge-' + (task.service || 'local');
+    const serviceLabel = (task.service || 'LOCAL').toUpperCase();
+
+    card.innerHTML =
+      '<div class="card-top">' +
+        '<span class="priority-num" aria-label="Priority ' + task.priority + '">' + task.priority + '</span>' +
+        '<span class="service-badge ' + serviceClass + '">' + serviceLabel + '</span>' +
+        '<span class="model-name" aria-label="Model: ' + (task.model || '') + '">' + (task.model || '') + '</span>' +
+      '</div>' +
+      '<p class="card-task-text">' + escHtml(task.task) + '</p>' +
+      '<div class="card-status status-queued" id="status-' + task.id + '">' +
+        '<span class="status-icon" aria-hidden="true">&#9203;</span>' +
+        '<span>queued</span>' +
+      '</div>' +
+      '<div class="card-result" id="result-' + task.id + '" aria-live="polite" aria-label="Task result"></div>' +
+      '<div class="card-bottom">' +
+        '<span class="cost-badge cost-free" id="cost-' + task.id + '" aria-label="Cost: FREE">FREE</span>' +
+        '<span class="time-badge" id="time-' + task.id + '" aria-label="Duration"></span>' +
+      '</div>';
+
+    $cardsGrid.appendChild(card);
+
+    // Brief pause then mark as running
+    const runDelay = prefersReducedMotion ? 0 : 120;
+    uiTimeouts.push(setTimeout(() => setCardRunning(task.id), runDelay));
+  }
+
+  function setCardRunning(taskId) {
+    const card   = document.getElementById('card-' + taskId);
+    const status = document.getElementById('status-' + taskId);
+    if (!card || !status) return;
+    card.classList.add('running');
+    status.className = 'card-status status-running';
+    status.innerHTML =
+      '<span class="pulse-dot" aria-hidden="true"></span>' +
+      '<span>running&hellip;</span>';
+    card.setAttribute('aria-label', card.getAttribute('aria-label').replace('Task ', 'Running — Task '));
+  }
+
+  function updateCard(card, result) {
+    const taskId  = card.id.replace('card-', '');
+    const status  = document.getElementById('status-' + taskId);
+    const costEl  = document.getElementById('cost-'   + taskId);
+    const timeEl  = document.getElementById('time-'   + taskId);
+    const resultEl = document.getElementById('result-' + taskId);
+
+    card.classList.remove('running');
+
+    if (result.status === 'done' || !result.status || result.result) {
+      card.classList.add('done');
+      const durS = result.durationMs ? (result.durationMs / 1000).toFixed(1) + 's' : '';
+      if (status) {
+        status.className = 'card-status status-done';
+        status.innerHTML =
+          '<span class="status-icon" aria-hidden="true">&#10003;</span>' +
+          '<span>done' + (durS ? ' ' + durS : '') + '</span>';
+      }
+      if (costEl) {
+        const isFree = !result.cost || result.cost === 0;
+        costEl.className = 'cost-badge ' + (isFree ? 'cost-free' : 'cost-cloud');
+        costEl.textContent = result.costLabel || (isFree ? 'FREE' : '$' + result.cost.toFixed(4));
+        costEl.setAttribute('aria-label', 'Cost: ' + costEl.textContent);
+      }
+      if (timeEl && result.durationMs) {
+        timeEl.textContent = (result.durationMs / 1000).toFixed(1) + 's';
+      }
+      // Type in result text
+      if (resultEl && result.result) {
+        resultEl.classList.add('visible');
+        typeIn(resultEl, result.result);
+      }
+    } else if (result.status === 'error') {
+      card.classList.add('error');
+      if (status) {
+        status.className = 'card-status status-error';
+        status.innerHTML =
+          '<span class="status-icon" aria-hidden="true">&#10007;</span>' +
+          '<span>error</span>';
+      }
+    }
+  }
+
+  // ── Typing animation ──────────────────────────────────
+  function typeIn(el, text) {
+    if (prefersReducedMotion) {
+      el.textContent = text;
+      return;
+    }
+    el.textContent = '';
+    el.classList.add('typing-cursor');
+    const chunkSize = Math.max(1, Math.ceil(text.length / 80));
+    let i = 0;
+    const speed = Math.max(8, Math.min(30, Math.round(1200 / text.length)));
+    function step() {
+      if (i < text.length) {
+        el.textContent += text.slice(i, i + chunkSize);
+        i += chunkSize;
+        el.scrollTop = el.scrollHeight;
+        uiTimeouts.push(setTimeout(step, speed));
+      } else {
+        el.classList.remove('typing-cursor');
+      }
+    }
+    step();
+  }
+
+  // ── Assembly renderer ─────────────────────────────────
+  function appendAssemblyResult(taskId, taskMeta, completedSoFar) {
+    if (completedSoFar === 1) {
+      $assemblySection.classList.add('visible');
+    }
+
+    if (!taskMeta || !taskMeta.result) return;
+
+    const item = document.createElement('div');
+    item.className = 'assembly-result-item priority-' + (taskMeta.priority <= 5 ? taskMeta.priority : 'default');
+    item.setAttribute('data-priority', taskMeta.priority || 99);
+    item.id = 'ari-' + taskId;
+
+    const serviceLabel = (taskMeta.service || 'local').toUpperCase();
+    item.innerHTML =
+      '<div class="ari-label">' +
+        '<span>Task ' + (taskMeta.priority || '?') + '</span>' +
+        '<span style="color:var(--border2)">•</span>' +
+        '<span>' + escHtml(serviceLabel) + '</span>' +
+        '<span style="color:var(--border2)">•</span>' +
+        '<span>' + escHtml(taskMeta.model || '') + '</span>' +
+      '</div>' +
+      '<div class="ari-content" aria-live="polite">' + escHtml(taskMeta.result) + '</div>';
+
+    // Insert in priority order
+    const existing = Array.from($assemblyResults.querySelectorAll('[data-priority]'));
+    const insertBefore = existing.find(el => parseInt(el.getAttribute('data-priority')) > parseInt(item.getAttribute('data-priority')));
+    if (insertBefore) {
+      $assemblyResults.insertBefore(item, insertBefore);
+    } else {
+      $assemblyResults.appendChild(item);
+    }
+  }
+
+  // ── Comparison table ──────────────────────────────────
+  function renderCompare(data, wallS, seqS, costStr) {
+    if (!data.tasks || !data.tasks.length) return;
+
+    $comparePanel.style.display = 'block';
+    $compareTbody.innerHTML = '';
+
+    // Parallel row
+    const trPar = document.createElement('tr');
+    trPar.innerHTML =
+      '<td class="td-label compare-winner">mµLLM Parallel</td>' +
+      '<td>Multi-model routing</td>' +
+      '<td class="compare-winner">' + wallS + 's</td>' +
+      '<td class="compare-winner">' + costStr + '</td>';
+    $compareTbody.appendChild(trPar);
+
+    // Sequential naive row
+    const seqCost = data.tasks.reduce((sum, t) => sum + (t.cost || 0), 0);
+    const seqCostStr = seqCost === 0 ? 'FREE' : '$' + (seqCost * 1.8).toFixed(4);
+    const trSeq = document.createElement('tr');
+    trSeq.innerHTML =
+      '<td class="td-label compare-loser">Single GPT-4o call</td>' +
+      '<td>gpt-4o (full context)</td>' +
+      '<td class="compare-loser">' + seqS + 's</td>' +
+      '<td class="compare-loser">' + seqCostStr + '</td>';
+    $compareTbody.appendChild(trSeq);
+
+    // Breakdown per task
+    data.tasks.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td style="color:var(--text3);padding-left:1.2em">&#x21B3; Sub-task ' + (t.id || '') + '</td>' +
+        '<td style="color:var(--text3)">' + (t.model || '—') + '</td>' +
+        '<td style="color:var(--text3)">' + (t.durationMs ? (t.durationMs/1000).toFixed(1) + 's' : '—') + '</td>' +
+        '<td style="color:var(--text3)">' + (t.costLabel || 'FREE') + '</td>';
+      $compareTbody.appendChild(tr);
+    });
+
+  }
+
+  // ── Copy button ───────────────────────────────────────
+  $btnCopy.addEventListener('click', function() {
+    const sorted = allTaskData
+      .filter(t => t.result)
+      .sort((a, b) => (a.priority || 99) - (b.priority || 99));
+    const text = sorted.map(t =>
+      '[' + (t.service || 'local').toUpperCase() + ' via ' + (t.model || 'model') + ']\n' + t.result
+    ).join('\n\n---\n\n');
+    navigator.clipboard.writeText(text).then(() => {
+      $btnCopy.classList.add('copied');
+      $btnCopy.innerHTML = '<span aria-hidden="true">&#10003;</span> Copied!';
+      $btnCopy.setAttribute('aria-label', 'Copied to clipboard');
+      setTimeout(() => {
+        $btnCopy.classList.remove('copied');
+        $btnCopy.innerHTML = '<span aria-hidden="true">&#128203;</span> Copy';
+        $btnCopy.setAttribute('aria-label', 'Copy assembled response to clipboard');
+      }, 2000);
+    }).catch(() => {
+      $btnCopy.textContent = 'Copy failed';
+      setTimeout(() => { $btnCopy.innerHTML = '<span aria-hidden="true">&#128203;</span> Copy'; }, 2000);
+    });
+  });
+
+  // ── HTML escaping ─────────────────────────────────────
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // ── Artistic mode toggle ──────────────────────────────
+  (function() {
+    const btn = document.getElementById('mn-art-btn');
+    if (!btn) return;
+    let on = false;
+    btn.addEventListener('click', function() {
+      on = !on;
+      document.body.classList.toggle('artistic', on);
+      btn.classList.toggle('mn-art-on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  })();
+
+  // ── Compare panel toggle (registered once) ───────────
+  document.getElementById('btn-compare-toggle').addEventListener('click', function() {
+    const body = document.getElementById('compare-body');
+    const open = body.classList.toggle('open');
+    this.classList.toggle('open', open);
+    this.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  // ── Auto-load example on first visit ─────────────────
+  if (!$input.value.trim()) {
+    $input.value = EXAMPLE_PROMPT;
+  }
+</script>
+<script>
+/* muLLM Theme Picker — localStorage persistence, WCAG AA */
+(function() {
+  var THEME_KEY = 'mullm_theme';
+  function applyTheme(t) {
+    document.body.className = (document.body.className || '').replace(/\btheme-\S+/g, '').trim();
+    if (t) document.body.classList.add(t);
+    try { localStorage.setItem(THEME_KEY, t || ''); } catch(e) {}
+    var menu = document.getElementById('theme-menu');
+    if (menu) menu.querySelectorAll('[data-theme]').forEach(function(li) {
+      li.style.fontWeight = li.dataset.theme === t ? 'bold' : '';
+      li.style.color = li.dataset.theme === t ? 'var(--gold, #c8a84b)' : '';
+    });
+  }
+  /* Apply saved theme immediately (before DOMContentLoaded to avoid FOUC) */
+  var saved = '';
+  try { saved = localStorage.getItem(THEME_KEY) || ''; } catch(e) {}
+  if (saved && document.body) applyTheme(saved);
+  document.addEventListener('DOMContentLoaded', function() {
+    var saved2 = '';
+    try { saved2 = localStorage.getItem(THEME_KEY) || ''; } catch(e) {}
+    applyTheme(saved2);
+    var btn = document.getElementById('theme-btn');
+    var menu = document.getElementById('theme-menu');
+    if (!btn || !menu) return;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    });
+    menu.querySelectorAll('[data-theme]').forEach(function(li) {
+      li.addEventListener('click', function() {
+        applyTheme(li.dataset.theme);
+        menu.style.display = 'none';
+      });
+    });
+    document.addEventListener('click', function() { menu.style.display = 'none'; });
+  });
+})();
+</script>
+
+</body>
+</html>

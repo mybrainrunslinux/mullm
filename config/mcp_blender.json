@@ -1,0 +1,75 @@
+{
+  "name": "blender-mcp",
+  "description": "Blender 3D DCC integration via MCP — model, rig, animate, render, export GLB/FBX/USD",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": ["blender-mcp"],
+  "env": {
+    "BLENDER_PATH": "/usr/bin/blender"
+  },
+  "enabled": false,
+  "install_hint": "1) Install Blender: sudo dnf install blender  2) Install server: uvx blender-mcp  3) Set enabled=true and restart mullm",
+  "capabilities": [
+    "create_object", "modify_mesh", "apply_material", "rig_armature",
+    "set_keyframe", "render_image", "export_glb", "export_fbx",
+    "run_python_script", "get_scene_info", "import_glb"
+  ],
+  "mullm_tools": [
+    {
+      "name": "blender_create",
+      "description": "Create a mesh, light, camera, or empty in the Blender scene",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "type": {"type": "string", "enum": ["mesh", "light", "camera", "empty", "armature"]},
+          "name": {"type": "string"},
+          "location": {"type": "array", "items": {"type": "number"}, "description": "[x, y, z]"},
+          "params": {"type": "object"}
+        },
+        "required": ["type"]
+      }
+    },
+    {
+      "name": "blender_export_glb",
+      "description": "Export current Blender scene or selected objects as GLB for mullm asset library",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "output_name": {"type": "string"},
+          "selected_only": {"type": "boolean", "default": false},
+          "apply_modifiers": {"type": "boolean", "default": true},
+          "draco": {"type": "boolean", "default": false}
+        },
+        "required": ["output_name"]
+      }
+    },
+    {
+      "name": "blender_auto_rig",
+      "description": "Auto-rig selected mesh using Blender Rigify or BoneWidget",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "mesh_name": {"type": "string"},
+          "rig_preset": {"type": "string", "enum": ["biped", "quadruped", "bird", "fish", "custom"], "default": "biped"}
+        },
+        "required": ["mesh_name"]
+      }
+    },
+    {
+      "name": "blender_render",
+      "description": "Render current frame or animation range to PNG/MP4",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "output_name": {"type": "string"},
+          "frame_start": {"type": "integer", "default": 1},
+          "frame_end": {"type": "integer", "default": 1},
+          "engine": {"type": "string", "enum": ["CYCLES", "EEVEE", "WORKBENCH"], "default": "EEVEE"},
+          "resolution_x": {"type": "integer", "default": 1920},
+          "resolution_y": {"type": "integer", "default": 1080}
+        },
+        "required": ["output_name"]
+      }
+    }
+  ]
+}

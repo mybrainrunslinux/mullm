@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>muLLM - local-first LLM routing</title>
+  <meta name="description" content="muLLM is a local-first LLM router that sends easy work to local models and escalates only when needed.">
+  <style>
+    :root{color-scheme:dark;--bg:#071017;--panel:#101a24;--line:#203244;--text:#e5edf6;--muted:#9ab0c4;--teal:#2dd4bf;--gold:#f5b841;--green:#5ee08f;--red:#ff6b6b;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#0a1620,#071017 45%);color:var(--text);font-family:var(--sans);line-height:1.55}
+    header,main,footer{max-width:1080px;margin:0 auto;padding:28px 22px}nav{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{font:800 20px var(--mono);letter-spacing:.04em}.brand .mu{font-family:Georgia,serif;color:var(--gold);font-style:italic;font-size:28px}.brand .pipe{color:#607080}.brand .llm{color:var(--teal)}
+    .links{display:flex;gap:10px;flex-wrap:wrap}.links a,.btn{color:var(--text);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:600 13px var(--mono);background:rgba(255,255,255,.02)}
+    .links a:hover,.btn:hover{border-color:var(--teal);color:var(--teal)}.hero{padding:72px 22px 42px}.eyebrow{font:700 12px var(--mono);color:var(--green);text-transform:uppercase;letter-spacing:.12em}
+    h1{font-size:clamp(38px,7vw,72px);line-height:.95;margin:14px 0 20px;max-width:900px;letter-spacing:0}.lead{font-size:clamp(18px,2.4vw,23px);color:var(--muted);max-width:760px}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.primary{background:var(--teal);border-color:var(--teal);color:#04100f}.secondary{background:transparent}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:34px}.card{background:rgba(16,26,36,.82);border:1px solid var(--line);border-radius:8px;padding:18px}
+    .card h2{font:800 15px var(--mono);margin:0 0 8px;color:var(--teal)}.card p{margin:0;color:var(--muted);font-size:14px}
+    .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:rgba(255,255,255,.025);margin:40px 0;padding:20px 0}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stat strong{display:block;font:800 24px var(--mono);color:var(--gold)}.stat span{color:var(--muted);font-size:13px}
+    pre{overflow:auto;background:#050b10;border:1px solid var(--line);border-radius:8px;padding:16px;color:#c7f9ee;font:13px var(--mono)}
+    footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line)}footer a{color:var(--teal)}
+    @media(max-width:800px){.grid,.stats{grid-template-columns:1fr}.hero{padding-top:44px}nav{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <div class="brand"><span class="mu">m&mu;</span><span class="pipe">|</span><span class="llm">LLM</span></div>
+      <div class="links">
+        <a href="https://github.com/0101technology/mullm">GitHub</a>
+        <a href="/constraints.txt">constraints.txt</a>
+        <a href="https://0101technology.com">0101 Technology</a>
+      </div>
+    </nav>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="eyebrow">Local-first cost-aware LLM routing</div>
+      <h1>Use the right model only when the work actually needs it.</h1>
+      <p class="lead">muLLM routes simple queries to local models, cache, and groundtruth first, then escalates to cloud models only when complexity or policy requires it.</p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/0101technology/mullm/releases">Download</a>
+        <a class="btn secondary" href="https://github.com/0101technology/mullm">View source</a>
+      </div>
+    </section>
+    <section class="grid">
+      <div class="card"><h2>Private by default</h2><p>Local routing, local cache, local setup, and explicit cloud provider toggles.</p></div>
+      <div class="card"><h2>Budget guarded</h2><p>Per-query estimates, hard caps, cancellation, and audit events are first-class surfaces.</p></div>
+      <div class="card"><h2>Modular</h2><p>Core router stays small. Studio, benchmarks, and coding orchestration are opt-in modules.</p></div>
+    </section>
+    <section class="strip">
+      <div class="stats">
+        <div class="stat"><strong>local</strong><span>first route</span></div>
+        <div class="stat"><strong>cloud</strong><span>only when needed</span></div>
+        <div class="stat"><strong>audit</strong><span>events and exports</span></div>
+        <div class="stat"><strong>Apache-2.0</strong><span>license</span></div>
+      </div>
+    </section>
+    <section>
+      <h2>Install preview</h2>
+      <pre>python -m pip install mullm==1.0.0 -c https://mullm.com/releases/1.0.0/constraints.txt</pre>
+    </section>
+  </main>
+  <footer>
+    muLLM is built by <a href="https://0101technology.com">0101 Technology</a>. Public release materials are being staged.
+  </footer>
+</body>
+</html>

@@ -1,0 +1,22 @@
+PackageIdentifier: 0101Technology.mullm
+PackageVersion: 1.0.0
+InstallerType: exe
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/0101technology/mullm/releases/download/v1.0.0/mullm-1.0.0-setup.exe
+    InstallerSha256: FILL_AFTER_RELEASE
+    InstallerSwitches:
+      Silent: /S
+      SilentWithProgress: /S
+InstallModes:
+  - interactive
+  - silent
+Commands:
+  - mullm
+  - mullm-server
+Dependencies:
+  PackageDependencies:
+    - PackageIdentifier: Python.Python.3.12
+    - PackageIdentifier: Ollama.Ollama
+ManifestType: installer
+ManifestVersion: 1.6.0

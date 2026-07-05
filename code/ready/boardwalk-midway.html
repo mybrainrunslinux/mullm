@@ -1,0 +1,1941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boardwalk Midway</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d0820;
+  color: #f0e8d0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+}
+
+canvas#main {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  inset: 0;
+}
+
+/* HUD */
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+}
+.hud-chip {
+  background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,220,80,0.4);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffd050;
+  text-shadow: 0 0 8px #ffaa00;
+}
+#hud-streak { color: #ff8844; }
+
+/* Power meter */
+#power-bar {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 220px;
+  height: 10px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px;
+  overflow: hidden;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0.85;
+}
+#power-meter-fill {
+  height: 100%;
+  width: 0%;
+  background: #33ff66;
+  border-radius: 4px;
+  transition: width 0.03s linear, background 0.1s;
+}
+
+/* Game result */
+#game-result {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.85);
+  border: 2px solid #ffd050;
+  border-radius: 16px;
+  padding: 24px 40px;
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffd050;
+  text-align: center;
+  z-index: 20;
+  text-shadow: 0 0 20px #ffaa00;
+  animation: pop-in 0.3s cubic-bezier(.22,1,.36,1);
+}
+@keyframes pop-in {
+  from { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+}
+
+/* Bottom control bar */
+#controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(10,5,25,0.92);
+  border-top: 1px solid rgba(255,220,80,0.2);
+  padding: 8px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  z-index: 10;
+}
+
+.btn {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.12s;
+}
+.btn:hover { filter: brightness(1.25); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+.btn-game {
+  background: linear-gradient(135deg, #7c3aed, #4f1e8a);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.btn-game:hover { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+
+.btn-lab {
+  background: linear-gradient(135deg, #065f46, #022c22);
+  color: #6ee7b7;
+  border: 1px solid rgba(110,231,183,0.2);
+}
+
+.diff-btn {
+  background: rgba(255,255,255,0.08);
+  color: #ccc;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.diff-btn.active {
+  background: rgba(255,208,80,0.2);
+  color: #ffd050;
+  border-color: #ffd050;
+}
+
+.sep {
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+.label { font-size: 11px; color: #888; letter-spacing: 0.04em; }
+
+/* Physics Lab */
+#lab-panel {
+  display: none;
+  position: fixed;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(5,20,10,0.93);
+  border: 1px solid rgba(110,231,183,0.25);
+  border-radius: 14px;
+  padding: 18px;
+  width: 240px;
+  z-index: 15;
+  font-size: 13px;
+}
+#lab-panel h3 {
+  color: #6ee7b7;
+  font-size: 14px;
+  margin-bottom: 14px;
+  letter-spacing: 0.05em;
+}
+.lab-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+.lab-row label { color: #aaa; flex-shrink: 0; }
+.lab-row input[type=range] { width: 90px; accent-color: #6ee7b7; }
+.lab-val { color: #6ee7b7; font-weight: 700; min-width: 32px; text-align: right; }
+.lab-row select {
+  background: #0a1a0f;
+  color: #6ee7b7;
+  border: 1px solid rgba(110,231,183,0.3);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+.btn-lab-throw {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  background: linear-gradient(135deg, #065f46, #022c22);
+  color: #6ee7b7;
+  border: 1px solid rgba(110,231,183,0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+}
+.btn-lab-throw:hover { filter: brightness(1.3); }
+
+/* Prize shelf */
+#prize-shelf {
+  position: fixed;
+  right: 12px;
+  top: 12px;
+  background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,220,80,0.3);
+  border-radius: 12px;
+  padding: 12px;
+  z-index: 10;
+  font-size: 13px;
+  min-width: 140px;
+}
+#prize-shelf h4 { color: #ffd050; margin-bottom: 8px; font-size: 12px; letter-spacing: 0.06em; }
+.prize-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 3px 6px;
+  transition: background 0.1s;
+}
+.prize-item:hover { background: rgba(255,208,80,0.12); }
+.prize-item.affordable { color: #ffd050; }
+.prize-item:not(.affordable) { color: #555; }
+.prize-cost { font-size: 11px; opacity: 0.75; }
+
+/* Mute */
+#mute-btn {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 4px 14px;
+  color: #aaa;
+  font-size: 13px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.1s;
+}
+#mute-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+
+/* Start screen */
+#start-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  background: radial-gradient(ellipse at center, #2a0a3a 0%, #0d0820 70%);
+}
+#start-screen h1 {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, #ffd050 0%, #ff6633 50%, #ff33cc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-align: center;
+  margin-bottom: 12px;
+  text-shadow: none;
+  filter: drop-shadow(0 0 30px rgba(255,100,50,0.5));
+}
+#start-screen .tagline {
+  color: rgba(255,230,200,0.7);
+  font-size: 1.1rem;
+  margin-bottom: 40px;
+  text-align: center;
+}
+.start-games {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+.start-game-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,208,80,0.3);
+  border-radius: 16px;
+  padding: 22px 28px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  min-width: 160px;
+}
+.start-game-card:hover {
+  background: rgba(255,208,80,0.12);
+  border-color: #ffd050;
+  transform: translateY(-4px);
+}
+.start-game-card .icon { font-size: 2.5rem; margin-bottom: 8px; }
+.start-game-card .name { font-size: 1rem; font-weight: 700; color: #ffd050; }
+.start-game-card .desc { font-size: 0.8rem; color: #999; margin-top: 4px; }
+.start-diff {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.start-diff button {
+  padding: 8px 22px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06);
+  color: #ccc;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.1s;
+}
+.start-diff button.active {
+  background: rgba(255,208,80,0.2);
+  color: #ffd050;
+  border-color: #ffd050;
+}
+.hint { color: #555; font-size: 12px; margin-top: 10px; }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<canvas id="main"></canvas>
+
+<!-- Start screen -->
+<div id="start-screen">
+  <h1>BOARDWALK MIDWAY</h1>
+  <p class="tagline">Carnival games - throw hard - win big</p>
+  <div class="start-diff">
+    <button class="diff-btn" data-diff="easy"   data-action="pickDiff" data-arg="easy">Easy</button>
+    <button class="diff-btn active" data-diff="normal" data-action="pickDiff" data-arg="normal">Normal</button>
+    <button class="diff-btn" data-diff="hard"   data-action="pickDiff" data-arg="hard">Hard</button>
+  </div>
+  <div class="start-games">
+    <div class="start-game-card" data-action="launchGame" data-arg="milk_bottles">
+      <div class="icon">&#x1F37C;</div>
+      <div class="name">Milk Bottles</div>
+      <div class="desc">Knock 'em all down</div>
+    </div>
+    <div class="start-game-card" data-action="launchGame" data-arg="balloon_darts">
+      <div class="icon">&#x1F388;</div>
+      <div class="name">Balloon Darts</div>
+      <div class="desc">Pop 'em all</div>
+    </div>
+    <div class="start-game-card" data-action="openLab">
+      <div class="icon">&#x1F52C;</div>
+      <div class="name">Physics Lab</div>
+      <div class="desc">Tune your throw</div>
+    </div>
+  </div>
+  <p class="hint">Hold to charge - Release to throw - Click to start</p>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-chip">&#x1F39F; <span id="hud-tickets">0</span></div>
+  <div class="hud-chip" id="hud-streak"></div>
+</div>
+
+<button id="mute-btn" data-action="toggleMute" title="Mute/unmute">&#x1F50A; Sound</button>
+
+<!-- Power meter -->
+<div id="power-bar"><div id="power-meter-fill"></div></div>
+
+<!-- Game result -->
+<div id="game-result"></div>
+
+<!-- Bottom controls -->
+<div id="controls" style="display:none">
+  <span class="label">GAME</span>
+  <button class="btn btn-game" data-action="launchGame" data-arg="milk_bottles">&#x1F37C; Milk Bottles</button>
+  <button class="btn btn-game" data-action="launchGame" data-arg="balloon_darts">&#x1F388; Balloon Darts</button>
+  <div class="sep"></div>
+  <span class="label">DIFFICULTY</span>
+  <button class="btn diff-btn"        data-diff="easy"   data-action="setDiff" data-arg="easy">Easy</button>
+  <button class="btn diff-btn active" data-diff="normal" data-action="setDiff" data-arg="normal">Normal</button>
+  <button class="btn diff-btn"        data-diff="hard"   data-action="setDiff" data-arg="hard">Hard</button>
+  <div class="sep"></div>
+  <button class="btn btn-lab" data-action="toggleLab">&#x1F52C; Lab</button>
+  <button class="btn" style="background:rgba(255,255,255,0.05);color:#888;" data-action="showStart">&#x2B05; Menu</button>
+</div>
+
+<!-- Physics Lab panel -->
+<div id="lab-panel">
+  <h3>PHYSICS LAB</h3>
+
+  <div class="lab-row">
+    <label>Precision</label>
+    <input type="range" min="1" max="7" step="1" value="5" id="lab-precision" data-action="updateLab">
+    <span class="lab-val" id="lab-precision-val">5</span>
+  </div>
+
+  <div class="lab-row">
+    <label>Gravity</label>
+    <input type="range" min="0.5" max="30" step="0.5" value="9.8" id="lab-gravity" data-action="updateLab">
+    <span class="lab-val" id="lab-gravity-val">9.8</span>
+  </div>
+
+  <div class="lab-row">
+    <label>Drag</label>
+    <input type="range" min="0" max="0.1" step="0.002" value="0.025" id="lab-drag" data-action="updateLab">
+    <span class="lab-val" id="lab-drag-val">0.025</span>
+  </div>
+
+  <div class="lab-row">
+    <label>Wind X</label>
+    <input type="range" min="-3" max="3" step="0.1" value="0.3" id="lab-windx" data-action="updateLab">
+    <span class="lab-val" id="lab-windx-val">0.3</span>
+  </div>
+
+  <div class="lab-row">
+    <label>Env</label>
+    <select id="lab-env" data-action="applyEnvPreset">
+      <option value="carnival">Carnival</option>
+      <option value="earth">Earth</option>
+      <option value="moon">Moon</option>
+      <option value="mars">Mars</option>
+      <option value="jupiter">Jupiter</option>
+      <option value="stormy">Stormy</option>
+      <option value="indoor">Indoor</option>
+    </select>
+  </div>
+
+  <button class="btn-lab-throw" data-action="labThrow">&#x25B6; Demo Arc</button>
+  <button class="btn-lab-throw" style="margin-top:6px;background:rgba(255,255,255,0.05);color:#888;" data-action="toggleLab">&#x2715; Close</button>
+</div>
+
+<!-- Prize shelf -->
+<div id="prize-shelf">
+  <h4>&#x1F3C6; PRIZE COUNTER</h4>
+  <div id="prize-list"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// =========================================================================
+// PRIZE ECONOMY SYSTEM
+// =========================================================================
+const PRIZE_TIERS = {
+  small:  { name: 'Small',   tickets: 5,   label: 'Tiny Trinket',   icon: '\u{1F380}' },
+  medium: { name: 'Medium',  tickets: 15,  label: 'Stuffed Animal', icon: '\u{1F9F8}' },
+  large:  { name: 'Large',   tickets: 40,  label: 'Big Plush',      icon: '\u{1F3AA}' },
+  xl:     { name: 'XL',      tickets: 100, label: 'Giant Prize',    icon: '\u{1F3C6}' },
+  hard:   { name: 'Jackpot', tickets: 250, label: 'Jackpot!',       icon: '\u{1F3B0}' },
+};
+
+const GAME_AWARDS = {
+  miss:          0,
+  near_miss:     0,
+  partial:       2,
+  hit:           5,
+  bonus:         10,
+  clear:         20,
+  perfect_clear: 50,
+};
+
+class PrizeSystem {
+  constructor() {
+    this._tickets = 0;
+    this._prizeLog = [];
+    this._multiplier = 1;
+    this._streak = 0;
+    this.onChange = null;
+  }
+  get tickets() { return this._tickets; }
+  get streak()  { return this._streak; }
+  awardTickets(amount, reason = '') {
+    const total = Math.round(amount * this._multiplier);
+    this._tickets += total;
+    if (total > 0) {
+      this._streak++;
+      if (this._streak >= 3) this._multiplier = Math.min(3, 1 + (this._streak - 2) * 0.25);
+    } else {
+      this._streak = 0;
+      this._multiplier = 1;
+    }
+    if (this.onChange) this.onChange(this._tickets, total, reason);
+    return total;
+  }
+  awardOutcome(outcome) {
+    const base = GAME_AWARDS[outcome] ?? 0;
+    return this.awardTickets(base, outcome);
+  }
+  canAfford(tier) {
+    return this._tickets >= (PRIZE_TIERS[tier]?.tickets ?? Infinity);
+  }
+  redeem(tier) {
+    const prize = PRIZE_TIERS[tier];
+    if (!prize || this._tickets < prize.tickets) return null;
+    this._tickets -= prize.tickets;
+    this._prizeLog.push({ tier, ...prize, at: Date.now() });
+    if (this.onChange) this.onChange(this._tickets, -prize.tickets, 'redeem');
+    return prize;
+  }
+  reset() {
+    this._tickets = 0; this._prizeLog = []; this._multiplier = 1; this._streak = 0;
+    if (this.onChange) this.onChange(0, 0, 'reset');
+  }
+}
+
+const prizes = new PrizeSystem();
+
+// =========================================================================
+// SOUND SYSTEM (procedural Web Audio)
+// =========================================================================
+class SoundSystem {
+  constructor() {
+    this.ctx = null;
+    this.masterGain = null;
+    this.ambientGain = null;
+    this.sfxGain = null;
+    this.uiGain = null;
+    this._muted = false;
+  }
+
+  init() {
+    if (this.ctx) return;
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = 0.7;
+      this.masterGain.connect(this.ctx.destination);
+
+      this.ambientGain = this.ctx.createGain();
+      this.ambientGain.gain.value = 0.18;
+      this.ambientGain.connect(this.masterGain);
+
+      this.sfxGain = this.ctx.createGain();
+      this.sfxGain.gain.value = 0.55;
+      this.sfxGain.connect(this.masterGain);
+
+      this.uiGain = this.ctx.createGain();
+      this.uiGain.gain.value = 0.8;
+      this.uiGain.connect(this.masterGain);
+
+      this._startCarouselAmbience();
+    } catch (e) {
+      console.warn('SoundSystem init failed:', e);
+    }
+  }
+
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  }
+
+  toggleMute() {
+    this._muted = !this._muted;
+    if (this.masterGain) this.masterGain.gain.value = this._muted ? 0 : 0.7;
+    return this._muted;
+  }
+
+  _startCarouselAmbience() {
+    if (!this.ctx) return;
+    const notes = [261.6, 329.6, 392.0, 440.0, 523.3];
+    const pattern = [0, 2, 4, 3, 2, 1, 0, 4, 2, 0];
+    let step = 0;
+    const bpm = 88;
+    const beatLen = 60 / bpm;
+
+    const playNote = () => {
+      if (!this.ctx) return;
+      const freq = notes[pattern[step % pattern.length]];
+      step++;
+      [0, +4].forEach(detune => {
+        const osc = this.ctx.createOscillator();
+        const env = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.value = freq;
+        osc.detune.value = detune;
+        env.gain.setValueAtTime(0, this.ctx.currentTime);
+        env.gain.linearRampToValueAtTime(0.3, this.ctx.currentTime + 0.02);
+        env.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + beatLen * 0.85);
+        osc.connect(env);
+        env.connect(this.ambientGain);
+        osc.start(this.ctx.currentTime);
+        osc.stop(this.ctx.currentTime + beatLen);
+      });
+      setTimeout(playNote, beatLen * 1000);
+    };
+    playNote();
+
+    const bufLen = this.ctx.sampleRate * 2;
+    const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buf;
+    noise.loop = true;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 400;
+    filter.Q.value = 0.5;
+    const crowdGain = this.ctx.createGain();
+    crowdGain.gain.value = 0.06;
+    noise.connect(filter);
+    filter.connect(crowdGain);
+    crowdGain.connect(this.ambientGain);
+    noise.start();
+  }
+
+  bottleHit(velocity = 1.0) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const bufLen = Math.floor(this.ctx.sampleRate * 0.08);
+    const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / bufLen * 12);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(velocity * 0.8, t);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    const hpf = this.ctx.createBiquadFilter();
+    hpf.type = 'highpass';
+    hpf.frequency.value = 800;
+    src.connect(hpf); hpf.connect(env); env.connect(this.sfxGain);
+    src.start(t);
+
+    const ring = this.ctx.createOscillator();
+    const ringEnv = this.ctx.createGain();
+    ring.type = 'sine';
+    ring.frequency.value = 1200 + Math.random() * 400;
+    ringEnv.gain.setValueAtTime(velocity * 0.4, t);
+    ringEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    ring.connect(ringEnv); ringEnv.connect(this.sfxGain);
+    ring.start(t); ring.stop(t + 0.35);
+  }
+
+  allBottlesDown() {
+    if (!this.ctx) return;
+    for (let i = 0; i < 6; i++) {
+      setTimeout(() => this.bottleHit(0.6 + i * 0.05), i * 60);
+    }
+    setTimeout(() => this.prizeWin(), 300);
+  }
+
+  balloonPop() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const bufLen = Math.floor(this.ctx.sampleRate * 0.04);
+    const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(1.0, t);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    src.connect(env); env.connect(this.sfxGain);
+    src.start(t);
+  }
+
+  dartBounce() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(300, t);
+    osc.frequency.exponentialRampToValueAtTime(180, t + 0.1);
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(0.3, t);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    osc.connect(env); env.connect(this.sfxGain);
+    osc.start(t); osc.stop(t + 0.15);
+  }
+
+  prizeWin(tier = 'small') {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const arpNotes = {
+      small:  [523.3, 659.3, 783.9],
+      medium: [523.3, 659.3, 783.9, 1046.5],
+      large:  [523.3, 659.3, 783.9, 1046.5, 1318.5],
+      xl:     [523.3, 659.3, 783.9, 1046.5, 1318.5, 2093.0],
+      hard:   [440, 523.3, 659.3, 783.9, 1046.5, 1318.5, 2093.0],
+    };
+    const notes = arpNotes[tier] || arpNotes.small;
+    notes.forEach((freq, i) => {
+      const osc = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      env.gain.setValueAtTime(0, t + i * 0.08);
+      env.gain.linearRampToValueAtTime(0.5, t + i * 0.08 + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.3);
+      osc.connect(env); env.connect(this.uiGain);
+      osc.start(t + i * 0.08);
+      osc.stop(t + i * 0.08 + 0.35);
+    });
+  }
+
+  nearMiss() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, t);
+    osc.frequency.linearRampToValueAtTime(220, t + 0.3);
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(0.4, t);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    osc.connect(env); env.connect(this.uiGain);
+    osc.start(t); osc.stop(t + 0.45);
+  }
+
+  throw_() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const bufLen = Math.floor(this.ctx.sampleRate * 0.15);
+    const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * (i / bufLen) * Math.exp(-(i / bufLen) * 3);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const lpf = this.ctx.createBiquadFilter();
+    lpf.type = 'lowpass';
+    lpf.frequency.value = 1200;
+    const env = this.ctx.createGain();
+    env.gain.value = 0.25;
+    src.connect(lpf); lpf.connect(env); env.connect(this.sfxGain);
+    src.start(t);
+  }
+
+  crowdCheer() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const bufLen = Math.floor(this.ctx.sampleRate * 1.2);
+    const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      const env = Math.sin((i / bufLen) * Math.PI);
+      d[i] = (Math.random() * 2 - 1) * env * 0.6;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const bpf = this.ctx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = 600;
+    bpf.Q.value = 0.8;
+    const g = this.ctx.createGain();
+    g.gain.value = 0.5;
+    src.connect(bpf); bpf.connect(g); g.connect(this.sfxGain);
+    src.start(t);
+  }
+
+  uiClick() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(0.2, t);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    osc.connect(env); env.connect(this.uiGain);
+    osc.start(t); osc.stop(t + 0.07);
+  }
+}
+
+const sound = new SoundSystem();
+
+// =========================================================================
+// THROWING PHYSICS SYSTEM
+// =========================================================================
+const ARM_CONFIGS = {
+  1: { joints: ['wrist'],                                            jitter: 0.18 },
+  2: { joints: ['elbow', 'wrist'],                                   jitter: 0.12 },
+  3: { joints: ['shoulder', 'elbow', 'wrist'],                       jitter: 0.09 },
+  4: { joints: ['shoulder', 'elbow', 'wrist', 'finger'],             jitter: 0.07 },
+  5: { joints: ['hip', 'shoulder', 'elbow', 'wrist', 'finger'],      jitter: 0.05 },
+  6: { joints: ['hip', 'torso', 'shoulder', 'elbow', 'wrist', 'finger'], jitter: 0.03 },
+  7: { joints: ['ankle', 'hip', 'torso', 'shoulder', 'elbow', 'wrist', 'finger'], jitter: 0.015 },
+};
+
+const JOINT_WEIGHTS = {
+  ankle: 0.05, hip: 0.12, torso: 0.14, shoulder: 0.22,
+  elbow: 0.20, wrist: 0.18, finger: 0.09,
+};
+
+const ENV_PRESETS = {
+  earth:    { gravity: 9.8,  drag: 0.02,  windX: 0,   windY: 0    },
+  moon:     { gravity: 1.62, drag: 0,     windX: 0,   windY: 0    },
+  mars:     { gravity: 3.72, drag: 0.008, windX: 0.5, windY: 0    },
+  jupiter:  { gravity: 24.8, drag: 0.05,  windX: 0,   windY: 0    },
+  carnival: { gravity: 9.8,  drag: 0.025, windX: 0.3, windY: 0    },
+  indoor:   { gravity: 9.8,  drag: 0.01,  windX: 0,   windY: 0    },
+  stormy:   { gravity: 9.8,  drag: 0.03,  windX: 2.5, windY: -0.5 },
+};
+
+const DIFFICULTY_MOD = {
+  easy:   { aimAssist: 0.55, jitterScale: 0.4, powerScale: 1.15, spinScale: 0.5 },
+  normal: { aimAssist: 0,    jitterScale: 1.0, powerScale: 1.0,  spinScale: 1.0 },
+  hard:   { aimAssist: 0,    jitterScale: 1.8, powerScale: 0.92, spinScale: 1.4 },
+};
+
+class ThrowingSystem {
+  constructor() {
+    this.precision = 5;
+    this.env = { ...ENV_PRESETS.carnival };
+    this.difficulty = 'normal';
+    this.maxPower = 22;
+    this.minPower = 6;
+    this._charging = false;
+    this._chargeStart = 0;
+    this._chargeMax = 1200;
+    this._origin = { x: 0, y: 1.5 };
+    this._target = { x: 0, y: 0 };
+    this.onThrow = null;
+    this.onPowerChange = null;
+  }
+
+  setPrecision(level) { this.precision = Math.max(1, Math.min(7, Math.round(level))); }
+
+  setEnvironment(envOrPreset) {
+    if (typeof envOrPreset === 'string') {
+      this.env = { ...(ENV_PRESETS[envOrPreset] || ENV_PRESETS.carnival) };
+    } else {
+      this.env = { ...this.env, ...envOrPreset };
+    }
+  }
+
+  setDifficulty(d) { this.difficulty = d; }
+
+  startCharge(originX, originY) {
+    this._charging = true;
+    this._chargeStart = performance.now();
+    this._origin = { x: originX, y: originY };
+  }
+
+  aim(targetX, targetY) {
+    this._target = { x: targetX, y: targetY };
+    if (this._charging && this.onPowerChange) this.onPowerChange(this._chargeRatio());
+  }
+
+  release(targetX, targetY) {
+    if (!this._charging) return null;
+    this._charging = false;
+    this._target = { x: targetX, y: targetY };
+    const result = this._computeThrow();
+    if (this.onThrow) this.onThrow(result);
+    if (this.onPowerChange) this.onPowerChange(0);
+    return result;
+  }
+
+  cancel() {
+    this._charging = false;
+    if (this.onPowerChange) this.onPowerChange(0);
+  }
+
+  chargeRatio() { return this._chargeRatio(); }
+
+  _chargeRatio() {
+    if (!this._charging) return 0;
+    return Math.min(1, (performance.now() - this._chargeStart) / this._chargeMax);
+  }
+
+  _computeThrow() {
+    const charge = this._chargeRatio();
+    const mod = DIFFICULTY_MOD[this.difficulty] || DIFFICULTY_MOD.normal;
+    const cfg = ARM_CONFIGS[this.precision] || ARM_CONFIGS[5];
+
+    const dx = this._target.x - this._origin.x;
+    const dy = this._target.y - this._origin.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    let nx = dx / dist;
+    let ny = dy / dist;
+
+    if (mod.aimAssist > 0) {
+      nx = nx * (1 - mod.aimAssist) + 0 * mod.aimAssist;
+      ny = ny * (1 - mod.aimAssist) + (-1) * mod.aimAssist;
+      const len = Math.sqrt(nx * nx + ny * ny) || 1;
+      nx /= len; ny /= len;
+    }
+
+    let angleErr = 0;
+    for (const joint of cfg.joints) {
+      const w = JOINT_WEIGHTS[joint] || 0.1;
+      angleErr += (Math.random() - 0.5) * 2 * w * cfg.jitter * mod.jitterScale;
+    }
+    const cosA = Math.cos(angleErr), sinA = Math.sin(angleErr);
+    const fnx = nx * cosA - ny * sinA;
+    const fny = nx * sinA + ny * cosA;
+
+    const power = (this.minPower + charge * (this.maxPower - this.minPower)) * mod.powerScale;
+    const vx = fnx * power;
+    const vy = fny * power;
+    const spin = (nx * fny - ny * fnx) * power * 0.4 * mod.spinScale;
+
+    return {
+      vx, vy, spin, power, charge,
+      origin: { ...this._origin },
+      env: { ...this.env },
+      precision: this.precision,
+    };
+  }
+
+  simulateArc(throwResult, dt = 0.016, maxT = 3.0, groundY = 0) {
+    const { vx: ivx, vy: ivy, origin, env } = throwResult;
+    const g = env.gravity, drag = env.drag, wx = env.windX, wy = env.windY;
+    const points = [];
+    let x = origin.x, y = origin.y, vx = ivx, vy = ivy;
+    for (let t = 0; t < maxT; t += dt) {
+      points.push({ x, y, t });
+      if (y < groundY && t > 0) break;
+      const speedX = vx - wx;
+      const speedY = vy - wy;
+      const speed = Math.sqrt(speedX * speedX + speedY * speedY);
+      const dragF = drag * speed;
+      vx += (-dragF * speedX) * dt;
+      vy += (-g - dragF * speedY) * dt;
+      x += vx * dt;
+      y += vy * dt;
+    }
+    return points;
+  }
+
+  checkHit(px, py, target) {
+    const dx = px - target.x, dy = py - target.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    return { hit: d <= target.radius, glancing: d <= target.radius * 1.5, distance: d };
+  }
+}
+
+const throwing = new ThrowingSystem();
+
+// =========================================================================
+// MILK BOTTLES GAME
+// =========================================================================
+const BOTTLE_RADIUS = 0.11;
+const BOTTLE_HEIGHT = 0.32;
+const BALL_RADIUS = 0.065;
+
+const MB_BOTTLE_LAYOUT = [
+  { x: -0.22, y: 0, z: 0.1 },
+  { x:  0,    y: 0, z: 0.1 },
+  { x:  0.22, y: 0, z: 0.1 },
+  { x: -0.11, y: 0, z: -0.1 },
+  { x:  0.11, y: 0, z: -0.1 },
+  { x:  0,    y: BOTTLE_HEIGHT * 0.9, z: 0 },
+];
+
+const MB_DIFF_PARAMS = {
+  easy:   { hitboxScale: 1.6, throws: 4, wobbleFactor: 0 },
+  normal: { hitboxScale: 1.0, throws: 3, wobbleFactor: 0 },
+  hard:   { hitboxScale: 0.82, throws: 2, wobbleFactor: 0.04 },
+};
+
+class MilkBottlesGame {
+  constructor(scene, camera, renderer, difficulty = 'normal') {
+    this.scene = scene; this.camera = camera; this.renderer = renderer;
+    this.difficulty = difficulty;
+    this.params = MB_DIFF_PARAMS[difficulty] || MB_DIFF_PARAMS.normal;
+    this.group = new THREE.Group();
+    this.group.userData.gameObject = true;
+    this.bottles = [];
+    this.balls = [];
+    this.throwsLeft = this.params.throws;
+    this.active = false;
+    this.done = false;
+    this.onComplete = null;
+    this._ballInFlight = false;
+    this._aimLine = null;
+    this._power = 0;
+    this._pointerDown = false;
+    this._pointerStart = { x: 0, y: 0 };
+    this._pointerNow = { x: 0, y: 0 };
+    this._particles = [];
+    this._shakeFrames = 0;
+    this._origCamPos = null;
+    this._buildScene();
+    scene.add(this.group);
+  }
+
+  _buildScene() {
+    const counterGeo = new THREE.BoxGeometry(1.2, 0.08, 0.8);
+    const counterMat = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+    const counter = new THREE.Mesh(counterGeo, counterMat);
+    counter.position.set(0, -0.04, 0);
+    counter.receiveShadow = true;
+    this.group.add(counter);
+
+    const boardGeo = new THREE.PlaneGeometry(1.4, 1.0);
+    const boardMat = new THREE.MeshLambertMaterial({ color: 0xd4a96a, side: THREE.FrontSide });
+    const board = new THREE.Mesh(boardGeo, boardMat);
+    board.rotation.x = -0.12;
+    board.position.set(0, 0.5, 0.45);
+    this.group.add(board);
+
+    const bGeo = new THREE.CylinderGeometry(BOTTLE_RADIUS * 0.55, BOTTLE_RADIUS, BOTTLE_HEIGHT, 12);
+    const bMat = new THREE.MeshPhongMaterial({ color: 0xddeeff, transparent: true, opacity: 0.82, shininess: 120 });
+    const capGeo = new THREE.CylinderGeometry(0.025, 0.04, 0.06, 8);
+    const capMat = new THREE.MeshLambertMaterial({ color: 0xcc2222 });
+
+    MB_BOTTLE_LAYOUT.forEach((pos, i) => {
+      const wobble = this.params.wobbleFactor;
+      const b = new THREE.Mesh(bGeo, bMat.clone());
+      b.position.set(
+        pos.x + (Math.random() - 0.5) * wobble,
+        pos.y + BOTTLE_HEIGHT / 2 + 0.04,
+        pos.z + (Math.random() - 0.5) * wobble
+      );
+      b.castShadow = true;
+      b.userData = { id: i, down: false, origPos: b.position.clone(), origRot: b.rotation.clone() };
+      const cap = new THREE.Mesh(capGeo, capMat);
+      cap.position.y = BOTTLE_HEIGHT / 2 + 0.03;
+      b.add(cap);
+      this.group.add(b);
+      this.bottles.push(b);
+    });
+
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.55 });
+    const lineGeo = new THREE.BufferGeometry();
+    this._aimLine = new THREE.Line(lineGeo, lineMat);
+    this._aimLine.visible = false;
+    this.group.add(this._aimLine);
+  }
+
+  start() {
+    this.active = true;
+    this.throwsLeft = this.params.throws;
+    this.done = false;
+    this._origCamPos = this.camera.position.clone();
+    this._bindPointer();
+    throwing.setDifficulty(this.difficulty);
+    throwing.onPowerChange = (p) => { this._power = p; this._updateAimLine(); };
+  }
+
+  stop() {
+    this.active = false;
+    this._unbindPointer();
+    throwing.onPowerChange = null;
+    this.scene.remove(this.group);
+  }
+
+  _bindPointer() {
+    const c = this.renderer.domElement;
+    this._onDown = e => this._pointerdown(e);
+    this._onMove = e => this._pointermove(e);
+    this._onUp   = e => this._pointerup(e);
+    c.addEventListener('pointerdown', this._onDown);
+    c.addEventListener('pointermove', this._onMove);
+    c.addEventListener('pointerup',   this._onUp);
+    window.addEventListener('pointerup', this._onUp);
+  }
+
+  _unbindPointer() {
+    const c = this.renderer.domElement;
+    c.removeEventListener('pointerdown', this._onDown);
+    c.removeEventListener('pointermove', this._onMove);
+    c.removeEventListener('pointerup',   this._onUp);
+    window.removeEventListener('pointerup', this._onUp);
+  }
+
+  _ndcToWorld(ex, ey) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const nx = ((ex - rect.left) / rect.width) * 2 - 1;
+    const ny = ((ey - rect.top)  / rect.height) * -2 + 1;
+    const v = new THREE.Vector3(nx, ny, 0.5).unproject(this.camera);
+    return v;
+  }
+
+  _pointerdown(e) {
+    if (!this.active || this._ballInFlight) return;
+    this._pointerDown = true;
+    this._pointerStart = { x: e.clientX, y: e.clientY };
+    throwing.startCharge(0, -1.2);
+    sound.resume();
+    try { this.renderer.domElement.setPointerCapture(e.pointerId); } catch(_) {}
+  }
+
+  _pointermove(e) {
+    if (!this._pointerDown) return;
+    this._pointerNow = { x: e.clientX, y: e.clientY };
+    const w = this._ndcToWorld(e.clientX, e.clientY);
+    throwing.aim(w.x, w.y);
+  }
+
+  _pointerup(e) {
+    if (!this._pointerDown) return;
+    this._pointerDown = false;
+    const w = this._ndcToWorld(e.clientX, e.clientY);
+    const result = throwing.release(w.x, w.y);
+    if (result) this._launchBall(result);
+  }
+
+  _launchBall(throwResult) {
+    if (this.throwsLeft <= 0 || this._ballInFlight) return;
+    this.throwsLeft--;
+    this._ballInFlight = true;
+    this._aimLine.visible = false;
+    sound.throw_();
+
+    const geo = new THREE.SphereGeometry(BALL_RADIUS, 12, 8);
+    const mat = new THREE.MeshPhongMaterial({ color: 0xcc6622, shininess: 60 });
+    const ball = new THREE.Mesh(geo, mat);
+    ball.castShadow = true;
+    ball.userData.gameObject = true;
+
+    ball.position.set(throwResult.origin.x * 0.3, 0.3, 2.5);
+    this.scene.add(ball);
+
+    const speed = throwResult.power;
+    const angle = Math.atan2(-throwResult.vy, throwResult.vx);
+    const vx3 = Math.sin(angle * 0.4) * speed * 0.18;
+    const vy3 = Math.cos(angle * 0.15) * speed * 0.06;
+    const vz3 = -speed * 0.22;
+
+    const env = throwResult.env;
+    const ballState = { vx: vx3, vy: vy3, vz: vz3 };
+    let hitSomething = false;
+
+    const step = () => {
+      if (!this.active) { this.scene.remove(ball); return; }
+      const dt = 0.016;
+      ballState.vy -= env.gravity * dt * 0.018;
+      ballState.vx += env.windX  * dt * 0.002;
+      ball.position.x += ballState.vx * dt * 60;
+      ball.position.y += ballState.vy * dt * 60;
+      ball.position.z += ballState.vz * dt * 60;
+
+      for (const bottle of this.bottles) {
+        if (bottle.userData.down) continue;
+        const dx = ball.position.x - (this.group.position.x + bottle.position.x);
+        const dy = ball.position.y - (this.group.position.y + bottle.position.y);
+        const dz = ball.position.z - (this.group.position.z + bottle.position.z);
+        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        const hitR = (BOTTLE_RADIUS + BALL_RADIUS) * this.params.hitboxScale;
+        if (dist < hitR) {
+          hitSomething = true;
+          this._knockBottle(bottle, ballState);
+        }
+      }
+
+      if (ball.position.z < -0.8 || ball.position.y < -1) {
+        this.scene.remove(ball);
+        this._ballInFlight = false;
+        if (!hitSomething) sound.nearMiss();
+        this._checkGameState();
+        return;
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  _knockBottle(bottle, ballState) {
+    if (bottle.userData.down) return;
+    bottle.userData.down = true;
+    sound.bottleHit(0.7 + Math.random() * 0.5);
+    this._shakeFrames = 8;
+
+    const axis = new THREE.Vector3(ballState.vx, 0, ballState.vz).normalize();
+    const fallDir = axis.length() < 0.01 ? new THREE.Vector3(1, 0, 0) : axis;
+    const tumble = () => {
+      bottle.rotation.x += fallDir.z * 0.18;
+      bottle.rotation.z -= fallDir.x * 0.18;
+      bottle.position.y -= 0.02;
+      if (bottle.position.y > -0.5) requestAnimationFrame(tumble);
+    };
+    tumble();
+
+    this._spawnHitParticles(
+      this.group.position.x + bottle.position.x,
+      this.group.position.y + bottle.position.y,
+      this.group.position.z + bottle.position.z,
+    );
+
+    const downCount = this.bottles.filter(b => b.userData.down).length;
+    if (downCount === this.bottles.length) {
+      setTimeout(() => { sound.allBottlesDown(); this._win(); }, 80);
+    }
+  }
+
+  _win() {
+    this.done = true;
+    this.active = false;
+    const allDown = this.bottles.every(b => b.userData.down);
+    const remaining = this.throwsLeft;
+    const outcome = allDown ? (remaining >= 2 ? 'perfect_clear' : 'clear') : 'partial';
+    prizes.awardOutcome(outcome);
+    prizes.awardTickets(remaining * 3, 'throws_remaining');
+    setTimeout(() => {
+      if (this.onComplete) this.onComplete({ won: allDown, tickets: prizes.tickets });
+    }, 600);
+  }
+
+  _checkGameState() {
+    const allDown = this.bottles.every(b => b.userData.down);
+    if (allDown) return;
+    if (this.throwsLeft <= 0) {
+      this.done = true;
+      this.active = false;
+      const downCount = this.bottles.filter(b => b.userData.down).length;
+      const outcome = downCount >= 4 ? 'partial' : downCount > 0 ? 'hit' : 'miss';
+      prizes.awardOutcome(outcome);
+      setTimeout(() => {
+        if (this.onComplete) this.onComplete({ won: false, tickets: prizes.tickets });
+      }, 600);
+    }
+  }
+
+  _spawnHitParticles(x, y, z) {
+    const count = 12;
+    const geo = new THREE.SphereGeometry(0.025, 4, 4);
+    for (let i = 0; i < count; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(Math.random() * 0.15 + 0.05, 0.9, 0.6) });
+      const p = new THREE.Mesh(geo, mat);
+      p.position.set(x, y, z);
+      p.userData.gameObject = true;
+      const v = new THREE.Vector3((Math.random()-0.5)*2.5, Math.random()*2+0.5, (Math.random()-0.5)*2.5);
+      this.scene.add(p);
+      this._particles.push({ mesh: p, v, life: 1.0 });
+    }
+  }
+
+  _updateAimLine() {
+    if (!this._pointerDown || this._ballInFlight) { this._aimLine.visible = false; return; }
+    const pts = [];
+    for (let t = 0; t <= 1; t += 0.15) {
+      pts.push(new THREE.Vector3(0, 0.3 - t * 0.5 * this._power, 2.5 - t * 2.2 * this._power));
+    }
+    this._aimLine.geometry.setFromPoints(pts);
+    this._aimLine.visible = this._power > 0.05;
+  }
+
+  update() {
+    for (let i = this._particles.length - 1; i >= 0; i--) {
+      const p = this._particles[i];
+      p.life -= 0.04;
+      p.v.y  -= 0.05;
+      p.mesh.position.addScaledVector(p.v, 0.016);
+      p.mesh.material.opacity = p.life;
+      p.mesh.material.transparent = true;
+      if (p.life <= 0) { this.scene.remove(p.mesh); this._particles.splice(i, 1); }
+    }
+
+    if (this._shakeFrames > 0) {
+      this._shakeFrames--;
+      const s = this._shakeFrames * 0.002;
+      this.camera.position.x = (this._origCamPos?.x ?? 0) + (Math.random()-0.5)*s;
+      this.camera.position.y = (this._origCamPos?.y ?? 0) + (Math.random()-0.5)*s;
+    } else if (this._origCamPos) {
+      this.camera.position.lerp(this._origCamPos, 0.3);
+    }
+  }
+}
+
+// =========================================================================
+// BALLOON DARTS GAME
+// =========================================================================
+const DART_LENGTH = 0.18;
+const DART_RADIUS = 0.008;
+
+const BD_DIFF_PARAMS = {
+  easy:   { cols: 5, rows: 4, radius: 0.11,  throws: 6, movingRows: 0, targetPops: 10 },
+  normal: { cols: 6, rows: 4, radius: 0.085, throws: 5, movingRows: 0, targetPops: 12 },
+  hard:   { cols: 7, rows: 5, radius: 0.07,  throws: 4, movingRows: 2, targetPops: 15 },
+};
+
+const BALLOON_COLORS = [
+  [0.0,  0.9, 0.55], [0.07, 0.9, 0.55], [0.13, 0.9, 0.55],
+  [0.33, 0.8, 0.45], [0.60, 0.9, 0.55], [0.75, 0.8, 0.55], [0.88, 0.9, 0.55],
+];
+
+class BalloonDartsGame {
+  constructor(scene, camera, renderer, difficulty = 'normal') {
+    this.scene = scene; this.camera = camera; this.renderer = renderer;
+    this.difficulty = difficulty;
+    this.params = BD_DIFF_PARAMS[difficulty] || BD_DIFF_PARAMS.normal;
+    this.group = new THREE.Group();
+    this.group.userData.gameObject = true;
+    this.balloons = [];
+    this.darts = [];
+    this.throwsLeft = this.params.throws;
+    this.popsNeeded = this.params.targetPops;
+    this.popsGot = 0;
+    this.active = false;
+    this.done = false;
+    this.onComplete = null;
+    this._dartInFlight = false;
+    this._power = 0;
+    this._pointerDown = false;
+    this._particles = [];
+    this._shakeFrames = 0;
+    this._origCamPos = null;
+    this._aimDot = null;
+    this._buildScene();
+    scene.add(this.group);
+  }
+
+  _buildScene() {
+    const boardGeo = new THREE.PlaneGeometry(1.8, 1.4);
+    const boardMat = new THREE.MeshLambertMaterial({ color: 0x2244aa, side: THREE.DoubleSide });
+    const board = new THREE.Mesh(boardGeo, boardMat);
+    board.position.z = 0;
+    this.group.add(board);
+
+    const frameMat = new THREE.MeshLambertMaterial({ color: 0xaa6600 });
+    [[1.9, 0.06, 1.5, 0, 0.75, 0], [1.9, 0.06, 1.5, 0, -0.75, 0],
+     [0.06, 1.56, 1.5, -0.95, 0, 0], [0.06, 1.56, 1.5, 0.95, 0, 0]
+    ].forEach(([w, h, d, x, y, z]) => {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), frameMat);
+      f.position.set(x, y, -0.02);
+      this.group.add(f);
+    });
+
+    const { cols, rows, radius } = this.params;
+    const spacingX = 1.6 / (cols - 1 || 1);
+    const spacingY = 1.2 / (rows - 1 || 1);
+    const isMovingRow = (r) => r < this.params.movingRows;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const hsl = BALLOON_COLORS[(r * cols + c) % BALLOON_COLORS.length];
+        const color = new THREE.Color().setHSL(...hsl);
+        const geo = new THREE.SphereGeometry(radius, 14, 10);
+        const mat = new THREE.MeshPhongMaterial({ color, shininess: 80, transparent: true, opacity: 0.92 });
+        const mesh = new THREE.Mesh(geo, mat);
+        const bx = -0.8 + c * spacingX + (Math.random() - 0.5) * 0.02;
+        const by = -0.5 + r * spacingY + (Math.random() - 0.5) * 0.02;
+        mesh.position.set(bx, by, 0.02);
+
+        const strPts = [new THREE.Vector3(0, -radius, 0), new THREE.Vector3(0.01, -radius - 0.06, 0)];
+        const strGeo = new THREE.BufferGeometry().setFromPoints(strPts);
+        const strLine = new THREE.Line(strGeo, new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.5, transparent: true }));
+        mesh.add(strLine);
+
+        this.group.add(mesh);
+        this.balloons.push({
+          mesh, popped: false,
+          moving: isMovingRow(r),
+          speed: (Math.random() * 0.4 + 0.2) * (Math.random() < 0.5 ? 1 : -1),
+          phase: Math.random() * Math.PI * 2,
+          origX: bx,
+        });
+      }
+    }
+
+    const dotGeo = new THREE.SphereGeometry(0.015, 6, 6);
+    const dotMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    this._aimDot = new THREE.Mesh(dotGeo, dotMat);
+    this._aimDot.visible = false;
+    this.group.add(this._aimDot);
+  }
+
+  start() {
+    this.active = true;
+    this.throwsLeft = this.params.throws;
+    this.popsGot = 0;
+    this.done = false;
+    this._origCamPos = this.camera.position.clone();
+    this._bindPointer();
+    throwing.setDifficulty(this.difficulty);
+    throwing.onPowerChange = (p) => { this._power = p; };
+  }
+
+  stop() {
+    this.active = false;
+    this._unbindPointer();
+    throwing.onPowerChange = null;
+    this.scene.remove(this.group);
+  }
+
+  _bindPointer() {
+    const c = this.renderer.domElement;
+    this._onDown = e => this._pointerdown(e);
+    this._onMove = e => this._pointermove(e);
+    this._onUp   = e => this._pointerup(e);
+    c.addEventListener('pointerdown', this._onDown);
+    c.addEventListener('pointermove', this._onMove);
+    c.addEventListener('pointerup',   this._onUp);
+    window.addEventListener('pointerup', this._onUp);
+  }
+
+  _unbindPointer() {
+    const c = this.renderer.domElement;
+    c.removeEventListener('pointerdown', this._onDown);
+    c.removeEventListener('pointermove', this._onMove);
+    c.removeEventListener('pointerup',   this._onUp);
+    window.removeEventListener('pointerup', this._onUp);
+  }
+
+  _ndcBoardPos(ex, ey) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const nx = ((ex - rect.left) / rect.width) * 2 - 1;
+    const ny = ((ey - rect.top)  / rect.height) * -2 + 1;
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera({ x: nx, y: ny }, this.camera);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.group.position.z - 0.02);
+    const target = new THREE.Vector3();
+    raycaster.ray.intersectPlane(plane, target);
+    return target;
+  }
+
+  _pointerdown(e) {
+    if (!this.active || this._dartInFlight) return;
+    this._pointerDown = true;
+    throwing.startCharge(0, 0);
+    sound.resume();
+    this._aimDot.visible = true;
+    try { this.renderer.domElement.setPointerCapture(e.pointerId); } catch(_) {}
+  }
+
+  _pointermove(e) {
+    if (!this._pointerDown) return;
+    const bp = this._ndcBoardPos(e.clientX, e.clientY);
+    if (bp) {
+      this._aimDot.position.set(
+        bp.x - this.group.position.x,
+        bp.y - this.group.position.y,
+        0.05
+      );
+    }
+    throwing.aim(e.clientX, e.clientY);
+  }
+
+  _pointerup(e) {
+    if (!this._pointerDown) return;
+    this._pointerDown = false;
+    this._aimDot.visible = false;
+    const bp = this._ndcBoardPos(e.clientX, e.clientY);
+    const result = throwing.release(e.clientX, e.clientY);
+    if (result && bp) this._launchDart(result, bp);
+  }
+
+  _launchDart(throwResult, targetBoardPos) {
+    if (this.throwsLeft <= 0 || this._dartInFlight) return;
+    this.throwsLeft--;
+    this._dartInFlight = true;
+    sound.throw_();
+
+    const bodyGeo = new THREE.CylinderGeometry(DART_RADIUS, DART_RADIUS, DART_LENGTH, 8);
+    const tipGeo = new THREE.ConeGeometry(DART_RADIUS * 1.6, 0.04, 8);
+    const bodyMat = new THREE.MeshPhongMaterial({ color: 0x888888, shininess: 100 });
+    const tipMat = new THREE.MeshPhongMaterial({ color: 0xcccc00 });
+    const dart = new THREE.Group();
+    dart.userData.gameObject = true;
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    const tip = new THREE.Mesh(tipGeo, tipMat);
+    tip.position.y = DART_LENGTH / 2 + 0.02;
+    dart.add(body, tip);
+    dart.rotation.x = Math.PI / 2;
+
+    dart.position.set(0, 0, 3.0);
+    this.scene.add(dart);
+
+    const jitterX = (Math.random() - 0.5) * (0.3 / throwResult.precision) * (this.difficulty === 'hard' ? 1.8 : 1);
+    const jitterY = (Math.random() - 0.5) * (0.2 / throwResult.precision) * (this.difficulty === 'hard' ? 1.8 : 1);
+    const finalTarget = {
+      x: targetBoardPos.x - this.group.position.x + jitterX,
+      y: targetBoardPos.y - this.group.position.y + jitterY,
+      z: this.group.position.z + 0.02,
+    };
+
+    const frames = 18;
+    let frame = 0;
+    const startPos = dart.position.clone();
+
+    const fly = () => {
+      frame++;
+      const t = frame / frames;
+      const ease = 1 - Math.pow(1 - t, 2);
+      dart.position.set(
+        startPos.x + (finalTarget.x - startPos.x) * ease,
+        startPos.y + (finalTarget.y - startPos.y) * ease,
+        startPos.z + (finalTarget.z - startPos.z) * ease,
+      );
+      if (frame >= frames) {
+        this._checkDartHit(dart, finalTarget);
+        return;
+      }
+      requestAnimationFrame(fly);
+    };
+    requestAnimationFrame(fly);
+  }
+
+  _checkDartHit(dart, targetPos) {
+    let hit = false;
+    for (const balloon of this.balloons) {
+      if (balloon.popped) continue;
+      const bp = balloon.mesh.position;
+      const dx = targetPos.x - bp.x;
+      const dy = targetPos.y - bp.y;
+      if (Math.sqrt(dx*dx + dy*dy) < this.params.radius * 1.1) {
+        this._popBalloon(balloon, dart, targetPos);
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) {
+      sound.dartBounce();
+      setTimeout(() => this.scene.remove(dart), 800);
+      this._dartInFlight = false;
+      this._checkGameState();
+    }
+  }
+
+  _popBalloon(balloon, dart, hitPos) {
+    balloon.popped = true;
+    this.popsGot++;
+    sound.balloonPop();
+    this._shakeFrames = 5;
+
+    balloon.mesh.material.opacity = 0.3;
+    setTimeout(() => { this.group.remove(balloon.mesh); }, 80);
+
+    const hsl = new THREE.Color(balloon.mesh.material.color);
+    this._spawnPopParticles(
+      this.group.position.x + balloon.mesh.position.x,
+      this.group.position.y + balloon.mesh.position.y,
+      this.group.position.z + balloon.mesh.position.z,
+      hsl,
+    );
+
+    setTimeout(() => {
+      this.scene.remove(dart);
+      this._dartInFlight = false;
+      prizes.awardOutcome('hit');
+      this._checkGameState();
+    }, 120);
+  }
+
+  _checkGameState() {
+    const allPopped = this.balloons.every(b => b.popped);
+    const won = allPopped || this.popsGot >= this.popsNeeded;
+    if (won) {
+      this.done = true;
+      this.active = false;
+      prizes.awardOutcome('clear');
+      sound.prizeWin(this.popsGot >= this.balloons.length ? 'large' : 'medium');
+      setTimeout(() => {
+        if (this.onComplete) this.onComplete({ won: true, tickets: prizes.tickets });
+      }, 500);
+    } else if (this.throwsLeft <= 0) {
+      this.done = true;
+      this.active = false;
+      const outcome = this.popsGot > 0 ? 'partial' : 'miss';
+      prizes.awardOutcome(outcome);
+      setTimeout(() => {
+        if (this.onComplete) this.onComplete({ won: false, tickets: prizes.tickets });
+      }, 400);
+    }
+  }
+
+  _spawnPopParticles(x, y, z, color) {
+    for (let i = 0; i < 16; i++) {
+      const geo = new THREE.PlaneGeometry(0.04, 0.02);
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1, side: THREE.DoubleSide });
+      const p = new THREE.Mesh(geo, mat);
+      p.position.set(x, y, z);
+      p.userData.gameObject = true;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI;
+      const spd = 1.5 + Math.random() * 2;
+      const v = new THREE.Vector3(
+        Math.sin(phi) * Math.cos(theta) * spd,
+        Math.sin(phi) * Math.sin(theta) * spd + 1,
+        Math.cos(phi) * spd * 0.3,
+      );
+      this.scene.add(p);
+      this._particles.push({ mesh: p, v, life: 1.0 });
+    }
+  }
+
+  update(dt = 0.016, elapsed = 0) {
+    for (const b of this.balloons) {
+      if (b.popped || !b.moving) continue;
+      b.mesh.position.x = b.origX + Math.sin(elapsed * b.speed + b.phase) * 0.25;
+    }
+
+    for (let i = this._particles.length - 1; i >= 0; i--) {
+      const p = this._particles[i];
+      p.life -= 0.035;
+      p.v.y  -= 0.04;
+      p.mesh.position.addScaledVector(p.v, dt);
+      p.mesh.material.opacity = p.life;
+      if (p.life <= 0) { this.scene.remove(p.mesh); this._particles.splice(i, 1); }
+    }
+
+    if (this._shakeFrames > 0) {
+      this._shakeFrames--;
+      const s = this._shakeFrames * 0.0015;
+      this.camera.position.x = (this._origCamPos?.x ?? 0) + (Math.random()-0.5)*s;
+      this.camera.position.y = (this._origCamPos?.y ?? 0) + (Math.random()-0.5)*s;
+    } else if (this._origCamPos) {
+      this.camera.position.lerp(this._origCamPos, 0.25);
+    }
+  }
+}
+
+// =========================================================================
+// MAIN GAME ORCHESTRATOR
+// =========================================================================
+let renderer, scene, camera, ambientLight, dirLight;
+let currentGame = null;
+let _difficulty = 'normal';
+let _elapsed = 0;
+let _lastT = 0;
+
+function initRenderer(canvas) {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x1a0d2e);
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x1a0d2e, 0.12);
+
+  camera = new THREE.PerspectiveCamera(55, canvas.clientWidth / canvas.clientHeight, 0.1, 100);
+  camera.position.set(0, 1.4, 4.5);
+  camera.lookAt(0, 0.5, 0);
+
+  ambientLight = new THREE.AmbientLight(0xffeedd, 0.35);
+  scene.add(ambientLight);
+
+  dirLight = new THREE.DirectionalLight(0xfff0cc, 1.1);
+  dirLight.position.set(3, 6, 4);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.width = 1024;
+  dirLight.shadow.mapSize.height = 1024;
+  scene.add(dirLight);
+
+  const fillLight = new THREE.PointLight(0xff6633, 0.5, 8);
+  fillLight.position.set(0, -0.5, 2);
+  scene.add(fillLight);
+
+  _buildStringLights();
+
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 20),
+    new THREE.MeshLambertMaterial({ color: 0x3a2a1a })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.5;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  window.addEventListener('resize', _onResize);
+  _onResize();
+  _loop(0);
+}
+
+function _buildStringLights() {
+  const colors = [0xff3333, 0xffcc00, 0x33ff66, 0x3399ff, 0xff66cc];
+  for (let i = -3; i <= 3; i++) {
+    for (let j = 0; j < colors.length; j++) {
+      const bulb = new THREE.PointLight(colors[j], 0.15, 1.2);
+      bulb.position.set(i * 0.9, 2.2 + Math.sin(i * 0.7 + j) * 0.15, -0.5 + Math.random() * 0.3);
+      scene.add(bulb);
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.025, 6, 4),
+        new THREE.MeshBasicMaterial({ color: colors[j] })
+      );
+      mesh.position.copy(bulb.position);
+      scene.add(mesh);
+    }
+  }
+  const wirePts = [];
+  for (let i = -3; i <= 3; i += 0.2) {
+    wirePts.push(new THREE.Vector3(i * 0.9, 2.2 + Math.sin(i * 0.7) * 0.15, -0.5));
+  }
+  const wireGeo = new THREE.BufferGeometry().setFromPoints(wirePts);
+  scene.add(new THREE.Line(wireGeo, new THREE.LineBasicMaterial({ color: 0x333333 })));
+}
+
+function _onResize() {
+  const c = renderer.domElement;
+  const w = c.clientWidth, h = c.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+function _loop(t) {
+  requestAnimationFrame(_loop);
+  const dt = Math.min((t - _lastT) / 1000, 0.05);
+  _lastT = t;
+  _elapsed += dt;
+  if (currentGame?.update) currentGame.update(dt, _elapsed);
+  renderer.render(scene, camera);
+}
+
+function startGame(id) {
+  _clearCurrentGame();
+  sound.resume();
+
+  if (id === 'milk_bottles') {
+    currentGame = new MilkBottlesGame(scene, camera, renderer, _difficulty);
+  } else if (id === 'balloon_darts') {
+    currentGame = new BalloonDartsGame(scene, camera, renderer, _difficulty);
+    if (currentGame.group) currentGame.group.position.set(0, 0.5, 1.5);
+  }
+
+  if (currentGame) {
+    currentGame.onComplete = (result) => _onGameComplete(id, result);
+    currentGame.start();
+    _updateHUD();
+  }
+}
+
+function setDifficulty(d) {
+  _difficulty = d;
+  throwing.setDifficulty(d);
+  document.querySelectorAll('.diff-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.diff === d);
+  });
+}
+
+function setPhysicsLab(params) {
+  if (params.precision !== undefined) throwing.setPrecision(params.precision);
+  if (params.env) throwing.setEnvironment(params.env);
+  if (params.gravity !== undefined) throwing.env.gravity = parseFloat(params.gravity);
+  if (params.drag !== undefined) throwing.env.drag = parseFloat(params.drag);
+  if (params.windX !== undefined) throwing.env.windX = parseFloat(params.windX);
+}
+
+function _clearCurrentGame() {
+  if (currentGame?.stop) currentGame.stop();
+  currentGame = null;
+  const toRemove = [];
+  scene.traverse(obj => {
+    if (obj.userData?.gameObject) toRemove.push(obj);
+  });
+  toRemove.forEach(o => scene.remove(o));
+}
+
+function _onGameComplete(id, result) {
+  const ui = document.getElementById('game-result');
+  const won = result.won;
+  const txt = won ? 'Winner!' : 'Try again!';
+  const tckt = `Tickets: ${prizes.tickets}`;
+  if (ui) {
+    ui.textContent = `${txt}  ${tckt}`;
+    ui.style.display = 'block';
+    setTimeout(() => { ui.style.display = 'none'; }, 3000);
+  }
+  _updateHUD();
+  if (won) sound.crowdCheer();
+}
+
+function _updateHUD() {
+  const el = document.getElementById('hud-tickets');
+  if (el) el.textContent = prizes.tickets;
+  const el2 = document.getElementById('hud-streak');
+  if (el2) el2.textContent = prizes.streak > 1 ? `\u{1F525} ×${prizes.streak}` : '';
+}
+
+prizes.onChange = () => { _updateHUD(); renderPrizeShelf(); };
+
+throwing.onPowerChange = (p) => {
+  const meter = document.getElementById('power-meter-fill');
+  if (meter) {
+    meter.style.width = (p * 100) + '%';
+    meter.style.background = p > 0.8 ? '#ff3333' : p > 0.5 ? '#ffaa00' : '#33ff66';
+  }
+};
+
+// Physics Lab demo
+let _arcLine = null;
+function labThrow() {
+  if (_arcLine) scene.remove(_arcLine);
+  const result = {
+    vx: 8, vy: 5, origin: { x: 0, y: 0 },
+    power: throwing.maxPower * 0.8,
+    charge: 0.8,
+    env: { ...throwing.env },
+    precision: throwing.precision,
+  };
+  const arc = throwing.simulateArc(result, 0.032, 2.5, -0.5);
+  const pts = arc.map(p => new THREE.Vector3(p.x, p.y + 0.3, 2 - p.x * 0.5));
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  _arcLine = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.6 }));
+  _arcLine.userData.gameObject = true;
+  scene.add(_arcLine);
+  setTimeout(() => { if (_arcLine) { scene.remove(_arcLine); _arcLine = null; } }, 2500);
+}
+
+// =========================================================================
+// UI WIRING (no inline onclick — CSP-friendly)
+// =========================================================================
+const canvas = document.getElementById('main');
+initRenderer(canvas);
+renderPrizeShelf();
+
+function renderPrizeShelf() {
+  const list = document.getElementById('prize-list');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const [key, val] of Object.entries(PRIZE_TIERS)) {
+    const ok = prizes.canAfford(key);
+    const div = document.createElement('div');
+    div.className = 'prize-item' + (ok ? ' affordable' : '');
+    div.addEventListener('click', () => {
+      if (!ok) return;
+      const p = prizes.redeem(key);
+      if (p) sound.prizeWin(key);
+    });
+    div.innerHTML = `<span>${val.icon}</span><span>${val.label}</span><span class="prize-cost">${val.tickets}&#x1F39F;</span>`;
+    list.appendChild(div);
+  }
+}
+
+function launchGame(id) {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('controls').style.display = 'flex';
+  sound.init();
+  startGame(id);
+}
+
+function pickDiff(d) {
+  document.querySelectorAll('.start-diff .diff-btn').forEach(b => b.classList.toggle('active', b.dataset.diff === d));
+  setDifficulty(d);
+  sound.uiClick();
+}
+
+function setDiff(d) {
+  setDifficulty(d);
+  sound.uiClick();
+}
+
+function toggleMute() {
+  if (!sound.ctx) sound.init();
+  const muted = sound.toggleMute();
+  document.getElementById('mute-btn').textContent = muted ? '\u{1F507} Muted' : '\u{1F50A} Sound';
+}
+
+function showStart() {
+  document.getElementById('start-screen').style.display = 'flex';
+  document.getElementById('controls').style.display = 'none';
+  document.getElementById('lab-panel').style.display = 'none';
+  _clearCurrentGame();
+  sound.uiClick();
+}
+
+function openLab() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('controls').style.display = 'flex';
+  document.getElementById('lab-panel').style.display = 'block';
+  sound.init();
+}
+
+function toggleLab() {
+  const p = document.getElementById('lab-panel');
+  p.style.display = p.style.display === 'none' || p.style.display === '' ? 'block' : 'none';
+  sound.uiClick();
+}
+
+function updateLab() {
+  const p = parseInt(document.getElementById('lab-precision').value);
+  const g = parseFloat(document.getElementById('lab-gravity').value);
+  const d = parseFloat(document.getElementById('lab-drag').value);
+  const w = parseFloat(document.getElementById('lab-windx').value);
+  document.getElementById('lab-precision-val').textContent = p;
+  document.getElementById('lab-gravity-val').textContent = g;
+  document.getElementById('lab-drag-val').textContent = d;
+  document.getElementById('lab-windx-val').textContent = w;
+  setPhysicsLab({ precision: p, gravity: g, drag: d, windX: w });
+}
+
+function applyEnvPreset(name) {
+  const env = ENV_PRESETS[name];
+  if (!env) return;
+  setPhysicsLab({ env });
+  document.getElementById('lab-gravity').value = env.gravity;
+  document.getElementById('lab-drag').value = env.drag;
+  document.getElementById('lab-windx').value = env.windX;
+  document.getElementById('lab-gravity-val').textContent = env.gravity;
+  document.getElementById('lab-drag-val').textContent = env.drag;
+  document.getElementById('lab-windx-val').textContent = env.windX;
+}
+
+// Action dispatcher (replaces inline onclick handlers — CSP-friendly)
+const ACTIONS = {
+  launchGame, pickDiff, setDiff, toggleMute, showStart, openLab, toggleLab,
+  updateLab, applyEnvPreset, labThrow,
+};
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.getAttribute('data-action');
+  const arg = el.getAttribute('data-arg');
+  const fn = ACTIONS[action];
+  if (fn) fn(arg);
+});
+
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.getAttribute('data-action');
+  const fn = ACTIONS[action];
+  if (fn) fn(el.value);
+});
+
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.getAttribute('data-action');
+  const fn = ACTIONS[action];
+  if (fn) fn(el.value);
+});
+
+// Auto-start ambient sound on first interaction
+const firstClickInit = () => {
+  sound.init();
+  sound.resume();
+  document.removeEventListener('pointerdown', firstClickInit);
+};
+document.addEventListener('pointerdown', firstClickInit);
+
+// Initial difficulty
+setDifficulty('normal');
+</script>
+</body>
+</html>

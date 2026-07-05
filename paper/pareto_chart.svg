@@ -1,0 +1,290 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="480" viewBox="0 0 700 480"
+     font-family="Georgia, 'Times New Roman', serif">
+
+  <defs>
+    <!-- Arrow marker for annotations -->
+    <marker id="arrow-gold" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#f0b429"/>
+    </marker>
+    <marker id="arrow-gray" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#888"/>
+    </marker>
+    <!-- Subtle glow filter for muLLM hero point -->
+    <filter id="glow-gold" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Drop shadow for title -->
+    <filter id="text-shadow" x="-5%" y="-5%" width="110%" height="130%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- ─── Background ─── -->
+  <rect width="700" height="480" fill="#0d1117"/>
+
+  <!-- ─── Title block ─── -->
+  <text x="350" y="30" text-anchor="middle"
+        font-size="15.5" font-weight="bold" fill="#e8e8e8" filter="url(#text-shadow)"
+        letter-spacing="0.3">Cost-Quality Pareto Frontier — RouterBench</text>
+  <text x="350" y="50" text-anchor="middle"
+        font-size="11" fill="#888" letter-spacing="0.2">Top-left is optimal (high quality, zero cost)</text>
+
+  <!-- ─── Plot area definition ───
+       Margins: left=82, right=42, top=70, bottom=62
+       Plot area: x=[82,658], y=[70,418]  → width=576, height=348
+  -->
+
+  <!-- ─── Coordinate transform helpers (inline math):
+       x_data: [-0.002, 0.045]  → pixel [82, 658]   scale = 576/0.047 ≈ 12255.3
+       y_data: [0.50,   0.82]   → pixel [418, 70]   scale = 348/0.32  = 1087.5  (inverted)
+
+       px(d) = 82 + (d - (-0.002)) * 576/0.047
+       py(d) = 418 - (d - 0.50)   * 348/0.32
+
+       Key pixels:
+         muLLM   (0.000, 0.6673): x=82+(0.002)*12255.3=106.5  y=418-(0.1673)*1087.5=236.8
+         BELLA   (0.017, 0.653):  x=82+(0.019)*12255.3=314.9  y=418-(0.153)*1087.5 =251.6
+         TaRo    (0.015, 0.647):  x=82+(0.017)*12255.3=290.3  y=418-(0.147)*1087.5 =258.1
+         KNN     (0.012, 0.650):  x=82+(0.014)*12255.3=253.6  y=418-(0.150)*1087.5 =254.9
+         MLP     (0.008, 0.600):  x=82+(0.010)*12255.3=204.6  y=418-(0.100)*1087.5 =309.4
+         Cheap   (0.002, 0.622):  x=82+(0.004)*12255.3=131.0  y=418-(0.122)*1087.5 =285.3
+         Cascade (0.005, 0.550):  x=82+(0.007)*12255.3=167.8  y=418-(0.050)*1087.5 =363.6
+         GPT-4   (0.040, 0.786):  x=82+(0.042)*12255.3=596.7  y=418-(0.286)*1087.5 =107.0
+  -->
+
+  <!-- ─── Ideal region (top-left triangle, drawn first / lowest z) ─── -->
+  <!-- vertices: (82,70) top-left corner, (180,70) along top, (82,310) down left side -->
+  <polygon points="82,70 200,70 82,310"
+           fill="#f0b429" fill-opacity="0.07"
+           stroke="none"/>
+
+  <!-- ─── Grid lines ─── -->
+  <!-- Horizontal grid: AIQ 0.50 0.55 0.60 0.65 0.70 0.75 0.80 -->
+  <line x1="82" y1="418" x2="658" y2="418" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <line x1="82" y1="363.6" x2="658" y2="363.6" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <line x1="82" y1="309.4" x2="658" y2="309.4" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <line x1="82" y1="255.1" x2="658" y2="255.1" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <line x1="82" y1="200.9" x2="658" y2="200.9" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <line x1="82" y1="146.6" x2="658" y2="146.6" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <line x1="82" y1="92.4" x2="658" y2="92.4" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+
+  <!-- Vertical grid: Cost $0.00 $0.01 $0.02 $0.03 $0.04 -->
+  <line x1="82" y1="70" x2="82" y2="418" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <!-- $0.00 is already the left axis; add slight emphasis for x=0 -->
+  <!-- x at 0.00: 82 + 0.002*12255.3 = 106.5 -->
+  <line x1="107" y1="70" x2="107" y2="418" stroke="#f0b429" stroke-opacity="0.18" stroke-width="1" stroke-dasharray="3,4"/>
+  <!-- $0.01: 82 + 0.012*12255.3 = 229.1 -->
+  <line x1="229" y1="70" x2="229" y2="418" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <!-- $0.02: 82 + 0.022*12255.3 = 351.6 -->
+  <line x1="352" y1="70" x2="352" y2="418" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <!-- $0.03: 82 + 0.032*12255.3 = 474.2 -->
+  <line x1="474" y1="70" x2="474" y2="418" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+  <!-- $0.04: 82 + 0.042*12255.3 = 596.7 -->
+  <line x1="597" y1="70" x2="597" y2="418" stroke="#e0e0e0" stroke-opacity="0.12" stroke-width="1"/>
+
+  <!-- ─── Axes ─── -->
+  <!-- X axis -->
+  <line x1="82" y1="418" x2="662" y2="418" stroke="#e0e0e0" stroke-width="1.5"/>
+  <!-- Y axis -->
+  <line x1="82" y1="70" x2="82" y2="422" stroke="#e0e0e0" stroke-width="1.5"/>
+
+  <!-- ─── Axis tick marks ─── -->
+  <!-- Y ticks -->
+  <line x1="77" y1="418" x2="82" y2="418" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="77" y1="363.6" x2="82" y2="363.6" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="77" y1="309.4" x2="82" y2="309.4" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="77" y1="255.1" x2="82" y2="255.1" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="77" y1="200.9" x2="82" y2="200.9" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="77" y1="146.6" x2="82" y2="146.6" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="77" y1="92.4" x2="82" y2="92.4" stroke="#e0e0e0" stroke-width="1.5"/>
+
+  <!-- X ticks at $0.00, $0.01, $0.02, $0.03, $0.04 -->
+  <line x1="107" y1="418" x2="107" y2="423" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="229" y1="418" x2="229" y2="423" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="352" y1="418" x2="352" y2="423" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="474" y1="418" x2="474" y2="423" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="597" y1="418" x2="597" y2="423" stroke="#e0e0e0" stroke-width="1.5"/>
+
+  <!-- ─── Axis labels ─── -->
+  <!-- Y axis labels -->
+  <text x="70" y="422" text-anchor="end" font-size="10" fill="#aaa">0.50</text>
+  <text x="70" y="367.6" text-anchor="end" font-size="10" fill="#aaa">0.55</text>
+  <text x="70" y="313.4" text-anchor="end" font-size="10" fill="#aaa">0.60</text>
+  <text x="70" y="259.1" text-anchor="end" font-size="10" fill="#aaa">0.65</text>
+  <text x="70" y="204.9" text-anchor="end" font-size="10" fill="#aaa">0.70</text>
+  <text x="70" y="150.6" text-anchor="end" font-size="10" fill="#aaa">0.75</text>
+  <text x="70" y="96.4" text-anchor="end" font-size="10" fill="#aaa">0.80</text>
+
+  <!-- X axis labels -->
+  <text x="107" y="436" text-anchor="middle" font-size="10" fill="#aaa">$0.00</text>
+  <text x="229" y="436" text-anchor="middle" font-size="10" fill="#aaa">$0.01</text>
+  <text x="352" y="436" text-anchor="middle" font-size="10" fill="#aaa">$0.02</text>
+  <text x="474" y="436" text-anchor="middle" font-size="10" fill="#aaa">$0.03</text>
+  <text x="597" y="436" text-anchor="middle" font-size="10" fill="#aaa">$0.04</text>
+
+  <!-- Axis titles -->
+  <text x="370" y="458" text-anchor="middle" font-size="12" fill="#ccc" letter-spacing="0.2">
+    Cost per Query ($/query)
+  </text>
+  <!-- Rotated Y axis title -->
+  <text x="-270" y="18" text-anchor="middle" font-size="12" fill="#ccc" letter-spacing="0.2"
+        transform="rotate(-90)">RouterBench AIQ</text>
+
+  <!-- ─── Pareto frontier line (muLLM → GPT-4) ─── -->
+  <!-- muLLM: (106.5, 236.8)  GPT-4: (596.7, 107.0) -->
+  <line x1="107" y1="237" x2="597" y2="107"
+        stroke="#f0b429" stroke-width="1.8" stroke-dasharray="7,5"
+        stroke-opacity="0.75"/>
+
+  <!-- ─── Dominated region shading (below/right of frontier) ─── -->
+  <!-- Very subtle band to visually show dominated zone -->
+  <!-- polygon from frontier line down-right to plot corner -->
+  <polygon points="107,237 597,107 658,107 658,418 82,418 82,237"
+           fill="#ff4444" fill-opacity="0.025" stroke="none"/>
+
+  <!-- ─── Data points — dominated routers (draw before hero) ─── -->
+
+  <!-- Cascading Router (0.005, 0.550): x=167.8, y=363.6 -->
+  <circle cx="168" cy="364" r="5.5" fill="#5b8bc2" fill-opacity="0.85" stroke="#7aaee8" stroke-width="1"/>
+
+  <!-- MLP Router (0.008, 0.600): x=204.6, y=309.4 -->
+  <circle cx="205" cy="309" r="5.5" fill="#5b8bc2" fill-opacity="0.85" stroke="#7aaee8" stroke-width="1"/>
+
+  <!-- Always-cheap (0.002, 0.622): x=131.0, y=285.3 -->
+  <circle cx="131" cy="285" r="5.5" fill="#5b8bc2" fill-opacity="0.85" stroke="#7aaee8" stroke-width="1"/>
+
+  <!-- KNN (0.012, 0.650): x=253.6, y=254.9 -->
+  <circle cx="254" cy="255" r="5.5" fill="#5b8bc2" fill-opacity="0.85" stroke="#7aaee8" stroke-width="1"/>
+
+  <!-- TaRo (0.015, 0.647): x=290.3, y=258.1 -->
+  <circle cx="290" cy="258" r="5.5" fill="#5b8bc2" fill-opacity="0.85" stroke="#7aaee8" stroke-width="1"/>
+
+  <!-- BELLA (0.017, 0.653): x=314.9, y=251.6 -->
+  <circle cx="315" cy="252" r="5.5" fill="#5b8bc2" fill-opacity="0.85" stroke="#7aaee8" stroke-width="1"/>
+
+  <!-- ─── muLLM hero point (0.000, 0.6673): x=106.5, y=236.8 ─── -->
+  <!-- Outer halo ring -->
+  <circle cx="107" cy="237" r="20" fill="none" stroke="#f0b429" stroke-width="1" stroke-opacity="0.25"/>
+  <circle cx="107" cy="237" r="14" fill="none" stroke="#f0b429" stroke-width="1" stroke-opacity="0.4"/>
+  <!-- Gold diamond (rotated square) -->
+  <polygon points="107,221 123,237 107,253 91,237"
+           fill="#f0b429" stroke="#ffd700" stroke-width="1.5"
+           filter="url(#glow-gold)"/>
+  <!-- Inner sparkle dot -->
+  <circle cx="107" cy="237" r="3" fill="#fff" fill-opacity="0.9"/>
+
+  <!-- ─── Always-GPT-4 ceiling (0.040, 0.786): x=596.7, y=107.0 ─── -->
+  <!-- Open circle marker -->
+  <circle cx="597" cy="107" r="9" fill="none" stroke="#c8c8c8" stroke-width="2"/>
+  <circle cx="597" cy="107" r="3" fill="#c8c8c8" fill-opacity="0.6"/>
+  <!-- Star symbol inside open ring -->
+  <text x="597" y="112" text-anchor="middle" font-size="11" fill="#c8c8c8">★</text>
+
+  <!-- ─── Data point labels (dominated cluster — staggered to avoid collision) ─── -->
+
+  <!-- Cascade: label below-right -->
+  <text x="178" y="379" font-size="9.5" fill="#8aa8cc" font-style="italic">Cascade</text>
+
+  <!-- MLP: label above-right -->
+  <text x="213" y="304" font-size="9.5" fill="#8aa8cc" font-style="italic">MLP</text>
+
+  <!-- Always-cheap: label left (it's near the y-axis, push label right-up) -->
+  <text x="140" y="278" font-size="9.5" fill="#8aa8cc" font-style="italic">Always-cheap</text>
+
+  <!-- KNN, TaRo, BELLA — clustered ~x=254-315, y=252-258 — stagger vertically -->
+  <!-- KNN: anchor point x=254, y=255 → label above-left -->
+  <line x1="254" y1="251" x2="230" y2="233" stroke="#8aa8cc" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="196" y="231" font-size="9.5" fill="#8aa8cc" font-style="italic">KNN</text>
+
+  <!-- TaRo: anchor x=290, y=258 → label below -->
+  <line x1="290" y1="263" x2="290" y2="278" stroke="#8aa8cc" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="278" y="291" font-size="9.5" fill="#8aa8cc" font-style="italic">TaRo</text>
+
+  <!-- BELLA: anchor x=315, y=252 → label above-right -->
+  <line x1="319" y1="248" x2="335" y2="233" stroke="#8aa8cc" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="335" y="230" font-size="9.5" fill="#8aa8cc" font-style="italic">BELLA</text>
+
+  <!-- ─── muLLM annotation ─── -->
+  <!-- Arrow from annotation box to point, curving into empty space upper-center -->
+  <!-- Leader line: from annotation text area to point -->
+  <path d="M 175,175 C 160,195 140,215 115,237"
+        stroke="#f0b429" stroke-width="1.2" fill="none" stroke-opacity="0.8"
+        marker-end="url(#arrow-gold)"/>
+  <!-- Annotation box background -->
+  <rect x="165" y="148" width="178" height="34" rx="4" ry="4"
+        fill="#1a1f28" stroke="#f0b429" stroke-width="1" stroke-opacity="0.6"/>
+  <!-- Annotation text -->
+  <text x="254" y="164" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#f0b429">
+    muLLM
+  </text>
+  <text x="254" y="178" text-anchor="middle" font-size="9" fill="#e0c070">
+    AIQ 0.6673 · $0.00/query
+  </text>
+
+  <!-- ─── GPT-4 annotation ─── -->
+  <!-- Leader line from annotation to point -->
+  <path d="M 540,160 C 560,145 575,130 591,115"
+        stroke="#888" stroke-width="1.2" fill="none" stroke-opacity="0.7"
+        marker-end="url(#arrow-gray)"/>
+  <!-- Annotation box -->
+  <rect x="432" y="143" width="170" height="34" rx="4" ry="4"
+        fill="#1a1f28" stroke="#888" stroke-width="1" stroke-opacity="0.5"/>
+  <text x="517" y="158" text-anchor="middle" font-size="10" fill="#c8c8c8">
+    Always-GPT-4 ★
+  </text>
+  <text x="517" y="171" text-anchor="middle" font-size="9" fill="#999">
+    Quality ceiling · 40× more expensive
+  </text>
+
+  <!-- ─── muLLM main label (bold, right of point) ─── -->
+  <text x="122" y="232" font-size="12" font-weight="bold" fill="#f0b429"
+        filter="url(#text-shadow)">muLLM</text>
+
+  <!-- ─── "Pareto frontier" line label ─── -->
+  <!-- Position along the dashed line, roughly midpoint, rotated to match slope -->
+  <!-- Midpoint: x=(107+597)/2=352, y=(237+107)/2=172; slope angle -->
+  <!-- angle = atan2(107-237, 597-107) = atan2(-130, 490) ≈ -14.8° -->
+  <text x="370" y="182" text-anchor="middle" font-size="9" fill="#f0b429" fill-opacity="0.7"
+        transform="rotate(-14.8, 370, 182)" letter-spacing="1.5">PARETO FRONTIER</text>
+
+  <!-- ─── "Dominated" zone label ─── -->
+  <text x="430" y="360" text-anchor="middle" font-size="9" fill="#ff6666" fill-opacity="0.4"
+        letter-spacing="1">DOMINATED</text>
+
+  <!-- ─── "Ideal region" label in top-left triangle ─── -->
+  <text x="96" y="120" font-size="8" fill="#f0b429" fill-opacity="0.55"
+        transform="rotate(-55, 96, 120)" letter-spacing="1">IDEAL</text>
+
+  <!-- ─── Legend ─── -->
+  <rect x="465" y="258" width="170" height="105" rx="5" ry="5"
+        fill="#111720" stroke="#333" stroke-width="1" fill-opacity="0.92"/>
+  <text x="550" y="275" text-anchor="middle" font-size="10" font-weight="bold" fill="#ccc"
+        letter-spacing="0.5">LEGEND</text>
+
+  <!-- muLLM legend item -->
+  <polygon points="480,290 487,283 494,290 487,297" fill="#f0b429" stroke="#ffd700" stroke-width="1"/>
+  <text x="500" y="294" font-size="9.5" fill="#e0c070">muLLM (Pareto-optimal)</text>
+
+  <!-- GPT-4 ceiling legend item -->
+  <circle cx="487" cy="310" r="6" fill="none" stroke="#c8c8c8" stroke-width="1.8"/>
+  <text x="500" y="314" font-size="9.5" fill="#aaa">Always-GPT-4 (ceiling)</text>
+
+  <!-- Dominated legend item -->
+  <circle cx="487" cy="330" r="5" fill="#5b8bc2" stroke="#7aaee8" stroke-width="1"/>
+  <text x="500" y="334" font-size="9.5" fill="#8aa8cc">Other routers (dominated)</text>
+
+  <!-- Frontier line legend item -->
+  <line x1="476" y1="350" x2="500" y2="350" stroke="#f0b429" stroke-width="1.8"
+        stroke-dasharray="5,4" stroke-opacity="0.75"/>
+  <text x="506" y="354" font-size="9.5" fill="#c8a840">Pareto frontier</text>
+
+  <!-- ─── Watermark / source note ─── -->
+  <text x="658" y="475" text-anchor="end" font-size="8.5" fill="#444" letter-spacing="0.3">
+    RouterBench evaluation · muLLM v0.9
+  </text>
+
+</svg>

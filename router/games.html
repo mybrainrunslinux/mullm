@@ -1,0 +1,2004 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <title>mu|LLM — Games</title>
+    <meta name="description" content="AI-generated games built by muLLM — play directly in your browser." />
+    <style>
+/* ── muLLM Theme System ── */
+/* ── Theme 2: Midnight (GitHub-dark inspired) ── */
+body.theme-midnight {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --bg4: #30363d;
+  --surface: #161b22; --border: #30363d; --border2: #484f58;
+  --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  --text-muted: #8b949e;
+  --gold: #58a6ff; --gold-dim: rgba(88,166,255,0.15); --gold2: #79b8ff;
+  --gold-glow: 0 0 16px rgba(88,166,255,0.3);
+  --accent: #388bfd; color-scheme: dark;
+}
+/* ── Theme 3: Terminal (green-on-black, monospace) ── */
+body.theme-terminal {
+  --bg: #0a0a0a; --bg2: #111; --bg3: #181818; --bg4: #222;
+  --surface: #111; --border: #00ff41; --border2: #00cc33;
+  --text: #00ff41; --text2: #00cc33; --text3: #007a1f;
+  --text-muted: #007a1f;
+  --gold: #00ff41; --gold-dim: rgba(0,255,65,0.15); --gold2: #66ff88;
+  --gold-glow: 0 0 12px rgba(0,255,65,0.4);
+  --accent: #00cc33; color-scheme: dark;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace !important;
+}
+body.theme-terminal .card, body.theme-terminal .panel,
+body.theme-terminal .badge, body.theme-terminal nav,
+body.theme-terminal #mullm-nav, body.theme-terminal .nav,
+body.theme-terminal .stat-card, body.theme-terminal .mode-card,
+body.theme-terminal button, body.theme-terminal input,
+body.theme-terminal select, body.theme-terminal textarea,
+body.theme-terminal [class*="card"], body.theme-terminal [class*="panel"],
+body.theme-terminal [class*="badge"], body.theme-terminal [class*="pill"] {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* ── Theme 4: Paper (warm sepia, printed document) ── */
+body.theme-paper {
+  --bg: #fefcf7; --bg2: #f5f0e8; --bg3: #ede8dc; --bg4: #e0d8c8;
+  --surface: #f5f0e8; --border: #d4c5a9; --border2: #c0ae8c;
+  --text: #2c2416; --text2: #4a3c28; --text3: #6b5a3e;
+  --text-muted: #6b5a3e;
+  --gold: #8b6914; --gold-dim: rgba(139,105,20,0.15); --gold2: #a07820;
+  --gold-glow: 0 0 8px rgba(139,105,20,0.2);
+  --accent: #a07820; color-scheme: light;
+}
+/* ── Theme 5: Neon Tokyo ── */
+body.theme-neon {
+  --bg: #0f0018; --bg2: #1a0030; --bg3: #250045; --bg4: #2f0055;
+  --surface: #1a0030; --border: #ff006e; --border2: #bf00ff;
+  --text: #ffffff; --text2: #cc99ff; --text3: #9966cc;
+  --text-muted: #cc99ff;
+  --gold: #ff006e; --gold-dim: rgba(255,0,110,0.15); --gold2: #ff4d9e;
+  --gold-glow: 0 0 16px rgba(255,0,110,0.5);
+  --accent: #bf00ff; color-scheme: dark;
+}
+body.theme-neon h1, body.theme-neon h2, body.theme-neon h3,
+body.theme-neon .title, body.theme-neon .mn-brand,
+body.theme-neon .logo-mu, body.theme-neon .logo-llm,
+body.theme-neon .hero-title { text-shadow: 0 0 20px #ff006e, 0 0 40px #bf00ff; }
+body.theme-neon .badge, body.theme-neon [class*="badge"],
+body.theme-neon [class*="pill"] { box-shadow: 0 0 8px currentColor; }
+/* ── Theme picker UI ── */
+#theme-picker-wrap { position: relative; display: inline-flex; align-items: center; margin-left: 8px; }
+#theme-btn {
+  background: none;
+  border: 1px solid var(--border, #444);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text, #eee);
+  font-size: 13px;
+  line-height: 1;
+  min-width: 32px; min-height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+#theme-btn:hover { background: rgba(128,128,128,0.1); border-color: var(--gold, #c8a84b); }
+#theme-btn:focus-visible { outline: 2px solid var(--gold, #d4af37); outline-offset: 2px; }
+#theme-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--bg2, var(--surface, #222));
+  border: 1px solid var(--border, #444);
+  border-radius: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  min-width: 140px;
+  z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+#theme-menu li {
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text, #eee);
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+#theme-menu li:hover { background: rgba(128,128,128,0.12); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      :root, [data-theme="dark"] {
+        --bg: #0a0e1a;
+        --bg2: #111827;
+        --bg3: #1a2332;
+        --bg4: #243044;
+        --border: #1e2d3d;
+        --border2: #2a3a4d;
+        --green: #22c55e;
+        --teal: #14b8a6;
+        --blue: #3b82f6;
+        --amber: #f59e0b;
+        --coral: #ef6c4c;
+        --purple: #a78bfa;
+        --pink: #ec4899;
+        --text: #e2e8f0;
+        --text2: #94a3b8;
+        --text3: #8294a7;
+        --mono: "JetBrains Mono", "Fira Code", monospace;
+        --sans: "DM Sans", "Inter", system-ui, sans-serif;
+        color-scheme: dark;
+      }
+
+      [data-theme="light"] {
+        --bg: #f8fafc;
+        --bg2: #f1f5f9;
+        --bg3: #e2e8f0;
+        --bg4: #cbd5e1;
+        --border: #cbd5e1;
+        --border2: #94a3b8;
+        --green: #16a34a;
+        --teal: #0d9488;
+        --blue: #2563eb;
+        --amber: #d97706;
+        --coral: #dc2626;
+        --purple: #7c3aed;
+        --pink: #db2777;
+        --text: #0f172a;
+        --text2: #475569;
+        --text3: #64748b;
+        color-scheme: light;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --bg4: #cbd5e1;
+          --border: #cbd5e1; --border2: #94a3b8;
+          --green: #16a34a; --teal: #0d9488; --blue: #2563eb;
+          --amber: #d97706; --coral: #dc2626; --purple: #7c3aed; --pink: #db2777;
+          --text: #0f172a; --text2: #475569; --text3: #64748b;
+          color-scheme: light;
+        }
+      }
+
+      body {
+        font-family: var(--sans);
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      /* ── Logo ── */
+      .logo { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 0; text-decoration: none; }
+      .logo-mu { color: var(--amber); font-family: 'Times New Roman', Georgia, serif; font-size: 18px; font-style: italic; line-height: 14px; }
+      .logo-pipe { color: var(--text3); font-size: 20px; line-height: 14px; margin: 0 -1px; font-weight: 400; opacity: 0.5; }
+      .logo-llm { color: var(--teal); letter-spacing: 1px; font-family: var(--mono); }
+      .logo-tardi { height: 14px; margin-left: 6px; opacity: 0.7; filter: invert(1) brightness(0.8); transition: opacity 0.2s; }
+      .logo-tardi:hover { opacity: 1; }
+
+      /* ── Navigation ── */
+      .nav {
+        display: flex;
+        gap: 8px;
+        padding: 16px 24px;
+        font-size: 11px;
+        font-family: var(--mono);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .nav a {
+        color: var(--text3);
+        text-decoration: none;
+        padding: 4px 12px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        transition: color 0.2s, border-color 0.2s;
+      }
+      .nav a:hover, .nav a.active {
+        color: var(--teal);
+        border-color: var(--teal);
+      }
+      .nav a:focus-visible {
+        outline: 2px solid var(--teal);
+        outline-offset: 2px;
+      }
+      .nav-spacer { flex: 1; }
+      .theme-btn {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text3);
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 4px 10px;
+        cursor: pointer;
+        transition: color 0.2s, border-color 0.2s;
+      }
+      .theme-btn:hover {
+        color: var(--teal);
+        border-color: var(--teal);
+      }
+      .theme-btn:focus-visible {
+        outline: 2px solid var(--teal);
+        outline-offset: 2px;
+      }
+
+      /* ── Page Header ── */
+      .header {
+        padding: 24px 24px 8px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .header h1 {
+        font-size: clamp(20px, 4vw, 28px);
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 4px;
+      }
+      .header .subtitle {
+        color: var(--text2);
+        font-size: 13px;
+      }
+
+      /* ── Stats Bar ── */
+      .stats-bar {
+        display: flex;
+        gap: 12px;
+        padding: 16px 24px;
+        max-width: 1200px;
+        margin: 0 auto;
+        flex-wrap: wrap;
+      }
+      .stat-chip {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .stat-chip .num {
+        font-family: var(--mono);
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .stat-chip .lbl {
+        font-size: 11px;
+        color: var(--text3);
+        line-height: 1.3;
+      }
+
+      /* ── Filter Bar ── */
+      .filter-bar {
+        display: flex;
+        gap: 8px;
+        padding: 0 24px 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .filter-group {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .filter-btn {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text2);
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 5px 12px;
+        cursor: pointer;
+        transition: all 0.18s;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        min-height: 32px;
+      }
+      .filter-btn:hover {
+        border-color: var(--teal);
+        color: var(--teal);
+      }
+      .filter-btn.active {
+        background: rgba(20, 184, 166, 0.15);
+        border-color: var(--teal);
+        color: var(--teal);
+      }
+      .filter-btn:focus-visible {
+        outline: 2px solid var(--teal);
+        outline-offset: 2px;
+      }
+      .filter-sep {
+        width: 1px;
+        height: 24px;
+        background: var(--border);
+        flex-shrink: 0;
+      }
+      .diff-select {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text2);
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 5px 10px;
+        cursor: pointer;
+        min-height: 32px;
+        appearance: none;
+        -webkit-appearance: none;
+        padding-right: 24px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238294a7'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+      }
+      .diff-select:focus-visible {
+        outline: 2px solid var(--teal);
+        outline-offset: 2px;
+        border-color: var(--teal);
+      }
+      .search-input {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 12px;
+        padding: 5px 12px;
+        min-height: 32px;
+        min-width: 160px;
+        transition: border-color 0.18s;
+      }
+      .search-input::placeholder { color: var(--text3); }
+      .search-input:focus {
+        outline: none;
+        border-color: var(--teal);
+      }
+      .filter-count {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text3);
+      }
+
+      /* ── Game Grid ── */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        padding: 0 24px 48px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      @media (max-width: 900px) {
+        .grid { grid-template-columns: repeat(2, 1fr); }
+      }
+      @media (max-width: 540px) {
+        .grid { grid-template-columns: 1fr; padding: 0 12px 48px; }
+        .filter-bar { padding: 0 12px 16px; }
+        .stats-bar { padding: 12px 12px; }
+        .header { padding: 16px 12px 8px; }
+        .nav { padding: 12px 12px; }
+      }
+
+      /* ── Game Card ── */
+      .game-card {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        /* entrance: start hidden */
+        opacity: 0;
+        transform: translateY(20px) scale(0.97);
+        transition:
+          opacity 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+          transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+          border-color 0.25s,
+          box-shadow 0.25s;
+      }
+      .game-card.visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      /* Diagonal shimmer sweep on card reveal — CSS-only, zero JS */
+      .game-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          115deg,
+          transparent 0%,
+          transparent 30%,
+          rgba(200,151,58,0.18) 48%,
+          rgba(255,255,255,0.08) 52%,
+          transparent 70%,
+          transparent 100%
+        );
+        transform: translateX(-110%);
+        pointer-events: none;
+        border-radius: inherit;
+        z-index: 10;
+      }
+      .game-card.visible::after {
+        animation: card-shimmer 0.7s cubic-bezier(0.4,0,0.2,1) forwards;
+        animation-delay: var(--shimmer-delay, 0ms);
+      }
+      @keyframes card-shimmer {
+        from { transform: translateX(-110%); }
+        to   { transform: translateX(110%); }
+      }
+      .game-card[hidden] {
+        display: none !important;
+      }
+      .game-card:hover {
+        border-color: var(--teal);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+        transform: translateY(-4px) scale(1);
+      }
+      .game-card:focus-visible {
+        outline: 2px solid var(--teal);
+        outline-offset: 3px;
+        border-color: var(--teal);
+      }
+
+      /* ── Thumbnail / Preview ── */
+      .card-thumb {
+        width: 100%;
+        aspect-ratio: 16/10;
+        position: relative;
+        overflow: hidden;
+        background: var(--bg3);
+        flex-shrink: 0;
+      }
+
+      /* CSS game-themed preview gradients — animated on hover */
+      .card-thumb .preview-art {
+        position: absolute;
+        inset: 0;
+        transition: transform 0.4s ease;
+      }
+      .game-card:hover .preview-art {
+        transform: scale(1.04);
+      }
+
+      /* Each game gets a unique color personality */
+      .art-canasta     { background: linear-gradient(135deg, #1a0a2e 0%, #2d1454 40%, #6b21a8 70%, #a855f7 100%); }
+      .art-ski         { background: linear-gradient(160deg, #0f2027 0%, #203a43 50%, #2c5364 100%); }
+      .art-rune        { background: linear-gradient(135deg, #0d1b2a 0%, #1b2a1b 40%, #1a3a1a 70%, #2d5a2d 100%); }
+      .art-crokinole   { background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
+      .art-pool        { background: linear-gradient(145deg, #0a1628 0%, #0d2137 50%, #1a6b3a 100%); }
+      .art-signal      { background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 40%, #2e1a6e 100%); }
+      .art-dunice      { background: linear-gradient(145deg, #1a1200 0%, #2d2000 40%, #6b4b00 100%); }
+      .art-quail       { background: linear-gradient(145deg, #0a1a0a 0%, #1a3a0a 50%, #2a5a1a 100%); }
+      .art-gauntlet    { background: linear-gradient(135deg, #1a0000 0%, #3a0a0a 40%, #6b1a1a 70%, #ef4444 100%); }
+      .art-adventure   { background: linear-gradient(145deg, #001a2e 0%, #0a2a4e 50%, #1a4a7e 100%); }
+      .art-hex         { background: linear-gradient(135deg, #0a1a1a 0%, #0d2a2a 40%, #145a5a 100%); }
+      .art-cardtoss    { background: linear-gradient(145deg, #1a0a1a 0%, #2a1a3a 50%, #4a2a6a 100%); }
+      .art-neon        { background: linear-gradient(135deg, #020817 0%, #0a0a1a 30%, #0d1040 60%, #1a1060 100%); }
+      .art-organic     { background: linear-gradient(145deg, #0a1a0a 0%, #0f2a0f 40%, #1a4a1a 70%, #2a6b2a 100%); }
+
+      /* Animated canvas overlay — subtle particle/geometry on hover */
+      .card-thumb canvas.anim-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 0.4s;
+        pointer-events: none;
+      }
+      .game-card:hover .anim-canvas {
+        opacity: 1;
+      }
+
+      /* Webm clip preview — autoplays on hover, hides thumbnail */
+      .card-thumb .clip-video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 0.35s ease;
+        pointer-events: none;
+      }
+      .game-card:hover .clip-video {
+        opacity: 1;
+      }
+      .game-card:hover .clip-video ~ .thumb-icon {
+        opacity: 0;
+      }
+      .game-card:hover .clip-video ~ .play-overlay {
+        opacity: 0;
+      }
+
+      /* Icon overlay in thumb center */
+      .thumb-icon {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: clamp(32px, 6vw, 52px);
+        pointer-events: none;
+        filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        user-select: none;
+      }
+      .game-card:hover .thumb-icon {
+        transform: scale(1.15);
+      }
+
+      /* Play overlay on hover */
+      .play-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0);
+        transition: background 0.25s;
+        pointer-events: none;
+      }
+      .game-card:hover .play-overlay {
+        background: rgba(0,0,0,0.25);
+      }
+      .play-btn {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: rgba(20, 184, 166, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transform: scale(0.7);
+        transition: opacity 0.25s, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        box-shadow: 0 4px 20px rgba(20,184,166,0.4);
+      }
+      .game-card:hover .play-btn {
+        opacity: 1;
+        transform: scale(1);
+      }
+      .play-btn svg {
+        width: 20px;
+        height: 20px;
+        fill: #fff;
+        margin-left: 3px;
+      }
+
+      /* ── Badges ── */
+      .origin-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-family: var(--mono);
+        font-size: 8px;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 4px;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        pointer-events: none;
+      }
+      .badge-mullm {
+        background: rgba(20,184,166,0.2);
+        color: var(--teal);
+        border: 1px solid rgba(20,184,166,0.4);
+      }
+      .badge-claude {
+        background: rgba(168,139,250,0.2);
+        color: var(--purple);
+        border: 1px solid rgba(168,139,250,0.4);
+      }
+      .badge-human {
+        background: rgba(245,158,11,0.2);
+        color: var(--amber);
+        border: 1px solid rgba(245,158,11,0.4);
+      }
+      .source-recipe-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-family: var(--mono);
+        font-size: 8px;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: rgba(239,108,76,0.2);
+        color: var(--coral);
+        border: 1px solid rgba(239,108,76,0.4);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        pointer-events: none;
+      }
+
+      .qa-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-family: var(--mono);
+        font-size: 8px;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 4px;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        pointer-events: none;
+      }
+      .qa-badge.bugs {
+        background: rgba(239,108,76,0.25);
+        color: var(--coral);
+        border: 1px solid rgba(239,108,76,0.5);
+      }
+      .qa-badge.in-qa {
+        background: rgba(255,191,0,0.2);
+        color: var(--amber);
+        border: 1px solid rgba(255,191,0,0.4);
+      }
+      .qa-badge.new-game {
+        background: rgba(56,217,169,0.2);
+        color: var(--green);
+        border: 1px solid rgba(56,217,169,0.4);
+      }
+
+      /* ── Card Info ── */
+      .card-info {
+        padding: 14px 16px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex: 1;
+      }
+      .card-title {
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+      .card-desc {
+        font-size: 11px;
+        color: var(--text2);
+        line-height: 1.5;
+      }
+      .card-tags {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: auto;
+      }
+      .tag {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        padding: 2px 8px;
+        border-radius: 3px;
+        border: 1px solid var(--border2);
+        color: var(--text3);
+      }
+      .tag-genre { border-color: rgba(59,130,246,0.4); color: var(--blue); }
+      .tag-easy   { border-color: rgba(34,197,94,0.4);  color: var(--green); }
+      .tag-medium { border-color: rgba(245,158,11,0.4); color: var(--amber); }
+      .tag-hard   { border-color: rgba(239,68,68,0.4);  color: #f87171; }
+
+      /* ── Vote buttons ── */
+      .card-votes {
+        display: flex; gap: 8px; align-items: center; margin-top: 8px;
+      }
+      .vote-btn {
+        display: flex; align-items: center; gap: 4px;
+        background: transparent; border: 1px solid var(--border2);
+        border-radius: 6px; padding: 3px 8px;
+        color: var(--text3); font-family: var(--mono); font-size: 11px;
+        cursor: pointer; transition: all 0.15s;
+      }
+      .vote-btn:hover { border-color: var(--teal); color: var(--teal); }
+      .vote-btn.voted-up { border-color: var(--green); color: var(--green); background: rgba(34,197,94,0.08); }
+      .vote-btn.voted-down { border-color: #f87171; color: #f87171; background: rgba(239,68,68,0.08); }
+      .vote-count { font-weight: 600; min-width: 12px; text-align: center; }
+
+      /* ── Drag & drop ── */
+      .game-card.dragging { opacity: 0.4; transform: scale(0.95); }
+      .game-card.drag-over { border-top: 3px solid var(--teal); }
+      .tag-insane { border-color: rgba(239,108,76,0.4); color: var(--coral); }
+
+      /* ── Source Recipe overlay ── */
+      .game-card.source-recipe .card-thumb::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(10,14,26,0.55);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+      }
+      .game-card.source-recipe {
+        cursor: default;
+      }
+      .game-card.source-recipe:hover {
+        border-color: var(--border);
+        box-shadow: none;
+        transform: none;
+      }
+      .game-card.source-recipe:hover .play-btn,
+      .game-card.source-recipe:hover .thumb-icon {
+        transform: none;
+        opacity: 0;
+      }
+
+      /* ── Fullscreen Overlay (iframe) ── */
+      .game-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.92);
+        z-index: 500;
+        display: none;
+        flex-direction: column;
+      }
+      .game-overlay.open { display: flex; }
+
+      .overlay-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        background: var(--bg2);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .overlay-title {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text2);
+        flex: 1;
+      }
+      .overlay-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .overlay-btn {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        color: var(--text3);
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 5px 12px;
+        cursor: pointer;
+        transition: color 0.18s, border-color 0.18s;
+        min-height: 32px;
+      }
+      .overlay-btn:hover { color: var(--teal); border-color: var(--teal); }
+      .overlay-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+      .overlay-btn.close-btn { color: var(--text3); }
+      .overlay-btn.close-btn:hover { color: var(--coral); border-color: var(--coral); }
+
+      .game-frame {
+        flex: 1;
+        width: 100%;
+        border: none;
+        display: block;
+        background: #000;
+      }
+
+      /* ── Empty state ── */
+      .empty-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 60px 24px;
+        color: var(--text3);
+        font-size: 13px;
+      }
+      .empty-state strong {
+        display: block;
+        font-size: 18px;
+        margin-bottom: 8px;
+        color: var(--text2);
+      }
+
+      /* ── Reduced motion ── */
+      @media (prefers-reduced-motion: reduce) {
+        .game-card,
+        .card-thumb .preview-art,
+        .thumb-icon,
+        .play-btn,
+        .play-overlay { transition: none; }
+        .game-card.visible { opacity: 1; transform: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="nav" aria-label="Site navigation">
+      <a href="/" class="logo" style="text-decoration:none;border:none;padding:0"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot"></a>
+      <a href="/chat">Chat</a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/performance">Perf</a>
+      <a href="/demo">Demo</a>
+      <a href="/unblock">Unblock</a>
+      <a href="/cost">Cost</a>
+      <a href="/coverage">Coverage</a>
+      <a href="/games" class="active" aria-current="page">Games</a>
+      <a href="/apks-page">APKs</a>
+      <div class="nav-spacer"></div>
+      <div id="theme-picker-wrap">
+  <button id="theme-btn" aria-label="Change theme" title="Change theme">&#127912;</button>
+  <ul id="theme-menu" role="listbox" aria-label="Theme">
+    <li role="option" data-theme="">Default</li>
+    <li role="option" data-theme="theme-midnight">Midnight</li>
+    <li role="option" data-theme="theme-terminal">Terminal</li>
+    <li role="option" data-theme="theme-paper">Paper</li>
+    <li role="option" data-theme="theme-neon">Neon Tokyo</li>
+  </ul>
+</div>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+      <h1>
+        <span style="color:var(--teal)" aria-hidden="true">&#9632;</span>
+        Game Gallery
+      </h1>
+      <p class="subtitle">AI-generated and human-polished games — playable in your browser</p>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar" role="region" aria-label="Library stats">
+      <div class="stat-chip">
+        <span class="num" style="color:var(--teal)" id="statTotal">12</span>
+        <span class="lbl">Games<br>in library</span>
+      </div>
+      <div class="stat-chip">
+        <span class="num" style="color:var(--purple)" id="statGenres">5</span>
+        <span class="lbl">Genres</span>
+      </div>
+      <div class="stat-chip">
+        <span class="num" style="color:var(--green)" id="statAI">10</span>
+        <span class="lbl">AI<br>generated</span>
+      </div>
+      <div class="stat-chip">
+        <span class="num" style="color:var(--amber)" id="statPolished">2</span>
+        <span class="lbl">Human<br>polished</span>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar" role="search" aria-label="Filter games">
+      <div class="filter-group" role="group" aria-label="Filter by genre">
+        <button class="filter-btn active" data-genre="all" aria-pressed="true">All</button>
+        <button class="filter-btn" data-genre="Action" aria-pressed="false">Action</button>
+        <button class="filter-btn" data-genre="Cards" aria-pressed="false">Cards</button>
+        <button class="filter-btn" data-genre="Puzzle" aria-pressed="false">Puzzle</button>
+        <button class="filter-btn" data-genre="Strategy" aria-pressed="false">Strategy</button>
+        <button class="filter-btn" data-genre="Adventure" aria-pressed="false">Adventure</button>
+        <button class="filter-btn" data-genre="Exploration" aria-pressed="false">Exploration</button>
+        <button class="filter-btn" data-genre="Word" aria-pressed="false">Word</button>
+        <button class="filter-btn" data-genre="Music" aria-pressed="false">Music</button>
+        <button class="filter-btn" data-genre="Racing" aria-pressed="false">Racing</button>
+        <button class="filter-btn" data-genre="Sports" aria-pressed="false">Sports</button>
+        <button class="filter-btn" data-genre="Skill" aria-pressed="false">Skill</button>
+        <button class="filter-btn" data-genre="Simulation" aria-pressed="false">Simulation</button>
+        <button class="filter-btn" data-genre="Tycoon" aria-pressed="false">Tycoon</button>
+        <button class="filter-btn" data-genre="Gyroscope" aria-pressed="false">Gyroscope</button>
+        <button class="filter-btn" data-genre="Physics" aria-pressed="false">Physics</button>
+        <button class="filter-btn" data-genre="3D" aria-pressed="false">3D</button>
+        <button class="filter-btn" data-genre="Roguelike" aria-pressed="false">Roguelike</button>
+      </div>
+      <div class="filter-sep" role="separator" aria-hidden="true"></div>
+      <select class="diff-select" id="diffFilter" aria-label="Filter by difficulty">
+        <option value="all">All Levels</option>
+        <option value="Easy">Easy</option>
+        <option value="Medium">Medium</option>
+        <option value="Hard">Hard</option>
+      </select>
+      <div class="filter-sep" role="separator" aria-hidden="true"></div>
+      <input
+        class="search-input"
+        type="search"
+        id="searchInput"
+        placeholder="Search by name or description..."
+        aria-label="Search games by name or description"
+        autocomplete="off"
+      />
+      <button class="filter-btn active" id="sort-newest-btn" onclick="toggleSort()" title="Toggle sort order: newest first or oldest first" aria-pressed="true">↓ Newest</button>
+      <span class="filter-count" id="filterCount" aria-live="polite" aria-atomic="true"></span>
+    </div>
+
+    <!-- Game Grid -->
+    <main>
+      <div class="grid" id="gameGrid" role="list" aria-label="Game library"></div>
+    </main>
+
+    <!-- Fullscreen Game Overlay -->
+    <div
+      class="game-overlay"
+      id="gameOverlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Game player"
+    >
+      <div class="overlay-bar">
+        <span class="overlay-title" id="overlayTitle"></span>
+        <div class="overlay-actions">
+          <button class="overlay-btn" id="newTabBtn" title="Open in new tab">NEW TAB</button>
+          <button class="overlay-btn close-btn" id="closeOverlayBtn" title="Close (Escape)" aria-label="Close game overlay">CLOSE</button>
+        </div>
+      </div>
+      <iframe
+        class="game-frame"
+        id="gameFrame"
+        title="Game player"
+        allow="autoplay; fullscreen"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock"
+      ></iframe>
+    </div>
+
+    <script>
+      // ── Design token: difficulty tag class ──
+      const DIFF_CLASS = { Easy: 'tag-easy', Medium: 'tag-medium', Hard: 'tag-hard', 'Easy-Insane': 'tag-insane' };
+
+      // ── Game data — 211 games matching /code/ready/ ──
+      const GAMES = [
+        // ── Cards ──
+        { id: 'canasta', name: 'Canasta', file: 'canasta.html', icon: '🃏', art: 'art-canasta', origin: 'mullm-generated', genres: ['Cards'], difficulty: 'Medium', desc: 'Classic rummy-family card game. Form melds and canastas to outscore your opponent.' },
+        { id: 'euchre', name: 'Euchre', file: 'euchre.html', icon: '🃏', art: 'art-signal', origin: 'claude-generated', genres: ['Cards', 'Strategy'], difficulty: 'Medium', desc: 'Classic 4-player trick-taking card game (2v2). Trump selection, bowers, going alone. AI partners.' },
+        { id: 'cribbage', name: 'Cribbage', file: 'cribbage.html', icon: '🎴', art: 'art-signal', origin: 'claude-generated', genres: ['Cards', 'Strategy'], difficulty: 'Hard', desc: 'Full cribbage with pegging board. 15s, pairs, runs, flushes, nobs. 121-point track with peg visualization.' },
+        { id: 'hearts', name: 'Hearts', file: 'hearts.html', icon: '♥️', art: 'art-signal', origin: 'claude-generated', genres: ['Cards', 'Strategy'], difficulty: 'Medium', desc: 'Classic hearts — avoid hearts and Queen of Spades. Pass cards, shoot the moon. 4 AI opponents.' },
+        { id: 'rune-deckbuilder', name: 'Rune Deckbuilder', file: 'rune-deckbuilder.html', icon: '🔮', art: 'art-rune', origin: 'claude-generated', genres: ['Cards', 'Strategy'], difficulty: 'Hard', desc: 'Draft rune cards, build synergies, and battle through procedurally generated encounters.' },
+        { id: 'spell-weaver', name: 'Spell Weaver', file: 'spell-weaver.html', icon: '🔮', art: 'art-rune', origin: 'claude-generated', genres: ['Cards', 'Strategy'], difficulty: 'Medium-Hard', desc: 'Combine element cards for compound spells in this roguelike deckbuilder. 6 elements, branching dungeon map, Slay the Spire inspired.' },
+        { id: 'trade-routes', name: 'Trade Routes', file: 'trade-routes.html', icon: '🐫', art: 'art-dunice', origin: 'claude-generated', genres: ['Cards', 'Strategy'], difficulty: 'Medium', desc: 'Economic deckbuilder — trade goods as cards, Silk Road routes as encounters. Buy low, sell high, defend your caravan.' },
+        { id: 'bug-hunt', name: 'Bug Hunt', file: 'bug-hunt.html', icon: '🐛', art: 'art-rune', origin: 'claude-generated', genres: ['Cards', 'Strategy'], difficulty: 'Medium-Hard', desc: 'Debugging-themed deckbuilder. Breakpoint, Console.log, Git Revert cards vs Null Pointer, Race Condition, Heisenbug enemies.' },
+        { id: 'abundance', name: 'Abundance', file: 'abundance.html', icon: '🃏', art: 'art-signal', origin: 'claude-generated', genres: ['Cards'], difficulty: 'Medium', desc: 'Collect 100 cards to win. Draw, trade, combine, gamble. 4 types, 5 rarities, 12 sets, NPC merchants. Risk/reward mechanics.' },
+        { id: 'casino-royale', name: 'Casino Royale', file: 'casino-royale.html', icon: '🎰', art: 'art-signal', origin: 'claude-generated', genres: ['Cards', 'Strategy'], difficulty: 'Easy', desc: 'Multi-game casino: blackjack, roulette, slots. Chip economy, animated wheel, card deals.' },        { id: 'cardtoss', name: 'Card Toss 3D', file: 'cardtoss.html', icon: '🎴', art: 'art-cardtoss', origin: 'claude-generated', genres: ['Cards', 'Action', '3D'], difficulty: 'Easy', desc: 'Flick cards in 3D — aim for targets, bowls, and trick shots. Physics-based card throwing with spin and arc control.', status: 'new' },
+        { id: 'golf-card-3d', name: 'Golf Card 3D', file: 'golf-card-3d.html', icon: '⛳', art: 'art-neon', origin: 'claude-generated', genres: ['Cards', '3D'], difficulty: 'Medium', desc: 'Golf scoring card game in 3D. Deal your hand, minimize your score across 9 holes, peek and swap to beat opponents.', status: 'new' },
+        { id: 'poker-3d', name: 'Poker 3D', file: 'poker-3d.html', icon: '🃏', art: 'art-neon', origin: 'claude-generated', genres: ['Cards', '3D'], difficulty: 'Medium', desc: 'Texas Hold\'em poker at a 3D table. Chip stacks, pot odds, AI opponents with personality. Realistic felt and card physics.', status: 'new' },
+        { id: 'spades-3d', name: 'Spades 3D', file: 'spades-3d.html', icon: '♠️', art: 'art-signal', origin: 'claude-generated', genres: ['Cards', 'Strategy', '3D'], difficulty: 'Medium', desc: 'Classic spades with 3D card table. Bid contracts, make books, nil bids. Partner play with 3 AI opponents.', status: 'new' },
+        { id: 'thirty-one-3d', name: 'Thirty-One 3D', file: 'thirty-one-3d.html', icon: '🃏', art: 'art-rune', origin: 'claude-generated', genres: ['Cards', '3D'], difficulty: 'Easy', desc: 'Get as close to 31 as possible in a single suit. Knock, bluff, and swap cards at a 3D casino table.', status: 'new' },
+
+        // ── Action ──
+        { id: 'axe-throw-lab', name: 'Axe Throw Lab', file: 'axe-throw-lab.html', icon: '🪓', art: 'art-neon', origin: 'claude-generated', genres: ['Action', 'Skill', '3D'], difficulty: 'Easy-Hard', desc: 'Physics axe throwing sandbox. 4 axe types, 4 arm configs, 3 environments. Blade-first sticks, handle-first bounces.', status: 'new' },
+        { id: 'boardwalk-midway', name: 'Boardwalk Midway', file: 'boardwalk-midway.html', icon: '🎪', art: 'art-neon', origin: 'claude-generated', genres: ['Action', 'Skill', '3D'], difficulty: 'Easy-Hard', desc: 'Carnival midway with physics throwing games. Milk bottles, balloon darts, prize economy. Three difficulty modes, physics lab to tune your throw.', status: 'new' },
+        { id: 'ski-jumper', name: 'Ski Jumper', file: 'ski-jumper.html', icon: '⛷', art: 'art-ski', origin: 'mullm-generated', genres: ['Action', 'Skill'], difficulty: 'Easy', desc: 'Time your jump off the ramp for maximum distance. Simple controls, satisfying physics.' },
+        { id: 'crokinole2', name: 'Crokinole 2', file: 'crokinole2.html', icon: '🎯', art: 'art-crokinole', origin: 'human-polished', genres: ['Action', 'Strategy'], difficulty: 'Medium', desc: 'Precision disc-flicking on a circular board. Knock opponents off, score the 20-hole.' },
+        { id: 'pool2', name: 'Pool 2', file: 'pool2.html', icon: '🎱', art: 'art-pool', origin: 'human-polished', genres: ['Action'], difficulty: 'Medium', desc: '8-ball billiards with realistic physics. Line up your shots and clear the table.' },
+        { id: 'pool', name: 'Pool Classic', file: 'pool.html', icon: '🎱', art: 'art-pool', origin: 'claude-generated', genres: ['Action', 'Sports'], difficulty: 'Easy', desc: 'Classic 2D pool with smooth physics. Sink all your balls, call your shots, and clear the table.', status: 'new' },        { id: 'neon-drift', name: 'Neon Drift', file: 'neon-drift.html', icon: '🏎️', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', 'Action'], difficulty: 'Medium', desc: 'Top-down neon drift racer. Powerslide through glowing circuits, collect boost pads, chain drifts for multiplier.' },
+        { id: 'demolition-derby', name: 'Demolition Derby', file: 'demolition-derby.html', icon: '💥', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', 'Action'], difficulty: 'Medium', desc: 'Smash opponents in a chaotic arena. Last car running wins. Boost pickups and progressive damage system.' },
+        { id: 'boiling-frogs', name: 'Boiling Frogs', file: 'boiling-frogs.html', icon: '🐸', art: 'art-signal', origin: 'claude-generated', genres: ['Action', 'Simulation'], difficulty: 'Easy-Hard', desc: 'Two modes: be the frog escaping heated water, or the scientist controlling the heat. Conservation guilt included.' },
+        { id: 'war-drums', name: 'War Drums', file: 'war-drums.html', icon: '🥁', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Music', 'Action'], difficulty: 'Easy-Hard', desc: 'Taiko-style percussion with rhythm game mode. Multiple drum types, velocity-sensitive hits, combo scoring.' },
+        { id: 'rhythm-router', name: 'Rhythm Router', file: 'rhythm-router.html', icon: '🎵', art: 'art-signal', origin: 'claude-generated', genres: ['Music', 'Action'], difficulty: 'Easy-Hard', desc: 'Route query-beats to the right tier in time with the music. Miss = expensive cloud. Streak = savings multiplier.' },        { id: 'snake-3d', name: 'Snake 3D', file: 'snake-3d.html', icon: '🐍', art: 'art-neon', origin: 'claude-generated', genres: ['Action', 'Puzzle'], difficulty: 'Hard', desc: 'Classic snake on a 3D rotating cube. Neon snake wraps around cube faces. Swipe to steer. Gets faster as you grow.', status: 'new' },
+        { id: 'neon-cube-escape', name: 'Neon Cube Escape', file: 'neon-cube-escape.html', icon: '🟦', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', 'Action'], difficulty: 'Medium', desc: 'Navigate a glowing cube through abstract neon geometry. Rotate, dodge, and slip through impossibly tight gaps.' },
+
+        // ── Puzzle ──
+        { id: 'signal-chain', name: 'Signal Chain', file: 'signal-chain.html', icon: '📡', art: 'art-signal', origin: 'mullm-generated', genres: ['Puzzle'], difficulty: 'Hard', desc: 'Route signals through a circuit grid. Solve increasingly complex logic puzzles.' },
+        { id: 'hex-collapse', name: 'Hex Collapse', file: 'hex-collapse.html', icon: '⬡', art: 'art-hex', origin: 'mullm-generated', genres: ['Puzzle'], difficulty: 'Medium', desc: 'Match and collapse clusters of hexagonal tiles before the board fills up.' },
+        { id: 'gravity-maze', name: 'Gravity Flip Maze', file: 'gravity-maze.html', icon: '🔄', art: 'art-hex', origin: 'claude-generated', genres: ['Puzzle'], difficulty: 'Easy-Hard', desc: '20 levels of gravity-flipping puzzles. Portals, ice tiles, keys and locks. Star ratings and undo.' },
+        { id: 'path-tracing', name: 'Path Tracing', file: 'path-tracing.html', icon: '🔲', art: 'art-signal', origin: 'claude-generated', genres: ['Puzzle', 'Logic'], difficulty: 'Hard', desc: 'Trace a path visiting every cell exactly once. 50+ levels with arrows, teleports, ice slides, locked gates. Neon trail effects.' },        { id: 'escape-room', name: 'Escape Room', file: 'escape-room.html', icon: '🔐', art: 'art-signal', origin: 'claude-generated', genres: ['Puzzle', 'Adventure'], difficulty: 'Hard', desc: 'Point-and-click escape room. 3 rooms, inventory system, cipher puzzles, gear alignment. Hints after 60s stuck.', status: 'new' },
+        { id: 'prism-match', name: 'Prism Match', file: 'prism-match.html', icon: '🔺', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle'], difficulty: 'Medium', desc: 'Match prismatic tiles by rotating and aligning light beams. Colors refract and merge as you build longer chains.' },
+        { id: 'cascade-breaker', name: 'Cascade Breaker', file: 'cascade-breaker.html', icon: '💎', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle'], difficulty: 'Easy', desc: 'Chain-reaction gem-clearing puzzle. Set off one gem to cascade through the board. Combo for maximum score.' },
+        { id: 'falling-words', name: 'Falling Words', file: 'falling-words.html', icon: '🔤', art: 'art-signal', origin: 'claude-generated', genres: ['Puzzle', 'Word'], difficulty: 'Medium', desc: 'Letters descend Tetris-style — click to form words before they stack up. Chain bonus for shared letters.' },
+        { id: 'neon-tether', name: 'Neon Tether', file: 'neon-tether.html', icon: '🔗', art: 'art-signal', origin: 'mullm-designed', genres: ['Puzzle', 'Physics'], difficulty: 'Medium', desc: 'Connect floating neon nodes to a core. Energy drains, connections decay. Combo system. Designed by mullm at $0.' },
+        { id: 'gravity-golf', name: 'Gravity Golf', file: 'gravity-golf.html', icon: '⛳', art: 'art-signal', origin: 'claude-generated', genres: ['Puzzle', 'Physics'], difficulty: 'Hard', desc: '18-hole space golf. Gravity wells bend the ball. Trajectory prediction, par scoring, wall bouncing. Procedural holes.' },
+        { id: 'tilt-balance', name: 'Tilt Balance', file: 'tilt-balance.html', icon: '⚖️', art: 'art-organic', origin: 'claude-generated', genres: ['Puzzle', 'Gyroscope'], difficulty: 'Medium', desc: 'Balance balls on platforms by tilting your phone. 10 levels: flat surfaces to seesaws with obstacles. Zen aesthetic.', status: 'new' },
+        { id: 'tilt-labyrinth', name: 'Tilt Labyrinth', file: 'tilt-labyrinth.html', icon: '🏗️', art: 'art-signal', origin: 'claude-generated', genres: ['Puzzle', 'Gyroscope'], difficulty: 'Hard', desc: 'Classic wooden labyrinth — tilt phone to guide marble through maze. 8 levels, ghost times, hole traps. Wood texture.', status: 'new' },
+        { id: 'underwater-temple', name: 'Underwater Temple', file: 'underwater-temple.html', icon: '🏛', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Hard', desc: 'Dive into ancient ruins. Redirect light beams with mirrors, manage oxygen, collect artifacts across 5 depths. Caustics, bubbles, muffled audio.', status: 'new' },
+        { id: 'haunted-mansion', name: 'Haunted Mansion', file: 'haunted-mansion.html', icon: '👻', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Hard', desc: 'First-person escape room in a Victorian mansion. Combination locks, switch puzzles, symbol patterns, jump scares, flashlight with battery drain.', status: 'new' },
+        { id: 'redaction', name: 'Redaction', file: 'redaction.html', icon: '█', art: 'art-signal', origin: 'claude-generated', genres: ['Word', 'Puzzle'], difficulty: 'Hard', desc: 'Classified documents with blacked-out words. Deduce from context. 32 puzzles: spy reports, love letters, recipes, court transcripts.' },
+
+        // ── Strategy ──
+        { id: 'dunice', name: 'Dunice', file: 'dunice.html', icon: '🏜', art: 'art-dunice', origin: 'mullm-generated', genres: ['Strategy'], difficulty: 'Medium', desc: 'Desert resource management. Control spice production, expand territory, hold off rivals.' },
+        { id: 'ai-gauntlet', name: 'AI Gauntlet', file: 'ai-gauntlet.html', icon: '⚔', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy'], difficulty: 'Hard', desc: 'Roguelike strategy: send waves of AI units through procedurally generated gauntlets.' },
+        { id: 'cache-td', name: 'Cache TD', file: 'cache-td.html', icon: '🏰', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy'], difficulty: 'Medium-Hard', desc: 'Tower defense — intercept queries before they reach the cloud. Cache towers, local model turrets, split router forks.' },
+        { id: 'control-center', name: 'Control Center', file: 'control-center.html', icon: '🛸', art: 'art-signal', origin: 'claude-generated', genres: ['Simulation', 'Strategy'], difficulty: 'Hard', desc: 'Mission control sim. Monitor 6 systems, diagnose failures, prevent cascades. Gauges, status lights, event logs.' },
+        { id: 'server-monitor', name: 'Server Monitor', file: 'server-monitor.html', icon: '🖥️', art: 'art-signal', origin: 'claude-generated', genres: ['Simulation', 'Strategy'], difficulty: 'Hard', desc: 'Cyberpunk server monitoring game. 16 servers, random incidents, diagnose and fix before cascade. 5-min rounds with uptime scoring.' },
+        { id: 'hex-conquest', name: 'Hex Conquest', file: 'hex-conquest.html', icon: '⬡', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy'], difficulty: 'Hard', desc: 'Turn-based hex conquest. Deploy armies, capture territory, manage supply lines and flanking bonuses against a tactical AI.' },        { id: 'wizard-tower-defense', name: 'Wizard Tower Defense', file: 'wizard-tower-defense.html', icon: '🧙', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Medium', desc: '5 magical tower types (fire/ice/lightning/arcane/healing), 15 waves with bosses, 3-level upgrades, chain lightning, particle spell effects.', status: 'new' },
+        { id: 'medieval-siege', name: 'Medieval Siege', file: 'medieval-siege.html', icon: '🏰', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Command catapults, archers, and battering rams to siege a castle. 10 waves, destructible walls, 6 upgrade trees. ThreeJS 3D with procedural audio.', status: 'new' },
+        { id: 'space-station-builder', name: 'Space Station Builder', file: 'space-station-builder.html', icon: '🛸', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Build a modular orbital station. Snap rooms together, manage O2/power/morale, dock supply ships, research new modules. ThreeJS with Earth backdrop.', status: 'new' },
+        { id: 'robot-factory-tycoon', name: 'Robot Factory Tycoon', file: 'robot-factory-tycoon.html', icon: '🤖', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', 'Tycoon', '3D'], difficulty: 'Medium', desc: 'Build a robot production line. Place smelters, assemblers, painters, QC, shippers. Auto-connecting conveyors, order system, milestone progression.', status: 'new' },
+
+        // ── Adventure / Exploration ──
+        { id: 'adventure', name: 'Adventure', file: 'adventure.html', icon: '🗺', art: 'art-adventure', origin: 'claude-generated', genres: ['Adventure'], difficulty: 'Medium', desc: 'Text-adventure RPG with branching narrative, inventory, and multiple endings.' },
+        { id: 'adventure-2d', name: 'Adventure 2D', file: 'adventure-2d.html', icon: '🎮', art: 'art-signal', origin: 'claude-generated', genres: ['Adventure'], difficulty: 'Medium', desc: 'Retro point-and-click graphical adventure. Pixel art rooms, NPC dialog trees, inventory puzzles, funny death sequences. 90s aesthetic.' },
+        { id: 'quail-farm', name: 'Quail Farm', file: 'quail-farm.html', icon: '🐦', art: 'art-quail', origin: 'claude-generated', genres: ['Adventure', 'Simulation'], difficulty: 'Easy', desc: 'Tend your quail farm across the seasons. Cozy management with charming pixel art.' },
+        { id: 'dungeon-descent', name: 'Dungeon Descent', file: 'dungeon-descent.html', icon: '⚔', art: 'art-neon', origin: 'claude-generated', genres: ['Roguelike', 'Exploration'], difficulty: 'Hard', desc: 'Descend procedurally generated dungeons. Discover loot, fight monsters, unlock shortcuts. Permadeath roguelike with persistent upgrades.' },
+        { id: 'crystal-caverns', name: 'Crystal Caverns', file: 'crystal-caverns.html', icon: '💎', art: 'art-neon', origin: 'claude-generated', genres: ['Exploration', 'Adventure'], difficulty: 'Easy', desc: 'Explore glittering underground caverns. Mine crystals, avoid cave-ins, find ancient relics in branching tunnel networks.' },
+        { id: 'deep-sea-dive', name: 'Deep Sea Dive', file: 'deep-sea-dive.html', icon: '🤿', art: 'art-neon', origin: 'claude-generated', genres: ['Exploration', 'Adventure'], difficulty: 'Medium', desc: 'Dive into the abyss. Manage oxygen, navigate bioluminescent creatures, recover sunken treasure across increasing depths.' },
+        { id: 'firefly-forest', name: 'Firefly Forest', file: 'firefly-forest.html', icon: '🌟', art: 'art-neon', origin: 'claude-generated', genres: ['Exploration'], difficulty: 'Easy', desc: 'Wander a tranquil procedural forest at dusk. Guide fireflies home, discover hidden glades, collect soft ambient sound layers.' },
+        { id: 'astral-drift', name: 'Astral Drift', file: 'astral-drift.html', icon: '✨', art: 'art-neon', origin: 'claude-generated', genres: ['Exploration'], difficulty: 'Easy', desc: 'Drift through abstract space, collecting stardust and following gentle gravitational currents. Meditative, generative, no fail state.' },
+        { id: 'bamboo-village', name: 'Bamboo Village', file: 'bamboo-village.html', icon: '🎋', art: 'art-neon', origin: 'claude-generated', genres: ['Exploration', 'Simulation'], difficulty: 'Easy', desc: 'Build and tend a serene bamboo village. Plant bamboo groves, attract villagers, watch the seasons cycle through a living world.' },
+        { id: 'safari-explorer', name: 'Safari Explorer', file: 'safari-explorer.html', icon: '🦁', art: 'art-neon', origin: 'claude-generated', genres: ['Adventure', '3D', 'Exploration'], difficulty: 'Medium', desc: 'Drive a jeep across the African savanna photographing wildlife. 5 species, day/night cycle, zoom lens scoring, collection journal. ThreeJS 3D.', status: 'new' },
+        { id: 'tardigrade-explorer', name: 'Tardigrade Explorer', file: 'tardigrade-explorer.html', icon: '🌌', art: 'art-neon', origin: 'claude-generated', genres: ['Adventure', '3D', 'Exploration'], difficulty: 'Medium', desc: 'ThreeJS 3D exploration — guide a tardigrade through crystal caves, mushroom forest, and lava plains. Collect 3 orbs. Third-person camera, particles, ambient sound.', status: 'new' },
+        { id: 'forest3d', name: 'Forest 3D', file: 'forest3d.html', icon: '🌲', art: 'art-neon', origin: 'claude-generated', genres: ['Adventure', '3D', 'Exploration'], difficulty: 'Easy', desc: 'Explore a procedural 3D forest. ThreeJS environment with trees, terrain, and atmosphere.', status: 'new' },
+
+        // ── Simulation / Tycoon ──
+        { id: 'tardigrade', name: 'Tardigrade Survival', file: 'tardigrade.html', icon: '🐻', art: 'art-quail', origin: 'claude-generated', genres: ['Simulation', 'Strategy'], difficulty: 'Medium', desc: 'Survive extreme environments as a tardigrade colony. Cryptobiosis, multi-biome, idle/active hybrid. Real biology!' },
+        { id: 'tardigrade-tycoon', name: 'Tardigrade Tycoon', file: 'tardigrade-tycoon.html', icon: '💰', art: 'art-quail', origin: 'claude-generated', genres: ['Tycoon', 'Strategy'], difficulty: 'Easy', desc: 'Idle/incremental — start with 1 tardigrade processing queries. Buy upgrades, prestige for new model tiers.' },
+        { id: 'storm-chaser', name: 'Storm Chaser', file: 'storm-chaser.html', icon: '⛈️', art: 'art-signal', origin: 'claude-generated', genres: ['Simulation', 'Action'], difficulty: 'Medium', desc: 'Weather simulation. Control wind, trigger lightning, guide storms. Protect cities, destroy targets. Dynamic rain and cloud physics.' },
+        { id: 'eco-sim', name: 'Eco Sim', file: 'eco-sim.html', icon: '🌿', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation'], difficulty: 'Medium', desc: 'Balance a living ecosystem. Introduce species, manage climate, watch food chains emerge. Tweak variables and observe cascading effects.' },
+        { id: 'mole-miner', name: 'Mole Miner', file: 'mole-miner.html', icon: '⛏️', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', 'Strategy'], difficulty: 'Easy', desc: 'Dig tunnels and mine resources as an industrious mole. Expand your underground colony, upgrade tools, find rare gems deep below.' },
+        { id: 'gem-cutter', name: 'Gem Cutter', file: 'gem-cutter.html', icon: '💎', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', 'Skill'], difficulty: 'Medium', desc: 'Precision gem-cutting simulation. Score each facet by angle accuracy, build value through perfect cuts, sell to demanding jewelers.' },
+        { id: 'thunder-forge', name: 'Thunder Forge', file: 'thunder-forge.html', icon: '⚒️', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', 'Strategy'], difficulty: 'Medium', desc: 'Forge legendary weapons in a thunderstruck smithy. Heat metal, hammer at the right rhythm, temper in storm-water for bonus power.' },
+        { id: 'clockwork-factory', name: 'Clockwork Factory', file: 'clockwork-factory.html', icon: '⚙️', art: 'art-neon', origin: 'claude-generated', genres: ['Tycoon', 'Simulation'], difficulty: 'Medium', desc: 'Design and run a clockwork production plant. Chain gears, belts, and hoppers to automate widget manufacturing. Optimize throughput.' },
+        { id: 'space-colony', name: 'Space Colony', file: 'space-colony.html', icon: '🚀', art: 'art-neon', origin: 'claude-generated', genres: ['Tycoon', 'Strategy'], difficulty: 'Hard', desc: 'Establish and grow a deep-space colony. Manage oxygen, power, food, and morale across expanding habitat modules. Research new tech.' },
+        { id: 'dragon-hatchery', name: 'Dragon Hatchery', file: 'dragon-hatchery.html', icon: '🥚', art: 'art-neon', origin: 'claude-generated', genres: ['Tycoon', 'Simulation'], difficulty: 'Easy', desc: 'Breed and raise dragons in your hatchery. Match eggs for rare hybrids, manage habitats, sell dragons to fund new enclosures.' },
+        { id: 'poly-forge', name: 'Poly Forge', file: 'poly-forge.html', icon: '🔺', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation'], difficulty: 'Medium', desc: 'Sculpt and paint low-poly 3D models using a grid of polygon faces. Export your creations and unlock new shape libraries.' },
+
+        // ── Racing ──
+        { id: 'retro-racer', name: 'Retro Racer', file: 'retro-racer.html', icon: '🏎️', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', 'Action'], difficulty: 'Medium', desc: 'Retro forward-facing racer. Pseudo-3D road with curves and hills. Silly growling engine sounds. Touch controls.', status: 'new' },
+        { id: 'pole-position', name: 'Apex Racer', file: 'pole-position.html', icon: '🏎', art: 'art-neon', origin: 'human-polished', genres: ['Racing', '3D'], difficulty: 'Medium', desc: 'Full 3D VR-ready racing. Three tracks (desert/city/mountain), 20 AI opponents, side-to-side gyro look, ray-traced-style lighting and heat shimmer. Gas and brake on mobile. Rebuilt from retro 8-bit into proper Three.js.', status: 'new' },
+        { id: 'dragon-racing', name: 'Dragon Racing', file: 'dragon-racing.html', icon: '🐉', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', '3D'], difficulty: 'Medium', desc: 'Race dragons through floating sky courses. 3 tracks, AI opponents, ring checkpoints, risk/reward boost mechanic, procedural wing flap animation.', status: 'new' },
+        { id: 'quantum-runner', name: 'Quantum Runner', file: 'quantum-runner.html', icon: '🌀', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', 'Action'], difficulty: 'Hard', desc: 'Quantum-tunneling endless runner. Phase through obstacles, split into probability paths, and collapse to the best outcome.' },
+        { id: 'quantum-drift-racer', name: 'Quantum Drift Racer', file: 'quantum-drift-racer.html', icon: '🏎️', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', 'Action'], difficulty: 'Hard', desc: 'Bending-space drift racer. Wormhole shortcuts, gravity-wave turns, and photon boost pickups in a neon quantum circuit.' },
+
+        // ── Sports ──
+        { id: 'regatta-3d', name: 'Regatta 3D', file: 'regatta-3d.html', icon: '⛵', art: 'art-neon', origin: 'claude-generated', genres: ['Sports', '3D'], difficulty: 'Medium', desc: '3D sailing regatta. Read wind direction, trim sails, tack through buoy gates. Race against time and AI opponents on open water.' },
+        { id: 'billiards-3d', name: 'Billiards 3D', file: 'billiards-3d.html', icon: '🎱', art: 'art-neon', origin: 'claude-generated', genres: ['Sports', '3D'], difficulty: 'Medium', desc: 'Full 3D billiards table. Orbit the camera, chalk your cue, call shots. Realistic collision physics and cushion roll.' },
+        { id: 'air-hockey-3d', name: 'Air Hockey 3D', file: 'air-hockey-3d.html', icon: '🏒', art: 'art-neon', origin: 'claude-generated', genres: ['Sports', '3D'], difficulty: 'Easy', desc: 'Overhead 3D air hockey table. Slide your puck paddle, deflect shots, score goals against a reactive AI.' },
+        { id: 'shuffleboard-pro', name: 'Shuffleboard Pro', file: 'shuffleboard-pro.html', icon: '🥌', art: 'art-neon', origin: 'claude-generated', genres: ['Sports', 'Skill'], difficulty: 'Easy', desc: 'Swipe to slide pucks down a glossy shuffleboard lane. Weight and angle control let you knock opponents back, landing in highest-scoring zones.' },
+        { id: 'bowling', name: 'Bowling Alley', file: 'bowling.html', icon: '🎳', art: 'art-signal', origin: 'claude-generated', genres: ['Sports', 'Skill'], difficulty: 'Easy', desc: 'Bowling with themes (neon, retro, cosmic). Ball styles, physics feel, screen shake strikes. Old TV score display.', status: 'new' },
+        { id: 'archery-range', name: 'Archery Range', file: 'archery-range.html', icon: '🏹', art: 'art-neon', origin: 'claude-generated', genres: ['Sports', 'Action', '3D'], difficulty: 'Medium', desc: 'ThreeJS archery with wind physics, power meter, and target scoring. Practice mode with multiple distances.', status: 'new' },
+        { id: 'pirate-ship-battle', name: 'Pirate Ship Battle', file: 'pirate-ship-battle.html', icon: '🏴‍☠️', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Naval combat on the open sea. Broadside cannons, wind-based sailing, treasure looting, ocean wave shader. Merchant ships to ghost ships.', status: 'new' },
+
+        // ── Word ──
+        { id: 'crossword-blitz', name: 'Crossword Blitz', file: 'crossword-blitz.html', icon: '📝', art: 'art-signal', origin: 'claude-generated', genres: ['Word', 'Puzzle'], difficulty: 'Hard', desc: 'Speed crossword — 5x5 grid, 30-second timer per clue. Procedurally generated puzzles. Neon grid with glowing words.' },
+        { id: 'anagram-arena', name: 'Anagram Arena', file: 'anagram-arena.html', icon: '🔀', art: 'art-signal', origin: 'claude-generated', genres: ['Word', 'Puzzle'], difficulty: 'Medium', desc: 'Scrambled letters — rearrange into valid words. Multiple solutions per puzzle. Star rating by longest word found.' },
+        { id: 'word-chain', name: 'Word Chain', file: 'word-chain.html', icon: '🔗', art: 'art-signal', origin: 'claude-generated', genres: ['Word', 'Strategy'], difficulty: 'Medium', desc: 'Chain words — next word starts with last letter of previous. AI opponent, timer pressure, spiral chain visualization.' },
+        { id: 'letter-forge', name: 'Letter Forge', file: 'letter-forge.html', icon: '🔤', art: 'art-neon', origin: 'claude-generated', genres: ['Word'], difficulty: 'Medium', desc: 'Forge words from a crucible of hot letters. Trade in short words for vowels, craft long rare words for gold, reach target score before the crucible cools.' },
+        { id: 'word-alchemist', name: 'Word Alchemist', file: 'word-alchemist.html', icon: '⚗️', art: 'art-neon', origin: 'claude-generated', genres: ['Word', 'Puzzle'], difficulty: 'Hard', desc: 'Transmute letter tiles using alchemical reagents. Combine elements to unlock exotic letters and spell forbidden words for massive point bonuses.' },
+
+        // ── Music / Instruments ──
+        { id: 'glass-harp', name: 'Glass Harp', file: 'glass-harp.html', icon: '🍷', art: 'art-signal', origin: 'claude-generated', genres: ['Music'], difficulty: 'Easy', desc: 'Drag your finger around wine glass rims to play ethereal tones. Adjust water levels for pitch. Web Audio API.' },
+        { id: 'theremin', name: 'Theremin', file: 'theremin.html', icon: '👻', art: 'art-signal', origin: 'claude-generated', genres: ['Music'], difficulty: 'Easy', desc: 'Classic theremin — mouse X controls pitch, Y controls volume. Waveform visualizer, effects, spooky aesthetic.' },
+        { id: 'dulcimer', name: 'Hammered Dulcimer', file: 'dulcimer.html', icon: '🎶', art: 'art-signal', origin: 'claude-generated', genres: ['Music'], difficulty: 'Easy', desc: 'Tap strings on a trapezoidal board. Sustain pedal, reverb, velocity-sensitive mallets. Beautiful wood aesthetic.' },
+        { id: 'pipe-organ', name: 'Pipe Organ', file: 'pipe-organ.html', icon: '⛪', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Music'], difficulty: 'Medium', desc: 'Multi-rank pipe organ with 6 stops, cathedral reverb, swell expression. Gothic aesthetic with animated pipes.' },
+        { id: 'marimba', name: 'Marimba', file: 'marimba.html', icon: '🎵', art: 'art-signal', origin: 'claude-generated', genres: ['Music'], difficulty: 'Easy', desc: 'Wooden bar marimba with mallets following cursor. Tremolo, reverb, velocity-sensitive. Rosewood aesthetic.' },
+        { id: 'aibophone', name: 'AIbophone', file: 'aibophone.html', icon: '✨', art: 'art-signal', origin: 'claude-generated', genres: ['Music', 'AI'], difficulty: 'Easy', desc: 'AI-powered instrument — mouse position controls pitch and timbre in harmonic space. Always in tune, always harmonizing. Cosmic nebula visuals.' },
+        { id: 'symphony-conductor', name: 'Symphony Conductor', file: 'symphony-conductor.html', icon: '🎼', art: 'art-signal', origin: 'claude-generated', genres: ['Music', 'Simulation'], difficulty: 'Medium', desc: 'Conduct a symphony orchestra with mouse gestures. Control tempo, volume, and featured sections. Strings, woodwinds, brass, percussion.' },
+        { id: 'clarinet', name: 'Clarinet', file: 'clarinet.html', icon: '🎵', art: 'art-signal', origin: 'claude-generated', genres: ['Music'], difficulty: 'Easy', desc: 'Woodwind reed instrument. Mouse Y = breath, X = pitch. Overblowing, vibrato, formant filtering. Dark wood aesthetic.' },
+        { id: 'saxophone', name: 'Saxophone', file: 'saxophone.html', icon: '🎷', art: 'art-signal', origin: 'claude-generated', genres: ['Music'], difficulty: 'Easy', desc: 'Jazzy brass/reed hybrid. Portamento, blues/pentatonic/jazz scales. Auto-harmonize with walking bass. Golden sax visuals.' },
+        { id: 'string-quartet', name: 'String Quartet', file: 'string-quartet.html', icon: '🎻', art: 'art-signal', origin: 'claude-generated', genres: ['Music'], difficulty: 'Medium', desc: '4 simultaneous string voices. Mouse controls lead voice. Auto-harmonize with proper voice leading. Bow + pizzicato.' },
+        { id: 'steel-drums', name: 'Steel Drums', file: 'steel-drums.html', icon: '🥁', art: 'art-signal', origin: 'claude-generated', genres: ['Music'], difficulty: 'Easy', desc: 'Caribbean steel pan. Circular tuned sections. Calypso, soca, reggae rhythms. Auto-accompany bass pan. Chrome reflections.' },
+        { id: 'beat-blocks', name: 'Beat Blocks', file: 'beat-blocks.html', icon: '🎧', art: 'art-neon', origin: 'claude-generated', genres: ['Music', 'Puzzle'], difficulty: 'Medium', desc: 'Arrange beat blocks on a step sequencer grid to match the target rhythm. Layers of kick, snare, hi-hat, and bass unlock as you progress.' },
+        { id: 'sync-rhythm', name: 'Sync Rhythm', file: 'sync-rhythm.html', icon: '🎵', art: 'art-signal', origin: 'claude-generated', genres: ['Music', 'Skill'], difficulty: 'Medium', desc: 'Rhythm sync game. Visual metronome, beat patterns, Perfect/Good/Miss timing. Solo or 2-player. 7 levels, 100-160 BPM.' },
+        { id: 'rhythm-tap', name: 'Rhythm Tap', file: 'rhythm-tap.html', icon: '🎵', art: 'art-neon', origin: 'claude-generated', genres: ['Music', 'Skill'], difficulty: 'Medium', desc: 'DDR/Tap Tap style rhythm game. Notes scroll down, tap on beat. Combo counter, score multiplier. Web Audio beats.', status: 'new' },
+
+        // ── Physics / Skill ──
+        { id: 'rope-physics', name: 'Rope Physics', file: 'rope-physics.html', icon: '🪢', art: 'art-neon', origin: 'claude-generated', genres: ['Physics', 'Puzzle'], difficulty: 'Medium', desc: 'Realistic rope simulation sandbox. Tie knots, hang weights, create Rube-Goldberg setups. Cut ropes at the right moment to solve each stage.' },
+        { id: 'marble-kingdom', name: 'Marble Kingdom', file: 'marble-kingdom.html', icon: '🔵', art: 'art-neon', origin: 'claude-generated', genres: ['Physics', 'Strategy'], difficulty: 'Medium', desc: 'Build marble-run tracks and race marbles through your kingdom. Unlock new track pieces, design efficient routes, compete for fastest time.' },
+        { id: 'gravity-jump', name: 'Gravity Jump', file: 'gravity-jump.html', icon: '🌌', art: 'art-neon', origin: 'claude-generated', genres: ['Physics', 'Action'], difficulty: 'Medium', desc: 'Flip gravity to jump between floor and ceiling. Navigate increasingly complex corridors, trigger switches, collect stars without touching walls.' },
+        { id: 'tower-stack', name: 'Tower Stack', file: 'tower-stack.html', icon: '🏗️', art: 'art-signal', origin: 'claude-generated', genres: ['Skill'], difficulty: 'Easy', desc: 'One-tap block stacking. Swinging blocks, tap to drop, overhang trimmed. 3D perspective, gets faster as you climb.' },
+        { id: 'flick-football', name: 'Flick Football', file: 'flick-football.html', icon: '🏈', art: 'art-organic', origin: 'claude-generated', genres: ['Skill', 'Sports'], difficulty: 'Easy', desc: 'Paper football flick game. Swipe to flick through uprights. 2-player pass-and-play. Paper texture aesthetic.', status: 'new' },
+        { id: 'paper-football', name: 'Paper Football', file: 'paper-football.html', icon: '🏈', art: 'art-neon', origin: 'claude-generated', genres: ['Skill', 'Action'], difficulty: 'Easy', desc: 'Flick a paper football triangle through the uprights. Simple, satisfying physics.' },
+
+        // ── Gyroscope / Mobile-tilt ──
+        { id: 'gyro-ball', name: 'Gyro Ball', file: 'gyro-ball.html', icon: '📱', art: 'art-neon', origin: 'claude-generated', genres: ['Gyroscope', 'Puzzle'], difficulty: 'Medium', desc: 'Tilt your phone to roll a ball through mazes. Uses gyroscope/accelerometer. 10 levels. Haptic feedback.', status: 'new' },
+        { id: 'gyro-nebula', name: 'Gyro Nebula', file: 'gyro-nebula.html', icon: '🌌', art: 'art-neon', origin: 'claude-generated', genres: ['Gyroscope', 'Exploration'], difficulty: 'Easy', desc: 'Tilt your device to drift a starship through a luminous nebula. Collect stardust clouds, avoid asteroid clusters, compose your own constellation trail.' },
+        { id: 'gyro-crystal-cave', name: 'Gyro Crystal Cave', file: 'gyro-crystal-cave.html', icon: '💎', art: 'art-neon', origin: 'claude-generated', genres: ['Gyroscope', 'Exploration'], difficulty: 'Medium', desc: 'Tilt to guide a glowing crystal orb through an underground gem cave. Angle sensitive — too steep and you shatter. Find the exit without cracking.' },
+        { id: 'gyro-aurora', name: 'Gyro Aurora', file: 'gyro-aurora.html', icon: '🌈', art: 'art-neon', origin: 'claude-generated', genres: ['Gyroscope', 'Exploration'], difficulty: 'Easy', desc: 'Tilt your device to paint the sky with aurora ribbons. Chase magnetic poles, mix color gradients, score by symmetry and coverage.' },
+        { id: 'tilt-snake', name: 'Tilt Snake', file: 'tilt-snake.html', icon: '🐍', art: 'art-neon', origin: 'claude-generated', genres: ['Gyroscope', 'Action'], difficulty: 'Hard', desc: 'Snake on a 3D cube — tilt your phone to control direction. Wraps across all 6 faces. Neon wireframe aesthetic.', status: 'new' },
+
+        // ── Roguelike ──
+        { id: 'void-miner', name: 'Void Miner', file: 'void-miner.html', icon: '⛏️', art: 'art-neon', origin: 'claude-generated', genres: ['Roguelike', 'Survival'], difficulty: 'Hard', desc: 'Mine the void between dimensions. Each run generates a unique ore grid; break through layers, avoid unstable pockets, escape before collapse.' },
+
+        // ── 3D / Immersive ──
+        { id: 'reapers-toll', name: "Reaper's Toll", file: 'reapers-toll.html', icon: '💀', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D', 'Survival'], difficulty: 'Medium', desc: 'Wave survival — command the void scythe against skeleton warriors and crystal wolves. Combo kills, spin attacks, ethereal fog.', status: 'new' },
+        { id: 'sky-islands-drift', name: 'Sky Islands Drift', file: 'sky-islands-drift.html', icon: '🏝️', art: 'art-organic', origin: 'claude-generated', genres: ['Exploration', '3D', 'Puzzle'], difficulty: 'Medium', desc: 'Pilot a clockwork drone across floating sky islands. Collect orbs and treasure chests, dodge dragon whelps, refuel at the airship.', status: 'new' },
+        { id: 'crystal-forest-spirit', name: 'Crystal Forest Spirit', file: 'crystal-forest-spirit.html', icon: '🌿', art: 'art-organic', origin: 'claude-generated', genres: ['Stealth', '3D', 'Zen'], difficulty: 'Easy-Medium', desc: 'Ethereal stealth through a crystal forest. Collect amethyst flowers, phase through wolves, avoid mecha-knights. Go invisible to slip past.', status: 'new' },
+        { id: 'new-crokinole', name: 'Crokinole (New)', file: 'new-crokinole.html', icon: '🎯', art: 'art-crokinole', origin: 'claude-generated', genres: ['Action'], difficulty: 'Medium', desc: 'Improved crokinole with better physics and visual polish.' },
+        { id: 'new-pool3d', name: 'Pool 3D (New)', file: 'new-pool3d.html', icon: '🎱', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Improved 3D pool with better cue control and ball physics.' },
+
+        // ── Word / Trivia ──
+        { id: 'trivia', name: 'Trivia', file: 'trivia.html', icon: '🧠', art: 'art-signal', origin: 'claude-generated', genres: ['Word', 'Strategy'], difficulty: 'Medium', desc: '500+ questions across 6 categories. Timer, streak bonuses, lifelines, progressive difficulty. Category-colored themes.' },
+
+        // ── Tools / Creative ──
+        { id: 'pixel-painter', name: 'Pixel Painter', file: 'pixel-painter.html', icon: '🎨', art: 'art-signal', origin: 'claude-generated', genres: ['Creative', 'Tool'], difficulty: 'Easy', desc: '32x32 pixel art studio. Draw + challenge modes. Layers, undo/redo, animation frames. Export as PNG.' },
+        { id: 'diff-viewer', name: 'Diff Viewer', file: 'diff-viewer.html', icon: '📊', art: 'art-signal', origin: 'claude-generated', genres: ['Tool'], difficulty: 'Easy', desc: 'Compare two text files side-by-side. Git-style red/green line diff with word-level highlighting.' },
+
+        // ── S24 — Previously unlisted games ──
+        { id: 'abyssal-protocol', name: 'Abyssal Protocol', file: 'abyssal-protocol.html', icon: '🌊', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Deep-sea 3D survival. Navigate the abyss, manage oxygen, avoid eldritch threats. Atmospheric lighting and pressure mechanics.' },
+        { id: 'ant-colony', name: 'Ant Colony Manager', file: 'ant-colony.html', icon: '🐜', art: 'art-signal', origin: 'claude-generated', genres: ['Simulation', 'Strategy'], difficulty: 'Medium', desc: 'Manage a thriving ant colony. Assign workers, expand tunnels, defend the queen. Resource management sim.' },
+        { id: 'asteroid-miner', name: 'Asteroid Miner', file: 'asteroid-miner.html', icon: '☄️', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', 'Strategy'], difficulty: 'Medium', desc: 'Mine asteroids, trade resources, upgrade your ship. Space economics meets arcade action.' },
+        { id: 'aurora-painter', name: 'Aurora Painter 3D', file: 'aurora-painter.html', icon: '🌌', art: 'art-neon', origin: 'claude-generated', genres: ['Creative', '3D'], difficulty: 'Easy', desc: 'Paint northern lights across a 3D sky. Gesture-based aurora creation with particle effects and ambient music.' },
+        { id: 'bonsai-garden', name: 'Bonsai Garden', file: 'bonsai-garden.html', icon: '🌳', art: 'art-organic', origin: 'claude-generated', genres: ['Creative', '3D'], difficulty: 'Easy', desc: '3D bonsai growing sim. Prune, shape, water. Procedural tree growth with realistic branching. Zen mode.' },
+        { id: 'chess-battle', name: 'Battle Chess 3D', file: 'chess-battle.html', icon: '♟️', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: '3D chess with animated battle sequences when pieces capture. Full chess AI with multiple difficulty levels.' },
+        { id: 'circuit-racer', name: 'Drift Circuit Racer', file: 'circuit-racer.html', icon: '🏎️', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', 'Action'], difficulty: 'Medium', desc: 'Top-down drift racing through neon circuits. Chain drifts for boost, unlock new tracks.' },
+        { id: 'click-the-cosmos', name: 'Click the Cosmos', file: 'click-the-cosmos.html', icon: '✨', art: 'art-neon', origin: 'claude-generated', genres: ['Creative', '3D'], difficulty: 'Easy', desc: '3D cosmic clicker. Create stars, planets, and galaxies with each click. Watch your universe evolve.' },
+        { id: 'constellation-draw', name: 'Constellation Draw', file: 'constellation-draw.html', icon: '⭐', art: 'art-neon', origin: 'claude-generated', genres: ['Creative', '3D'], difficulty: 'Easy', desc: 'Connect stars to draw constellations in 3D space. Learn real star patterns or create your own.' },
+        { id: 'coral-defense', name: 'Coral Defense', file: 'coral-defense.html', icon: '🪸', art: 'art-organic', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Medium', desc: '3D tower defense underwater. Place coral towers to defend the reef from pollution waves. Procedural reef generation.' },
+        { id: 'food-truck', name: 'Food Truck Tycoon', file: 'food-truck.html', icon: '🚚', art: 'art-signal', origin: 'claude-generated', genres: ['Simulation'], difficulty: 'Medium', desc: 'Run a food truck empire. Cook orders, manage ingredients, expand locations. Time-pressure cooking meets business sim.' },
+        { id: 'glass-blowing', name: 'Glass Blowing Master', file: 'glass-blowing.html', icon: '🏺', art: 'art-organic', origin: 'claude-generated', genres: ['Creative', 'Simulation'], difficulty: 'Medium', desc: 'Shape molten glass with timing-based mechanics. Blow, spin, and color beautiful glass creations.' },
+        { id: 'ice-fishing', name: 'Ice Fishing 3D', file: 'ice-fishing.html', icon: '🎣', art: 'art-organic', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Easy', desc: 'Peaceful 3D ice fishing. Drill holes, drop lines, catch fish. Weather changes, depth sonar, relaxing atmosphere.' },
+        { id: 'isometric-fortress', name: 'Isometric Fortress', file: 'isometric-fortress.html', icon: '🏰', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy'], difficulty: 'Hard', desc: 'Build and defend an isometric fortress. Place walls, towers, troops. Survive waves of attackers.' },
+        { id: 'labyrinth-lore', name: 'Labyrinth Lore', file: 'labyrinth-lore.html', icon: '🏛️', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Hard', desc: '3D labyrinth adventure with lore fragments. Procedural mazes, dynamic lighting, collect ancient texts to unlock exits.' },
+        { id: 'mech-arena', name: 'Mech Arena', file: 'mech-arena.html', icon: '🤖', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: '3D mech combat arena. Customize weapons, shields, and thrusters. Fast-paced PvE battles with destructible terrain.' },
+        { id: 'music-box', name: '3D Music Box', file: 'music-box.html', icon: '🎵', art: 'art-organic', origin: 'claude-generated', genres: ['Creative', '3D'], difficulty: 'Easy', desc: 'Mechanical music box in 3D. Place pins on the cylinder, wind it up, listen. Export melodies as MIDI.' },
+        { id: 'neon-pinball', name: 'Neon Pinball 3D', file: 'neon-pinball.html', icon: '🕹️', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Neon-themed 3D pinball. Bumpers, ramps, multiball. Glowing trails and combo scoring.' },
+        { id: 'ninja-gauntlet', name: 'Ninja Gauntlet', file: 'ninja-gauntlet.html', icon: '🥷', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: '3D ninja obstacle course. Wall-run, slide, jump through procedural gauntlets. Speed records and ghost replays.' },
+        { id: 'origami-world', name: 'Origami World', file: 'origami-world.html', icon: '📄', art: 'art-organic', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Medium', desc: '3D origami folding puzzles. Follow fold patterns to create animals, flowers, and abstract art.' },
+        { id: 'paper-plane', name: 'Paper Plane Flight', file: 'paper-plane.html', icon: '✈️', art: 'art-organic', origin: 'claude-generated', genres: ['Action'], difficulty: 'Easy', desc: 'Paper airplane flight sim. Design your plane, throw it, guide through rings. Wind physics and distance records.' },
+        { id: 'pixel-dungeon', name: 'Pixel Dungeon', file: 'pixel-dungeon.html', icon: '⚔️', art: 'art-neon', origin: 'claude-generated', genres: ['Roguelike', 'Action'], difficulty: 'Hard', desc: 'Pixel-art dungeon crawler. Procedural floors, loot drops, boss fights. Classic roguelike with permadeath.' },
+        { id: 'rhythm-galaxy', name: 'Rhythm Galaxy', file: 'rhythm-galaxy.html', icon: '🌀', art: 'art-neon', origin: 'claude-generated', genres: ['Music', '3D'], difficulty: 'Medium', desc: '3D rhythm game in space. Notes fly toward you along galactic lanes. Beat-matching with cosmic visuals.' },
+        { id: 'shadow-puppet', name: 'Shadow Puppet Theater', file: 'shadow-puppet.html', icon: '🎭', art: 'art-organic', origin: 'claude-generated', genres: ['Creative'], difficulty: 'Easy', desc: 'Create shadow puppet shows. Move hands to cast shadows, tell stories. Multiple characters and backgrounds.' },
+        { id: 'terrarium', name: '3D Terrarium', file: 'terrarium.html', icon: '🌿', art: 'art-organic', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Easy', desc: '3D terrarium ecosystem sim. Place plants, bugs, and rocks. Watch your micro-world evolve with day/night cycles.' },
+        { id: 'tide-pool', name: 'Tide Pool Explorer', file: 'tide-pool.html', icon: '🐚', art: 'art-organic', origin: 'claude-generated', genres: ['Simulation'], difficulty: 'Easy', desc: 'Explore a tide pool ecosystem. Discover sea creatures, learn marine biology. Interactive educational sim.' },
+        { id: 'whispering-walls', name: 'Whispering Walls', file: 'whispering-walls.html', icon: '👂', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Hard', desc: '3D audio puzzle game. Listen to whispers from walls to find hidden paths. Spatial audio, fog, and atmospheric horror.' },
+
+        // ── S24 — New games built this session ──
+
+        // Siege Gauntlet
+        { id: 'siege-local-only', name: 'Siege: Local Edition', file: 'siege-local-only.html', icon: '🏰', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Medium', desc: 'Defend a hilltop fort with archers, spearmen, rams, catapults. Low-poly flat shading, firelight, fog. 100% client-side, no cloud.', status: 'new' },
+        { id: 'siege-cloud-power', name: 'Siege: Cloud Commander', file: 'siege-cloud-power.html', icon: '⛈️', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Coastal fortress under naval + land assault. Dynamic weather, destructible walls, voice commands, advanced AI pathfinding.', status: 'new' },
+
+        // 3D Batch 1 — Stunning visuals
+        { id: 'enchanted-forest-run', name: 'Enchanted Forest Run', file: 'enchanted-forest-run.html', icon: '🌲', art: 'art-organic', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Endless runner through a magical forest. Procedural trees, volumetric fog, god rays, firefly particles, day/night cycle. GLSL bark and leaf shaders.', status: 'new' },
+        { id: 'ocean-odyssey', name: 'Ocean Odyssey', file: 'ocean-odyssey.html', icon: '🌊', art: 'art-organic', origin: 'claude-generated', genres: ['Adventure', '3D'], difficulty: 'Hard', desc: 'Sailing adventure with Gerstner wave water shader, dynamic storms, lightning, underwater caustics. Navigate islands, fish, trade, avoid sea monsters.', status: 'new' },
+        { id: 'volcano-forge', name: 'Volcano Forge', file: 'volcano-forge.html', icon: '🌋', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Build weapons in a volcanic forge. Lava flow shader, heat haze GLSL, ember particles. Rhythm-based forging with anvil sparks.', status: 'new' },
+
+        // 3D Batch 2
+        { id: 'mushroom-kingdom-3d', name: 'Mushroom Kingdom 3D', file: 'mushroom-kingdom-3d.html', icon: '🍄', art: 'art-organic', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Whimsical platformer in giant bioluminescent mushroom forest. Spore particles, bouncy physics, glow shaders, collect dewdrops.', status: 'new' },
+        { id: 'samurai-garden', name: 'Samurai Garden', file: 'samurai-garden.html', icon: '⛩️', art: 'art-organic', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Zen combat in a Japanese garden. Cherry blossoms, koi pond ripples, ink-wash toon shader. Defend the garden with katana.', status: 'new' },
+
+        // Isometric 2.5D
+        { id: 'iso-farm', name: 'Isometric Farm', file: 'iso-farm.html', icon: '🌾', art: 'art-organic', origin: 'mullm-generated', genres: ['Simulation'], difficulty: 'Easy', desc: 'Isometric farming sim. Plant crops, water, harvest. Day/night cycle, seasons, sell at market.' },
+        { id: 'iso-dungeon', name: 'Isometric Dungeon', file: 'iso-dungeon.html', icon: '🗡️', art: 'art-neon', origin: 'mullm-generated', genres: ['Roguelike', 'Strategy'], difficulty: 'Hard', desc: 'Procedural dungeon floors on iso grid. Turn-based combat, fog of war, torchlight, loot, inventory.' },
+        { id: 'iso-city', name: 'Isometric City Builder', file: 'iso-city.html', icon: '🏙️', art: 'art-signal', origin: 'mullm-generated', genres: ['Simulation', 'Strategy'], difficulty: 'Medium', desc: 'City builder on iso grid. Place buildings, roads, parks. Population, budget balance, traffic flow.' },
+        { id: 'iso-tactics', name: 'Isometric Tactics', file: 'iso-tactics.html', icon: '⚔️', art: 'art-gauntlet', origin: 'mullm-generated', genres: ['Strategy'], difficulty: 'Hard', desc: 'Tactical RPG on iso grid. 5-unit party, cover system, elevation bonuses. 3 classes with abilities.' },
+        { id: 'iso-railroad', name: 'Isometric Railroad', file: 'iso-railroad.html', icon: '🚂', art: 'art-signal', origin: 'mullm-generated', genres: ['Simulation', 'Strategy'], difficulty: 'Medium', desc: 'Lay tracks on iso terrain, manage trains, connect cities. Cargo delivery, revenue tracking.' },
+
+        // 3D Mixed
+        { id: 'marble-madness-3d', name: 'Marble Madness 3D', file: 'marble-madness-3d.html', icon: '🔮', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Physics marble rolling through obstacles. Tilting platforms, ramps, checkpoints, ghost replay.' },
+        { id: 'tower-builder-3d', name: 'Tower Builder 3D', file: 'tower-builder-3d.html', icon: '🏗️', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Easy', desc: 'Stack physics blocks to build tallest tower. Wind increases with height, different materials.' },
+        { id: 'robot-arena-3d', name: 'Robot Arena 3D', file: 'robot-arena-3d.html', icon: '🤖', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Build and battle robots. Modular parts, arena combat with physics, tournament bracket, upgrade shop.' },
+
+        // 2D Canvas
+        { id: 'bubble-witch', name: 'Bubble Witch', file: 'bubble-witch.html', icon: '🔮', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle'], difficulty: 'Easy', desc: 'Bubble shooter with magic theme. Match-3 to pop, spell bubbles (fire/ice/lightning), 50 levels.' },
+        { id: 'shadow-runner', name: 'Shadow Runner', file: 'shadow-runner.html', icon: '🌑', art: 'art-neon', origin: 'claude-generated', genres: ['Action'], difficulty: 'Hard', desc: 'Silhouette platformer. Black foreground, parallax backgrounds. Wall-jump, slide, dash. 20 procedural levels, speedrun timer.' },
+
+        // S24 — Latest arrivals
+        { id: 'galaxy-defender', name: 'Galaxy Defender', file: 'galaxy-defender.html', icon: '🚀', art: 'art-neon', origin: 'claude-generated', genres: ['Action'], difficulty: 'Medium', desc: 'Space invaders evolved. Wave-based shooter, shield system, weapon upgrades, bullet-hell boss fights.' },
+        { id: 'paint-wars', name: 'Paint Wars', file: 'paint-wars.html', icon: '🎨', art: 'art-neon', origin: 'claude-generated', genres: ['Action'], difficulty: 'Easy', desc: 'Splatoon-inspired 2D territory control. Paint ground, AI opponents, power-ups: paint bomb, turbo, shield.' },
+        { id: 'rope-swing', name: 'Rope Swing', file: 'rope-swing.html', icon: '🪢', art: 'art-organic', origin: 'claude-generated', genres: ['Action', 'Physics'], difficulty: 'Medium', desc: 'Grappling hook physics platformer. Swing between platforms, momentum-based, gems to collect, endless mode.' },
+        { id: 'storm-rider', name: 'Storm Rider', file: 'storm-rider.html', icon: '⛈️', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Fly through thunderstorms. Volumetric clouds, branching lightning, rain streaks, wind turbulence. Capture weather photography.', status: 'new' },
+        { id: 'sound-garden', name: 'Sound Garden', file: 'sound-garden.html', icon: '🌱', art: 'art-organic', origin: 'claude-generated', genres: ['Creative', 'Music'], difficulty: 'Easy', desc: 'Plant instrument seeds, grow music. Each plant produces notes based on proximity. Emergent melodies from garden layout.' },
+
+        // S24 — Final batch
+        { id: 'color-alchemy', name: 'Color Alchemy', file: 'color-alchemy.html', icon: '🧪', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', 'Creative'], difficulty: 'Easy', desc: 'Mix primary colors to match targets. Physical color blending, time pressure mode, zen mode, puzzle mode.' },
+        { id: 'gravity-painter', name: 'Gravity Painter', file: 'gravity-painter.html', icon: '🎨', art: 'art-neon', origin: 'claude-generated', genres: ['Creative'], difficulty: 'Easy', desc: 'Drop paint in variable gravity. Multiple gravity sources curve paint streams. Create abstract art, export PNG, challenge mode.' },
+        { id: 'echo-chamber', name: 'Echo Chamber', file: 'echo-chamber.html', icon: '🔊', art: 'art-signal', origin: 'claude-generated', genres: ['Puzzle'], difficulty: 'Hard', desc: 'Sound reflection puzzle. Place reflectors, route sound from source to receiver. Absorbers, amplifiers, frequency filters.' },
+        { id: 'floating-market', name: 'Floating Market', file: 'floating-market.html', icon: '🛶', art: 'art-organic', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Medium', desc: 'Thai floating market trading game. Boats with physics, water reflections, lily pads, lanterns. Buy low sell high, paddle between stalls.', status: 'new' },
+
+        // ── S25 — New 3D games ──
+        { id: 'alien-greenhouse-3d', name: 'Alien Greenhouse 3D', file: 'alien-greenhouse-3d.html', icon: '👽', art: 'art-organic', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Easy', desc: 'Tend an extraterrestrial greenhouse. Grow alien flora, balance exotic nutrients, and attract rare pollinator creatures.', status: 'new' },
+        { id: 'ancient-forge-3d', name: 'Ancient Forge 3D', file: 'ancient-forge-3d.html', icon: '⚒️', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Medium', desc: 'Forge weapons in a mythic ancient smithy. Heat, hammer, and quench metal to craft legendary blades and armor.', status: 'new' },
+        { id: 'arctic-outpost-3d', name: 'Arctic Outpost 3D', file: 'arctic-outpost-3d.html', icon: '🏔️', art: 'art-organic', origin: 'claude-generated', genres: ['Survival', '3D'], difficulty: 'Hard', desc: 'Survive and expand a polar research outpost. Manage power, heat, food, and fend off blizzards in the frozen Arctic.', status: 'new' },
+        { id: 'clockwork-tower-3d', name: 'Clockwork Tower 3D', file: 'clockwork-tower-3d.html', icon: '⚙️', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Medium', desc: 'Solve intricate gear and lever puzzles inside a towering clockwork mechanism. Rotate cogs, align dials, restore the clock.', status: 'new' },
+        { id: 'crystal-mines-3d', name: 'Crystal Mines 3D', file: 'crystal-mines-3d.html', icon: '💎', art: 'art-neon', origin: 'claude-generated', genres: ['Exploration', '3D'], difficulty: 'Medium', desc: 'Descend into glittering crystal mines. Drill tunnels, collect gem veins, avoid cave-ins, and sell your haul.', status: 'new' },
+        { id: 'deep-sea-lab-3d', name: 'Deep Sea Lab 3D', file: 'deep-sea-lab-3d.html', icon: '🔬', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Medium', desc: 'Run an underwater research laboratory. Conduct experiments, manage life support, and catalog deep-sea species.', status: 'new' },
+        { id: 'dragon-hoard-3d', name: 'Dragon Hoard 3D', file: 'dragon-hoard-3d.html', icon: '🐉', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Medium', desc: 'Guard your dragon treasure hoard. Defend against greedy adventurers, grow your gold pile, and upgrade your lair.', status: 'new' },
+        { id: 'dragon-racing-3d', name: 'Dragon Racing 3D', file: 'dragon-racing-3d.html', icon: '🐉', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', '3D'], difficulty: 'Medium', desc: 'Full 3D dragon racing with generated asset dragons. Soar through mountain passes, collect boost orbs, and beat rival riders.', status: 'new' },        { id: 'haunted-carnival-3d', name: 'Haunted Carnival 3D', file: 'haunted-carnival-3d.html', icon: '🎡', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Navigate a haunted carnival at midnight. Creaking rides, ghostly clowns, hidden passages. Collect tickets and escape before dawn.', status: 'new' },
+        { id: 'haunted-mansion-3d', name: 'Haunted Mansion 3D', file: 'haunted-mansion-3d.html', icon: '👻', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Hard', desc: 'Escape a Victorian haunted mansion with full 3D generated assets. Solve supernatural puzzles, dodge ghosts, and find the exit.', status: 'new' },
+        { id: 'jungle-temple-run-3d', name: 'Jungle Temple Run 3D', file: 'jungle-temple-run-3d.html', icon: '🏛️', art: 'art-organic', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Sprint through an overgrown jungle temple. Dodge traps, leap chasms, collect relics, and outrun the crumbling ruins.', status: 'new' },
+        { id: 'mech-workshop-3d', name: 'Mech Workshop 3D', file: 'mech-workshop-3d.html', icon: '🤖', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Medium', desc: 'Build and upgrade mechs in a 3D workshop. Attach weapons and modules, run diagnostics, then deploy to combat missions.', status: 'new' },
+        { id: 'medieval-siege-3d', name: 'Medieval Siege 3D', file: 'medieval-siege-3d.html', icon: '🏰', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Lay siege to a castle with full 3D assets. Command trebuchets, battering rams, and siege towers across a destructible 3D battlefield.', status: 'new' },
+        { id: 'moonbase-defense-3d', name: 'Moonbase Defense 3D', file: 'moonbase-defense-3d.html', icon: '🌕', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Defend a lunar base from alien assault. Build turrets on the cratered surface, manage power cells, and repel waves under low gravity.', status: 'new' },
+        { id: 'neon-street-racer-3d', name: 'Neon Street Racer 3D', file: 'neon-street-racer-3d.html', icon: '🏎️', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', '3D'], difficulty: 'Medium', desc: 'Race through neon-lit city streets at night. Drift corners, dodge traffic, and hit boost strips in a full 3D urban circuit.', status: 'new' },
+        { id: 'phoenix-arena-3d', name: 'Phoenix Arena 3D', file: 'phoenix-arena-3d.html', icon: '🔥', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Battle in a fire-filled arena as a phoenix warrior. Dash, dive-bomb, and ignite foes. Respawn from ashes to turn the tide.', status: 'new' },
+        { id: 'pirate-ship-battle-3d', name: 'Pirate Ship Battle 3D', file: 'pirate-ship-battle-3d.html', icon: '🏴‍☠️', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Medium', desc: 'Broadside naval combat with full 3D ship models. Fire cannons, board enemy vessels, and plunder the seas.', status: 'new' },
+        { id: 'robot-factory-tycoon-3d', name: 'Robot Factory Tycoon 3D', file: 'robot-factory-tycoon-3d.html', icon: '🤖', art: 'art-neon', origin: 'claude-generated', genres: ['Tycoon', 'Strategy', '3D'], difficulty: 'Medium', desc: 'Run a robot factory with 3D production lines. Place machines, route conveyors, fulfill orders, and scale up to an automated empire.', status: 'new' },
+        { id: 'safari-explorer-3d', name: 'Safari Explorer 3D', file: 'safari-explorer-3d.html', icon: '🦁', art: 'art-organic', origin: 'claude-generated', genres: ['Adventure', 'Exploration', '3D'], difficulty: 'Medium', desc: 'Explore the savanna with 3D generated wildlife. Drive through the bush, photograph animals, and complete your field journal.', status: 'new' },
+        { id: 'sky-fortress-3d', name: 'Sky Fortress 3D', file: 'sky-fortress-3d.html', icon: '☁️', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Command a floating sky fortress. Defend against aerial assault, deploy fighter units, and navigate stormy cloud layers.', status: 'new' },
+        { id: 'space-station-builder-3d', name: 'Space Station Builder 3D', file: 'space-station-builder-3d.html', icon: '🛸', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Construct a modular space station with 3D assets. Snap habitats, labs, and docking bays together while managing crew and resources.', status: 'new' },
+        { id: 'starship-bridge-3d', name: 'Starship Bridge 3D', file: 'starship-bridge-3d.html', icon: '🚀', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Medium', desc: 'Command a starship from the bridge. Manage crew stations, navigate hazards, engage enemies, and complete deep-space missions.', status: 'new' },
+        { id: 'steampunk-airship-3d', name: 'Steampunk Airship 3D', file: 'steampunk-airship-3d.html', icon: '🎈', art: 'art-neon', origin: 'claude-generated', genres: ['Adventure', '3D'], difficulty: 'Medium', desc: 'Pilot a steampunk airship through Victorian skies. Manage boilers, dodge rival ships, trade cargo between floating city-ports.', status: 'new' },
+        { id: 'treasure-galleon-3d', name: 'Treasure Galleon 3D', file: 'treasure-galleon-3d.html', icon: '⚓', art: 'art-neon', origin: 'claude-generated', genres: ['Adventure', '3D'], difficulty: 'Medium', desc: 'Captain a treasure galleon on the high seas. Navigate by stars, hunt treasure maps, and engage rival ships in broadside duels.', status: 'new' },
+        { id: 'underwater-temple-3d', name: 'Underwater Temple 3D', file: 'underwater-temple-3d.html', icon: '🏛️', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Hard', desc: 'Explore an ancient submerged temple with 3D generated assets. Solve water-pressure puzzles, redirect currents, and recover lost relics.', status: 'new' },
+        { id: 'volcano-escape-3d', name: 'Volcano Escape 3D', file: 'volcano-escape-3d.html', icon: '🌋', art: 'art-neon', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Race to escape an erupting volcano. Navigate lava flows, crumbling bridges, and ash clouds across a fully realized 3D volcanic island.', status: 'new' },
+        { id: 'witch-apothecary-3d', name: 'Witch Apothecary 3D', file: 'witch-apothecary-3d.html', icon: '🧙‍♀️', art: 'art-rune', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Easy', desc: 'Run a magical potion shop in 3D. Brew concoctions from enchanted ingredients, serve peculiar customers, and grow your apothecary.', status: 'new' },
+        { id: 'wizard-tower-defense-3d', name: 'Wizard Tower Defense 3D', file: 'wizard-tower-defense-3d.html', icon: '🧙', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Medium', desc: 'Defend your wizard tower with 3D generated spell effects. Place arcane towers, upgrade between waves, chain devastating combos.', status: 'new' },
+        { id: 'zen-garden-3d', name: 'Zen Garden 3D', file: 'zen-garden-3d.html', icon: '🪨', art: 'art-organic', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Easy', desc: 'Tend a serene 3D zen garden. Rake sand patterns, arrange stones, place bonsai, and let the tranquil atmosphere wash over you.', status: 'new' },
+        // ── S26 New Games ──
+        { id: 'crystal-mines-explorer', name: 'Crystal Mines Explorer', file: 'crystal-mines-explorer.html', icon: '💎', art: 'art-neon', origin: 'claude-generated', genres: ['Adventure', '3D'], difficulty: 'Medium', desc: 'Explore crystal mine caverns collecting gems across 3 levels. Real 3D GLB assets, mine cart escape sequence, crystal glow effects.', status: 'new' },
+        { id: 'asteroid-belt-miner', name: 'Asteroid Belt Miner', file: 'asteroid-belt-miner.html', icon: '🪨', art: 'art-signal', origin: 'mullm-generated', genres: ['Action', 'Strategy'], difficulty: 'Medium', desc: 'Top-down space mining. Harvest asteroids, dodge debris, sell at station, upgrade your ship.', status: 'new' },
+        { id: 'rube-goldberg', name: 'Rube Goldberg', file: 'rube-goldberg.html', icon: '🎮', art: 'art-neon', origin: 'mullm-generated', genres: ['Arcade'], difficulty: 'Medium', desc: 'Build an Incredible Machine physics puzzle game', status: 'new' },
+        { id: 'fps-masterpiece', name: 'FPS Masterpiece', file: 'fps-masterpiece.html', icon: '🔫', art: 'art-neon', origin: 'human-polished', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Open-world FPS with 10 levels, boss fights, dungeons, glider, multiple weapons, vehicles. GLB assets, biome system, forge upgrades.', status: 'new' },
+        { id: 'iron-dominion', name: 'Iron Dominion', file: 'iron-dominion.html', icon: '🏰', art: 'art-steam', origin: 'human-polished', genres: ['Strategy', '3D', 'Tower Defense'], difficulty: 'Hard', desc: 'Steampunk colony builder + tower defense. Build steam-powered cities on 20x20 grid, manage iron/lumber/oil/gears, place turrets and cannons, survive escalating enemy waves with skeleton warriors, mecha knights and dragon bosses. GLB assets, bloom, steam particles.', status: 'new' },
+        { id: 'crystal-labyrinth', name: 'Crystal Labyrinth', file: 'crystal-labyrinth.html', icon: '💎', art: 'art-steam', origin: 'claude-generated', genres: ['Roguelike', '3D', 'Action'], difficulty: 'Hard', desc: 'Steampunk roguelike dungeon crawler with Donnie Darko aesthetic. Cel shading, film grain, chromatic aberration, vignette. 3 floors, procedural rooms, skeleton warriors, crystal wolves, dragon knight boss. 10 GLB assets, toon shading, post-processing.', status: 'new' },
+        { id: 'shatter-demo', name: 'Crystal Shatter', file: 'shatter-demo.html', icon: '💎', art: 'art-neon', origin: 'claude-generated', genres: ['Art', '3D'], difficulty: 'Easy', desc: 'Click a translucent crystal to trigger spectacular slow-motion shatter with physics fragments and particle dust.', status: 'new' },
+        { id: 'treasure-hunt-3d', name: 'Treasure Hunt 3d', file: 'treasure-hunt-3d.html', icon: '🎮', art: 'art-neon', origin: 'mullm-generated', genres: ['Arcade'], difficulty: 'Medium', desc: 'A Three.js treasure hunt game. Load training-dummy GLB and paper-lantern GLB and dojo-pillar GLB from /assets/3d/. Playe', status: 'new' },
+        { id: 'lantern-garden', name: 'Lantern Garden', file: 'lantern-garden.html', icon: '🎮', art: 'art-neon', origin: 'mullm-generated', genres: ['Arcade'], difficulty: 'Medium', desc: 'A peaceful Three.js zen garden with paper lanterns hanging from trees. Player walks through with WASD, can light and ext', status: 'new' },
+        { id: 'eternal-sands', name: 'Eternal Sands', file: 'eternal-sands.html', icon: '⚔️', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Acrobatic third-person sword combat across desert palace levels. Wall run, pole swing, dodge and parry shadow warriors. Three.js with procedural textures and particle effects.', status: 'new' },
+        { id: 'blade-ascendant', name: 'Blade Ascendant', file: 'blade-ascendant.html', icon: '🗡️', art: 'art-gauntlet', origin: 'claude-generated', genres: ['RPG', '3D'], difficulty: 'Hard', desc: 'First-person sword RPG with skill trees, leveling, and enemy variety. Unlock Whirlwind Strike, Flame Edge, Iron Guard, and more. Fight through dungeon waves.', status: 'new' },
+        { id: 'rune-blade-chronicles', name: 'Rune Blade Chronicles', file: 'rune-blade-chronicles.html', icon: '🔮', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Medium', desc: 'Puzzle game with 4 elemental blades: Light deflects beams, Fire melts ice, Wind pushes objects, Void phases through walls. 8 solvable puzzle rooms.', status: 'new' },
+        { id: 'ballista-bastion', name: 'Ballista Bastion', file: 'ballista-bastion.html', icon: '🏰', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Medium', desc: '3D tower defense with ballistas, catapults, and trebuchets. Place siege weapons, upgrade stats, defend 15 waves of enemies. Projectile physics and particle effects.', status: 'new' },
+        { id: 'wind-runner', name: 'Wind Runner', file: 'wind-runner.html', icon: '🏹', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Precision archery with wind physics, gravity arcs, and 3 arrow types. Hit bullseyes on moving targets across 10 rounds. Draw power determines arrow speed and trajectory.', status: 'new' },
+        { id: 'chrono-archer', name: 'Chrono Archer', file: 'chrono-archer.html', icon: '⏳', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Hard', desc: 'Time-manipulation archery puzzles. Freeze, slow, rewind, and echo arrows to solve 8 puzzle rooms. Ancient temple with clockwork motifs and temporal effects.', status: 'new' },
+        { id: 'corsairs-edge', name: "Corsair's Edge", file: 'corsairs-edge.html', icon: '🏴‍☠️', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Pirate ship sword combat: board enemy vessels, cut sails, swing on ropes, defuse cannons. 3-act campaign with captain boss fight. Procedural water and cloth sim.', status: 'new' },
+        { id: 'crystal-sanctum', name: 'Crystal Sanctum', file: 'crystal-sanctum.html', icon: '💎', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Adventure', '3D'], difficulty: 'Medium', desc: 'Explore a crystalline garden with real Meshy GLB assets: rose-quartz, void-scythe, paper lanterns. Iridescent crystals, combat, collect magic orbs across 5 themed areas.', status: 'new' },
+        { id: 'archers-crossing', name: "Archer's Crossing", file: 'archers-crossing.html', icon: '🌲', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Adventure', '3D'], difficulty: 'Hard', desc: 'Archery adventure through 5 environments: forest, bridge, ruins, waterfall cave, summit. Fire/ice arrows, environmental puzzles, 50+ procedural pine trees. Boss archer.', status: 'new' },
+        { id: 'crystal-match', name: 'Crystal Match', file: 'crystal-match.html', icon: '🔮', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Medium', desc: '3D sokoban meets match-3 with GLB crystal models. Push crystals on a grid, match 3+ to shatter with particle explosions. Iridescent materials, camera shake, 20 levels.', status: 'new' },
+        { id: 'shadow-cathedral', name: 'Shadow Cathedral', file: 'shadow-cathedral.html', icon: '🏛️', art: 'art-gauntlet', origin: 'claude-generated', genres: ['RPG', '3D'], difficulty: 'Hard', desc: 'FLAGSHIP: Gothic cathedral action RPG. 10 Meshy GLB models, 5 rooms, boss dragon knight, 3 weapons, iridescent crystals, stained glass, steampunk gears, pressure puzzles.', status: 'new' },
+        { id: 'siege-engineer', name: 'Siege Engineer', file: 'siege-engineer.html', icon: '🧱', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Medium', desc: 'Physics destruction puzzles: aim siege weapons to destroy castle fortifications. Blocks tumble, chain reactions, 3-star rating. Loads Meshy GLB siege weapons.', status: 'new' },
+        { id: 'blade-arena', name: 'Blade Arena', file: 'blade-arena.html', icon: '⚔️', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Gladiator arena sword combat. 10 waves, GLB weapons (demon greatsword, crystal sword, dagger), stat upgrades between waves, boss fights. Mobile touch controls.', status: 'new' },
+        { id: 'arrow-storm', name: 'Arrow Storm', file: 'arrow-storm.html', icon: '🏰', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Action', '3D'], difficulty: 'Hard', desc: 'Castle wall archery defense + ballista support. 15 waves, fire/explosive arrows, siege bolt mode, GLB bow and ballista models. Sunset battlefield.', status: 'new' },
+        { id: 'kitchen-chaos', name: 'Kitchen Chaos', file: 'kitchen-chaos.html', icon: '🍳', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Medium', desc: 'Cooking sim with physics comedy. Chop, fry, plate under time pressure. Pan fires, pot overflows, slippery floors. 3 recipes, 5 levels.', status: 'new' },
+        { id: 'wobble-quest', name: 'Wobble Quest', file: 'wobble-quest.html', icon: '🤸', art: 'art-neon', origin: 'claude-generated', genres: ['Physics', '3D'], difficulty: 'Hard', desc: 'Ragdoll spring-mass physics comedy. Your wobbly character can barely walk. Carry fragile items across obstacle courses. Seesaws, spinners, narrow ledges. COMBO FALL!', status: 'new' },
+        { id: 'marble-rush', name: 'Marble Rush', file: 'marble-rush.html', icon: '🔵', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', '3D'], difficulty: 'Medium', desc: 'High-speed marble racing through tube tracks, ramps, loops, and jumps. Speed boosts, slow zones, moving obstacles. 5 tracks, ghost replay.', status: 'new' },
+        { id: 'ironworks-command', name: 'Ironworks Command', file: 'ironworks-command.html', icon: '⚙️', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Steampunk RTS with visible spinning gears, pumping pistons, steam puffs. 4 unit types: Steam Tank, Clockwork Spider, Airship, Engineer. Build and defend.', status: 'new' },
+        { id: 'nebula-sprint', name: 'Nebula Sprint', file: 'nebula-sprint.html', icon: '🚀', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', '3D'], difficulty: 'Hard', desc: 'Space racing through asteroid fields and nebula rings. Cockpit view, boost gates, shield pickups. 3 tracks with time trials. Gyroscope mobile controls.', status: 'new' },
+        { id: 'glass-device', name: 'The Glass Device', file: 'glass-device.html', icon: '🔍', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Hard', desc: 'Mystery exploration in ancient ruins. No weapons — glass magnifier reveals hidden symbols, grappling hook crosses gaps, flashlight finds UV patterns. 5 chambers.', status: 'new' },
+        { id: 'grand-archery', name: 'Grand Archery', file: 'grand-archery.html', icon: '🎯', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Sports', '3D'], difficulty: 'Medium', desc: 'Archery tournament bracket — 8 archers, 3 rounds to finals. Bow draw physics, wind, AI opponents with personality. GLB bow models.', status: 'new' },
+        { id: 'sky-hook', name: 'Sky Hook', file: 'sky-hook.html', icon: '🪝', art: 'art-neon', origin: 'claude-generated', genres: ['Platformer', '3D'], difficulty: 'Hard', desc: 'Grappling hook platformer on floating islands. Pendulum swing physics, momentum launches, chain grapples for speed. Reach the golden island.', status: 'new' },
+        { id: 'prism-puzzle', name: 'Prism Puzzle', file: 'prism-puzzle.html', icon: '🔷', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Easy', desc: 'Stained glass puzzle — arrange colored glass pieces into cathedral window patterns. MeshPhysicalMaterial with real transmission. 6 levels from cross to mandala.', status: 'new' },
+        { id: 'culinary-divinity', name: 'Culinary Divinity', file: 'culinary-divinity.html', icon: '👨‍🍳', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Medium', desc: 'Classic cooking puzzles — whisk, fold, knead and season across themed kitchens.', status: 'new' },
+        { id: 'culinary-divinity-new', name: 'Culinary Divinity: Cosmic Kitchen', file: 'culinary-divinity-new.html', icon: '👽', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Simulation', '2D'], difficulty: 'Medium', desc: 'Cosmic kitchen of the gods — alien moonshine tea, astral patrons, celestial recipes. Different vibe, same star chef.', status: 'new' },
+        { id: 'aether-colonies', name: 'Aether Colonies', file: 'aether-colonies.html', icon: '🏝️', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Sky island colony builder RTS. Floating islands, crystal mining, timber, steam cores. Build refineries, barracks, turrets. Defend against sky pirate waves.', status: 'new' },
+        { id: 'haunted-mirror', name: 'The Haunted Mirror', file: 'haunted-mirror.html', icon: '🪞', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Horror', '3D'], difficulty: 'Easy', desc: 'Webcam mirror with steampunk frame. Filters: normal, stained glass, sepia, dusty. The dusty filter... something stirs. Spider jumpscare.', status: 'new' },
+        { id: 'forge-empires', name: 'Forge Empires', file: 'forge-empires.html', icon: '🏭', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Steampunk city builder + tower defense. Production chains: ore to smelter to gears. Tesla towers, automatons. 8 waves.', status: 'new' },
+        { id: 'chronos-garden', name: 'Chronos Garden', file: 'chronos-garden.html', icon: '🌿', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Puzzle', '3D'], difficulty: 'Medium', desc: 'Time-weaving puzzle. 4 seasons morph the garden. Trees bloom, ponds freeze, bridges collapse. Collect 12 memory shards.', status: 'new' },
+        { id: 'sky-islands-ballista', name: 'Sky Islands Ballista', file: 'sky-islands-ballista.html', icon: '🏹', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Archery ballista tower defense on floating sky islands. Aim and fire at waves of enemies crossing between islands. 13 GLB assets, gold HUD, reload bar, wave system.', status: 'new' },
+        { id: 'foot-golf', name: 'Stick Footgolf', file: 'foot-golf.html', icon: '⚽', art: 'art-neon', origin: 'claude-generated', genres: ['Sports', '3D'], difficulty: 'Easy', desc: 'Stick figure footgolf — WASD to move, Space to swing your leg and kick the ball into the hole. 3 holes, score tracker, simple and fun.', status: 'new' },
+        { id: 'incredible-machine', name: 'Physics Puzzle Game', file: 'incredible-machine.html', icon: '🔧', art: 'art-puzzle', origin: 'claude-generated', genres: ['Puzzle', 'Physics'], difficulty: 'Medium', desc: 'Incredible-machine-style physics puzzles. Place ramps, balls, tubes, and grappling hooks to solve chain-reaction challenges. Teal neon aesthetic.', status: 'new' },
+        { id: 'physics-playground-3d', name: '3D Physics Playground', file: 'physics-playground-3d.html', icon: '🎮', art: 'art-neon', origin: 'claude-generated', genres: ['Physics', '3D'], difficulty: 'Easy', desc: 'Open 3D physics sandbox. Spawn balls, tubes, grappling hooks, and ramps. Watch objects interact with gravity and collide in real time. Teal UI.', status: 'new' },
+        { id: 'steampunk-defense', name: 'Steampunk Defense', file: 'steampunk-defense.html', icon: '🏰', art: 'art-steam', origin: 'claude-generated', genres: ['Strategy', '3D'], difficulty: 'Hard', desc: 'Steampunk tower defense — place Tesla coils, steam cannons, and gear traps to repel 8 waves of mechanical invaders. Gold HUD on dark navy.', status: 'new' },
+        { id: 'crystal-nexus', name: 'Crystal Nexus', file: 'crystal-nexus.html', icon: '💎', art: 'art-gauntlet', origin: 'claude-generated', genres: ['Adventure', 'Action', '3D'], difficulty: 'Hard', desc: 'Third-person dungeon crawler with PBR, bloom, particle effects, and crystal collection. Explore glowing crystal labyrinths, battle enemies, and harvest nexus shards.', status: 'new' },
+        { id: 'robo-chef', name: 'RoboChef', file: 'robo-chef.html', icon: '🦾', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation', '3D'], difficulty: 'Medium', desc: 'Control a 3D robot arm with inverse kinematics to cook orders in an industrial kitchen. Drag to move the arm, space to grab.', status: 'new' },
+        { id: 'cookin-good', name: "Cookin' Good", file: 'cookin-good.html', icon: '🍳', art: 'art-neon', origin: 'claude-generated', genres: ['Puzzle', 'Simulation'], difficulty: 'Easy', desc: 'Follow recipe cards in a warm home kitchen — but difficulty comes from the wording, not the controls. Can you decode "brunoise the aromatics"?', status: 'new' },
+        { id: 'heard', name: 'Heard!', file: 'heard.html', icon: '👨‍🍳', art: 'art-gauntlet', origin: 'claude-generated', genres: ['RPG'], difficulty: 'Medium', desc: 'A kitchen drama RPG. Navigate dinner service, build relationships with the brigade, and survive the health inspection. Inspired by The Bear.', status: 'new' },
+        { id: 'heard2', name: 'Heard! 2', file: 'heard2.html', icon: '🍽️', art: 'art-gauntlet', origin: 'claude-generated', genres: ['RPG'], difficulty: 'Hard', desc: 'Kitchen Evolution — the brigade is back, the stakes are higher. New service styles, deeper relationships, and a brutal Michelin inspection.', status: 'new' },
+        { id: 'strike-a-match', name: 'Strike A Match!', file: 'strike-a-match-ii.html', icon: '🔥', art: 'art-rune', origin: 'claude-generated', genres: ['Puzzle'], difficulty: 'Medium', desc: 'Move one matchstick to make the equation true. 50 hand-crafted puzzles. Simple to learn, devious at depth.', status: 'new' },
+        { id: 'reel-deal', name: 'Reel Deal', file: 'reel-deal.html', icon: '🎣', art: 'art-neon', origin: 'claude-generated', genres: ['Simulation'], difficulty: 'Easy', desc: 'Cast your line, read the water, time your reel. 15+ fish species from sardine to legendary kraken.', status: 'new' },
+        { id: 'beat-drop', name: 'Beat Drop', file: 'beat-drop.html', icon: '🎵', art: 'art-neon', origin: 'claude-generated', genres: ['Rhythm'], difficulty: 'Medium', desc: 'Procedurally generated rhythm game with synthesized beats. Hit notes in 4 lanes as the BPM climbs.', status: 'new' },
+        { id: 'alchemix', name: 'Alchemix', file: 'alchemix.html', icon: '⚗️', art: 'art-rune', origin: 'claude-generated', genres: ['Puzzle'], difficulty: 'Easy', desc: 'Combine elements to discover new ones. Start with Fire, Water, Earth, Air. Find all 60+ combinations.', status: 'new' },
+        { id: 'fortress-rush', name: 'Fortress Rush', file: 'fortress-rush.html', icon: '🏰', art: 'art-steam', origin: 'claude-generated', genres: ['Strategy'], difficulty: 'Medium', desc: 'Place towers, survive 15 waves. Arrow, cannon, freeze, laser, mortar — build the perfect defense.', status: 'new' },
+        { id: 'neon-tilt', name: 'Neon Tilt', file: 'neon-tilt.html', icon: '💡', art: 'art-neon', origin: 'claude-generated', genres: ['Arcade'], difficulty: 'Medium', desc: 'Physics pinball with neon glow. Hit bumpers, ramp multipliers, unlock MULTIBALL.', status: 'new' },
+        { id: 'type-force', name: 'Type Force', file: 'type-force.html', icon: '⌨️', art: 'art-neon', origin: 'claude-generated', genres: ['Arcade'], difficulty: 'Hard', desc: 'Enemies march at your base. Type their words to destroy them. Your WPM IS your weapon.', status: 'new' },
+        { id: 'sound-forge', name: 'Sound Forge', file: 'sound-forge.html', icon: '🎸', art: 'art-neon', origin: 'claude-generated', genres: ['Sandbox'], difficulty: 'Easy', desc: 'Place geometric shapes on a canvas. A ball bounces off them making music. Build instruments.', status: 'new' },
+        { id: 'dungeon-dive', name: 'Dungeon Dive', file: 'dungeon-dive.html', icon: '⚔️', art: 'art-neon', origin: 'claude-generated', genres: ['RPG', 'Roguelike'], difficulty: 'Hard', desc: 'Procedural dungeon crawler with permadeath. BSP rooms, fog of war, 5 enemy types. How deep can you go?', status: 'new' },
+        { id: 'pixel-city', name: 'Pixel City', file: 'pixel-city.html', icon: '🏙️', art: 'art-neon', origin: 'claude-generated', genres: ['Strategy', 'Simulation'], difficulty: 'Medium', desc: 'Build a city from scratch. Place roads, houses, farms and factories. Reach population 1000 before your food runs out.', status: 'new' },
+        { id: 'turbo-kart', name: 'Turbo Kart', file: 'turbo-kart.html', icon: '🏎️', art: 'art-neon', origin: 'claude-generated', genres: ['Racing', 'Arcade'], difficulty: 'Medium', desc: 'Top-down kart racing with 3 AI opponents. Speed boosts, bananas, missiles. 3 tracks, 3 laps.', status: 'new' },
+        { id: 'busker', name: 'Busk!', file: 'busker.html', icon: '🥁', art: 'art-steam', origin: 'claude-generated', genres: ['Rhythm', 'Career'], difficulty: 'Medium', desc: 'Street drummer to one-man Rube Goldberg symphony. Tap the beat, earn coins, upgrade your kit across 8 world cities. DW-tuned Web Audio synthesis.', status: 'new' },
+        { id: 'dink-iso', name: 'Dink! (Iso)', file: 'dink-iso.html', icon: '🏓', art: 'art-signal', origin: 'claude-generated', genres: ['Sports', 'Arcade'], difficulty: 'Medium', desc: 'Isometric pickleball. Kitchen rule enforced — dink soft shots vs drives. First to 11, win by 2. Synthesized pock sound.', status: 'new' },
+        { id: 'dink-3d', name: 'Dink! 3D', file: 'dink-3d.html', icon: '🎾', art: 'art-signal', origin: 'claude-generated', genres: ['Sports', '3D'], difficulty: 'Medium', desc: 'Full 3D pickleball from behind the paddle. Kitchen zone turns red when you step in. Dink vs drive vs lob. Gyroscope VR-ready.', status: 'new' },
+        { id: 'flock', name: 'Flock!', file: 'flock.html', icon: '🐦', art: 'art-organic', origin: 'claude-generated', genres: ['Arcade', '3D', 'Endless'], difficulty: 'Easy', desc: 'Guide a V-formation bird flock through obstacles. Speed = V narrows. Dive to thread tight gaps. Gyro tilt steering. Three environments.', status: 'new' },
+        { id: 'jacks', name: 'Jacks!', file: 'jacks.html', icon: '✳️', art: 'art-organic', origin: 'claude-generated', genres: ['Casual', 'Skill'], difficulty: 'Easy', desc: 'Classic jacks on a procedural hardwood floor. Bounce the ball, scoop before second bounce. Onesies through tensies. Solo or vs CPU.', status: 'new' },
+        { id: 'rampartillery', name: 'Rampartillery', file: '../rampartillery.html', icon: '⚔️', art: 'art-steam', origin: 'claude-generated', genres: ['Puzzle', 'Physics'], difficulty: 'Medium', desc: '400 siege puzzle levels across 4 weapons — ballista, catapult, trebuchet, onager. Break chain anchors to drop the drawbridge. Chain reactions, hidden targets, fire puzzles.', status: 'new' },
+        { id: 'clean-the-garage', name: 'Clean The Garage', file: 'clean-the-garage.html', icon: '🏠', art: 'art-organic', origin: 'claude-generated', genres: ['Puzzle', 'Physics', 'Casual'], difficulty: 'Easy-Medium', desc: '100 levels of absurd garage chaos. Stack beach balls, taxidermy fish, gnome circles and vintage exercise machines into three doors without toppling them. Slow-mo topple cam, combo streaks, danger meter, lore tooltip on every object.', status: 'new' },
+        { id: 'bollywood-hero', name: 'Bollywood Hero', file: 'bollywood-hero.html', icon: '🎬', art: 'art-neon', origin: 'claude-generated', genres: ['Rhythm', 'Action', 'Story'], difficulty: 'Easy-Medium', desc: 'Three-act Bollywood action career. DDR beat bar with FIRE MODE slow-mo on 3 perfects. Bullet Catch scene. Shenmue-style journal. Per-scene colour palettes, hero expression system, auto-watch mode.', status: 'new' },
+        { id: 'shadow-grid', name: 'Shadow Grid', file: 'stealth-grid.html', icon: '🕵️', art: 'art-neon', origin: 'claude-generated', genres: ['Stealth', 'Puzzle'], difficulty: 'Medium', desc: '20-level stealth puzzle. Guards cast ray-cast cones of light — step into one and you\'re burned. Hack terminals to freeze guards, hide in crates, sneak to the exit. 3-star ghost rating. Fully responsive portrait/landscape/desktop.', status: 'new' },
+        { id: 'escher-ascent', name: 'Escher Ascent: Slink', file: 'escher-ascent.html', icon: '🌀', art: 'art-organic', origin: 'claude-generated', genres: ['Puzzle', 'Casual'], difficulty: 'Medium', desc: 'Play as SLINK — a coil spring toy. Rotate the world 90° at a time to send Slink tumbling down impossible Penrose staircases. 15 BFS-verified levels, delightful BOING physics, hand-drawn parchment aesthetic.', status: 'new' },
+        { id: 'iron-nomads', name: 'Iron Nomads', file: 'iron-nomads.html', icon: '⚙️', art: 'art-steam', origin: 'claude-generated', genres: ['Survival', 'Strategy', '3D', 'Building'], difficulty: 'Hard', desc: 'Steampunk Mad Max survival. Build your rolling TITAN across a procedural desert — 24 module slots, steam cannons, barracks, harvesters. Two modes: Galaxy Trucker quick-draft run or open career with trolley-problem branching quests. MMO-ready Redux architecture. Rigged infantry walk cycles.', status: 'new' },
+        { id: 'pickleball-3d', name: 'Pickleball 3D', file: 'pickleball-3d.html', icon: '🏓', art: 'art-signal', origin: 'claude-generated', genres: ['Sports', '3D'], difficulty: 'Medium', desc: 'Full 3D pickleball with real rules — kitchen zone, two-bounce rule, diagonal serve, rally to 11. 10 AI difficulty levels. Behind-player camera, mouse/touch/keyboard paddle. Colorblind modes.', status: 'new' },
+        { id: 'dressage-royale-3d', name: 'Dressage Royale 3D', file: 'dressage-royale-3d.html', icon: '🐎', art: 'art-organic', origin: 'claude-generated', genres: ['Sports', '3D', 'Simulation'], difficulty: 'Medium', desc: 'Proper 3D dressage with procedural 4-leg horse animation. 5 tests from Intro to Grand Prix, 8 arena letters, 80 spectators, 5 judges. Execute movements on cue for maximum score.', status: 'new' },
+        { id: 'hay-and-harness', name: 'Hay & Harness 3D', file: 'hay-and-harness.html', icon: '🏇', art: 'art-organic', origin: 'claude-generated', genres: ['Racing', '3D', 'Sports'], difficulty: 'Medium', desc: '3D harness sulky racing. 5 tracks with weather — Sunrise Meadow, Clydesdale Downs, Storm Glen, Frostmarch, Moonlit Mile. Four gaits with break risk, 3 AI opponents with personalities, carrot pickups.', status: 'new' },
+        { id: 'clockwork-arena-tactics', name: 'Clockwork Arena Tactics', file: 'clockwork-arena-tactics.html', icon: '🗡️', art: 'art-steam', origin: 'claude-generated', genres: ['Strategy', 'RTS'], difficulty: 'Hard', desc: 'Steampunk RTS. 5-mission campaign vs The Grand Clockmaster. 6 unit types, 5 buildings, fog-of-war, tech tree. Command GearWalkers, SteamTanks and the mighty Grand Automaton across an isometric battlefield.', status: 'new' },
+        { id: 'sky-islands-3d', name: 'Sky Islands 3D', file: 'sky-islands-3d.html', icon: '🏝️', art: 'art-organic', origin: 'claude-generated', genres: ['Platformer', '3D', 'Exploration'], difficulty: 'Medium', desc: '8 floating islands, 40 crystals, moving platforms, jump pads and wind currents. All islands reachable — BFS-verified connectivity. Full 3D platformer with Third-person camera, glide mechanic and a secret island.', status: 'new' },
+      ];
+
+      // ── Clip availability — set of games that have recorded .webm previews.
+      // Add game IDs here once clips are generated. Empty = no HEAD requests fired.
+      const _GAMES_WITH_CLIPS = new Set([
+        // e.g. 'crystal-caverns', 'fps-masterpiece'
+      ]);
+      const _clipCache = {};
+      async function hasGameClip(file) {
+        const name = file.replace('.html', '');
+        if (!_GAMES_WITH_CLIPS.has(name)) return false;  // skip if not known to exist
+        if (_clipCache[name] !== undefined) return _clipCache[name];
+        try {
+          const r = await fetch(`/assets/game-clips/${name}.webm`, { method: 'HEAD' });
+          _clipCache[name] = r.ok;
+        } catch { _clipCache[name] = false; }
+        return _clipCache[name];
+      }
+
+      // ── State ──
+      let activeGenre = 'all';
+      let activeDiff = 'all';
+      let searchQuery = '';
+      let sortNewest = true;
+
+      // ── Render all cards ──
+      function renderCards() {
+        const grid = document.getElementById('gameGrid');
+
+        // Filter + sort
+        const visible = GAMES.filter(g => {
+          const genreMatch = activeGenre === 'all' || g.genres.includes(activeGenre);
+          const diffMatch  = activeDiff === 'all'  || g.difficulty === activeDiff || g.difficulty.startsWith(activeDiff);
+          const searchMatch = !searchQuery || g.name.toLowerCase().includes(searchQuery) || g.desc.toLowerCase().includes(searchQuery);
+          return genreMatch && diffMatch && searchMatch;
+        });
+        if (sortNewest) visible.sort((a, b) => {
+          const ta = a.created_at || 0;
+          const tb = b.created_at || 0;
+          if (ta !== tb) return tb - ta; // newer mtime first
+          return GAMES.indexOf(b) - GAMES.indexOf(a); // fallback: array order
+        });
+
+        // Update count
+        document.getElementById('filterCount').textContent = `${visible.length} of ${GAMES.length}`;
+
+        // Full reset — remove all existing cards and sentinel
+        if (_lazyObserver) _lazyObserver.disconnect();
+        if (_sentinel) { _sentinel.remove(); _sentinel = null; }
+        grid.querySelectorAll('.game-card').forEach(c => c.remove());
+        _rendered = [];
+        _currentVisible = visible;
+
+        // Empty state
+        let emptyEl = grid.querySelector('.empty-state');
+        if (visible.length === 0) {
+          if (!emptyEl) {
+            emptyEl = document.createElement('div');
+            emptyEl.className = 'empty-state';
+            emptyEl.innerHTML = `<strong>No games found</strong>Try a different filter or search term.`;
+            grid.appendChild(emptyEl);
+          }
+          return;
+        } else if (emptyEl) {
+          emptyEl.remove();
+        }
+
+        // Render first PAGE_SIZE cards immediately, rest on scroll
+        const first = visible.slice(0, PAGE_SIZE);
+        first.forEach(g => { _buildCard(g); _rendered.push(g); });
+        if (visible.length > PAGE_SIZE) _attachSentinel(grid);
+      }
+
+      // Clip scan — deferred until after first paint, never blocks rendering
+      function _injectClipVideo(file) {
+        const name = file.replace('.html','');
+        const g = GAMES.find(x => x.file === file);
+        if (!g) return;
+        g.hasClip = true;
+        const el = document.querySelector(`[data-file="${file}"]`);
+        if (!el) return;
+        const thumb = el.querySelector('.card-thumb');
+        if (!thumb || thumb.querySelector('.clip-video')) return;
+        const vid = document.createElement('video');
+        vid.className = 'clip-video';
+        vid.src = `/assets/game-clips/${name}.webm`;
+        vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'none';
+        vid.setAttribute('aria-hidden', 'true');
+        vid.setAttribute('tabindex', '-1');
+        vid.addEventListener('mouseenter', () => vid.play());
+        vid.addEventListener('mouseleave', () => { vid.pause(); vid.currentTime = 0; });
+        const icon = thumb.querySelector('.thumb-icon');
+        thumb.insertBefore(vid, icon);
+      }
+
+      async function _scanClips() {
+        const queue = GAMES.map(g => g.file);
+        let i = 0;
+        async function next() {
+          if (i >= queue.length) return;
+          const file = queue[i++];
+          if (await hasGameClip(file)) _injectClipVideo(file);
+          await next();
+        }
+        // 4 concurrent HEAD requests — fast enough, won't saturate connection pool
+        await Promise.all(Array.from({length: 4}, next));
+      }
+
+      // Fire ONLY after page is idle — cards already rendered and interactive
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => _scanClips(), { timeout: 5000 });
+      } else {
+        setTimeout(_scanClips, 2000);
+      }
+
+      // ── Sort toggle ──
+      function toggleSort() {
+        sortNewest = !sortNewest;
+        const btn = document.getElementById('sort-newest-btn');
+        btn.textContent = sortNewest ? '↓ Newest' : '↑ Oldest';
+        btn.classList.toggle('active', sortNewest);
+        btn.setAttribute('aria-pressed', sortNewest ? 'true' : 'false');
+        renderCards();
+      }
+
+      // ── Entrance animation observer ──
+      const _entranceObserver = new IntersectionObserver((entries) => {
+        entries.forEach((e, i) => {
+          if (e.isIntersecting) {
+            const delay = i * 55;
+            // Stagger the shimmer sweep so cards light up left→right, row by row
+            e.target.style.setProperty('--shimmer-delay', `${delay + 80}ms`);
+            setTimeout(() => e.target.classList.add('visible'), delay);
+            _entranceObserver.unobserve(e.target);
+          }
+        });
+      }, { rootMargin: '60px', threshold: 0.08 });
+
+      // ── Build card DOM at init ──
+      // ── Virtual card builder — creates one card DOM node ──
+      function _buildCard(g) {
+          const card = document.createElement('div');
+          card.className = 'game-card' + (g.sourceRecipe ? ' source-recipe' : '');
+          card.id = 'card-' + g.id;
+          card.setAttribute('data-file', g.file);
+          card.setAttribute('role', 'listitem');
+          card.setAttribute('tabindex', g.sourceRecipe ? '-1' : '0');
+          card.setAttribute('aria-label', g.name + (g.sourceRecipe ? ' — source recipe' : ' — click to play'));
+
+          // Badge class
+          const badgeCls = g.origin === 'mullm-generated' ? 'badge-mullm'
+                         : g.origin === 'claude-generated' ? 'badge-claude'
+                         : 'badge-human';
+          const badgeLabel = g.origin === 'mullm-generated' ? 'muLLM'
+                           : g.origin === 'claude-generated' ? 'Claude'
+                           : 'Human';
+
+          // Difficulty tags
+          const diffParts = g.difficulty.split('-');
+          const diffTagsHtml = diffParts.map(d =>
+            `<span class="tag ${DIFF_CLASS[d] || 'tag-medium'}" aria-label="Difficulty: ${d}">${d}</span>`
+          ).join('');
+
+          // Genre tags
+          const genreTagsHtml = g.genres.map(gn =>
+            `<span class="tag tag-genre" aria-label="Genre: ${gn}">${gn}</span>`
+          ).join('');
+
+          // Build clip URL from assets/game-clips/ if available
+          const clipPath = `/assets/game-clips/${g.file.replace('.html','')}.webm`;
+          const clipTag = g.hasClip
+            ? `<video class="clip-video" src="${clipPath}" muted loop playsinline preload="none"
+                 aria-hidden="true" tabindex="-1"
+                 onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0"></video>`
+            : '';
+
+          card.innerHTML = `
+            <div class="card-thumb" aria-hidden="true">
+              <div class="preview-art ${g.art}"></div>
+              <canvas class="anim-canvas" aria-hidden="true"></canvas>
+              ${clipTag}
+              <div class="thumb-icon" aria-hidden="true">${g.icon}</div>
+              <div class="play-overlay" aria-hidden="true">
+                <div class="play-btn">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="5,3 19,12 5,21"/></svg>
+                </div>
+              </div>
+            </div>
+            <span class="origin-badge ${badgeCls}" aria-label="Origin: ${g.origin}">${badgeLabel}</span>
+            ${g.sourceRecipe ? '<span class="source-recipe-badge">Source Recipe</span>' : ''}
+            ${g.status === 'bugs' ? '<span class="qa-badge bugs">BUGS</span>' : g.status === 'qa' ? '<span class="qa-badge in-qa">IN QA</span>' : (g.status === 'new' || (g.created_at && (Date.now() / 1000 - g.created_at) < 7 * 86400)) ? '<span class="qa-badge new-game">NEW</span>' : ''}
+            <div class="card-info">
+              <div class="card-title">${g.name}</div>
+              <div class="card-desc">${g.desc}</div>
+              <div class="card-tags" aria-label="Tags">
+                ${genreTagsHtml}
+                ${diffTagsHtml}
+              </div>
+              <div class="card-votes" aria-label="Vote on this game">
+                <button class="vote-btn vote-up" data-game="${g.id}" data-dir="up"
+                  aria-label="Vote up ${g.name}" data-tooltip="I like this game">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4l-8 8h5v8h6v-8h5z" fill="currentColor"/></svg>
+                  <span class="vote-count" id="votes-up-${g.id}">0</span>
+                </button>
+                <button class="vote-btn vote-down" data-game="${g.id}" data-dir="down"
+                  aria-label="Vote down ${g.name}" data-tooltip="Needs improvement">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 20l8-8h-5V4H9v8H4z" fill="currentColor"/></svg>
+                  <span class="vote-count" id="votes-down-${g.id}">0</span>
+                </button>
+              </div>
+            </div>
+          `;
+
+          // Click / keyboard to open game
+          if (!g.sourceRecipe) {
+            card.addEventListener('click', (e) => { if (e.target.closest('.vote-btn')) return; openGame(g); });
+            card.addEventListener('keydown', (ev) => {
+              if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                openGame(g);
+              }
+            });
+          }
+
+          // Hover: start canvas animation
+          card.addEventListener('mouseenter', () => startAnim(card, g));
+          card.addEventListener('mouseleave', () => stopAnim(card));
+
+          document.getElementById('gameGrid').appendChild(card);
+          _entranceObserver.observe(card);
+          return card;
+      }
+
+      // ── Lazy render state ──
+      const PAGE_SIZE = 21;    // initial above-fold batch
+      const LOAD_MORE = 12;    // each subsequent batch
+      let _rendered = [];      // games whose cards are in DOM
+      let _sentinel = null;    // IntersectionObserver load-more trigger
+      let _lazyObserver = null;
+      let _currentVisible = []; // filtered+sorted list from renderCards
+
+      function _attachSentinel(grid) {
+        if (_sentinel) _sentinel.remove();
+        _sentinel = document.createElement('div');
+        _sentinel.id = 'load-more-sentinel';
+        _sentinel.style.cssText = 'height:1px;width:100%;grid-column:1/-1;';
+        grid.appendChild(_sentinel);
+        if (!_lazyObserver) {
+          _lazyObserver = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) _loadMoreCards();
+          }, { rootMargin: '300px' }); // pre-load 300px before reaching sentinel
+        }
+        _lazyObserver.disconnect();
+        _lazyObserver.observe(_sentinel);
+      }
+
+      function _loadMoreCards() {
+        const grid = document.getElementById('gameGrid');
+        const alreadyCount = _rendered.length;
+        const next = _currentVisible.slice(alreadyCount, alreadyCount + LOAD_MORE);
+        if (!next.length) {
+          if (_sentinel) { _lazyObserver.disconnect(); _sentinel.remove(); _sentinel = null; }
+          return;
+        }
+        // Detach sentinel before appending, re-attach after
+        if (_sentinel) _sentinel.remove();
+        next.forEach(g => {
+          if (document.getElementById('card-' + g.id)) return; // already built
+          _buildCard(g); // appends to grid, observes entrance
+          _rendered.push(g);
+        });
+        if (_rendered.length < _currentVisible.length) _attachSentinel(grid);
+      }
+
+      function buildCards() {
+        // No-op — cards are now built lazily via renderCards
+      }
+
+      // ── Game overlay ──
+      const overlay  = document.getElementById('gameOverlay');
+      const frame    = document.getElementById('gameFrame');
+      const oTitle   = document.getElementById('overlayTitle');
+      const newTabBtn = document.getElementById('newTabBtn');
+      const closBtn  = document.getElementById('closeOverlayBtn');
+      let _currentGame = null;
+      let _lastFocused = null;
+
+      function openGame(g) {
+        const url = `/code/ready/${g.file}`;
+        window.location.href = url;
+      }
+
+      function closeGame() {
+        overlay.classList.remove('open');
+        frame.src = '';
+        document.body.style.overflow = '';
+        if (_lastFocused) _lastFocused.focus();
+        _currentGame = null;
+      }
+
+      closBtn.addEventListener('click', closeGame);
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && overlay.classList.contains('open')) closeGame();
+      });
+
+      // ── Canvas hover animations — GPU-composited, RAF-driven ──
+      const _anims = new Map(); // card el → { raf, ctx, stopped }
+
+      function startAnim(card, g) {
+        const canvas = card.querySelector('.anim-canvas');
+        if (!canvas || _anims.has(card)) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Size canvas to its display size
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width || 320;
+        canvas.height = rect.height || 200;
+
+        const state = { raf: null, stopped: false, t: 0 };
+        _anims.set(card, state);
+
+        // Pick animation style by genre
+        const primaryGenre = g.genres[0];
+        const animFn = primaryGenre === 'Cards' ? animCards
+          : primaryGenre === 'Puzzle' ? animPulse
+          : primaryGenre === 'Action' ? animParticles
+          : primaryGenre === 'Strategy' ? animGrid
+          : animOrbs; // Adventure
+
+        function tick() {
+          if (state.stopped) return;
+          state.t += 0.016;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          animFn(ctx, canvas.width, canvas.height, state.t, g);
+          state.raf = requestAnimationFrame(tick);
+        }
+        state.raf = requestAnimationFrame(tick);
+      }
+
+      function stopAnim(card) {
+        const state = _anims.get(card);
+        if (!state) return;
+        state.stopped = true;
+        if (state.raf) cancelAnimationFrame(state.raf);
+        _anims.delete(card);
+        const canvas = card.querySelector('.anim-canvas');
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+
+      // ── Animation styles ──
+      function animParticles(ctx, w, h, t) {
+        // Floating particles — Action games
+        const count = 18;
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2 + t * (i % 2 === 0 ? 0.8 : -0.5);
+          const radius = 30 + (i % 4) * 18 + Math.sin(t * 1.2 + i) * 10;
+          const x = w * 0.5 + Math.cos(angle) * radius * (w / 320);
+          const y = h * 0.5 + Math.sin(angle) * radius * (h / 200);
+          const alpha = 0.15 + Math.abs(Math.sin(t * 0.7 + i * 0.5)) * 0.4;
+          const size = 2 + (i % 3);
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(20,184,166,${alpha})`;
+          ctx.fill();
+        }
+      }
+
+      function animCards(ctx, w, h, t) {
+        // Cascading card shapes — Card games
+        const colors = ['rgba(168,139,250,', 'rgba(20,184,166,', 'rgba(245,158,11,'];
+        for (let i = 0; i < 5; i++) {
+          const angle = Math.sin(t * 0.6 + i * 0.9) * 0.3;
+          const x = (i / 4) * (w - 40) + 10 + Math.sin(t * 0.4 + i) * 8;
+          const y = h * 0.35 + Math.cos(t * 0.5 + i * 0.7) * 12;
+          const col = colors[i % colors.length] + '0.25)';
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(angle);
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(-16, -22, 32, 44);
+          ctx.restore();
+        }
+      }
+
+      function animPulse(ctx, w, h, t) {
+        // Hex/grid pulse — Puzzle games
+        const cols = 7, rows = 5;
+        const cw = w / cols, ch = h / rows;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const phase = (r + c) * 0.5 + t * 1.5;
+            const alpha = (Math.sin(phase) + 1) * 0.5 * 0.2;
+            ctx.fillStyle = `rgba(20,184,166,${alpha})`;
+            ctx.fillRect(c * cw + 2, r * ch + 2, cw - 4, ch - 4);
+          }
+        }
+      }
+
+      function animGrid(ctx, w, h, t) {
+        // Expanding rings — Strategy games
+        const cx = w * 0.5, cy = h * 0.5;
+        for (let i = 0; i < 4; i++) {
+          const r = ((t * 40 + i * 30) % 120) * (w / 320);
+          const alpha = 0.25 * (1 - r / (120 * w / 320));
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(245,158,11,${alpha})`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+      }
+
+      function animOrbs(ctx, w, h, t) {
+        // Drifting soft orbs — Adventure games
+        const orbs = [
+          { ox: 0.3, oy: 0.4, sp: 0.4, c: '59,130,246' },
+          { ox: 0.6, oy: 0.55, sp: 0.3, c: '20,184,166' },
+          { ox: 0.5, oy: 0.3, sp: 0.5, c: '168,139,250' },
+        ];
+        orbs.forEach(o => {
+          const x = (o.ox + Math.sin(t * o.sp) * 0.15) * w;
+          const y = (o.oy + Math.cos(t * o.sp * 0.7) * 0.12) * h;
+          const grad = ctx.createRadialGradient(x, y, 0, x, y, 50 * (w / 320));
+          grad.addColorStop(0, `rgba(${o.c},0.18)`);
+          grad.addColorStop(1, `rgba(${o.c},0)`);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(x, y, 60 * (w / 320), 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // ── Filters ──
+      document.querySelectorAll('[data-genre]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activeGenre = btn.dataset.genre;
+          document.querySelectorAll('[data-genre]').forEach(b => {
+            b.classList.toggle('active', b === btn);
+            b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+          });
+          renderCards();
+        });
+      });
+
+      document.getElementById('diffFilter').addEventListener('change', (ev) => {
+        activeDiff = ev.target.value;
+        renderCards();
+      });
+
+      let _searchDebounce = null;
+      document.getElementById('searchInput').addEventListener('input', (ev) => {
+        clearTimeout(_searchDebounce);
+        _searchDebounce = setTimeout(() => {
+          searchQuery = ev.target.value.toLowerCase().trim();
+          renderCards();
+        }, 180);
+      });
+
+      // ── Theme toggle (replaced by mullm_theme picker — see bottom of page) ──
+      function initTheme() {
+        const stored = localStorage.getItem('mullm-theme');
+        const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', stored || (sysDark ? 'dark' : 'light'));
+      }
+      initTheme();
+
+      // ── Dynamic Stats ──
+      function updateStats() {
+        const total = GAMES.length;
+        const genres = new Set();
+        GAMES.forEach(g => g.genres.forEach(gen => genres.add(gen)));
+        const aiCount = GAMES.filter(g => g.origin && (g.origin.includes('claude') || g.origin.includes('ai') || g.origin.includes('mullm') || g.origin.includes('generated'))).length;
+        const humanCount = total - aiCount;
+        document.getElementById('statTotal').textContent = total;
+        document.getElementById('statGenres').textContent = genres.size;
+        document.getElementById('statAI').textContent = aiCount;
+        document.getElementById('statPolished').textContent = humanCount;
+      }
+
+      // ── Voting system ──
+      const _votes = JSON.parse(localStorage.getItem('mullm-game-votes') || '{}');
+
+      function loadVotes() {
+        for (const [gameId, vote] of Object.entries(_votes)) {
+          const upEl = document.getElementById(`votes-up-${gameId}`);
+          const downEl = document.getElementById(`votes-down-${gameId}`);
+          if (vote.up && upEl) upEl.textContent = vote.up;
+          if (vote.down && downEl) downEl.textContent = vote.down;
+          if (vote.up > 0) {
+            const btn = document.querySelector(`.vote-up[data-game="${gameId}"]`);
+            if (btn) btn.classList.add('voted-up');
+          }
+          if (vote.down > 0) {
+            const btn = document.querySelector(`.vote-down[data-game="${gameId}"]`);
+            if (btn) btn.classList.add('voted-down');
+          }
+        }
+      }
+
+      function saveVotes() {
+        localStorage.setItem('mullm-game-votes', JSON.stringify(_votes));
+        // Also persist to server
+        fetch('/api/game-votes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(_votes),
+        }).catch(() => {});
+      }
+
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.vote-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        const gameId = btn.dataset.game;
+        const dir = btn.dataset.dir;
+        if (!_votes[gameId]) _votes[gameId] = { up: 0, down: 0 };
+        const v = _votes[gameId];
+
+        // Cycle vote: each tap adds 1 (max 5), tap at 5 resets to 0
+        v[dir] = v[dir] >= 5 ? 0 : v[dir] + 1;
+        btn.classList.toggle(`voted-${dir}`, v[dir] > 0);
+
+        document.getElementById(`votes-up-${gameId}`).textContent = v.up;
+        document.getElementById(`votes-down-${gameId}`).textContent = v.down;
+        saveVotes();
+      });
+
+      // ── Drag & drop reorder ──
+      let _draggedCard = null;
+      const _gameOrder = JSON.parse(localStorage.getItem('mullm-game-order') || 'null');
+
+      if (_gameOrder && Array.isArray(_gameOrder)) {
+        // Reorder GAMES array to match saved order
+        const orderMap = new Map(_gameOrder.map((id, i) => [id, i]));
+        GAMES.sort((a, b) => {
+          const ia = orderMap.has(a.id) ? orderMap.get(a.id) : 9999;
+          const ib = orderMap.has(b.id) ? orderMap.get(b.id) : 9999;
+          return ia - ib;
+        });
+      }
+
+      function applySavedGameOrder() {
+        if (!_gameOrder || !Array.isArray(_gameOrder)) return;
+        const orderMap = new Map(_gameOrder.map((id, i) => [id, i]));
+        GAMES.sort((a, b) => {
+          const ia = orderMap.has(a.id) ? orderMap.get(a.id) : 9999;
+          const ib = orderMap.has(b.id) ? orderMap.get(b.id) : 9999;
+          if (ia !== ib) return ia - ib;
+          return a.name.localeCompare(b.name);
+        });
+      }
+
+      function enableDragDrop() {
+        const grid = document.getElementById('gameGrid');
+        grid.addEventListener('dragstart', (e) => {
+          const card = e.target.closest('.game-card');
+          if (!card) return;
+          _draggedCard = card;
+          card.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', card.id);
+        });
+        grid.addEventListener('dragend', (e) => {
+          const card = e.target.closest('.game-card');
+          if (card) card.classList.remove('dragging');
+          document.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+          _draggedCard = null;
+        });
+        grid.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          const card = e.target.closest('.game-card');
+          if (card && card !== _draggedCard) {
+            card.classList.add('drag-over');
+          }
+        });
+        grid.addEventListener('dragleave', (e) => {
+          const card = e.target.closest('.game-card');
+          if (card) card.classList.remove('drag-over');
+        });
+        grid.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const target = e.target.closest('.game-card');
+          if (!target || target === _draggedCard || !_draggedCard) return;
+          target.classList.remove('drag-over');
+
+          // Get game IDs
+          const dragId = _draggedCard.id.replace('card-', '');
+          const targetId = target.id.replace('card-', '');
+
+          // Reorder GAMES array
+          const dragIdx = GAMES.findIndex(g => g.id === dragId);
+          const targetIdx = GAMES.findIndex(g => g.id === targetId);
+          if (dragIdx >= 0 && targetIdx >= 0) {
+            const [moved] = GAMES.splice(dragIdx, 1);
+            GAMES.splice(targetIdx, 0, moved);
+            // Save order
+            localStorage.setItem('mullm-game-order', JSON.stringify(GAMES.map(g => g.id)));
+            // Persist to server
+            fetch('/api/game-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ order: GAMES.map(g => g.id) }),
+            }).catch(() => {});
+            // Re-render
+            const grid = document.getElementById('gameGrid');
+            grid.innerHTML = '';
+            buildCards();
+            renderCards();
+            loadVotes();
+          }
+        });
+
+        // Make cards draggable
+        document.querySelectorAll('.game-card').forEach(c => {
+          c.setAttribute('draggable', 'true');
+        });
+      }
+
+      // ── Boot ──
+      function metadataFromManifest(g) {
+        const stem = String(g.file || '').replace(/\.html$/i, '');
+        const name = g.name || stem.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const genres = Array.isArray(g.categories) && g.categories.length ? g.categories : ['Game'];
+        const is3d = genres.includes('3D') || /(^|[-_])3d($|[-_])/.test(stem);
+        const isCard = genres.includes('Cards') || /card|crokinole/.test(stem);
+        const isAction = genres.includes('Action') || /frog|golf|bamboo|tardigrade/.test(stem);
+        return {
+          id: stem,
+          name,
+          file: g.file,
+          icon: is3d ? '🧊' : isCard ? '🃏' : isAction ? '🎯' : '🎮',
+          art: is3d ? 'art-neon' : isCard ? 'art-signal' : 'art-gauntlet',
+          origin: 'packaged',
+          genres,
+          difficulty: 'Medium',
+          desc: name + ' — packaged playable game.',
+          created_at: g.created_at,
+          status: 'ready',
+        };
+      }
+
+      async function bootGames() {
+        try {
+          const r = await fetch('/api/game-list');
+          const data = await r.json();
+          if (Array.isArray(data.games)) {
+            GAMES.length = 0;
+            data.games.forEach(g => {
+              if (g && g.file && /\.html$/i.test(g.file)) GAMES.push(metadataFromManifest(g));
+            });
+            applySavedGameOrder();
+          }
+        } catch (err) {
+          console.warn('Could not load packaged game manifest; falling back to built-in catalog.', err);
+        }
+        buildCards();
+        renderCards();
+        updateStats();
+        loadVotes();
+        enableDragDrop();
+      }
+
+      bootGames();
+    </script>
+  <script>
+/* muLLM Theme Picker — localStorage persistence, WCAG AA */
+(function() {
+  var THEME_KEY = 'mullm_theme';
+  function applyTheme(t) {
+    document.body.className = (document.body.className || '').replace(/\btheme-\S+/g, '').trim();
+    if (t) document.body.classList.add(t);
+    try { localStorage.setItem(THEME_KEY, t || ''); } catch(e) {}
+    var menu = document.getElementById('theme-menu');
+    if (menu) menu.querySelectorAll('[data-theme]').forEach(function(li) {
+      li.style.fontWeight = li.dataset.theme === t ? 'bold' : '';
+      li.style.color = li.dataset.theme === t ? 'var(--gold, #c8a84b)' : '';
+    });
+  }
+  /* Apply saved theme immediately (before DOMContentLoaded to avoid FOUC) */
+  var saved = '';
+  try { saved = localStorage.getItem(THEME_KEY) || ''; } catch(e) {}
+  if (saved && document.body) applyTheme(saved);
+  document.addEventListener('DOMContentLoaded', function() {
+    var saved2 = '';
+    try { saved2 = localStorage.getItem(THEME_KEY) || ''; } catch(e) {}
+    applyTheme(saved2);
+    var btn = document.getElementById('theme-btn');
+    var menu = document.getElementById('theme-menu');
+    if (!btn || !menu) return;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    });
+    menu.querySelectorAll('[data-theme]').forEach(function(li) {
+      li.addEventListener('click', function() {
+        applyTheme(li.dataset.theme);
+        menu.style.display = 'none';
+      });
+    });
+    document.addEventListener('click', function() { menu.style.display = 'none'; });
+  });
+})();
+</script>
+
+</body>
+</html>

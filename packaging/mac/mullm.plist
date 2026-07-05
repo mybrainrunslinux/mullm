@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.0101technology.mullm</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-lc</string>
+        <string>exec "$HOME/.local/bin/mullm-server" || exec "$HOME/.mullm/bin/mullm-server" || exec "$HOME/.mullm1/bin/mullm-server" || exec /opt/homebrew/bin/mullm-server || exec /usr/local/bin/mullm-server || exec "$HOME/.mullm1/bin/mullm1-server" || exec /opt/homebrew/bin/mullm1-server || exec /usr/local/bin/mullm1-server</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/mullm.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/mullm.err</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>$HOME/.local/bin:$HOME/.mullm/bin:$HOME/.mullm1/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>

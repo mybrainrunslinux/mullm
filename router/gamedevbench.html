@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GameDevBench — muLLM</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg2: #11111a;
+  --bg3: #1a1a26;
+  --gold: #d4af37;
+  --gold-dim: #8a7020;
+  --gold-bright: #f0cc50;
+  --text: #e8e8f0;
+  --text-dim: #8888aa;
+  --text-muted: #555570;
+  --border: #2a2a3a;
+  --border-bright: #3a3a50;
+  --green: #3dba6e;
+  --red: #d94f4f;
+  --blue: #4a9eff;
+  --purple: #9a6fff;
+  --radius: 8px;
+  --sidebar-w: 240px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────── */
+header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.logo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.logo h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+}
+.logo .sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.run-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.model-checks {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.model-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  transition: border-color .15s, background .15s;
+  user-select: none;
+}
+.model-check:hover { border-color: var(--gold-dim); background: #1a1a26; }
+.model-check input[type=checkbox] { accent-color: var(--gold); }
+.model-check.checked { border-color: var(--gold-dim); background: #1a140a; }
+
+.count-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.count-select:focus { outline: none; border-color: var(--gold-dim); }
+
+.btn-run {
+  background: var(--gold);
+  color: #0a0a0f;
+  border: none;
+  border-radius: 5px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background .15s;
+}
+.btn-run:hover { background: var(--gold-bright); }
+.btn-run:disabled { background: var(--gold-dim); cursor: not-allowed; }
+
+.nav-back {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.nav-back:hover { color: var(--gold); }
+
+/* ── Filter bar ───────────────────────────────── */
+.filter-bar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.filter-bar span { font-size: 11px; color: var(--text-muted); margin-right: 4px; }
+
+.filter-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.filter-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+.filter-btn.active {
+  background: var(--gold);
+  color: #0a0a0f;
+  border-color: var(--gold);
+  font-weight: 600;
+}
+
+/* ── Main layout ──────────────────────────────── */
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ──────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-title {
+  padding: 10px 12px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.game-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 0;
+}
+.game-list::-webkit-scrollbar { width: 4px; }
+.game-list::-webkit-scrollbar-track { background: transparent; }
+.game-list::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+.game-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background .1s, border-color .1s;
+  gap: 8px;
+}
+.game-item:hover { background: var(--bg3); }
+.game-item.active {
+  background: #1a140a;
+  border-left-color: var(--gold);
+}
+.game-item.hidden { display: none; }
+
+.game-num {
+  font-size: 10px;
+  color: var(--text-muted);
+  min-width: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-label {
+  font-size: 12px;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-scores {
+  display: flex;
+  gap: 2px;
+}
+.score-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-bright);
+}
+.score-dot.pass { background: var(--green); }
+.score-dot.fail { background: var(--red); }
+.score-dot.partial { background: var(--gold); }
+
+/* ── Right panel ──────────────────────────────── */
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.panel-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text-muted);
+}
+.panel-empty .icon { font-size: 48px; opacity: 0.4; }
+.panel-empty p { font-size: 14px; }
+.panel-empty .hint { font-size: 12px; color: var(--text-muted); opacity: 0.6; }
+
+.game-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.game-detail-header {
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.game-detail-header h2 {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.game-detail-header .prompt-text {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+/* ── Model tabs ───────────────────────────────── */
+.model-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  gap: 4px;
+  background: var(--bg2);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.model-tab {
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color .15s, border-color .15s;
+  user-select: none;
+}
+.model-tab:hover { color: var(--text); }
+.model-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.model-tab .tab-score {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.model-tab .tab-score.good { background: rgba(61,186,110,0.2); color: var(--green); }
+.model-tab .tab-score.mid  { background: rgba(212,175,55,0.2);  color: var(--gold); }
+.model-tab .tab-score.bad  { background: rgba(217,79,79,0.2);   color: var(--red); }
+.model-tab .tab-score.none { background: var(--bg3); color: var(--text-muted); }
+
+/* ── Tab content ──────────────────────────────── */
+.tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-pane {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+}
+.tab-pane.active { display: flex; }
+
+.game-frame-wrap {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.game-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+  flex: 1;
+  min-height: 0;
+}
+
+.game-meta {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.check-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.check-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.check-badge.pass { background: rgba(61,186,110,0.15); color: var(--green); }
+.check-badge.fail { background: rgba(217,79,79,0.12); color: var(--red); }
+.check-badge .tick { font-size: 10px; }
+
+.meta-stat {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.meta-stat span { color: var(--text); font-weight: 500; }
+
+.no-result-pane {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.no-result-pane .nr-icon { font-size: 36px; opacity: 0.3; }
+.btn-run-model {
+  margin-top: 8px;
+  background: transparent;
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  border-radius: 5px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-run-model:hover { background: rgba(212,175,55,0.1); }
+
+/* ── Progress overlay ─────────────────────────── */
+.progress-overlay {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--bg2);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  min-width: 280px;
+  max-width: 380px;
+  z-index: 100;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.progress-overlay.visible { display: block; }
+.progress-overlay h3 {
+  font-size: 13px;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+.run-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.run-row .model-label {
+  min-width: 110px;
+  color: var(--text);
+  font-weight: 500;
+}
+.run-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.run-progress-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.run-row .pct-label { font-size: 10px; color: var(--text-muted); min-width: 32px; text-align: right; }
+.run-row .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold-dim);
+  flex-shrink: 0;
+}
+.run-row .status-dot.running { background: var(--gold); animation: pulse 1s infinite; }
+.run-row .status-dot.done { background: var(--green); }
+.run-row .status-dot.error { background: var(--red); }
+.progress-dismiss {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+}
+.progress-dismiss:hover { color: var(--text-dim); }
+
+/* ── Toast ─────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: var(--bg2);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 12px;
+  z-index: 200;
+  transition: transform 0.3s;
+  pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Scrollbar global ─────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <a href="/bench" class="nav-back">← bench</a>
+  <div class="logo">
+    <h1>GameDevBench</h1>
+    <span class="sub">Play and compare LLM-generated games</span>
+  </div>
+  <div class="run-controls">
+    <div class="model-checks" id="modelChecks">
+      <label class="model-check checked" title="Free — qwen3-coder:30b via Ollama">
+        <input type="checkbox" value="local" checked> Local 30B
+      </label>
+      <label class="model-check" title="Free — OmniCoder-9B Claude-Opus fine-tune via Ollama">
+        <input type="checkbox" value="omnicoder"> OmniCoder
+      </label>
+      <label class="model-check" title="Anthropic Claude Sonnet">
+        <input type="checkbox" value="claude-sonnet"> Sonnet
+      </label>
+      <label class="model-check" title="Free — Qwopus3.5:27b Opus 4.6 finetune on Qwen via Ollama">
+        <input type="checkbox" value="qwopus"> Qwopus 27B
+      </label>
+      <label class="model-check" title="Free — Qwen2.5-Coder-32B via Ollama">
+        <input type="checkbox" value="qwen25coder"> Qwen2.5-Coder
+      </label>
+      <label class="model-check" title="Anthropic Claude Haiku — cheapest cloud">
+        <input type="checkbox" value="claude-haiku"> Haiku
+      </label>
+      <label class="model-check" title="Anthropic Claude Opus — most capable">
+        <input type="checkbox" value="claude-opus"> Opus
+      </label>
+      <label class="model-check" title="OpenAI GPT-5.4-pro">
+        <input type="checkbox" value="gpt-5.4-pro"> GPT-5.4-pro
+      </label>
+      <label class="model-check" title="Google Gemini Flash">
+        <input type="checkbox" value="gemini-flash"> Gemini Flash
+      </label>
+      <label class="model-check" title="Google Gemini Pro">
+        <input type="checkbox" value="gemini-pro"> Gemini Pro
+      </label>
+      <label class="model-check" title="muLLM auto-router — lets the router decide tier">
+        <input type="checkbox" value="mullm"> muLLM Router
+      </label>
+      <label class="model-check" title="WITH RICE ⚡ — Opus+Gemini Pro+GPT-5.4-pro → Sonnet synthesis (~$0.40/game)">
+        <input type="checkbox" value="with-rice"> WITH RICE ⚡
+      </label>
+    </div>
+    <select class="count-select" id="countSelect" title="Number of games to generate">
+      <option value="10">10 games</option>
+      <option value="20" selected>20 games</option>
+      <option value="50">50 games</option>
+      <option value="56">All games</option>
+    </select>
+    <button class="btn-run" id="btnRun" onclick="startRuns()">▶ Run</button>
+  </div>
+</header>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <span>Filter:</span>
+  <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">All</button>
+  <button class="filter-btn" data-filter="local_won" onclick="setFilter('local_won',this)" title="Local outscored all cloud models">Local Won</button>
+  <button class="filter-btn" data-filter="cloud_won" onclick="setFilter('cloud_won',this)" title="Any cloud model outscored local">Cloud Won</button>
+  <button class="filter-btn" data-filter="local_failed" onclick="setFilter('local_failed',this)" title="Local scored &lt; 0.4">Local Failed</button>
+  <button class="filter-btn" data-filter="interesting" onclick="setFilter('interesting',this)" title="Local scored 0.4–0.8 (borderline)">Interesting</button>
+  <button class="filter-btn" data-filter="both_failed" onclick="setFilter('both_failed',this)" title="All models scored &lt; 0.4">Both Failed</button>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-title">Games <span id="gameCount" style="color:var(--text-muted);font-weight:400"></span></div>
+    <div class="game-list" id="gameList"></div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="panel" id="panel">
+    <div class="panel-empty" id="panelEmpty">
+      <div class="icon">🎮</div>
+      <p>Select a game from the list</p>
+      <div class="hint">Run benchmarks to generate games, then compare results side-by-side</div>
+    </div>
+    <div class="game-detail" id="gameDetail" style="display:none">
+      <div class="game-detail-header">
+        <h2 id="detailTitle"></h2>
+        <div class="prompt-text" id="detailPrompt"></div>
+      </div>
+      <div class="model-tabs" id="modelTabs"></div>
+      <div class="tab-content" id="tabContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Progress overlay -->
+<div class="progress-overlay" id="progressOverlay">
+  <h3>⚙ Running benchmarks…</h3>
+  <div id="runRows"></div>
+  <div class="progress-dismiss" onclick="document.getElementById('progressOverlay').classList.remove('visible')">hide (runs continue in background)</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let prompts = [];
+let resultsData = {}; // {problem_idx: {model: record}}
+let selectedIdx = null;
+let selectedModel = null;
+let activeFilter = 'all';
+let activeRuns = {}; // {run_id: {model, status, progress, ...}}
+let pollInterval = null;
+
+const MODEL_LABELS = {
+  local: 'Local 30B',
+  omnicoder: 'OmniCoder 9B',
+  qwopus: 'Qwopus 27B',
+  qwen25coder: 'Qwen2.5-Coder 32B',
+  'claude-haiku': 'Claude Haiku',
+  'claude-sonnet': 'Claude Sonnet',
+  'claude-opus': 'Claude Opus',
+  'gpt-5.4-pro': 'GPT-5.4-pro',
+  'gemini-flash': 'Gemini Flash',
+  'gemini-pro': 'Gemini Pro',
+  mullm: 'muLLM Router',
+  'with-rice': 'WITH RICE ⚡',
+};
+
+// ── Boot ───────────────────────────────────────────────────────────────────────
+async function boot() {
+  setupModelCheckboxes();
+  await Promise.all([loadPrompts(), loadResults()]);
+  buildSidebar();
+}
+
+function setupModelCheckboxes() {
+  document.querySelectorAll('.model-check input').forEach(cb => {
+    cb.addEventListener('change', function() {
+      this.closest('.model-check').classList.toggle('checked', this.checked);
+    });
+  });
+}
+
+async function loadPrompts() {
+  try {
+    const r = await fetch('/api/gamedevbench/prompts');
+    const d = await r.json();
+    prompts = d.prompts || [];
+    // Update count select max
+    const sel = document.getElementById('countSelect');
+    const maxCount = prompts.length;
+    Array.from(sel.options).forEach(opt => {
+      const v = parseInt(opt.value);
+      if (v > maxCount) opt.disabled = true;
+    });
+  } catch(e) {
+    console.error('Failed to load prompts:', e);
+    prompts = [];
+  }
+}
+
+async function loadResults() {
+  try {
+    const r = await fetch('/api/gamedevbench/results');
+    const d = await r.json();
+    // Build: {problem_idx: {model: record}}
+    resultsData = {};
+    for (const entry of (d.results || [])) {
+      const idx = entry.problem_idx;
+      if (!resultsData[idx]) resultsData[idx] = {};
+      for (const rec of entry.entries) {
+        resultsData[idx][rec.model] = rec;
+      }
+    }
+  } catch(e) {
+    console.error('Failed to load results:', e);
+  }
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────────
+function buildSidebar() {
+  const list = document.getElementById('gameList');
+  list.innerHTML = '';
+  let visible = 0;
+  prompts.forEach((prompt, idx) => {
+    const item = document.createElement('div');
+    item.className = 'game-item';
+    item.dataset.idx = idx;
+    item.onclick = () => selectGame(idx);
+
+    const scoreMap = resultsData[idx] || {};
+    const models = Object.keys(scoreMap);
+
+    const dots = models.slice(0,5).map(m => {
+      const s = scoreMap[m]?.score ?? -1;
+      const cls = s < 0 ? '' : s >= 0.6 ? 'pass' : s >= 0.2 ? 'partial' : 'fail';
+      return `<div class="score-dot ${cls}" title="${MODEL_LABELS[m]||m}: ${s >= 0 ? Math.round(s*100)+'%' : 'no data'}"></div>`;
+    }).join('');
+
+    item.innerHTML = `
+      <span class="game-num">${idx+1}</span>
+      <span class="game-label">${promptTitle(prompt)}</span>
+      <div class="game-scores">${dots}</div>`;
+
+    if (!passesFilter(idx)) {
+      item.classList.add('hidden');
+    } else {
+      visible++;
+    }
+    list.appendChild(item);
+  });
+  document.getElementById('gameCount').textContent = `(${visible})`;
+}
+
+function promptTitle(prompt) {
+  // Extract short title: first clause before period/comma
+  const m = prompt.match(/^Build (?:a |an )?(.+?)[\.\,]/i);
+  if (m) return m[1];
+  return prompt.slice(0, 32) + (prompt.length > 32 ? '…' : '');
+}
+
+// ── Filter ─────────────────────────────────────────────────────────────────────
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildSidebar();
+  // If selected game is now hidden, deselect
+  if (selectedIdx !== null) {
+    const item = document.querySelector(`.game-item[data-idx="${selectedIdx}"]`);
+    if (item && item.classList.contains('hidden')) {
+      selectedIdx = null;
+      showEmpty();
+    }
+  }
+}
+
+function passesFilter(idx) {
+  if (activeFilter === 'all') return true;
+  const scoreMap = resultsData[idx] || {};
+  const scores = Object.values(scoreMap).map(r => r.score);
+  if (!scores.length) {
+    return activeFilter === 'all';
+  }
+  const localScore = scoreMap['local']?.score ?? -1;
+  const cloudScores = Object.entries(scoreMap)
+    .filter(([m]) => m !== 'local')
+    .map(([,r]) => r.score);
+  const maxCloud = cloudScores.length ? Math.max(...cloudScores) : -1;
+
+  switch(activeFilter) {
+    case 'local_won':    return localScore >= 0 && localScore >= maxCloud;
+    case 'cloud_won':    return maxCloud > localScore;
+    case 'local_failed': return localScore >= 0 && localScore < 0.4;
+    case 'interesting':  return localScore >= 0.4 && localScore <= 0.8;
+    case 'both_failed':  {
+      const allScores = Object.values(scoreMap).map(r => r.score);
+      return allScores.length > 0 && Math.max(...allScores) < 0.4;
+    }
+    default: return true;
+  }
+}
+
+// ── Game detail ────────────────────────────────────────────────────────────────
+function showEmpty() {
+  document.getElementById('panelEmpty').style.display = '';
+  document.getElementById('gameDetail').style.display = 'none';
+}
+
+function selectGame(idx) {
+  selectedIdx = idx;
+  // Update sidebar selection
+  document.querySelectorAll('.game-item').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.game-item[data-idx="${idx}"]`);
+  if (el) el.classList.add('active');
+
+  document.getElementById('panelEmpty').style.display = 'none';
+  document.getElementById('gameDetail').style.display = '';
+
+  const prompt = prompts[idx] || '';
+  document.getElementById('detailTitle').textContent = `Game ${idx+1}: ${promptTitle(prompt)}`;
+  document.getElementById('detailPrompt').textContent = prompt;
+
+  renderModelTabs(idx);
+}
+
+function renderModelTabs(idx) {
+  const allModels = ['local', 'omnicoder', 'qwopus', 'qwen25coder', 'claude-haiku', 'claude-sonnet', 'claude-opus', 'gpt-5.4-pro', 'gemini-flash', 'gemini-pro', 'mullm', 'with-rice'];
+  const scoreMap = resultsData[idx] || {};
+  const tabsEl = document.getElementById('modelTabs');
+  const contentEl = document.getElementById('tabContent');
+  tabsEl.innerHTML = '';
+  contentEl.innerHTML = '';
+
+  // Add tabs for all models (show empty state if no result)
+  allModels.forEach((model, mi) => {
+    const rec = scoreMap[model];
+    const tab = document.createElement('div');
+    tab.className = 'model-tab';
+    tab.dataset.model = model;
+    tab.onclick = () => activateTab(model, idx);
+
+    const scoreLabel = rec
+      ? `<span class="tab-score ${rec.score >= 0.6 ? 'good' : rec.score >= 0.2 ? 'mid' : 'bad'}">${Math.round(rec.score*100)}%</span>`
+      : `<span class="tab-score none">—</span>`;
+    tab.innerHTML = `${MODEL_LABELS[model] || model} ${scoreLabel}`;
+    tabsEl.appendChild(tab);
+
+    // Pane
+    const pane = document.createElement('div');
+    pane.className = 'tab-pane';
+    pane.dataset.model = model;
+    if (rec) {
+      pane.innerHTML = `
+        <div class="game-frame-wrap">
+          <iframe class="game-iframe"
+            src="/api/gamedevbench/game/${rec.run_id}/${String(idx).padStart(2,'0')}"
+            sandbox="allow-scripts allow-same-origin"
+            loading="lazy"
+            title="Game ${idx+1} — ${MODEL_LABELS[model]||model}">
+          </iframe>
+        </div>
+        <div class="game-meta">
+          <div class="check-badges">
+            ${renderChecks(rec.checks)}
+          </div>
+          <div class="meta-stat">Cost: <span>${rec.cost_usd > 0 ? '$'+rec.cost_usd.toFixed(4) : '$0.00'}</span></div>
+          <div class="meta-stat">Time: <span>${(rec.latency_ms/1000).toFixed(1)}s</span></div>
+          <div class="meta-stat">Model: <span>${rec.model_used || model}</span></div>
+          <div class="meta-stat">HTML: <span>${(rec.html_len/1000).toFixed(1)}KB</span></div>
+        </div>`;
+    } else {
+      pane.innerHTML = `
+        <div class="no-result-pane">
+          <div class="nr-icon">○</div>
+          <div>No results for <strong>${MODEL_LABELS[model]||model}</strong> yet</div>
+          <button class="btn-run-model" onclick="runSingleModel('${model}')">Run ${MODEL_LABELS[model]||model} on this game</button>
+        </div>`;
+    }
+    contentEl.appendChild(pane);
+  });
+
+  // Activate first tab with results, else first tab
+  const firstWithResult = allModels.find(m => scoreMap[m]);
+  activateTab(firstWithResult || allModels[0], idx);
+}
+
+function renderChecks(checks) {
+  const labels = {loads:'Loads', canvas:'Canvas', interactive:'Interactive', no_crash:'No Crash', game_loop:'Game Loop'};
+  return Object.entries(labels).map(([k, label]) => {
+    const pass = checks && checks[k];
+    return `<div class="check-badge ${pass ? 'pass' : 'fail'}"><span class="tick">${pass ? '✓' : '✗'}</span>${label}</div>`;
+  }).join('');
+}
+
+function activateTab(model, idx) {
+  selectedModel = model;
+  const idx_ = idx !== undefined ? idx : selectedIdx;
+  document.querySelectorAll('#modelTabs .model-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.model === model);
+  });
+  document.querySelectorAll('#tabContent .tab-pane').forEach(p => {
+    p.classList.toggle('active', p.dataset.model === model);
+  });
+}
+
+// ── Run controls ───────────────────────────────────────────────────────────────
+async function startRuns() {
+  const models = Array.from(document.querySelectorAll('#modelChecks input:checked'))
+    .map(cb => cb.value);
+  if (!models.length) { showToast('Select at least one model'); return; }
+
+  const count = parseInt(document.getElementById('countSelect').value);
+  document.getElementById('btnRun').disabled = true;
+  showToast(`Starting ${models.length} benchmark run${models.length > 1 ? 's' : ''}…`);
+  document.getElementById('progressOverlay').classList.add('visible');
+
+  for (const model of models) {
+    try {
+      const r = await fetch('/api/gamedevbench/run', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({model, count}),
+      });
+      const d = await r.json();
+      if (d.run_id) {
+        activeRuns[d.run_id] = {model, status: 'running', progress: {done:0, total:count, passed:0}};
+        renderRunRow(d.run_id, model);
+      }
+    } catch(e) {
+      console.error('Failed to start run for', model, e);
+    }
+  }
+
+  if (!pollInterval) startPolling();
+}
+
+async function runSingleModel(model) {
+  const count = parseInt(document.getElementById('countSelect').value);
+  try {
+    const r = await fetch('/api/gamedevbench/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({model, count: Math.max(selectedIdx + 1, count)}),
+    });
+    const d = await r.json();
+    if (d.run_id) {
+      activeRuns[d.run_id] = {model, status: 'running', progress: {done:0, total:count, passed:0}};
+      document.getElementById('progressOverlay').classList.add('visible');
+      renderRunRow(d.run_id, model);
+      if (!pollInterval) startPolling();
+      showToast(`Started ${MODEL_LABELS[model]||model} run`);
+    }
+  } catch(e) {
+    showToast('Failed to start run: ' + e.message);
+  }
+}
+
+function renderRunRow(run_id, model) {
+  const rows = document.getElementById('runRows');
+  const row = document.createElement('div');
+  row.className = 'run-row';
+  row.id = `rrow-${run_id}`;
+  row.innerHTML = `
+    <div class="status-dot running" id="rdot-${run_id}"></div>
+    <div class="model-label">${MODEL_LABELS[model]||model}</div>
+    <div class="run-progress-bar"><div class="run-progress-fill" id="rbar-${run_id}" style="width:0%"></div></div>
+    <div class="pct-label" id="rpct-${run_id}">0%</div>`;
+  rows.appendChild(row);
+}
+
+function startPolling() {
+  pollInterval = setInterval(pollRuns, 2500);
+}
+
+async function pollRuns() {
+  const runIds = Object.keys(activeRuns);
+  if (!runIds.length) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+    return;
+  }
+
+  let allDone = true;
+  for (const run_id of runIds) {
+    try {
+      const r = await fetch(`/api/gamedevbench/status/${run_id}`);
+      const d = await r.json();
+      const {status, progress, scores} = d;
+      activeRuns[run_id] = {...activeRuns[run_id], ...d};
+
+      const pct = progress.total > 0 ? Math.round(progress.done / progress.total * 100) : 0;
+      const bar = document.getElementById(`rbar-${run_id}`);
+      const pctEl = document.getElementById(`rpct-${run_id}`);
+      const dot = document.getElementById(`rdot-${run_id}`);
+      if (bar) bar.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = pct + '%';
+
+      if (status === 'done' || status === 'error') {
+        if (dot) { dot.classList.remove('running'); dot.classList.add(status === 'done' ? 'done' : 'error'); }
+        delete activeRuns[run_id];
+
+        // Update results from new scores
+        if (scores && scores.length) {
+          for (const rec of scores) {
+            if (!resultsData[rec.problem_idx]) resultsData[rec.problem_idx] = {};
+            resultsData[rec.problem_idx][rec.model] = rec;
+          }
+          buildSidebar();
+          if (selectedIdx !== null) renderModelTabs(selectedIdx);
+        }
+      } else {
+        allDone = false;
+        // Stream partial results
+        if (scores && scores.length) {
+          for (const rec of scores) {
+            if (!resultsData[rec.problem_idx]) resultsData[rec.problem_idx] = {};
+            resultsData[rec.problem_idx][rec.model] = rec;
+          }
+          buildSidebar();
+          if (selectedIdx !== null) renderModelTabs(selectedIdx);
+        }
+      }
+    } catch(e) {
+      console.warn('Poll failed for', run_id, e);
+    }
+  }
+
+  if (Object.keys(activeRuns).length === 0) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+    document.getElementById('btnRun').disabled = false;
+    showToast('All benchmark runs complete!');
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"/>
+<title>Crokinole</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#1a1a0a;--panel:#2a1f0e;--gold:#c8a24e;--text:#e8dcc8;--p1:#4477aa;--p2:#993333}
+body{background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,sans-serif;
+overflow:hidden;height:100dvh;width:100vw;display:flex;flex-direction:column;align-items:center;
+touch-action:none;-webkit-user-select:none;user-select:none}
+#hud{display:flex;gap:12px;padding:8px;width:100%;max-width:720px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.score-box{padding:6px 14px;border-radius:8px;font-weight:700;font-size:14px;min-width:140px;text-align:center;position:relative;transition:box-shadow .3s}
+.score-box[data-p="1"]{background:#2a4466;border:2px solid var(--p1);color:#aaccee}
+.score-box[data-p="2"]{background:#552222;border:2px solid var(--p2);color:#eeaaaa}
+.turn-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;opacity:.8;display:block}
+.active-turn{box-shadow:0 0 14px rgba(255,220,100,.5)}
+.round-pts{font-size:11px;opacity:.7;display:block;margin-top:2px}
+#controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center}
+#controls select,#controls button{background:#2a2a1a;color:var(--text);border:1px solid #555;
+border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer}
+#controls button:hover,#controls select:hover{border-color:var(--gold)}
+#controls button:focus-visible,#controls select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#controls label{font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer}
+canvas{display:block;cursor:crosshair}
+canvas:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#rules-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;z-index:10;
+overflow-y:auto;padding:20px}
+#rules-overlay.show{display:flex;justify-content:center;align-items:flex-start}
+#rules-content{background:#2a2a1a;border:2px solid var(--gold);border-radius:12px;padding:24px;
+max-width:560px;width:100%;color:var(--text);font-size:14px;line-height:1.6}
+#rules-content h2{color:var(--gold);margin:12px 0 6px;font-size:16px}
+#rules-content h1{color:var(--gold);font-size:20px;margin-bottom:8px}
+#rules-content p,#rules-content li{margin-bottom:4px}
+#rules-content button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#msg{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);
+color:var(--gold);padding:10px 22px;border-radius:20px;font-size:15px;font-weight:600;
+pointer-events:none;opacity:0;transition:opacity .3s;z-index:5;text-align:center;max-width:90vw}
+#msg.show{opacity:1}
+#score-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+background:rgba(0,0,0,.9);border:2px solid var(--gold);border-radius:16px;padding:28px 36px;
+color:var(--text);font-size:16px;text-align:center;z-index:8;display:none;min-width:260px}
+#score-popup h2{color:var(--gold);margin-bottom:10px;font-size:22px}
+#score-popup .detail{margin:6px 0;font-size:15px}
+#score-popup .diff{font-size:20px;font-weight:700;color:#ffe066;margin:10px 0}
+#score-popup button{margin-top:12px;padding:8px 24px;background:var(--gold);color:#1a1a0a;
+border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px}
+#score-popup button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="hud">
+ <div class="score-box active-turn" data-p="1" id="sb1" role="status" aria-label="Player 1 score" tabindex="0">
+  <span class="turn-label" id="tl1">YOUR TURN</span>P1: <span id="s1">0</span> | Discs: <span id="d1">12</span>
+  <span class="round-pts" id="rp1" aria-label="Player 1 round points">Round: 0 pts</span></div>
+ <div id="controls">
+  <select id="skin" title="Board skin" aria-label="Board skin"><option value="maple">Classic Maple</option>
+  <option value="mahogany">Mahogany</option><option value="cherry">Cherry</option>
+  <option value="espresso">Espresso</option><option value="birch">Birch</option>
+  <option value="dali">Dali</option><option value="escher">Escher</option></select>
+  <label title="Pro Mode: friction degrades, use sponge to re-wax"><input type="checkbox" id="pro" aria-label="Pro mode toggle"> Pro</label>
+  <label title="Player 2 controlled by AI bot" style="background:#3a2040;border:1px solid #993333;border-radius:6px;padding:3px 8px"><input type="checkbox" id="botToggle" aria-label="Bot opponent toggle"> vs Bot</label>
+  <button id="helpBtn" title="Show rules (H)" aria-label="Show rules">? Rules</button>
+  <button id="resetBtn" title="New game" aria-label="New game">New</button>
+ </div>
+ <div class="score-box" data-p="2" id="sb2" role="status" aria-label="Player 2 score" tabindex="0">
+  <span class="turn-label" id="tl2">&nbsp;</span><span id="p2lbl">P2</span>: <span id="s2">0</span> | Discs: <span id="d2">12</span>
+  <span class="round-pts" id="rp2" aria-label="Player 2 round points">Round: 0 pts</span></div>
+</div>
+<canvas id="C" aria-label="Crokinole board" tabindex="0"></canvas>
+<div id="rules-overlay" role="dialog" aria-modal="true" aria-label="Crokinole rules"><div id="rules-content">
+<h1>Crokinole Rules</h1>
+<h2>Scoring Zones</h2>
+<p>The board has concentric rings worth: <b>Outer ring = 5 pts</b>, <b>Middle ring = 10 pts</b>, <b>Inner ring = 15 pts</b>, <b>Center hole = 20 pts</b> (disc removed). Discs knocked off the board score 0.</p>
+<h2>Gameplay</h2>
+<ul>
+<li>Each player has <b>12 discs</b> per round (24 total shots).</li>
+<li>Place your disc on your side of the outer edge, drag to aim and set power, release to flick.</li>
+<li><b>Must-hit rule:</b> If opponent discs are on the board, your shot MUST contact at least one, or your disc is removed.</li>
+<li>Discs sunk in the center hole score <b>20 pts</b> and are removed immediately.</li>
+<li>8 pegs guard the center hole.</li>
+</ul>
+<h2>Round Scoring</h2>
+<p>After all 24 discs are played, each player's remaining discs are scored by zone. The higher scorer earns the <b>difference</b> between the two totals. First to <b>100 points</b> wins.</p>
+<h2>Pro Mode</h2>
+<p>Friction increases every few shots. Click the sponge on your side to re-wax the board and restore smooth sliding.</p>
+<h2>Controls</h2>
+<p>Click/tap your placement zone, drag to aim, release to shoot. Press <b>H</b> or <b>?</b> for rules. Press <b>Escape</b> to close this dialog.</p>
+<p style="margin-top:12px;text-align:center"><button id="closeRulesBtn" style="padding:8px 20px;background:var(--gold);color:#1a1a0a;border:none;border-radius:8px;cursor:pointer;font-weight:700">Got it!</button></p>
+</div></div>
+<div id="msg" role="status" aria-live="polite"></div>
+<div id="score-popup" role="dialog" aria-modal="true" aria-label="Round results">
+ <h2 id="popup-title">Round Complete</h2>
+ <div class="detail" id="popup-p1"></div>
+ <div class="detail" id="popup-p2"></div>
+ <div class="diff" id="popup-diff"></div>
+ <div class="detail" id="popup-totals"></div>
+ <button id="popup-ok">Continue</button>
+</div>
+<script>
+"use strict";
+const C=document.getElementById("C"),X=C.getContext("2d");
+const $=id=>document.getElementById(id);
+let W,H,cx,cy,BR;
+
+// --- Skins ---
+const SKINS={
+ maple:  {rings:["#d4a642","#c49535","#b08428","#9a721e"],line:"#8a6020",bg:"#6a5015",peg:"#bbb"},
+ mahogany:{rings:["#8b4232","#7a3528","#6b2a20","#5c2018"],line:"#4a1810",bg:"#3a1008",peg:"#caa"},
+ cherry: {rings:["#b05540","#a04530","#903828","#7a2c1e"],line:"#602010",bg:"#501808",peg:"#dbb"},
+ espresso:{rings:["#4a3a2a","#3e3020","#332818","#2a2010"],line:"#201808",bg:"#181008",peg:"#998"},
+ birch:  {rings:["#e8dcc0","#ddd0b0","#d2c4a0","#c8b890"],line:"#b0a070",bg:"#a09060",peg:"#887"},
+ dali:   {rings:["#d4a642","#c49535","#b08428","#9a721e"],line:"#8a6020",bg:"#6a5015",peg:"#bbb",warp:true},
+ escher: {rings:["#d4a642","#c49535","#b08428","#9a721e"],line:"#8a6020",bg:"#6a5015",peg:"#bbb",tile:true}
+};
+let skin="maple";
+
+// --- Board geometry (fractions of BR) ---
+const ZONE=[1.0,0.72,0.48,0.26]; // outer,mid,inner ring boundaries
+const HOLE_R=0.06, PEG_R_FRAC=0.035, PEG_ORBIT=0.32;
+const DISC_R_FRAC=0.042;
+const FRICTION=0.985, PRO_DECAY=0.0003;
+const MIN_SPEED=0.05;
+
+// --- State ---
+let discs=[],pegs=[],turn=1,phase="place",aimStart=null,aimCur=null;
+let scores=[0,0],discsLeft=[12,12],shotsSinceWax=[0,0];
+let proMode=false,frictionMod=0,settling=false,gameOver=false;
+let boardImg=null,time=0;
+let msgTimer;
+let botEnabled=false,botThinking=false,botShotCount=0;
+let currentDisc=null;
+let settleTimerId=null;
+// Track center-hole sinks for immediate 20-pt counting
+let centerSinks=[0,0];
+
+function resize(){
+ const max=Math.min(window.innerWidth,window.innerHeight-90);
+ W=H=Math.min(max,700);C.width=W;C.height=H;
+ cx=W/2;cy=H/2;BR=W*0.46;
+ boardImg=null;
+ pegs=[];
+ for(let i=0;i<8;i++){
+  const a=i*Math.PI/4;
+  pegs.push({x:cx+Math.cos(a)*BR*PEG_ORBIT,y:cy+Math.sin(a)*BR*PEG_ORBIT,r:BR*PEG_R_FRAC});
+ }
+}
+
+// --- Board rendering (cached to offscreen canvas) ---
+function renderBoard(){
+ const oC=document.createElement("canvas");oC.width=W;oC.height=H;
+ const c=oC.getContext("2d");
+ const s=SKINS[skin];
+ c.fillStyle="#1a1a0a";c.fillRect(0,0,W,H);
+ // board circle with gradient
+ const grad=c.createRadialGradient(cx,cy,BR*0.05,cx,cy,BR);
+ grad.addColorStop(0,s.rings[3]);grad.addColorStop(0.3,s.rings[2]);
+ grad.addColorStop(0.55,s.rings[1]);grad.addColorStop(1,s.rings[0]);
+ c.beginPath();c.arc(cx,cy,BR,0,Math.PI*2);c.fillStyle=grad;c.fill();
+ // wood grain
+ c.save();c.globalAlpha=0.08;c.strokeStyle=s.line;
+ for(let i=0;i<40;i++){
+  const y=cy-BR+i*(BR*2/40)+(s.warp?Math.sin(time*0.5+i*0.7)*4:0);
+  c.beginPath();c.moveTo(cx-BR,y);
+  for(let x=cx-BR;x<cx+BR;x+=10){
+   c.lineTo(x,y+Math.sin(x*0.02+i)*3+(s.warp?Math.sin(time*0.3+x*0.01)*6:0));
+  }
+  c.stroke();
+ }
+ c.restore();
+ // ring lines
+ c.strokeStyle=s.line;c.lineWidth=2;c.globalAlpha=0.5;
+ for(const z of ZONE){c.beginPath();c.arc(cx,cy,BR*z,0,Math.PI*2);c.stroke();}
+ // escher pattern
+ if(s.tile){c.save();c.globalAlpha=0.06;c.strokeStyle=s.line;c.lineWidth=1;
+  for(let i=0;i<12;i++){const a=i*Math.PI/6;
+   c.beginPath();c.moveTo(cx,cy);c.lineTo(cx+Math.cos(a)*BR,cy+Math.sin(a)*BR);c.stroke();
+   for(let r=0.15;r<1;r+=0.15){
+    c.beginPath();c.arc(cx+Math.cos(a)*BR*r,cy+Math.sin(a)*BR*r,BR*0.07,0,Math.PI*2);c.stroke();
+   }
+  }c.restore();}
+ c.globalAlpha=1;
+ // center hole
+ c.beginPath();c.arc(cx,cy,BR*HOLE_R,0,Math.PI*2);
+ c.fillStyle="#0a0a0a";c.fill();c.strokeStyle="#333";c.lineWidth=2;c.stroke();
+ // pegs with 3D look
+ for(const p of pegs){
+  c.beginPath();c.arc(p.x,p.y,p.r,0,Math.PI*2);
+  const pg=c.createRadialGradient(p.x-p.r*0.3,p.y-p.r*0.3,0,p.x,p.y,p.r);
+  pg.addColorStop(0,"#ddd");pg.addColorStop(1,s.peg);c.fillStyle=pg;c.fill();
+  c.strokeStyle="#666";c.lineWidth=1;c.stroke();
+ }
+ // scoring labels
+ c.font="bold "+Math.round(BR*0.045)+"px sans-serif";c.fillStyle=s.line;c.globalAlpha=0.4;
+ c.textAlign="center";c.textBaseline="middle";
+ c.fillText("5",cx+BR*0.86,cy);c.fillText("10",cx+BR*0.6,cy);
+ c.fillText("15",cx+BR*0.37,cy);c.fillText("20",cx,cy-BR*0.15);
+ c.globalAlpha=1;
+ // quadrant lines
+ c.save();c.globalAlpha=0.12;c.strokeStyle=s.line;c.lineWidth=1;c.setLineDash([4,6]);
+ c.beginPath();c.moveTo(cx-BR,cy);c.lineTo(cx+BR,cy);c.stroke();
+ c.beginPath();c.moveTo(cx,cy-BR);c.lineTo(cx,cy+BR);c.stroke();
+ c.setLineDash([]);c.restore();
+ // outer rim shadow
+ c.save();c.globalAlpha=0.3;c.strokeStyle="#000";c.lineWidth=BR*0.06;
+ c.beginPath();c.arc(cx,cy,BR+BR*0.03,0,Math.PI*2);c.stroke();c.restore();
+ boardImg=oC;
+}
+
+// --- Disc helpers ---
+function mkDisc(x,y,player){return{x,y,vx:0,vy:0,r:BR*DISC_R_FRAC,p:player,sunk:false,zone:-1,_hit:[],_mustHit:false};}
+function ddist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+function allStopped(){return discs.every(d=>d.sunk||(d.vx===0&&d.vy===0));}
+
+// --- Zone and scoring ---
+function discZone(d){
+ if(d.sunk&&d.zone===4)return 4;
+ if(d.sunk)return -1;
+ const dd=ddist(d,{x:cx,y:cy})/BR;
+ if(dd<ZONE[3])return 3; // inner = 15
+ if(dd<ZONE[2])return 2; // mid = 10
+ if(dd<ZONE[1])return 1; // outer = 5
+ return 0; // on board but outside outermost ring line = 5
+}
+function zonePoints(z){
+ if(z===4)return 20;
+ if(z===3)return 15;
+ if(z===2)return 10;
+ if(z===1)return 5;
+ if(z===0)return 5;
+ return 0; // -1 = off board
+}
+
+// Compute live round score for a player (discs on board + center sinks)
+function liveRoundScore(player){
+ let pts=centerSinks[player-1]*20;
+ for(const d of discs){
+  if(d.p!==player)continue;
+  if(d.sunk&&d.zone===4)continue; // already counted in centerSinks
+  if(d.sunk)continue; // off board = 0
+  const z=discZone(d);
+  pts+=zonePoints(z);
+ }
+ return pts;
+}
+
+// --- Physics ---
+function stepPhysics(){
+ const fr=FRICTION-frictionMod;
+ let anyMoving=false;
+ for(const d of discs){
+  if(d.sunk)continue;
+  d.x+=d.vx;d.y+=d.vy;
+  d.vx*=fr;d.vy*=fr;
+  if(Math.abs(d.vx)<MIN_SPEED&&Math.abs(d.vy)<MIN_SPEED){d.vx=0;d.vy=0;}
+  else anyMoving=true;
+  // board edge bounce / fall off
+  const dd=ddist(d,{x:cx,y:cy});
+  if(dd+d.r>BR){
+   if(dd+d.r>BR+d.r*2){d.sunk=true;d.zone=-1;continue;}
+   const nx=(d.x-cx)/dd,ny=(d.y-cy)/dd;
+   d.x=cx+nx*(BR-d.r);d.y=cy+ny*(BR-d.r);
+   const dot=d.vx*nx+d.vy*ny;
+   d.vx-=2*dot*nx*0.6;d.vy-=2*dot*ny*0.6;
+  }
+  // center hole detection
+  if(ddist(d,{x:cx,y:cy})<BR*HOLE_R){
+   d.sunk=true;d.zone=4;
+   centerSinks[d.p-1]++;
+   continue;
+  }
+  // peg collisions
+  for(const p of pegs){
+   const pd=ddist(d,p);
+   if(pd<d.r+p.r){
+    const nx=(d.x-p.x)/pd,ny=(d.y-p.y)/pd;
+    d.x=p.x+nx*(d.r+p.r);d.y=p.y+ny*(d.r+p.r);
+    const dot=d.vx*nx+d.vy*ny;
+    d.vx-=2*dot*nx*0.7;d.vy-=2*dot*ny*0.7;
+   }
+  }
+  // disc-disc collisions
+  for(const o of discs){
+   if(o===d||o.sunk)continue;
+   const dd2=ddist(d,o);
+   if(dd2<d.r+o.r&&dd2>0){
+    const nx=(o.x-d.x)/dd2,ny=(o.y-d.y)/dd2;
+    const overlap=(d.r+o.r-dd2)/2;
+    d.x-=nx*overlap;d.y-=ny*overlap;
+    o.x+=nx*overlap;o.y+=ny*overlap;
+    const dvx=d.vx-o.vx,dvy=d.vy-o.vy;
+    const dot=dvx*nx+dvy*ny;
+    if(dot>0){d.vx-=dot*nx*0.9;d.vy-=dot*ny*0.9;o.vx+=dot*nx*0.9;o.vy+=dot*ny*0.9;}
+    d._hit.push(o.p);
+    o._hit.push(d.p);
+   }
+  }
+ }
+ return anyMoving;
+}
+
+// --- Placement ---
+function placementAngleRange(player){
+ return player===1?[Math.PI*0.15,Math.PI*0.85]:[Math.PI*1.15,Math.PI*1.85];
+}
+function isInPlacementZone(mx,my,player){
+ const dd=ddist({x:mx,y:my},{x:cx,y:cy});
+ if(dd<BR*0.85||dd>BR*1.05)return false;
+ const a=Math.atan2(my-cy,mx-cx);
+ const [lo,hi]=placementAngleRange(player);
+ let na=(a+Math.PI*2)%(Math.PI*2);
+ return na>=lo&&na<=hi;
+}
+function nearestPlacement(mx,my,player){
+ const a=Math.atan2(my-cy,mx-cx);
+ const [lo,hi]=placementAngleRange(player);
+ let na=(a+Math.PI*2)%(Math.PI*2);
+ const ca=Math.max(lo,Math.min(hi,na));
+ const r=BR*0.93;
+ return{x:cx+Math.cos(ca)*r,y:cy+Math.sin(ca)*r};
+}
+
+// --- Messages ---
+function showMsg(t,dur){
+ dur=dur||2000;
+ const m=$("msg");m.textContent=t;m.classList.add("show");
+ clearTimeout(msgTimer);msgTimer=setTimeout(function(){m.classList.remove("show");},dur);
+}
+
+function opponentOnBoard(){return discs.some(function(d){return !d.sunk&&d.p!==turn;});}
+
+// --- Turn / round flow ---
+function afterSettle(){
+ if(settleTimerId!==null){clearTimeout(settleTimerId);settleTimerId=null;}
+ settling=false;
+
+ // Enforce must-hit rule on the disc that was just shot
+ if(currentDisc&&!currentDisc.sunk){
+  const oppPlayer=currentDisc.p===1?2:1;
+  if(currentDisc._mustHit&&!currentDisc._hit.includes(oppPlayer)){
+   currentDisc.sunk=true;currentDisc.zone=-1;
+   showMsg("Must hit opponent disc! Disc removed.");
+  }
+ }
+ currentDisc=null;
+
+ // Update live round scores in HUD
+ updateHUD();
+
+ // Check if round is over: both players out of discs and all stopped
+ const bothEmpty=discsLeft[0]===0&&discsLeft[1]===0;
+ if(bothEmpty&&allStopped()){
+  setTimeout(endRound,400);
+  return;
+ }
+
+ // Switch turn
+ turn=turn===1?2:1;
+
+ // If current player has no discs left, switch again or end
+ if(discsLeft[turn-1]<=0){
+  const other=turn===1?2:1;
+  if(discsLeft[other-1]<=0){
+   // Both empty - end round
+   setTimeout(endRound,400);
+   return;
+  }
+  turn=other;
+ }
+
+ phase="place";
+ updateHUD();
+
+ // Bot turn
+ if(botEnabled&&turn===2&&!gameOver)setTimeout(botTurn,150);
+}
+
+function endRound(){
+ // Tally points for each player: on-board discs by zone + center sinks
+ let pts=[0,0];
+ // Center sinks already tracked
+ pts[0]+=centerSinks[0]*20;
+ pts[1]+=centerSinks[1]*20;
+ // Score remaining discs on board
+ for(const d of discs){
+  if(d.sunk)continue; // sunk discs: center already counted, off-board = 0
+  const z=discZone(d);
+  pts[d.p-1]+=zonePoints(z);
+ }
+
+ // Difference scoring: winner gets the difference
+ const diff=Math.abs(pts[0]-pts[1]);
+ let winner="";
+ const p2Label=botEnabled?"Bot":"P2";
+ if(pts[0]>pts[1]){scores[0]+=diff;winner="P1";}
+ else if(pts[1]>pts[0]){scores[1]+=diff;winner=p2Label;}
+ else{winner="nobody";}
+
+ // Show round results popup
+ $("popup-p1").textContent="P1 round score: "+pts[0]+" pts";
+ $("popup-p2").textContent=p2Label+" round score: "+pts[1]+" pts";
+ $("popup-diff").textContent=diff>0?("+"+diff+" to "+winner):"Tie round - no points awarded";
+ $("popup-totals").textContent="Game totals: P1 "+scores[0]+" | "+p2Label+" "+scores[1];
+ $("score-popup").style.display="block";
+ $("popup-ok").focus();
+
+ updateHUD();
+
+ // Check for game win
+ if(scores[0]>=100||scores[1]>=100){
+  gameOver=true;
+  const winName=scores[0]>=100?"Player 1":(botEnabled?"Bot":"Player 2");
+  $("popup-title").textContent=winName+" Wins!";
+  $("popup-ok").textContent="New Game";
+  $("popup-ok").onclick=function(){$("score-popup").style.display="none";newGame();};
+  return;
+ }
+
+ $("popup-title").textContent="Round Complete";
+ $("popup-ok").textContent="Next Round";
+ $("popup-ok").onclick=function(){$("score-popup").style.display="none";newRound();};
+}
+
+function newRound(){
+ discs=[];discsLeft=[12,12];turn=1;phase="place";
+ shotsSinceWax=[0,0];frictionMod=0;
+ centerSinks=[0,0];
+ currentDisc=null;settling=false;
+ if(settleTimerId!==null){clearTimeout(settleTimerId);settleTimerId=null;}
+ boardImg=null;updateHUD();
+}
+
+function newGame(){
+ scores=[0,0];gameOver=false;botThinking=false;botShotCount=0;
+ $("score-popup").style.display="none";
+ newRound();
+}
+
+function updateHUD(){
+ $("s1").textContent=scores[0];$("s2").textContent=scores[1];
+ $("d1").textContent=discsLeft[0];$("d2").textContent=discsLeft[1];
+ $("p2lbl").textContent=botEnabled?"Bot":"P2";
+ $("sb1").classList.toggle("active-turn",turn===1&&!gameOver);
+ $("sb2").classList.toggle("active-turn",turn===2&&!gameOver);
+ $("tl1").textContent=turn===1&&!gameOver?"YOUR TURN":"\u00a0";
+ $("tl2").textContent=turn===2&&!gameOver?(botEnabled?(botThinking?"BOT THINKING...":"BOT TURN"):"YOUR TURN"):"\u00a0";
+ // Live round scores
+ const rp1=liveRoundScore(1),rp2=liveRoundScore(2);
+ $("rp1").textContent="Round: "+rp1+" pts";
+ $("rp2").textContent="Round: "+rp2+" pts";
+ // ARIA updates
+ $("sb1").setAttribute("aria-label","Player 1 game score "+scores[0]+", round score "+rp1+", discs left "+discsLeft[0]);
+ $("sb2").setAttribute("aria-label",(botEnabled?"Bot":"Player 2")+" game score "+scores[1]+", round score "+rp2+", discs left "+discsLeft[1]);
+}
+
+// --- Input ---
+let pointerDown=false,placePos=null;
+
+function getPos(e){
+ const r=C.getBoundingClientRect();
+ const t=e.touches?e.touches[0]||e.changedTouches[0]:e;
+ return{x:t.clientX-r.left,y:t.clientY-r.top};
+}
+
+C.addEventListener("pointerdown",function(e){
+ if(settling||gameOver)return;
+ if(botEnabled&&turn===2)return;
+ const p=getPos(e);
+ if(phase==="place"){
+  if(isInPlacementZone(p.x,p.y,turn)){
+   placePos=nearestPlacement(p.x,p.y,turn);
+   pointerDown=true;aimStart=p;aimCur=p;
+  }
+ }
+});
+C.addEventListener("pointermove",function(e){
+ if(!pointerDown)return;
+ aimCur=getPos(e);
+});
+C.addEventListener("pointerup",function(e){
+ if(!pointerDown)return;
+ pointerDown=false;
+ const end=getPos(e);
+ if(!placePos||!aimStart)return;
+ const dx=aimStart.x-end.x,dy=aimStart.y-end.y;
+ const power=Math.min(Math.hypot(dx,dy),200);
+ if(power<5){placePos=null;aimStart=null;return;}
+ // Create disc and launch
+ const d=mkDisc(placePos.x,placePos.y,turn);
+ const ang=Math.atan2(dy,dx);
+ const speed=power*0.12;
+ d.vx=Math.cos(ang)*speed;d.vy=Math.sin(ang)*speed;
+ d._mustHit=opponentOnBoard();
+ discs.push(d);currentDisc=d;
+ discsLeft[turn-1]--;
+ if(proMode){
+  shotsSinceWax[turn-1]++;
+  frictionMod=Math.max(shotsSinceWax[0],shotsSinceWax[1])*PRO_DECAY;
+ }
+ phase="settling";settling=true;
+ placePos=null;aimStart=null;aimCur=null;
+ updateHUD();
+});
+C.addEventListener("pointerleave",function(){if(pointerDown){pointerDown=false;placePos=null;aimStart=null;}});
+
+// Keyboard
+document.addEventListener("keydown",function(e){
+ if(e.key==="h"||e.key==="H"||e.key==="?")$("rules-overlay").classList.toggle("show");
+ if(e.key==="Escape"){$("rules-overlay").classList.remove("show");$("score-popup").style.display="none";}
+});
+$("closeRulesBtn").onclick=function(){$("rules-overlay").classList.remove("show");};
+$("helpBtn").onclick=function(){$("rules-overlay").classList.toggle("show");};
+$("resetBtn").onclick=newGame;
+$("skin").onchange=function(e){skin=e.target.value;boardImg=null;};
+$("pro").onchange=function(e){proMode=e.target.checked;frictionMod=0;shotsSinceWax=[0,0];};
+$("botToggle").onchange=function(e){botEnabled=e.target.checked;botShotCount=0;updateHUD();};
+
+// Sponge wax (Pro mode)
+function wax(player){
+ if(!proMode)return;
+ shotsSinceWax[player-1]=0;
+ frictionMod=Math.max(shotsSinceWax[0],shotsSinceWax[1])*PRO_DECAY;
+ showMsg("Player "+player+" re-waxed the board!",1500);
+}
+
+// --- Rendering ---
+function drawDisc(d){
+ if(d.sunk)return;
+ X.save();
+ // Shadow
+ X.shadowColor="rgba(0,0,0,0.4)";X.shadowBlur=6;X.shadowOffsetX=2;X.shadowOffsetY=2;
+ const g=X.createRadialGradient(d.x-d.r*0.3,d.y-d.r*0.3,0,d.x,d.y,d.r);
+ if(d.p===1){g.addColorStop(0,"#6699cc");g.addColorStop(1,"#335577");}
+ else{g.addColorStop(0,"#cc6666");g.addColorStop(1,"#773333");}
+ X.beginPath();X.arc(d.x,d.y,d.r,0,Math.PI*2);X.fillStyle=g;X.fill();
+ X.shadowBlur=0;X.shadowOffsetX=0;X.shadowOffsetY=0;
+ X.strokeStyle=d.p===1?"#88bbee":"#ee8888";X.lineWidth=1.5;X.stroke();
+ // Highlight
+ X.beginPath();X.arc(d.x-d.r*0.25,d.y-d.r*0.25,d.r*0.35,0,Math.PI*2);
+ X.fillStyle="rgba(255,255,255,0.15)";X.fill();
+ X.restore();
+}
+
+function drawAimLine(){
+ if(!pointerDown||!placePos||!aimStart||!aimCur)return;
+ const dx=aimStart.x-aimCur.x,dy=aimStart.y-aimCur.y;
+ const power=Math.min(Math.hypot(dx,dy),200);
+ if(power<5)return;
+ const ang=Math.atan2(dy,dx);
+ const len=power*0.8;
+ // Ghost disc at placement
+ X.save();X.globalAlpha=0.5;
+ X.beginPath();X.arc(placePos.x,placePos.y,BR*DISC_R_FRAC,0,Math.PI*2);
+ X.fillStyle=turn===1?"#6699cc":"#cc6666";X.fill();X.restore();
+ // Aim line with power gradient
+ const ex=placePos.x+Math.cos(ang)*len,ey=placePos.y+Math.sin(ang)*len;
+ const gl=X.createLinearGradient(placePos.x,placePos.y,ex,ey);
+ gl.addColorStop(0,"#66ff66");gl.addColorStop(1,"#ff3333");
+ X.save();X.strokeStyle=gl;X.lineWidth=3;X.globalAlpha=0.7;
+ X.setLineDash([6,4]);X.beginPath();X.moveTo(placePos.x,placePos.y);X.lineTo(ex,ey);X.stroke();
+ X.setLineDash([]);
+ // Arrowhead
+ X.fillStyle=power/200>0.6?"#ff3333":"#66ff66";
+ X.beginPath();
+ X.moveTo(ex,ey);
+ X.lineTo(ex-Math.cos(ang-0.3)*10,ey-Math.sin(ang-0.3)*10);
+ X.lineTo(ex-Math.cos(ang+0.3)*10,ey-Math.sin(ang+0.3)*10);
+ X.fill();X.restore();
+ // Power label
+ const pct=Math.round(power/200*100);
+ X.save();X.font="bold 12px sans-serif";X.fillStyle="#fff";X.globalAlpha=0.7;
+ X.textAlign="center";
+ X.fillText(pct+"%",ex+Math.cos(ang)*16,ey+Math.sin(ang)*16);
+ X.restore();
+}
+
+function drawPlacementGuide(){
+ if(phase!=="place"||settling||gameOver)return;
+ const [lo,hi]=placementAngleRange(turn);
+ X.save();X.strokeStyle=turn===1?"rgba(100,150,200,0.35)":"rgba(200,100,100,0.35)";
+ X.lineWidth=BR*DISC_R_FRAC*2.4;X.beginPath();
+ X.arc(cx,cy,BR*0.93,lo,hi);X.stroke();
+ // Pulsing glow
+ const pulse=0.15+Math.sin(time*3)*0.08;
+ X.strokeStyle=turn===1?("rgba(100,150,200,"+pulse+")"):("rgba(200,100,100,"+pulse+")");
+ X.lineWidth=BR*DISC_R_FRAC*3.5;X.beginPath();
+ X.arc(cx,cy,BR*0.93,lo,hi);X.stroke();
+ X.restore();
+}
+
+function drawSponges(){
+ if(!proMode)return;
+ const sz=BR*0.08;
+ if(!drawSponges._areas)drawSponges._areas=[];
+ for(let p=1;p<=2;p++){
+  const sx=p===1?cx-BR*0.5:cx+BR*0.5;
+  const sy=p===1?cy+BR*1.08:cy-BR*1.08;
+  const glow=shotsSinceWax[p-1]>=5;
+  X.save();
+  if(glow){X.shadowColor=p===1?"#4477aa":"#993333";X.shadowBlur=10+Math.sin(time*3)*5;}
+  X.fillStyle=p===1?"#5588bb":"#aa4444";
+  X.strokeStyle="#888";X.lineWidth=1;
+  X.beginPath();X.roundRect(sx-sz,sy-sz*0.6,sz*2,sz*1.2,4);X.fill();X.stroke();
+  X.fillStyle="#ddd";X.font=Math.round(sz*0.6)+"px sans-serif";X.textAlign="center";
+  X.fillText("wax",sx,sy+sz*0.2);
+  X.restore();
+  drawSponges._areas[p-1]={x:sx-sz,y:sy-sz*0.6,w:sz*2,h:sz*1.2,p:p};
+ }
+}
+C.addEventListener("click",function(e){
+ if(!proMode||!drawSponges._areas)return;
+ const pos=getPos(e);
+ for(const a of drawSponges._areas){
+  if(pos.x>=a.x&&pos.x<=a.x+a.w&&pos.y>=a.y&&pos.y<=a.y+a.h){
+   if(a.p===turn&&phase==="place")wax(a.p);
+  }
+ }
+});
+
+// --- Score flash effect ---
+let scoreFlashes=[];
+function flashScore(x,y,pts,player){
+ scoreFlashes.push({x:x,y:y,pts:pts,player:player,t:0,dur:60});
+}
+function drawScoreFlashes(){
+ const toRemove=[];
+ for(let i=0;i<scoreFlashes.length;i++){
+  const f=scoreFlashes[i];
+  f.t++;
+  const progress=f.t/f.dur;
+  if(progress>=1){toRemove.push(i);continue;}
+  X.save();
+  X.globalAlpha=1-progress;
+  X.font="bold "+Math.round(16+progress*10)+"px sans-serif";
+  X.fillStyle=f.player===1?"#88ccff":"#ff8888";
+  X.textAlign="center";
+  X.fillText("+"+f.pts,f.x,f.y-progress*30);
+  X.restore();
+ }
+ for(let i=toRemove.length-1;i>=0;i--)scoreFlashes.splice(toRemove[i],1);
+}
+
+// --- Bot AI ---
+function botTurn(){
+ if(!botEnabled||turn!==2||phase!=="place"||settling||gameOver||discsLeft[1]<=0)return;
+ botThinking=true;updateHUD();
+ showMsg("Bot thinking...",700);
+ if(proMode&&shotsSinceWax[1]>=4+Math.floor(Math.random()*2)){
+  setTimeout(function(){wax(2);setTimeout(botExecuteShot,400);},400);
+ } else {
+  setTimeout(botExecuteShot,800);
+ }
+}
+
+function botExecuteShot(){
+ if(gameOver||turn!==2)return;
+ botThinking=false;
+ const [lo,hi]=placementAngleRange(2);
+ const placeAngle=lo+(hi-lo)*Math.random();
+ const pr=BR*0.93;
+ const px=cx+Math.cos(placeAngle)*pr, py=cy+Math.sin(placeAngle)*pr;
+
+ const oppDiscs=discs.filter(function(d){return !d.sunk&&d.p===1;});
+ const hasOpp=oppDiscs.length>0;
+ let targetX,targetY,basePower;
+
+ if(hasOpp){
+  let nearest=null,nearDist=Infinity;
+  for(const od of oppDiscs){
+   const dd=Math.hypot(od.x-px,od.y-py);
+   if(dd<nearDist){nearDist=dd;nearest=od;}
+  }
+  targetX=nearest.x;targetY=nearest.y;
+  basePower=Math.min(nearDist/(BR*2)*200,180);
+  basePower=Math.max(basePower,90);
+ } else {
+  targetX=cx;targetY=cy;
+  const distToCenter=Math.hypot(cx-px,cy-py);
+  basePower=Math.min(distToCenter/(BR*2)*200,140);
+  basePower=Math.max(basePower,70);
+ }
+
+ let aimAngle=Math.atan2(targetY-py,targetX-px);
+ const errorDeg=(Math.random()-0.5)*16;
+ aimAngle+=errorDeg*Math.PI/180;
+
+ const powerVar=1+(Math.random()-0.5)*0.3;
+ const power=Math.min(basePower*powerVar,200);
+
+ const d=mkDisc(px,py,2);
+ const speed=power*0.12;
+ d.vx=Math.cos(aimAngle)*speed;d.vy=Math.sin(aimAngle)*speed;
+ d._mustHit=opponentOnBoard();
+ discs.push(d);currentDisc=d;
+ discsLeft[1]--;
+ botShotCount++;
+ if(proMode){
+  shotsSinceWax[1]++;
+  frictionMod=Math.max(shotsSinceWax[0],shotsSinceWax[1])*PRO_DECAY;
+ }
+ phase="settling";settling=true;
+ updateHUD();
+}
+
+// --- Main loop ---
+function frame(ts){
+ time=ts*0.001;
+ if(!boardImg)renderBoard();
+ X.drawImage(boardImg,0,0);
+ drawPlacementGuide();
+
+ // Physics: run multiple sub-steps per frame for smooth motion
+ if(settling){
+  let stopped=false;
+  for(let i=0;i<3;i++){
+   if(!stepPhysics()){stopped=true;break;}
+  }
+  // Update live round scores every frame during settling
+  updateHUD();
+  if(stopped){
+   // Double-check: wait one more frame, then settle
+   settling=false;
+   if(settleTimerId!==null)clearTimeout(settleTimerId);
+   settleTimerId=setTimeout(function(){
+    // Verify truly stopped (in case of micro-bounces)
+    if(allStopped()){afterSettle();}
+    else{settling=true;} // resume if something moved
+   },250);
+  }
+ }
+
+ for(const d of discs)drawDisc(d);
+ drawAimLine();
+ drawSponges();
+ drawScoreFlashes();
+ requestAnimationFrame(frame);
+}
+
+// --- Init ---
+window.addEventListener("resize",function(){resize();boardImg=null;});
+resize();updateHUD();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>muLLM — Performance</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;--border:#1e2d3d;
+  --green:#22c55e;--teal:#14b8a6;--blue:#3b82f6;--amber:#f59e0b;
+  --coral:#ef6c4c;--purple:#a78bfa;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+  color-scheme:dark;
+}
+body{font-family:var(--mono);background:var(--bg);color:var(--text);padding:24px;max-width:1000px;margin:0 auto}
+h1{font-size:18px;color:var(--teal);margin-bottom:4px;letter-spacing:2px}
+.subtitle{font-size:11px;color:var(--text3);margin-bottom:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:24px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px}
+.card-label{font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.card-value{font-size:22px;font-weight:700}
+.card-sub{font-size:10px;color:var(--text3);margin-top:4px}
+.section{font-size:11px;color:var(--text3);letter-spacing:2px;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{text-align:left;color:var(--text3);padding:6px 10px;border-bottom:1px solid var(--border);font-weight:400;text-transform:uppercase;letter-spacing:1px}
+td{padding:6px 10px;border-bottom:1px solid var(--bg3)}
+.bar{height:16px;border-radius:3px;min-width:2px;transition:width 0.5s ease}
+.pill{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700}
+.latency-chart{display:flex;align-items:flex-end;gap:2px;height:80px;margin-top:8px}
+.latency-bar{flex:1;min-width:4px;border-radius:2px 2px 0 0;transition:height 0.5s;cursor:help}
+.logo{font-weight:700;font-size:14px;display:flex;align-items:center;gap:0;text-decoration:none;border:none!important;padding:0!important}
+.logo-mu{color:var(--amber);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{display:flex;gap:8px;margin-bottom:16px;font-size:11px;align-items:center}
+.nav a{color:var(--text3);text-decoration:none;padding:4px 12px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s}
+.nav a:hover{color:var(--teal);border-color:var(--teal)}
+.status{display:inline-flex;align-items:center;gap:6px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+#error{display:none;color:var(--coral);padding:12px;border:1px solid var(--coral);border-radius:6px;margin-bottom:16px}
+.refresh-info{font-size:9px;color:var(--text3);float:right}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/" class="logo"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot"></a>
+  <a href="/chat">Chat</a>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/performance" style="color:var(--teal);border-color:var(--teal)">Performance</a>
+  <a href="/accuracy">Accuracy</a>
+  <a href="/games">Games</a>
+</div>
+
+<h1><span class="status"><span class="status-dot" id="statusDot"></span></span> PERFORMANCE</h1>
+<div class="subtitle">Real-time pipeline performance from scoring_log.jsonl <span class="refresh-info">Refreshes every 5s</span></div>
+
+<div id="error"></div>
+
+<!-- Loading overlay (shown until first successful data fetch) -->
+<div id="loading-overlay" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,14,26,0.85);backdrop-filter:blur(6px);transition:opacity 0.4s">
+  <div style="font-family:var(--mono);color:var(--teal);font-size:18px;margin-bottom:12px">Loading performance data...</div>
+  <div style="width:40px;height:40px;border:3px solid var(--bg3);border-top-color:var(--teal);border-radius:50%;animation:spin 0.8s linear infinite"></div>
+  <div id="loading-slow" style="display:none;margin-top:20px;text-align:center">
+    <div style="color:var(--amber);font-size:11px;font-family:var(--mono)">Taking longer than expected...</div>
+    <div style="color:var(--text3);font-size:10px;margin-top:4px">Ensure the server is running on :6856</div>
+  </div>
+</div>
+
+<!-- Latency Percentiles -->
+<div class="section">LATENCY PERCENTILES</div>
+<div class="grid">
+  <div class="card">
+    <div class="card-label">P50 (median)</div>
+    <div class="card-value" id="p50" style="color:var(--green)">—</div>
+    <div class="card-sub">Half of queries faster than this</div>
+  </div>
+  <div class="card">
+    <div class="card-label">P95</div>
+    <div class="card-value" id="p95" style="color:var(--amber)">—</div>
+    <div class="card-sub">95% of queries faster than this</div>
+  </div>
+  <div class="card">
+    <div class="card-label">P99</div>
+    <div class="card-value" id="p99" style="color:var(--coral)">—</div>
+    <div class="card-sub">Worst 1% tail latency</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Average</div>
+    <div class="card-value" id="avg" style="color:var(--teal)">—</div>
+    <div class="card-sub">Mean latency across all queries</div>
+  </div>
+</div>
+
+<!-- Throughput & Health -->
+<div class="section">THROUGHPUT & HEALTH</div>
+<div class="grid">
+  <div class="card">
+    <div class="card-label">Requests/min (5m window)</div>
+    <div class="card-value" id="rpm" style="color:var(--teal)">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Queries/sec</div>
+    <div class="card-value" id="qps" style="color:var(--blue)">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Tokens/sec</div>
+    <div class="card-value" id="tps" style="color:var(--purple)">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Error rate</div>
+    <div class="card-value" id="errRate" style="color:var(--green)">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Cache hit rate</div>
+    <div class="card-value" id="cacheRate" style="color:var(--green)">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Cost/hour</div>
+    <div class="card-value" id="costHr" style="color:var(--amber)">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Uptime</div>
+    <div class="card-value" id="uptime" style="color:var(--text2)">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Total requests</div>
+    <div class="card-value" id="totalReq" style="color:var(--text)">—</div>
+  </div>
+</div>
+
+<!-- Slowest Queries (moved up for visibility) -->
+<div class="section" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+  SLOWEST QUERIES
+  <span id="slowBadges" style="display:inline-flex;gap:4px">
+    <button onclick="setSlowRange(86400,this)" class="slow-badge active" style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--teal);background:transparent;color:var(--teal);cursor:pointer">TODAY</button>
+    <button onclick="setSlowRange(172800,this)" class="slow-badge" style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">2D</button>
+    <button onclick="setSlowRange(432000,this)" class="slow-badge" style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">5D</button>
+    <button onclick="setSlowRange(1209600,this)" class="slow-badge" style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">14D</button>
+    <button onclick="setSlowRange(0,this)" class="slow-badge" style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">ALL</button>
+  </span>
+  <span style="margin-left:auto;display:inline-flex;gap:4px">
+    <select id="slowTierFilter" onchange="refresh()" style="font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer" aria-label="Filter by tier">
+      <option value="">All tiers</option>
+      <option value="cache">cache</option>
+      <option value="local">local</option>
+      <option value="local_multi">local_multi</option>
+      <option value="cloud_cheap">cloud_cheap</option>
+      <option value="cloud_full">cloud_full</option>
+    </select>
+    <select id="slowModelFilter" onchange="refresh()" style="font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer" aria-label="Filter by model">
+      <option value="">All models</option>
+    </select>
+    <button onclick="clearDismissed()" style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--coral);background:transparent;color:var(--coral);cursor:pointer" title="Clear all dismissed queries" aria-label="Clear all dismissed">Clear dismissed</button>
+  </span>
+</div>
+<table id="slowest">
+  <thead><tr><th>Latency</th><th>Tier</th><th>Model</th><th>Category</th><th style="width:120px">Actions</th></tr></thead>
+  <tbody id="slowestBody"><tr><td colspan="5" style="color:var(--text3)">Loading...</td></tr></tbody>
+</table>
+
+<!-- Examine Query Dialog -->
+<dialog id="examineDialog" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:20px;max-width:600px;width:90%;font-family:var(--mono);font-size:11px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <strong style="color:var(--teal);font-size:13px">Query Details</strong>
+    <button onclick="$('examineDialog').close()" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer" aria-label="Close">&times;</button>
+  </div>
+  <div id="examineContent" style="line-height:1.6"></div>
+</dialog>
+
+<!-- Tier Distribution -->
+<div class="section">TIER DISTRIBUTION</div>
+<div id="tierDist" style="margin-bottom:16px"></div>
+
+<!-- Model Usage -->
+<div class="section">MODEL USAGE</div>
+<div id="modelUsage" style="margin-bottom:16px"></div>
+
+<!-- Category Distribution -->
+<div class="section">CATEGORY DISTRIBUTION</div>
+<div id="catDist" style="margin-bottom:16px"></div>
+
+<!-- Headline Metric: Worst Query Comparison -->
+<div id="headlineMetric" style="margin-bottom:20px;padding:20px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;text-align:center"></div>
+
+<!-- TTFT Comparison: Streaming Time-to-First-Token -->
+<div id="ttftMetric" style="margin-bottom:20px;padding:20px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;text-align:center"></div>
+
+<!-- Real Browser Performance (Playwright) -->
+<div class="section">REAL BROWSER PERFORMANCE <span style="font-size:9px;color:var(--text3)">(Playwright — actual user experience)</span></div>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+  <div class="card">
+    <div class="card-label">Chat Full Load</div>
+    <div class="card-value" id="bChat" style="color:var(--green)">—</div>
+    <div class="card-sub">Navigation to load event</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Chat FCP</div>
+    <div class="card-value" id="bFCP" style="color:var(--teal)">—</div>
+    <div class="card-sub">First Contentful Paint</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Chat Interactive</div>
+    <div class="card-value" id="bInteract" style="color:var(--green)">—</div>
+    <div class="card-sub">Input accepts typing</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Dashboard Load</div>
+    <div class="card-value" id="bDash" style="color:var(--green)">—</div>
+    <div class="card-sub">Full page load</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Unblock Load</div>
+    <div class="card-value" id="bUnblock" style="color:var(--green)">—</div>
+    <div class="card-sub">Full page load</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Query Response</div>
+    <div class="card-value" id="bQuery" style="color:var(--amber)">—</div>
+    <div class="card-sub">Type → click → render (avg)</div>
+  </div>
+</div>
+<div id="browserBenchTable" style="margin-bottom:16px"></div>
+<div style="font-size:9px;color:var(--text3);margin-bottom:16px">Run <code style="background:var(--bg3);padding:1px 4px;border-radius:2px">npx playwright test tests/perf-benchmark.spec.js</code> to update these numbers. Last run stored in localStorage.</div>
+
+<!-- Benchmark Comparison: Before/After (curl — raw HTTP) -->
+<div class="section" style="display:flex;align-items:center;gap:12px">
+  BENCHMARK SNAPSHOTS
+  <span style="font-size:9px;color:var(--text3)">Archived milestone comparisons</span>
+</div>
+<div id="benchTabs" style="display:flex;gap:4px;margin-bottom:12px">
+  <button onclick="showBench('s21')" class="bench-tab active" style="font-family:var(--mono);font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--teal);background:rgba(20,184,166,0.1);color:var(--teal);cursor:pointer">S21: uvloop+orjson</button>
+  <button onclick="showBench('s22')" class="bench-tab" style="font-family:var(--mono);font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">S22: +ruff+badges</button>
+</div>
+<div id="benchContent">
+  <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+    <div class="card" style="border-color:var(--coral)">
+      <div class="card-label" style="color:var(--coral)">BEFORE (baseline)</div>
+      <div id="benchBefore" style="font-size:11px;line-height:1.8"></div>
+    </div>
+    <div class="card" style="border-color:var(--green)">
+      <div class="card-label" style="color:var(--green)">AFTER (optimized)</div>
+      <div id="benchAfter" style="font-size:11px;line-height:1.8"></div>
+    </div>
+  </div>
+  <!-- Visual bar comparison -->
+  <div id="benchBars" style="margin-bottom:16px"></div>
+  <div id="benchSummary" style="font-size:10px;color:var(--text3);margin-bottom:16px"></div>
+</div>
+
+<!-- Query Trace -->
+<div class="section" style="display:flex;align-items:center;gap:12px">
+  QUERY TRACE
+  <button id="traceToggle" onclick="toggleTrace()" style="font-size:9px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 10px;cursor:pointer;font-family:var(--mono);letter-spacing:1px">SHOW TRACE</button>
+</div>
+<div id="tracePanel" style="display:none">
+  <table id="queryTrace">
+    <thead><tr><th style="width:60px">Time</th><th>Query</th><th>Tier</th><th>Model</th><th>Latency</th><th>Cost</th></tr></thead>
+    <tbody id="queryTraceBody"><tr><td colspan="6" style="color:var(--text3)">No queries traced yet</td></tr></tbody>
+  </table>
+
+  <div class="section" style="margin-top:16px">MCP / A2A TRACE</div>
+  <table id="mcpTrace">
+    <thead><tr><th style="width:60px">Time</th><th style="width:30px">Dir</th><th>Method</th><th>Params</th><th>Status</th></tr></thead>
+    <tbody id="mcpTraceBody"><tr><td colspan="5" style="color:var(--text3)">No MCP calls traced yet</td></tr></tbody>
+  </table>
+</div>
+
+<div style="margin-top:24px;font-size:9px;color:var(--text3);text-align:center">
+  muLLM Performance Monitor · Data from scoring_log.jsonl · <a href="/api/performance" style="color:var(--teal)">Raw JSON</a>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const TC={cache:'var(--green)',local:'var(--teal)',local_multi:'var(--blue)',cloud_cheap:'var(--amber)',cloud_full:'var(--coral)'};
+let traceEnabled=false;
+let dismissedSet=new Set();
+let pinnedSet=new Set();
+
+// Load slow query state
+async function loadSlowState(){
+  try{
+    const r=await fetch('/api/performance/slow/state');
+    if(r.ok){const s=await r.json();dismissedSet=new Set(s.dismissed||[]);pinnedSet=new Set(s.pinned||[]);}
+  }catch(e){}
+}
+loadSlowState();
+
+async function dismissQuery(id){
+  dismissedSet.add(id);
+  await fetch('/api/performance/slow/dismiss',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent_id:id})});
+  refresh();
+}
+async function pinQuery(id){
+  if(pinnedSet.has(id)){pinnedSet.delete(id);}else{pinnedSet.add(id);}
+  await fetch('/api/performance/slow/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent_id:id})});
+  refresh();
+}
+async function clearDismissed(){
+  dismissedSet.clear();
+  await fetch('/api/performance/slow/clear-dismissed',{method:'POST'});
+  refresh();
+}
+function examineQuery(btn){
+  const q=JSON.parse(btn.dataset.q);
+  const c=$('examineContent');
+  c.innerHTML=`
+    <div style="margin-bottom:8px"><span style="color:var(--text3)">Intent ID:</span> ${q.intent_id}</div>
+    <div style="margin-bottom:8px"><span style="color:var(--text3)">Latency:</span> <strong style="color:${q.latency_ms>5000?'var(--coral)':'var(--amber)'}">${fmt(q.latency_ms)}</strong></div>
+    <div style="margin-bottom:8px"><span style="color:var(--text3)">Tier:</span> <span class="pill" style="background:${TC[q.tier]||'var(--text3)'};color:#000">${q.tier}</span></div>
+    <div style="margin-bottom:8px"><span style="color:var(--text3)">Model:</span> ${q.model}</div>
+    <div style="margin-bottom:8px"><span style="color:var(--text3)">Category:</span> ${q.category}</div>
+    ${q.query?`<div style="margin-bottom:8px"><span style="color:var(--text3)">Query:</span><div style="background:var(--bg3);padding:8px;border-radius:4px;margin-top:4px;word-break:break-word">${q.query}</div></div>`:''}
+    ${q.response?`<div><span style="color:var(--text3)">Response:</span><div style="background:var(--bg3);padding:8px;border-radius:4px;margin-top:4px;max-height:200px;overflow-y:auto;word-break:break-word">${q.response}</div></div>`:''}
+  `;
+  $('examineDialog').showModal();
+}
+
+function fmt(ms){
+  if(ms<1000)return Math.round(ms)+'ms';
+  return (ms/1000).toFixed(1)+'s';
+}
+
+function toggleTrace(){
+  traceEnabled=!traceEnabled;
+  $('tracePanel').style.display=traceEnabled?'block':'none';
+  $('traceToggle').textContent=traceEnabled?'HIDE TRACE':'SHOW TRACE';
+  $('traceToggle').style.color=traceEnabled?'var(--teal)':'var(--text3)';
+  $('traceToggle').style.borderColor=traceEnabled?'var(--teal)':'var(--border)';
+  if(traceEnabled)refresh();
+}
+
+function fmtTime(ts){
+  if(!ts)return'—';
+  const d=new Date(ts*1000);
+  return d.toLocaleTimeString();
+}
+
+function renderTrace(d){
+  if(!d.query_trace)return;
+  // Query trace
+  const qt=d.query_trace.slice().reverse();
+  $('queryTraceBody').innerHTML=qt.map(q=>{
+    const col=TC[q.tier]||'var(--text3)';
+    return `<tr>
+      <td style="color:var(--text3)">${fmtTime(q.t)}</td>
+      <td style="font-family:var(--mono);font-size:10px">${q.q||'—'}</td>
+      <td><span class="pill" style="background:${col};color:#000">${q.tier}</span></td>
+      <td style="color:var(--text2);font-size:10px">${q.model}</td>
+      <td style="color:${q.ms>5000?'var(--coral)':q.ms>1000?'var(--amber)':'var(--text)'}">${fmt(q.ms)}</td>
+      <td style="color:${q.cost>0?'var(--amber)':'var(--green)'}">${q.cost===0?'$0.00':'$'+q.cost.toFixed(4)}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="6" style="color:var(--text3)">No queries traced yet</td></tr>';
+
+  // MCP trace
+  const mt=(d.mcp_trace||[]).slice().reverse();
+  $('mcpTraceBody').innerHTML=mt.map(m=>{
+    const dirCol=m.dir==='→'?'var(--teal)':'var(--amber)';
+    return `<tr>
+      <td style="color:var(--text3)">${fmtTime(m.t)}</td>
+      <td style="color:${dirCol};font-weight:700">${m.dir}</td>
+      <td style="color:var(--blue)">${m.method}</td>
+      <td style="color:var(--text3);font-size:10px">${m.params||''}</td>
+      <td style="color:${m.status===200?'var(--green)':'var(--coral)'}">${m.status}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="5" style="color:var(--text3)">No MCP calls traced yet</td></tr>';
+}
+
+async function refresh(){
+  try{
+    const params=new URLSearchParams();
+    if(traceEnabled)params.set('trace','1');
+    if(slowRange>0)params.set('slow_range',slowRange);
+    const qs=params.toString();
+    const r=await fetch('/api/performance'+(qs?'?'+qs:''));
+    if(!r.ok)throw new Error(r.status);
+    const d=await r.json();
+
+    // Dismiss loading overlay on first successful fetch
+    const ov=$('loading-overlay');
+    if(ov&&ov.style.display!=='none'){ov.style.opacity='0';setTimeout(()=>{ov.style.display='none';},400);}
+
+    $('statusDot').style.background='var(--green)';
+    $('error').style.display='none';
+
+    // Latency
+    $('p50').textContent=fmt(d.latency_p50);
+    $('p95').textContent=fmt(d.latency_p95);
+    $('p99').textContent=fmt(d.latency_p99);
+    $('avg').textContent=fmt(d.avg_latency_ms);
+
+    // Color P50 by health
+    $('p50').style.color=d.latency_p50<500?'var(--green)':d.latency_p50<2000?'var(--amber)':'var(--coral)';
+    $('p99').style.color=d.latency_p99<5000?'var(--amber)':'var(--coral)';
+
+    // Throughput — show real values or "No data" when no recent requests
+    const noRecent=d.requests_per_minute===0&&d.throughput_qps===0;
+    $('rpm').textContent=noRecent?'No data':d.requests_per_minute;
+    $('rpm').style.color=noRecent?'var(--text3)':'var(--teal)';
+    $('qps').textContent=noRecent?'No data':d.throughput_qps;
+    $('qps').style.color=noRecent?'var(--text3)':'var(--blue)';
+    $('tps').textContent=d.tokens_per_second===0?'No data':d.tokens_per_second;
+    $('tps').style.color=d.tokens_per_second===0?'var(--text3)':'var(--purple)';
+    $('errRate').textContent=d.total_requests===0?'No data':d.error_rate+'%';
+    $('errRate').style.color=d.total_requests===0?'var(--text3)':d.error_rate<1?'var(--green)':d.error_rate<5?'var(--amber)':'var(--coral)';
+    $('cacheRate').textContent=d.total_requests===0?'No data':d.cache_hit_rate+'%';
+    $('cacheRate').style.color=d.total_requests===0?'var(--text3)':'var(--green)';
+    $('costHr').textContent=d.total_requests===0?'No data':'$'+d.cost_per_hour.toFixed(4);
+    $('costHr').style.color=d.total_requests===0?'var(--text3)':'var(--amber)';
+    const up=d.uptime_seconds;
+    $('uptime').textContent=up>3600?Math.floor(up/3600)+'h '+Math.round((up%3600)/60)+'m':Math.round(up/60)+'m';
+    $('totalReq').textContent=d.total_requests.toLocaleString();
+
+    // Tier distribution bars with hover tooltips
+    const tierTotal=Object.values(d.tier_distribution).reduce((a,b)=>a+b,0)||1;
+    const td=d.tier_detail||{};
+    $('tierDist').innerHTML=Object.entries(d.tier_distribution)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([k,v])=>{
+        const pct=Math.round(v/tierTotal*100);
+        const col=TC[k]||'var(--text3)';
+        const detail=td[k]||{};
+        const tipCost=detail.total_cost!=null?'$'+detail.total_cost.toFixed(4):'n/a';
+        const tipLat=detail.avg_latency_ms!=null?fmt(detail.avg_latency_ms):'n/a';
+        const tip=`${v} requests \u00b7 cost: ${tipCost} \u00b7 avg latency: ${tipLat}`;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:help" title="${tip}">
+          <span style="width:90px;color:var(--text3);font-size:10px">${k}</span>
+          <div style="flex:1;background:var(--bg3);border-radius:3px;height:16px;overflow:hidden">
+            <div class="bar" style="width:${pct}%;background:${col};height:100%"></div>
+          </div>
+          <span style="width:50px;text-align:right;font-size:10px;color:var(--text)">${v} (${pct}%)</span>
+        </div>`;
+      }).join('');
+
+    // Model usage
+    const modelTotal=Object.values(d.model_usage).reduce((a,b)=>a+b,0)||1;
+    $('modelUsage').innerHTML=Object.entries(d.model_usage)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([k,v])=>{
+        const pct=Math.round(v/modelTotal*100);
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="width:140px;color:var(--text3);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k}</span>
+          <div style="flex:1;background:var(--bg3);border-radius:3px;height:16px;overflow:hidden">
+            <div class="bar" style="width:${pct}%;background:var(--teal);height:100%"></div>
+          </div>
+          <span style="width:50px;text-align:right;font-size:10px;color:var(--text)">${v}</span>
+        </div>`;
+      }).join('');
+
+    // Category distribution
+    const catTotal=Object.values(d.category_distribution).reduce((a,b)=>a+b,0)||1;
+    $('catDist').innerHTML=Object.entries(d.category_distribution)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([k,v])=>{
+        const pct=Math.round(v/catTotal*100);
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="width:100px;color:var(--text3);font-size:10px">${k}</span>
+          <div style="flex:1;background:var(--bg3);border-radius:3px;height:16px;overflow:hidden">
+            <div class="bar" style="width:${pct}%;background:var(--purple);height:100%"></div>
+          </div>
+          <span style="width:50px;text-align:right;font-size:10px;color:var(--text)">${v}</span>
+        </div>`;
+      }).join('');
+
+    // Slowest queries — with dismiss/examine/pin + filters
+    let slowQueries = d.slowest_queries || [];
+    const tierF = $('slowTierFilter').value;
+    const modelF = $('slowModelFilter').value;
+    if (tierF) slowQueries = slowQueries.filter(q => q.tier === tierF);
+    if (modelF) slowQueries = slowQueries.filter(q => q.model === modelF);
+    // Filter out dismissed (unless pinned)
+    slowQueries = slowQueries.filter(q => !dismissedSet.has(q.intent_id) || pinnedSet.has(q.intent_id));
+    // Populate model filter dropdown
+    const models = [...new Set((d.slowest_queries||[]).map(q=>q.model))].sort();
+    const mf = $('slowModelFilter');
+    const curVal = mf.value;
+    if (mf.options.length <= 1 || mf.dataset.count !== String(models.length)) {
+      mf.innerHTML = '<option value="">All models</option>' + models.map(m => `<option value="${m}"${m===curVal?' selected':''}>${m}</option>`).join('');
+      mf.dataset.count = String(models.length);
+    }
+    $('slowestBody').innerHTML=slowQueries.map(q=>{
+      const isPinned = pinnedSet.has(q.intent_id);
+      const btnStyle = 'font-family:var(--mono);font-size:8px;padding:1px 6px;border-radius:3px;cursor:pointer;border:1px solid';
+      return `<tr${isPinned?' style="opacity:0.6"':''}>
+        <td style="color:${q.latency_ms>10000?'var(--coral)':q.latency_ms>3000?'var(--amber)':'var(--text)'}"><strong>${fmt(q.latency_ms)}</strong></td>
+        <td><span class="pill" style="background:${TC[q.tier]||'var(--text3)'};color:#000">${q.tier}</span></td>
+        <td style="color:var(--text2)">${q.model}</td>
+        <td style="color:var(--text3)">${q.category}</td>
+        <td style="display:flex;gap:3px">
+          <button onclick="dismissQuery('${q.intent_id}')" style="${btnStyle} var(--coral);background:transparent;color:var(--coral)" title="Dismiss — exclude from performance calculations" aria-label="Dismiss query">&#x2715;</button>
+          <button onclick="examineQuery(this)" data-q='${JSON.stringify(q).replace(/'/g,"&#39;")}' style="${btnStyle} var(--blue);background:transparent;color:var(--blue)" title="Examine — view full details" aria-label="Examine query">&#x1F50D;</button>
+          <button onclick="pinQuery('${q.intent_id}')" style="${btnStyle} ${isPinned?'var(--amber)':'var(--text3)'};background:${isPinned?'var(--amber)20':'transparent'};color:${isPinned?'var(--amber)':'var(--text3)'}" title="${isPinned?'Pinned as known slow':'Pin — mark as known slow, acceptable'}" aria-label="${isPinned?'Unpin':'Pin'} query">&#x1F4CC;</button>
+        </td>
+      </tr>`;
+    }).join('')||'<tr><td colspan="5" style="color:var(--text3)">No queries yet</td></tr>';
+
+    // Trace panel
+    if(traceEnabled)renderTrace(d);
+
+  }catch(e){
+    $('statusDot').style.background='var(--coral)';
+    $('error').style.display='block';
+    $('error').textContent='Cannot reach /api/performance: '+e.message;
+  }
+}
+
+let slowRange = 86400; // default: today
+function setSlowRange(seconds, btn) {
+  slowRange = seconds;
+  document.querySelectorAll('.slow-badge').forEach(b => {
+    b.style.color = 'var(--text3)';
+    b.style.borderColor = 'var(--border)';
+    b.classList.remove('active');
+  });
+  btn.style.color = 'var(--teal)';
+  btn.style.borderColor = 'var(--teal)';
+  btn.classList.add('active');
+  refresh();
+}
+
+refresh();
+setInterval(refresh,5000);
+// Show slow-loading hint after 10 seconds if overlay still visible
+setTimeout(()=>{const s=$('loading-slow');if(s&&$('loading-overlay')?.style.display!=='none')s.style.display='block';},10000);
+
+// ── Benchmark Snapshots ──────────────────────────────────────
+const BENCHMARKS = {
+  s21: {
+    label: 'Session 21: uvloop + httptools + orjson',
+    date: '2026-04-05',
+    before: {
+      label: 'Before (stdlib asyncio)',
+      tests: [
+        {name: 'Health endpoint', values: [9.738, 9.158, 7.415, 6.832, 9.286]},
+        {name: 'Realtime: 2+2', values: [2.592, 2.197, 2.356, 3.475, 1.962]},
+        {name: 'Realtime: tokyo time', values: [2.028, 2.152, 2.093, 1.993, 2.034]},
+        {name: 'HTTP status LUT', values: [2.286, 2.039, 2.007, 1.964, 2.113]},
+        {name: 'Dashboard API', values: [5.454, 2.964, 2.866, 3.169, 2.942]},
+      ]
+    },
+    after: {
+      label: 'After (uvloop+httptools+orjson)',
+      tests: [
+        {name: 'Health endpoint', values: [9.362, 7.690, 8.865, 7.222, 6.835]},
+        {name: 'Realtime: 2+2', values: [2.543, 3.923, 2.130, 2.021, 2.061]},
+        {name: 'Realtime: tokyo time', values: [2.104, 1.920, 1.926, 2.225, 2.068]},
+        {name: 'HTTP status LUT', values: [1.867, 2.127, 2.389, 1.993, 1.937]},
+        {name: 'Dashboard API', values: [6.437, 3.756, 3.028, 3.376, 3.414]},
+      ]
+    }
+  },
+  s22: {
+    label: 'Session 22: +ruff, badges, intake, stall detection',
+    date: '2026-04-05',
+    before: {
+      label: 'S21 After (baseline for S22)',
+      tests: [
+        {name: 'Health endpoint', values: [9.362, 7.690, 8.865, 7.222, 6.835]},
+        {name: 'Realtime: 2+2', values: [2.543, 3.923, 2.130, 2.021, 2.061]},
+        {name: 'HTTP status LUT', values: [1.867, 2.127, 2.389, 1.993, 1.937]},
+        {name: 'Dashboard API', values: [6.437, 3.756, 3.028, 3.376, 3.414]},
+      ]
+    },
+    after: {
+      label: 'S22 Current (with all new features)',
+      tests: [
+        {name: 'Health endpoint', values: [9.680, 6.976, 6.447, 8.162, 6.501]},
+        {name: 'Realtime: 2+2', values: [2.152, 2.199, 3.139]},
+        {name: 'HTTP status LUT', values: [1.945, 1.978, 1.915]},
+        {name: 'Dashboard API', values: [5.895, 2.931, 2.766]},
+        {name: 'Classify endpoint', values: [2.936, 1.941, 2.188]},
+        {name: 'Sessions API', values: [2.405, 1.895, 1.816]},
+      ]
+    }
+  }
+};
+
+let currentBench = 's21';
+function showBench(id) {
+  currentBench = id;
+  document.querySelectorAll('.bench-tab').forEach(b => {
+    b.style.color = 'var(--text3)';
+    b.style.borderColor = 'var(--border)';
+    b.style.background = 'transparent';
+  });
+  event.target.style.color = 'var(--teal)';
+  event.target.style.borderColor = 'var(--teal)';
+  event.target.style.background = 'rgba(20,184,166,0.1)';
+  renderBench();
+}
+
+function avg(arr) { return arr.reduce((a,b) => a+b, 0) / arr.length; }
+function median(arr) { const s = [...arr].sort((a,b) => a-b); const m = Math.floor(s.length/2); return s.length%2 ? s[m] : (s[m-1]+s[m])/2; }
+
+function renderBench() {
+  const b = BENCHMARKS[currentBench];
+  if (!b) return;
+
+  // Before card
+  let beforeHtml = `<div style="font-size:10px;color:var(--text2);margin-bottom:6px">${b.before.label}</div>`;
+  b.before.tests.forEach(t => {
+    const med = median(t.values).toFixed(1);
+    beforeHtml += `<div style="display:flex;justify-content:space-between"><span>${t.name}</span><span style="color:var(--coral)">${med}ms</span></div>`;
+  });
+  $('benchBefore').innerHTML = beforeHtml;
+
+  // After card
+  let afterHtml = `<div style="font-size:10px;color:var(--text2);margin-bottom:6px">${b.after.label}</div>`;
+  b.after.tests.forEach(t => {
+    const med = median(t.values).toFixed(1);
+    afterHtml += `<div style="display:flex;justify-content:space-between"><span>${t.name}</span><span style="color:var(--green)">${med}ms</span></div>`;
+  });
+  $('benchAfter').innerHTML = afterHtml;
+
+  // Bar comparison (matching tests only)
+  const matchedTests = b.before.tests.filter(bt => b.after.tests.find(at => at.name === bt.name));
+  let barsHtml = '<table style="font-size:10px"><thead><tr><th style="width:140px">Endpoint</th><th style="width:60px">Before</th><th style="width:60px">After</th><th style="width:60px">Delta</th><th>Comparison</th></tr></thead><tbody>';
+  let totalBefore = 0, totalAfter = 0;
+  matchedTests.forEach(bt => {
+    const at = b.after.tests.find(t => t.name === bt.name);
+    const bMed = median(bt.values);
+    const aMed = median(at.values);
+    totalBefore += bMed;
+    totalAfter += aMed;
+    const delta = aMed - bMed;
+    const pct = ((delta / bMed) * 100).toFixed(1);
+    const deltaColor = delta <= 0 ? 'var(--green)' : 'var(--coral)';
+    const deltaSign = delta <= 0 ? '' : '+';
+    const maxVal = Math.max(bMed, aMed, 1);
+    const bWidth = Math.round((bMed / maxVal) * 100);
+    const aWidth = Math.round((aMed / maxVal) * 100);
+    barsHtml += `<tr>
+      <td style="color:var(--text2)">${bt.name}</td>
+      <td style="color:var(--coral)">${bMed.toFixed(1)}ms</td>
+      <td style="color:var(--green)">${aMed.toFixed(1)}ms</td>
+      <td style="color:${deltaColor}">${deltaSign}${delta.toFixed(1)}ms (${deltaSign}${pct}%)</td>
+      <td>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="height:8px;width:${bWidth}%;background:var(--coral);border-radius:2px;opacity:0.6" title="Before: ${bMed.toFixed(1)}ms"></div>
+          <div style="height:8px;width:${aWidth}%;background:var(--green);border-radius:2px" title="After: ${aMed.toFixed(1)}ms"></div>
+        </div>
+      </td>
+    </tr>`;
+  });
+  barsHtml += '</tbody></table>';
+  $('benchBars').innerHTML = barsHtml;
+
+  // Summary
+  const overallDelta = totalAfter - totalBefore;
+  const overallPct = ((overallDelta / totalBefore) * 100).toFixed(1);
+  const verdict = overallDelta <= 0
+    ? `<span style="color:var(--green)">Overall ${Math.abs(overallPct)}% faster</span> — no regression from new features`
+    : `<span style="color:var(--amber)">Overall ${overallPct}% slower</span> — within acceptable range (added features: badges, intake, stall detection)`;
+  $('benchSummary').innerHTML = `${b.label} (${b.date}) — ${verdict}`;
+}
+
+renderBench();
+
+// ── Browser Performance (from Playwright or manual save) ─────
+const BROWSER_BENCHMARKS = {
+  s22: {
+    date: '2026-04-05',
+    label: 'S22 Playwright (Chromium)',
+    pages: [
+      {name: 'Chat', fullLoad: 328, domContentLoaded: 218, fcp: 208, interactive: 67, transfer: '79.9KB'},
+      {name: 'Dashboard', fullLoad: 214, domContentLoaded: 119, fcp: null, interactive: 10, transfer: null},
+      {name: 'Unblock', fullLoad: 227, domContentLoaded: null, fcp: null, interactive: 9, transfer: null},
+      {name: 'Perf', fullLoad: 215, domContentLoaded: null, fcp: null, interactive: 10, transfer: null},
+    ],
+    queries: [
+      {query: 'what is 2+2', responseMs: 3164},
+      {query: 'what is http 200', responseMs: 4164},
+      {query: 'what is git status', responseMs: 3140},
+    ]
+  }
+};
+
+// Merge with any saved from localStorage
+try {
+  const saved = JSON.parse(localStorage.getItem('mullm_browser_bench') || '{}');
+  Object.assign(BROWSER_BENCHMARKS, saved);
+} catch(e) {}
+
+function renderBrowserBench() {
+  const latest = BROWSER_BENCHMARKS.s22 || Object.values(BROWSER_BENCHMARKS)[0];
+  if (!latest) return;
+
+  // Top cards
+  const chat = latest.pages.find(p => p.name === 'Chat');
+  const dash = latest.pages.find(p => p.name === 'Dashboard');
+  const unblock = latest.pages.find(p => p.name === 'Unblock');
+  const avgQuery = latest.queries.length
+    ? Math.round(latest.queries.reduce((a,q) => a + q.responseMs, 0) / latest.queries.length)
+    : null;
+
+  if (chat) {
+    $('bChat').textContent = chat.fullLoad + 'ms';
+    $('bFCP').textContent = (chat.fcp || '—') + (chat.fcp ? 'ms' : '');
+    $('bInteract').textContent = chat.interactive + 'ms';
+  }
+  if (dash) $('bDash').textContent = dash.fullLoad + 'ms';
+  if (unblock) $('bUnblock').textContent = unblock.fullLoad + 'ms';
+  if (avgQuery) $('bQuery').textContent = avgQuery + 'ms';
+
+  // Table
+  let html = '<table style="font-size:10px"><thead><tr><th>Page</th><th>Full Load</th><th>DOMContentLoaded</th><th>FCP</th><th>Interactive</th><th>Transfer</th></tr></thead><tbody>';
+  latest.pages.forEach(p => {
+    const loadColor = p.fullLoad < 300 ? 'var(--green)' : p.fullLoad < 1000 ? 'var(--amber)' : 'var(--coral)';
+    html += `<tr>
+      <td style="color:var(--text2)">${p.name}</td>
+      <td style="color:${loadColor}"><strong>${p.fullLoad}ms</strong></td>
+      <td>${p.domContentLoaded ? p.domContentLoaded + 'ms' : '—'}</td>
+      <td>${p.fcp ? p.fcp + 'ms' : '—'}</td>
+      <td style="color:var(--green)">${p.interactive}ms</td>
+      <td style="color:var(--text3)">${p.transfer || '—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+
+  if (latest.queries.length) {
+    html += '<div style="margin-top:8px;font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">Query Response Times (type → click → render)</div>';
+    html += '<table style="font-size:10px;margin-top:4px"><thead><tr><th>Query</th><th>Response</th><th>Visual</th></tr></thead><tbody>';
+    const maxQ = Math.max(...latest.queries.map(q => q.responseMs));
+    latest.queries.forEach(q => {
+      const color = q.responseMs < 2000 ? 'var(--green)' : q.responseMs < 5000 ? 'var(--amber)' : 'var(--coral)';
+      const width = Math.round((q.responseMs / maxQ) * 100);
+      html += `<tr>
+        <td style="color:var(--text2)">"${q.query}"</td>
+        <td style="color:${color}"><strong>${q.responseMs}ms</strong></td>
+        <td><div style="height:10px;width:${width}%;background:${color};border-radius:2px;opacity:0.7"></div></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  }
+
+  $('browserBenchTable').innerHTML = html;
+}
+renderBrowserBench();
+
+// ── Headline Metric: Worst Query, Session-over-Session ───────
+const SESSION_WORST = {
+  's21-before': {label: 'S21 Before', worstMs: 3475, worstQuery: 'what is 2+2 (curl)'},
+  's21-after':  {label: 'S21 uvloop', worstMs: 3923, worstQuery: 'what is 2+2 (curl)'},
+  's22-curl':   {label: 'S22 Curl', worstMs: 3139, worstQuery: 'what is 2+2 (curl)'},
+  's22-browser':{label: 'S22 Browser', worstMs: 4164, worstQuery: 'what is http 200 (Playwright, false image route)'},
+  's23-simple': {label: 'S23 Simple', worstMs: 1, worstQuery: 'what is http 200 — 0.7ms realtime LUT'},
+  's23-code':   {label: 'S23 Code Q', worstMs: 29, worstQuery: 'How do I center a div in CSS? — 29ms cache (was 4,078ms!)'},
+};
+
+function renderHeadline() {
+  const el = $('headlineMetric');
+  const keys = Object.keys(SESSION_WORST);
+  const current = SESSION_WORST[keys[keys.length - 1]];
+  const prev = SESSION_WORST[keys[keys.length - 2]];
+
+  const delta = current.worstMs - prev.worstMs;
+  const pct = ((delta / prev.worstMs) * 100).toFixed(1);
+  const improved = delta < 0;
+  const flat = Math.abs(delta) < prev.worstMs * 0.05;
+
+  let icon, color, verdict;
+  if (improved && Math.abs(pct) >= 10) {
+    icon = '&#9650;'; color = 'var(--green)'; verdict = Math.abs(pct) + '% faster';
+  } else if (improved) {
+    icon = '&#9650;'; color = 'var(--teal)'; verdict = Math.abs(pct) + '% faster';
+  } else if (flat) {
+    icon = '&#9644;'; color = 'var(--amber)'; verdict = 'flat (' + (delta > 0 ? '+' : '') + pct + '%)';
+  } else if (Math.abs(pct) < 15) {
+    icon = '&#9888;'; color = 'var(--amber)'; verdict = '+' + pct + '% slower';
+  } else {
+    icon = '&#9660;'; color = 'var(--coral)'; verdict = '+' + pct + '% degradation';
+  }
+
+  // Sparkline of all sessions
+  const allMs = Object.values(SESSION_WORST).map(s => s.worstMs);
+  const maxMs = Math.max(...allMs);
+  const sparkBars = Object.entries(SESSION_WORST).map(([k, s]) => {
+    const h = Math.round((s.worstMs / maxMs) * 40);
+    const isLatest = k === keys[keys.length - 1];
+    const barColor = isLatest ? color : 'var(--bg4)';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1" title="${s.label}: ${s.worstMs}ms — ${s.worstQuery}">
+      <div style="height:${h}px;width:100%;max-width:40px;background:${barColor};border-radius:2px 2px 0 0;opacity:${isLatest?1:0.5}"></div>
+      <div style="font-size:7px;color:var(--text3);white-space:nowrap">${s.label.replace('S22 ','').replace('S21 ','')}</div>
+      <div style="font-size:8px;color:${isLatest?color:'var(--text3)'}">${(s.worstMs/1000).toFixed(1)}s</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Worst Query Time — The Number That Matters</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px">
+      <div style="font-size:42px;font-weight:800;color:${color};font-family:var(--mono)">${(current.worstMs/1000).toFixed(1)}s</div>
+      <div style="text-align:left">
+        <div style="font-size:18px;color:${color};font-weight:700">${icon} ${verdict}</div>
+        <div style="font-size:10px;color:var(--text3)">vs ${prev.label}: ${(prev.worstMs/1000).toFixed(1)}s</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:2px">"${current.worstQuery}"</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:4px;height:60px;justify-content:center;max-width:300px;margin:0 auto">
+      ${sparkBars}
+    </div>
+    <div style="font-size:8px;color:var(--text3);margin-top:8px">Target: <span style="color:var(--green)">&lt;500ms</span> for LUT/realtime queries. Current: <span style="color:${color}">${(current.worstMs/1000).toFixed(1)}s</span>. Gap: ${((current.worstMs/500 - 1)*100).toFixed(0)}% over target.</div>
+  `;
+}
+renderHeadline();
+
+// ── TTFT: Time-to-First-Token Streaming Comparison ───────
+const TTFT_DATA = {
+  's22-stream': {label: 'S22 Stream', ttftMs: 4200, query: 'what is the meaning of life (false image route, no stream)', note: 'Blocked by image classifier — full 4.2s wait'},
+  's23-lut':    {label: 'S23 LUT', ttftMs: 6, query: 'what is http 404 (realtime LUT)', note: 'Instant LUT resolution'},
+  's23-cache':  {label: 'S23 Cache', ttftMs: 30, query: 'how do I center a div in CSS (cache hit)', note: 'Semantic cache, no LLM call'},
+  's23-stream': {label: 'S23 Stream', ttftMs: 250, query: 'novel question (OmniCoder 9B, first token)', note: 'Estimated TTFT from Ollama streaming'},
+};
+
+function renderTTFT() {
+  const el = $('ttftMetric');
+  const keys = Object.keys(TTFT_DATA);
+  const s22 = TTFT_DATA['s22-stream'];
+  const s23best = TTFT_DATA['s23-lut'];
+  const s23stream = TTFT_DATA['s23-stream'];
+
+  const speedup = Math.round(s22.ttftMs / s23stream.ttftMs);
+  const lutSpeedup = Math.round(s22.ttftMs / s23best.ttftMs);
+
+  const allMs = Object.values(TTFT_DATA).map(s => s.ttftMs);
+  const maxMs = Math.max(...allMs);
+  const bars = Object.entries(TTFT_DATA).map(([k, s]) => {
+    const h = Math.max(2, Math.round((s.ttftMs / maxMs) * 50));
+    const isS22 = k.startsWith('s22');
+    const color = isS22 ? 'var(--coral)' : s.ttftMs < 50 ? 'var(--green)' : s.ttftMs < 500 ? 'var(--teal)' : 'var(--amber)';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1" title="' + s.label + ': ' + s.ttftMs + 'ms — ' + s.query + '">' +
+      '<div style="height:' + h + 'px;width:100%;max-width:50px;background:' + color + ';border-radius:2px 2px 0 0;opacity:0.9"></div>' +
+      '<div style="font-size:7px;color:var(--text3);white-space:nowrap">' + s.label + '</div>' +
+      '<div style="font-size:9px;font-weight:700;color:' + color + '">' + (s.ttftMs >= 1000 ? (s.ttftMs/1000).toFixed(1)+'s' : s.ttftMs+'ms') + '</div>' +
+      '<div style="font-size:7px;color:var(--text3);max-width:80px;line-height:1.2">' + s.note + '</div>' +
+    '</div>';
+  }).join('');
+
+  el.innerHTML =
+    '<div style="font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Time-to-First-Token — Streaming Comparison</div>' +
+    '<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px">' +
+      '<div style="text-align:center">' +
+        '<div style="font-size:36px;font-weight:800;color:var(--green);font-family:var(--mono)">~250ms</div>' +
+        '<div style="font-size:11px;color:var(--teal)">S23 Streaming TTFT</div>' +
+      '</div>' +
+      '<div style="font-size:24px;color:var(--text3)">vs</div>' +
+      '<div style="text-align:center">' +
+        '<div style="font-size:36px;font-weight:800;color:var(--coral);font-family:var(--mono);text-decoration:line-through;opacity:0.6">4.2s</div>' +
+        '<div style="font-size:11px;color:var(--text3)">S22 (false image route)</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:12px">&#9650; ' + speedup + 'x faster &middot; LUT queries: ' + lutSpeedup + 'x faster</div>' +
+    '<div style="display:flex;align-items:flex-end;gap:8px;height:80px;justify-content:center;max-width:400px;margin:0 auto">' + bars + '</div>' +
+    '<div style="font-size:8px;color:var(--text3);margin-top:8px">TTFT = time until user sees first content. LUT/cache: <span style="color:var(--green)">&lt;30ms</span>. Stream: <span style="color:var(--teal)">~250ms</span>. S22 was blocked by false image classifier for 4.2s.</div>';
+}
+renderTTFT();
+</script>
+</body>
+</html>

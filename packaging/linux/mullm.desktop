@@ -1,0 +1,25 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=muLLM
+GenericName=AI Router
+Comment=Local-first AI routing — 96% cost reduction vs cloud-only
+Exec=mullm --serve
+Icon=mullm
+Terminal=false
+StartupNotify=true
+StartupWMClass=muLLM
+Categories=Utility;Science;Network;
+Keywords=AI;LLM;router;Ollama;local;chat;
+MimeType=
+Actions=OpenDashboard;OpenSetup;
+
+[Desktop Action OpenDashboard]
+Name=Open Dashboard
+Exec=mullm --serve & sleep 2 && xdg-open http://localhost:6856/dashboard
+Icon=mullm
+
+[Desktop Action OpenSetup]
+Name=Run Setup Wizard
+Exec=mullm --serve & sleep 2 && xdg-open http://localhost:6856/setup
+Icon=mullm

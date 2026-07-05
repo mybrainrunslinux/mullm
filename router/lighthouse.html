@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>μLLM — Local-first intelligence routing</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #020810;
+      font-family: 'Georgia', 'Times New Roman', serif;
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* ── No-WebGL fallback ── */
+    #no-webgl {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 30% 60%, #061428 0%, #020810 70%);
+      z-index: 1;
+    }
+    .no-webgl-shown #no-webgl { display: block; }
+    .no-webgl-shown #canvas-container { display: none; }
+
+    /* ── Overlay ── */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .hero-text {
+      opacity: 0;
+      animation: fadeUp 1s ease forwards 0.5s;
+      text-align: center;
+    }
+
+    .hero-title {
+      font-size: clamp(4rem, 12vw, 9rem);
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.92);
+      letter-spacing: 0.02em;
+      line-height: 1;
+      text-shadow:
+        0 0 60px rgba(212, 175, 55, 0.25),
+        0 0 120px rgba(212, 175, 55, 0.1);
+    }
+
+    .hero-subtitle {
+      margin-top: 1.2rem;
+      font-size: clamp(0.85rem, 2vw, 1.1rem);
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.48);
+    }
+
+    .stat-chips {
+      margin-top: 2.8rem;
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      opacity: 0;
+      animation: fadeUp 1s ease forwards 1.1s;
+    }
+
+    .chip {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: clamp(0.7rem, 1.5vw, 0.82rem);
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      color: #d4af37;
+      padding: 0.45em 1em;
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 2em;
+      background: rgba(212, 175, 55, 0.06);
+      backdrop-filter: blur(4px);
+    }
+
+    .explore-link {
+      position: fixed;
+      bottom: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 0.82rem;
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      color: rgba(255, 255, 255, 0.38);
+      text-decoration: none;
+      pointer-events: auto;
+      opacity: 0;
+      animation: fadeUp 1s ease forwards 1.6s;
+      transition: color 0.3s ease;
+    }
+    .explore-link:hover,
+    .explore-link:focus-visible {
+      color: rgba(212, 175, 55, 0.8);
+      outline: none;
+    }
+    .explore-link:focus-visible {
+      outline: 2px solid rgba(212, 175, 55, 0.6);
+      outline-offset: 4px;
+      border-radius: 2px;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .hero-text, .stat-chips, .explore-link {
+        animation: none;
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stat-chips { gap: 0.8rem; }
+      .chip { padding: 0.4em 0.8em; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="canvas-container" aria-hidden="true"></div>
+
+  <div id="no-webgl" aria-hidden="true"></div>
+
+  <main id="overlay" role="main">
+    <div class="hero-text">
+      <h1 class="hero-title">μLLM</h1>
+      <p class="hero-subtitle">Local-first intelligence routing</p>
+    </div>
+    <div class="stat-chips" role="list" aria-label="Key metrics">
+      <span class="chip" role="listitem">23µs routing</span>
+      <span class="chip" role="listitem">100% HumanEval</span>
+      <span class="chip" role="listitem">$0.00 local</span>
+    </div>
+  </main>
+
+  <a href="/megabench" class="explore-link" aria-label="Explore benchmarks">→ explore benchmarks</a>
+
+<script type="module">
+import * as THREE from '/static/three/three.module.js';
+import { OrbitControls } from '/static/three/addons/controls/OrbitControls.js';
+
+// ── Reduced-motion check ──────────────────────────────────────────────────
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ── Renderer ─────────────────────────────────────────────────────────────
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+} catch (e) {
+  document.body.classList.add('no-webgl-shown');
+  throw e;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.9;
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+// ── Scene & camera ────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020810);
+scene.fog = new THREE.FogExp2(0x020810, 0.0065);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 2000);
+camera.position.set(60, 18, 80);
+camera.lookAt(0, 10, 0);
+
+// ── Orbit controls ────────────────────────────────────────────────────────
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.autoRotate = !reducedMotion;
+controls.autoRotateSpeed = 0.15;
+controls.minDistance = 30;
+controls.maxDistance = 180;
+controls.minPolarAngle = Math.PI * 0.1;
+controls.maxPolarAngle = Math.PI * 0.55;
+controls.target.set(0, 8, 0);
+
+// ── Ambient & hemisphere light ────────────────────────────────────────────
+const hemi = new THREE.HemisphereLight(0x0a1628, 0x050d18, 0.4);
+scene.add(hemi);
+
+const ambient = new THREE.AmbientLight(0x05101f, 0.6);
+scene.add(ambient);
+
+// ── Stars ─────────────────────────────────────────────────────────────────
+(function buildStars() {
+  const count = 2000;
+  const positions = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    // Uniform distribution on sphere, bias toward upper hemisphere
+    const phi = Math.acos(2 * Math.random() - 1);
+    const theta = Math.random() * Math.PI * 2;
+    const r = 600 + Math.random() * 200;
+    positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = Math.abs(r * Math.cos(phi)) + 30; // only above horizon
+    positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    sizes[i] = 0.5 + Math.random() * 1.5;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  const mat = new THREE.PointsMaterial({
+    color: 0xd0dff0,
+    size: 1.2,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.7,
+    depthWrite: false,
+  });
+  scene.add(new THREE.Points(geo, mat));
+})();
+
+// ── Water ─────────────────────────────────────────────────────────────────
+const WATER_SIZE = 1200;
+const WATER_SEGS = 180;
+const waterGeo = new THREE.PlaneGeometry(WATER_SIZE, WATER_SIZE, WATER_SEGS, WATER_SEGS);
+waterGeo.rotateX(-Math.PI / 2);
+
+const waterUniforms = {
+  time:      { value: 0 },
+  fogColor:  { value: new THREE.Color(0x020810) },
+  fogDensity:{ value: 0.0065 },
+};
+
+const waterMat = new THREE.MeshPhongMaterial({
+  color: new THREE.Color(0x040d1a),
+  specular: new THREE.Color(0x3a6080),
+  shininess: 160,
+  transparent: true,
+  opacity: 0.92,
+  side: THREE.FrontSide,
+});
+
+// Inject wave displacement into the vertex shader
+waterMat.onBeforeCompile = (shader) => {
+  shader.uniforms.time = waterUniforms.time;
+  shader.vertexShader = `
+    uniform float time;
+  ` + shader.vertexShader.replace(
+    '#include <begin_vertex>',
+    `#include <begin_vertex>
+     float wx = position.x * 0.05 + time;
+     float wy = position.z * 0.03 + time * 0.7;
+     transformed.y += sin(wx) * 2.0 + sin(wy) * 1.5;
+     // secondary ripple
+     transformed.y += sin(position.x * 0.018 + time * 1.3) * 0.8;
+    `
+  );
+  waterMat.userData.shader = shader;
+};
+
+const water = new THREE.Mesh(waterGeo, waterMat);
+water.receiveShadow = true;
+scene.add(water);
+
+// ── Rocky base ────────────────────────────────────────────────────────────
+function buildRocks() {
+  const group = new THREE.Group();
+  const rockMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1e24,
+    roughness: 0.95,
+    metalness: 0.05,
+  });
+
+  // Main rock mass
+  const mainGeo = new THREE.IcosahedronGeometry(9, 1);
+  // Deform vertices for natural look
+  const pos = mainGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    if (y < 0) pos.setY(i, y * 1.4);
+    pos.setX(i, pos.getX(i) * (1 + Math.random() * 0.15));
+    pos.setZ(i, pos.getZ(i) * (1 + Math.random() * 0.15));
+  }
+  mainGeo.computeVertexNormals();
+  const mainRock = new THREE.Mesh(mainGeo, rockMat);
+  mainRock.position.y = -2;
+  mainRock.castShadow = true;
+  mainRock.receiveShadow = true;
+  group.add(mainRock);
+
+  // Scattered smaller rocks
+  const offsets = [
+    [11, -3, 4, 4], [-9, -4, 6, 3.5], [8, -4, -7, 2.8],
+    [-6, -5, -5, 2], [14, -5, -2, 2.2], [3, -5, 13, 1.8],
+  ];
+  for (const [x, y, z, r] of offsets) {
+    const g = new THREE.IcosahedronGeometry(r, 0);
+    const m = new THREE.Mesh(g, rockMat);
+    m.position.set(x, y, z);
+    m.rotation.set(Math.random(), Math.random(), Math.random());
+    m.castShadow = true;
+    group.add(m);
+  }
+
+  return group;
+}
+
+const rocks = buildRocks();
+scene.add(rocks);
+
+// ── Lighthouse tower ──────────────────────────────────────────────────────
+const LANTERN_Y = 54; // world-space height of the lantern
+
+function buildLighthouse() {
+  const group = new THREE.Group();
+
+  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xd8dde0, roughness: 0.6, metalness: 0.05 });
+  const darkMat  = new THREE.MeshStandardMaterial({ color: 0x1a1e24, roughness: 0.9, metalness: 0.1 });
+  const redMat   = new THREE.MeshStandardMaterial({ color: 0x8b1a1a, roughness: 0.5, metalness: 0.1 });
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0xffcc66, emissive: 0xffaa22, emissiveIntensity: 2.5,
+    roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.85,
+  });
+
+  // Tower body — slightly tapered
+  const towerGeo = new THREE.CylinderGeometry(2.2, 2.8, 48, 14);
+  const tower = new THREE.Mesh(towerGeo, whiteMat);
+  tower.position.y = 24 + 4; // base at y=4 (top of rocks)
+  tower.castShadow = true;
+  group.add(tower);
+
+  // Red band near top
+  const bandGeo = new THREE.CylinderGeometry(2.3, 2.3, 3.5, 14);
+  const band = new THREE.Mesh(bandGeo, redMat);
+  band.position.y = 44;
+  group.add(band);
+
+  // Gallery deck
+  const deckGeo = new THREE.CylinderGeometry(3.6, 2.2, 1.2, 14);
+  const deck = new THREE.Mesh(deckGeo, darkMat);
+  deck.position.y = 47.5;
+  deck.castShadow = true;
+  group.add(deck);
+
+  // Lantern room
+  const lanternGeo = new THREE.CylinderGeometry(2.5, 2.5, 4.5, 8);
+  const lantern = new THREE.Mesh(lanternGeo, glassMat);
+  lantern.position.y = LANTERN_Y;
+  group.add(lantern);
+
+  // Lantern cap
+  const capGeo = new THREE.ConeGeometry(2.8, 3, 8);
+  const cap = new THREE.Mesh(capGeo, darkMat);
+  cap.position.y = LANTERN_Y + 3.8;
+  group.add(cap);
+
+  // Ventilation ball
+  const ballGeo = new THREE.SphereGeometry(0.6, 8, 8);
+  const ball = new THREE.Mesh(ballGeo, darkMat);
+  ball.position.y = LANTERN_Y + 5.6;
+  group.add(ball);
+
+  return group;
+}
+
+const lighthouse = buildLighthouse();
+scene.add(lighthouse);
+
+// Warm point light inside lantern room
+const lanternLight = new THREE.PointLight(0xffbb44, 6.0, 100, 2);
+lanternLight.position.set(0, LANTERN_Y, 0);
+scene.add(lanternLight);
+
+// ── Beam pivot group ───────────────────────────────────────────────────────
+const beamPivot = new THREE.Group();
+beamPivot.position.set(0, LANTERN_Y, 0);
+scene.add(beamPivot);
+
+// SpotLight aimed along +Z initially (pivot handles rotation)
+const spotLight = new THREE.SpotLight(0xffe8a0, 140, 220, Math.PI * 0.07, 0.5, 1.2);
+spotLight.position.set(0, 0, 0);
+spotLight.castShadow = true;
+spotLight.shadow.mapSize.set(512, 512);
+spotLight.shadow.camera.near = 1;
+spotLight.shadow.camera.far = 220;
+const spotTarget = new THREE.Object3D();
+spotTarget.position.set(0, -12, 120); // points outward and slightly down
+beamPivot.add(spotTarget);
+spotLight.target = spotTarget;
+beamPivot.add(spotLight);
+
+// Visible beam cone (additive, semi-transparent)
+const coneH = 90;
+const coneR = coneH * Math.tan(Math.PI * 0.07);
+const beamConeGeo = new THREE.ConeGeometry(coneR, coneH, 16, 1, true);
+beamConeGeo.translate(0, -coneH / 2, 0); // tip at origin
+beamConeGeo.rotateX(-Math.PI / 2); // point along +Z
+
+const beamConeMat = new THREE.MeshBasicMaterial({
+  color: 0xfffbe8,
+  transparent: true,
+  opacity: 0.18,
+  blending: THREE.AdditiveBlending,
+  side: THREE.DoubleSide,
+  depthWrite: false,
+});
+const beamCone = new THREE.Mesh(beamConeGeo, beamConeMat);
+// cone tip already at pivot origin via geometry translate
+beamPivot.add(beamCone);
+
+// ── Glow sprite at lantern ────────────────────────────────────────────────
+function makeGlowTexture(size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  grad.addColorStop(0,   'rgba(255,220,100,1)');
+  grad.addColorStop(0.15,'rgba(255,180,60,0.7)');
+  grad.addColorStop(0.45,'rgba(255,140,30,0.2)');
+  grad.addColorStop(1,   'rgba(255,100,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(canvas);
+}
+
+const glowTex = makeGlowTexture(128);
+const glowMat = new THREE.SpriteMaterial({
+  map: glowTex,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  transparent: true,
+  opacity: 0.85,
+});
+const glowSprite = new THREE.Sprite(glowMat);
+glowSprite.position.set(0, LANTERN_Y, 0);
+glowSprite.scale.set(20, 20, 1);
+scene.add(glowSprite);
+
+// Secondary haze glow (larger, more diffuse)
+const hazeMat = new THREE.SpriteMaterial({
+  map: glowTex,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  transparent: true,
+  opacity: 0.25,
+});
+const hazeSprite = new THREE.Sprite(hazeMat);
+hazeSprite.position.set(0, LANTERN_Y, 0);
+hazeSprite.scale.set(55, 55, 1);
+scene.add(hazeSprite);
+
+// ── Moon / distant light source ───────────────────────────────────────────
+const moonLight = new THREE.DirectionalLight(0x1a2f4a, 0.5);
+moonLight.position.set(-80, 120, -60);
+scene.add(moonLight);
+
+// ── Resize handler ────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── Animation loop ────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+let time = 0;
+
+// Pulse the glow intensity
+let glowPhase = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  const dt = reducedMotion ? 0 : Math.min(delta, 0.05);
+  time += dt;
+
+  // Water wave time uniform
+  if (waterMat.userData.shader) {
+    waterMat.userData.shader.uniforms.time.value = time * 0.6;
+  }
+
+  // Beam rotation — full 360° in ~8 seconds
+  beamPivot.rotation.y += dt * (Math.PI * 2 / 8);
+
+  // Glow pulse — subtle intensity variation
+  glowPhase += dt * 1.4;
+  const glowPulse = 0.75 + Math.sin(glowPhase) * 0.1;
+  glowMat.opacity = glowPulse;
+  lanternLight.intensity = 3.0 + Math.sin(glowPhase * 0.7) * 0.6;
+
+  // Subtle camera bob when autoRotate is off (user has grabbed)
+  if (!controls.autoRotate && !reducedMotion) {
+    camera.position.y += Math.sin(time * 0.3) * 0.002;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+animate();
+</script>
+</body>
+</html>

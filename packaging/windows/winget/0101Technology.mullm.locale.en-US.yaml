@@ -1,0 +1,27 @@
+PackageIdentifier: 0101Technology.mullm
+PackageVersion: 1.0.0
+PackageLocale: en-US
+Publisher: 0101 Technology LLC
+PublisherUrl: https://mullm.com
+PublisherSupportUrl: https://github.com/0101technology/mullm/issues
+PackageName: muLLM
+PackageUrl: https://mullm.com
+License: Apache-2.0
+LicenseUrl: https://github.com/0101technology/mullm/blob/main/LICENSE
+ShortDescription: Local-first LLM router. 96.4% cost reduction. Free tier first.
+Description: |-
+  muLLM routes every query to the cheapest capable model: a deterministic
+  lookup table, a semantic vector cache, a local 30B model, or a cloud API
+  fallback — in that order. 87.5% of queries resolve free. OpenAI-compatible
+  API endpoint. Drop-in replacement for cloud-only deployments.
+Moniker: mullm
+Tags:
+  - llm
+  - ai
+  - router
+  - ollama
+  - local
+  - cost-optimization
+  - python
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

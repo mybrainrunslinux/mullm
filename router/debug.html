@@ -1,0 +1,1952 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>muLLM Debug Console</title>
+<meta name="description" content="muLLM APM admin console — thread dumps, flame graphs, memory, query traces."/>
+<meta name="robots" content="noindex,nofollow"/>
+<style>
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* ── Design tokens — S33 brand palette ── */
+:root{
+  --bg:#0d1117;
+  --bg2:#161b22;
+  --bg3:#21262d;
+  --bg4:#30363d;
+  --gold:#f59e0b;
+  --gold-dim:rgba(245,158,11,0.12);
+  --gold-glow:0 0 16px rgba(245,158,11,0.3);
+  --teal:#2dd4bf;
+  --purple:#a78bfa;
+  --green:#22c55e;
+  --red:#ef4444;
+  --amber:#f59e0b;
+  --blue:#60a5fa;
+  --text:#e6edf3;
+  --text2:#8b949e;
+  --text3:#6e7681;
+  --border:rgba(255,255,255,0.08);
+  --border2:rgba(255,255,255,0.14);
+  --mono:'JetBrains Mono','Fira Code','Cascadia Code',monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --radius:8px;
+  --radius-sm:5px;
+  --shadow:0 2px 12px rgba(0,0,0,0.4);
+}
+/* ── Base ── */
+html{font-size:14px;color-scheme:dark}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  line-height:1.5;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+/* ── Typography ── */
+h1,h2,h3,h4{line-height:1.2;font-weight:600}
+code,pre,.mono{font-family:var(--mono);font-size:0.85rem}
+a{color:var(--teal);text-decoration:none}
+a:hover{text-decoration:underline}
+/* ── Header ── */
+#hdr{
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+#hdr-title{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+#hdr-title h1{
+  font-size:1.1rem;
+  font-weight:700;
+  letter-spacing:-0.01em;
+}
+#hdr-title .subtitle{
+  font-size:0.72rem;
+  color:var(--text3);
+  font-style:italic;
+  letter-spacing:0.02em;
+}
+#conn-badge{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:0.75rem;
+  color:var(--text2);
+  padding:4px 10px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:20px;
+  white-space:nowrap;
+}
+#conn-dot{
+  width:7px;height:7px;
+  border-radius:50%;
+  background:var(--text3);
+  transition:background 0.3s;
+  flex-shrink:0;
+}
+#conn-dot.online{background:var(--green);box-shadow:0 0 6px var(--green)}
+#conn-dot.offline{background:var(--red);box-shadow:0 0 6px var(--red)}
+#hdr-nav{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  margin-left:6px;
+}
+#hdr-nav a{
+  font-size:0.72rem;
+  color:var(--text2);
+  padding:4px 8px;
+  border-radius:var(--radius-sm);
+  border:1px solid transparent;
+  transition:all 0.15s;
+}
+#hdr-nav a:hover{color:var(--gold);border-color:var(--border2);text-decoration:none}
+/* ── Self-debug banner ── */
+#self-banner{
+  background:rgba(245,158,11,0.12);
+  border-bottom:1px solid rgba(245,158,11,0.3);
+  padding:8px 20px;
+  font-size:0.82rem;
+  color:var(--gold);
+  display:none;
+}
+#self-banner.show{display:block}
+/* ── Tab bar ── */
+#tabs{
+  display:flex;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  padding:0 16px;
+  gap:2px;
+  overflow-x:auto;
+  scrollbar-width:none;
+}
+#tabs::-webkit-scrollbar{display:none}
+.tab-btn{
+  padding:10px 16px;
+  font-size:0.82rem;
+  font-weight:500;
+  color:var(--text2);
+  background:none;
+  border:none;
+  border-bottom:2px solid transparent;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:all 0.15s;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  min-height:44px;
+}
+.tab-btn:hover{color:var(--text)}
+.tab-btn[aria-selected="true"]{
+  color:var(--gold);
+  border-bottom-color:var(--gold);
+  background:var(--gold-dim);
+}
+.tab-btn:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;border-radius:4px 4px 0 0}
+/* ── Tab panels ── */
+#panels{padding:20px}
+.panel{display:none}
+.panel.active{display:block}
+/* ── Cards / grid ── */
+.cards-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:12px;
+  margin-bottom:16px;
+}
+.card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px 16px;
+  position:relative;
+  overflow:hidden;
+  transition:border-color 0.2s;
+}
+.card:hover{border-color:var(--border2)}
+.card-label{
+  font-size:0.7rem;
+  color:var(--text3);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  margin-bottom:6px;
+}
+.card-value{
+  font-size:1.4rem;
+  font-weight:700;
+  font-family:var(--mono);
+  color:var(--text);
+  line-height:1;
+  transition:color 0.3s;
+}
+.card-value.changed{color:var(--gold)}
+@media (prefers-reduced-motion:no-preference){
+  .card-value.pulse{animation:pulse-val 0.4s ease-out}
+}
+@keyframes pulse-val{
+  0%{color:var(--gold);text-shadow:0 0 8px rgba(245,158,11,0.6)}
+  100%{color:var(--text);text-shadow:none}
+}
+.card-sub{font-size:0.72rem;color:var(--text2);margin-top:4px}
+.card-wide{grid-column:1/-1}
+/* ── Progress bars ── */
+.bar-wrap{
+  background:var(--bg4);
+  border-radius:3px;
+  height:5px;
+  margin-top:8px;
+  overflow:hidden;
+}
+.bar-fill{
+  height:100%;
+  border-radius:3px;
+  transition:width 0.4s ease;
+}
+.bar-cpu{background:var(--teal)}
+.bar-ram{background:var(--blue)}
+.bar-gpu{background:var(--gold)}
+.bar-mem{background:var(--purple)}
+.bar-danger{background:var(--red)}
+/* ── Buttons ── */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:7px 14px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border2);
+  background:var(--bg3);
+  color:var(--text);
+  font-size:0.82rem;
+  font-weight:500;
+  cursor:pointer;
+  transition:all 0.15s;
+  min-height:36px;
+  white-space:nowrap;
+}
+.btn:hover{background:var(--bg4);border-color:var(--gold);color:var(--gold)}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.btn:disabled{opacity:0.4;cursor:not-allowed;pointer-events:none}
+.btn-gold{background:var(--gold-dim);border-color:rgba(245,158,11,0.4);color:var(--gold)}
+.btn-gold:hover{background:rgba(245,158,11,0.2);border-color:var(--gold)}
+.btn-red{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:var(--red)}
+.btn-red:hover{background:rgba(239,68,68,0.2);border-color:var(--red)}
+.btn-red:disabled{background:var(--bg3);border-color:var(--border);color:var(--text3)}
+/* ── Spinner ── */
+.spinner{
+  width:18px;height:18px;
+  border:2px solid var(--border2);
+  border-top-color:var(--gold);
+  border-radius:50%;
+  animation:spin 0.7s linear infinite;
+  display:inline-block;
+  flex-shrink:0;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin-wrap{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:24px;
+  color:var(--text2);
+  font-size:0.82rem;
+}
+/* ── Error banner ── */
+.err-banner{
+  background:rgba(239,68,68,0.1);
+  border:1px solid rgba(239,68,68,0.3);
+  border-radius:var(--radius-sm);
+  padding:10px 14px;
+  color:var(--red);
+  font-size:0.82rem;
+  font-family:var(--mono);
+  margin-bottom:12px;
+  display:none;
+}
+.err-banner.show{display:block}
+/* ── Section headers ── */
+.section-hd{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:12px;
+}
+.section-hd h2{
+  font-size:0.9rem;
+  font-weight:600;
+  color:var(--text);
+}
+.section-hd .actions{margin-left:auto;display:flex;gap:8px}
+/* ── Tables ── */
+.tbl-wrap{
+  overflow-x:auto;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--bg2);
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:0.8rem;
+}
+thead th{
+  background:var(--bg3);
+  color:var(--text2);
+  font-weight:600;
+  text-align:left;
+  padding:8px 12px;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+  font-size:0.72rem;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+}
+tbody tr{
+  border-bottom:1px solid var(--border);
+  cursor:pointer;
+  transition:background 0.1s;
+}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg3)}
+tbody td{
+  padding:7px 12px;
+  font-family:var(--mono);
+  color:var(--text);
+  vertical-align:top;
+}
+/* ── Tier badges ── */
+.tier{
+  display:inline-block;
+  padding:2px 7px;
+  border-radius:3px;
+  font-size:0.7rem;
+  font-weight:600;
+  font-family:var(--mono);
+  white-space:nowrap;
+}
+.tier-cache{background:rgba(96,165,250,0.15);color:var(--blue)}
+.tier-local{background:rgba(45,212,191,0.15);color:var(--teal)}
+.tier-cheap{background:rgba(245,158,11,0.15);color:var(--amber)}
+.tier-cloud{background:rgba(239,68,68,0.15);color:var(--red)}
+/* ── Thread dump ── */
+.thread-block{
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  margin-bottom:8px;
+  overflow:hidden;
+}
+.thread-hd{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  background:var(--bg3);
+  cursor:pointer;
+  user-select:none;
+}
+.thread-hd:hover{background:var(--bg4)}
+.thread-name{
+  font-family:var(--mono);
+  font-size:0.8rem;
+  color:var(--gold);
+  font-weight:600;
+}
+.thread-hd .chevron{
+  margin-left:auto;
+  color:var(--text3);
+  transition:transform 0.2s;
+  font-size:0.7rem;
+}
+.thread-block.open .chevron{transform:rotate(180deg)}
+.thread-frames{
+  display:none;
+  padding:10px 12px;
+  background:var(--bg2);
+  font-family:var(--mono);
+  font-size:0.76rem;
+  line-height:1.7;
+}
+.thread-block.open .thread-frames{display:block}
+.frame-file{color:var(--teal)}
+.frame-lineno{color:var(--purple)}
+.frame-func{color:var(--text)}
+/* ── Diff sections ── */
+.diff-section{
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  margin-bottom:12px;
+  overflow:hidden;
+}
+.diff-section-hd{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 14px;
+  background:var(--bg3);
+  font-size:0.8rem;
+  font-weight:600;
+}
+.diff-section-body{padding:10px 14px;font-family:var(--mono);font-size:0.78rem;line-height:1.8}
+.stuck-thread{color:var(--red)}
+.prog-thread{color:var(--amber)}
+.new-thread{color:var(--green)}
+/* ── Flame graph ── */
+#fg-container{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  overflow:auto;
+  max-height:60vh;
+  min-height:200px;
+  margin-top:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+#fg-container svg{display:block;width:100%}
+/* ── Thread dump pre ── */
+#tdump-pre{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px;
+  font-family:var(--mono);
+  font-size:0.76rem;
+  line-height:1.7;
+  overflow:auto;
+  max-height:40vh;
+  white-space:pre;
+  margin-top:12px;
+}
+/* ── Memory bars ── */
+.mem-bar-wrap{background:var(--bg4);border-radius:2px;height:8px;overflow:hidden}
+.mem-bar-fill{height:100%;border-radius:2px;background:var(--purple);transition:width 0.4s}
+/* ── Query expand row ── */
+.q-detail-row{display:none;background:var(--bg3)}
+.q-detail-row.open{display:table-row}
+.q-detail-cell{padding:10px 14px;font-family:var(--mono);font-size:0.76rem;color:var(--text2)}
+/* ── Filter bar ── */
+.filter-bar{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.filter-bar input,.filter-bar select{
+  background:var(--bg2);
+  border:1px solid var(--border2);
+  border-radius:var(--radius-sm);
+  color:var(--text);
+  padding:6px 10px;
+  font-size:0.8rem;
+  font-family:var(--mono);
+  min-height:34px;
+  outline:none;
+}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--gold)}
+/* ── Summary stats bar ── */
+.stats-bar{
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:10px 16px;
+  margin-bottom:12px;
+  font-size:0.8rem;
+}
+.stats-bar .sv{font-family:var(--mono);color:var(--gold);font-weight:700;margin-left:4px}
+/* ── Admin section ── */
+.admin-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:16px;
+  margin-bottom:16px;
+}
+.admin-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:16px;
+}
+.admin-card h3{
+  font-size:0.82rem;
+  color:var(--text2);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  margin-bottom:12px;
+}
+.provider-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:5px 0;
+  border-bottom:1px solid var(--border);
+  font-size:0.82rem;
+  font-family:var(--mono);
+}
+.provider-row:last-child{border-bottom:none}
+.prov-ok{color:var(--green)}
+.prov-no{color:var(--red)}
+.cfg-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:5px 0;
+  font-size:0.8rem;
+}
+.cfg-key{color:var(--text2);font-family:var(--mono)}
+.cfg-val{color:var(--teal);font-family:var(--mono);font-weight:600}
+/* ── Shutdown ── */
+#shutdown-card{
+  background:rgba(239,68,68,0.06);
+  border:1px solid rgba(239,68,68,0.25);
+  border-radius:var(--radius);
+  padding:20px;
+  margin-top:16px;
+}
+#shutdown-card h3{color:var(--red);font-size:0.9rem;margin-bottom:10px}
+#shutdown-input{
+  background:var(--bg3);
+  border:1px solid rgba(239,68,68,0.3);
+  border-radius:var(--radius-sm);
+  color:var(--text);
+  padding:7px 12px;
+  font-size:0.82rem;
+  font-family:var(--mono);
+  width:100%;
+  max-width:320px;
+  margin-bottom:10px;
+  outline:none;
+}
+#shutdown-input:focus{border-color:var(--red)}
+#shutdown-countdown{
+  display:none;
+  font-size:2rem;
+  font-family:var(--mono);
+  color:var(--red);
+  font-weight:700;
+  margin-top:8px;
+}
+#server-dark{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:#000;
+  z-index:9999;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:12px;
+  color:var(--red);
+  font-family:var(--mono);
+  font-size:1.1rem;
+}
+#server-dark.show{display:flex}
+/* ── Snapshot panels ── */
+.snap-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:600px){.snap-cols{grid-template-columns:1fr}}
+.snap-panel{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px;
+}
+.snap-panel h3{font-size:0.82rem;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em}
+.snap-meta{font-size:0.78rem;color:var(--text2);font-family:var(--mono);margin-bottom:8px;line-height:1.8}
+/* ── GPU card ── */
+.gpu-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px 16px;
+  margin-bottom:12px;
+}
+.gpu-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.gpu-name{font-family:var(--mono);font-size:0.85rem;color:var(--gold);font-weight:600}
+.gpu-metrics{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:10px;
+}
+.gpu-metric-label{font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px}
+.gpu-metric-val{font-family:var(--mono);font-size:1rem;font-weight:600;color:var(--text)}
+/* ── Net card ── */
+.net-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:12px 16px;
+  display:flex;
+  gap:24px;
+  flex-wrap:wrap;
+}
+.net-stat{display:flex;flex-direction:column;gap:2px}
+.net-label{font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em}
+.net-val{font-family:var(--mono);font-size:0.9rem;font-weight:600;color:var(--teal)}
+/* ── Auto-refresh indicator ── */
+#refresh-tick{
+  width:8px;height:8px;
+  border-radius:50%;
+  background:var(--teal);
+  opacity:0;
+  transition:opacity 0.1s;
+  flex-shrink:0;
+}
+#refresh-tick.blink{opacity:1}
+/* ── Utility ── */
+.flex{display:flex;align-items:center;gap:8px}
+.mt8{margin-top:8px}
+.mt12{margin-top:12px}
+.mt16{margin-top:16px}
+.mb12{margin-bottom:12px}
+.text2{color:var(--text2)}
+.text3{color:var(--text3)}
+.mono{font-family:var(--mono)}
+.hidden{display:none!important}
+/* ── Scrollbars ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border2)}
+/* ── Focus visible global ── */
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* ── Self-test panel ── */
+#self-test-list{list-style:none;padding:0;margin:0}
+#self-test-list li{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;
+  border-radius:var(--radius-sm);
+  background:var(--bg2);
+  border:1px solid var(--border);
+  margin-bottom:6px;
+  font-size:0.85rem;
+  transition:border-color 0.2s;
+}
+#self-test-list li.pass{border-color:rgba(34,197,94,0.4)}
+#self-test-list li.fail{border-color:rgba(239,68,68,0.4)}
+#self-test-list li.warn{border-color:rgba(245,158,11,0.3)}
+.test-icon{font-size:1.1rem;flex-shrink:0;width:22px;text-align:center}
+.test-name{flex:1;font-weight:500}
+.test-detail{font-size:0.75rem;color:var(--text2);font-family:var(--mono);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.test-ms{font-size:0.72rem;color:var(--text3);font-family:var(--mono);flex-shrink:0}
+#self-summary{
+  padding:14px 18px;
+  border-radius:var(--radius);
+  font-weight:600;
+  font-size:1rem;
+  margin-bottom:16px;
+  display:none;
+}
+#self-summary.healthy{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:var(--green)}
+#self-summary.degraded{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--gold)}
+#self-summary.unhealthy{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red)}
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header id="hdr" role="banner">
+  <div id="hdr-title">
+    <h1>&#x1F527; muLLM Debug Console</h1>
+    <span class="subtitle">for Guilfoyle types</span>
+  </div>
+  <nav id="hdr-nav" aria-label="Site navigation">
+    <a href="/dashboard.html" title="Back to Dashboard">Dashboard</a>
+    <a href="/chat.html" title="Back to Chat">Chat</a>
+  </nav>
+  <div id="conn-badge" role="status" aria-live="polite" aria-label="Server connection status">
+    <div id="conn-dot"></div>
+    <span id="conn-label">Connecting...</span>
+    <div id="refresh-tick" aria-hidden="true"></div>
+  </div>
+</header>
+
+<!-- ── Self-debug banner ── -->
+<div id="self-banner" role="alert">
+  &#x26A0; Self-debug mode: profiling the live server. Flamegraph will include this page's own request.
+</div>
+
+<!-- ── Tab bar ── -->
+<div id="tabs" role="tablist" aria-label="Debug console sections">
+  <button class="tab-btn" role="tab" id="tab-system"  aria-selected="true"  aria-controls="panel-system"  data-tab="system">
+    &#x1F4BB; System
+  </button>
+  <button class="tab-btn" role="tab" id="tab-threads" aria-selected="false" aria-controls="panel-threads" data-tab="threads">
+    &#x1F9F5; Threads
+  </button>
+  <button class="tab-btn" role="tab" id="tab-flame"   aria-selected="false" aria-controls="panel-flame"   data-tab="flame">
+    &#x1F525; Flame Graph
+  </button>
+  <button class="tab-btn" role="tab" id="tab-memory"  aria-selected="false" aria-controls="panel-memory"  data-tab="memory">
+    &#x1F4CA; Memory
+  </button>
+  <button class="tab-btn" role="tab" id="tab-queries" aria-selected="false" aria-controls="panel-queries" data-tab="queries">
+    &#x1F4DD; Query Trace
+  </button>
+  <button class="tab-btn" role="tab" id="tab-admin"   aria-selected="false" aria-controls="panel-admin"   data-tab="admin">
+    &#x2699; Admin
+  </button>
+  <button class="tab-btn" role="tab" id="tab-selftest" aria-selected="false" aria-controls="panel-selftest" data-tab="selftest">
+    &#x1FA7A; Self-Test
+  </button>
+</div>
+
+<!-- ── Tab panels ── -->
+<main id="panels" aria-label="Debug content">
+
+<!-- ════════════ TAB 1: SYSTEM ════════════ -->
+<section class="panel active" id="panel-system" role="tabpanel" aria-labelledby="tab-system">
+  <div id="sys-err" class="err-banner" role="alert"></div>
+  <div class="cards-grid" id="sys-row1">
+    <div class="card">
+      <div class="card-label">CPU Usage</div>
+      <div class="card-value mono" id="s-cpu">—</div>
+      <div class="card-sub" id="s-cpu-cores">— cores</div>
+      <div class="bar-wrap"><div class="bar-fill bar-cpu" id="s-cpu-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">RAM</div>
+      <div class="card-value mono" id="s-ram">—</div>
+      <div class="card-sub" id="s-ram-sub">— used of —</div>
+      <div class="bar-wrap"><div class="bar-fill bar-ram" id="s-ram-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Swap</div>
+      <div class="card-value mono" id="s-swap">—</div>
+      <div class="card-sub" id="s-swap-sub">— used of —</div>
+      <div class="bar-wrap"><div class="bar-fill bar-mem" id="s-swap-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Process PID</div>
+      <div class="card-value mono" id="s-pid">—</div>
+      <div class="card-sub" id="s-uptime">up —</div>
+    </div>
+  </div>
+  <div class="cards-grid" id="sys-row2">
+    <div class="card">
+      <div class="card-label">Threads</div>
+      <div class="card-value mono" id="s-threads">—</div>
+      <div class="card-sub">thread count</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Open FDs</div>
+      <div class="card-value mono" id="s-fds">—</div>
+      <div class="card-sub">file descriptors</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Disk Read</div>
+      <div class="card-value mono" id="s-disk-r">—</div>
+      <div class="card-sub">since boot</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Disk Write</div>
+      <div class="card-value mono" id="s-disk-w">—</div>
+      <div class="card-sub">since boot</div>
+    </div>
+  </div>
+
+  <div class="gpu-card" id="gpu-card">
+    <div class="gpu-header">
+      <span class="gpu-name" id="gpu-name">GPU — loading...</span>
+      <span class="text2 mono" id="gpu-temp">—°C</span>
+    </div>
+    <div class="gpu-metrics">
+      <div>
+        <div class="gpu-metric-label">VRAM Used</div>
+        <div class="gpu-metric-val" id="gpu-vram-used">—</div>
+        <div class="bar-wrap mt8"><div class="bar-fill bar-gpu" id="gpu-vram-bar" style="width:0%"></div></div>
+        <div class="card-sub" id="gpu-vram-sub">— / —</div>
+      </div>
+      <div>
+        <div class="gpu-metric-label">Utilization</div>
+        <div class="gpu-metric-val" id="gpu-util">—</div>
+        <div class="bar-wrap mt8"><div class="bar-fill bar-cpu" id="gpu-util-bar" style="width:0%"></div></div>
+      </div>
+      <div>
+        <div class="gpu-metric-label">Power</div>
+        <div class="gpu-metric-val" id="gpu-power">—</div>
+      </div>
+      <div>
+        <div class="gpu-metric-label">Memory Clock</div>
+        <div class="gpu-metric-val" id="gpu-clock">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="net-card" id="net-card">
+    <div class="net-stat">
+      <div class="net-label">Net Sent</div>
+      <div class="net-val" id="s-net-sent">—</div>
+    </div>
+    <div class="net-stat">
+      <div class="net-label">Net Recv</div>
+      <div class="net-val" id="s-net-recv">—</div>
+    </div>
+    <div class="net-stat">
+      <div class="net-label">Connections</div>
+      <div class="net-val" id="s-conns">—</div>
+    </div>
+    <div class="net-stat" style="margin-left:auto;align-items:flex-end">
+      <div class="net-label">Last updated</div>
+      <div class="net-val" id="s-updated" style="color:var(--text2);font-size:0.75rem">—</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ TAB 2: THREADS ════════════ -->
+<section class="panel" id="panel-threads" role="tabpanel" aria-labelledby="tab-threads">
+  <div id="thr-err" class="err-banner" role="alert"></div>
+  <div class="snap-cols">
+    <div class="snap-panel">
+      <h3>Snapshot A</h3>
+      <div class="snap-meta" id="snap-a-meta">Not captured yet.</div>
+      <button class="btn btn-gold" id="btn-snap-a" onclick="captureSnap('a')" title="Capture thread snapshot A">&#x1F4F8; Capture</button>
+      <div id="snap-a-threads" class="mt12"></div>
+    </div>
+    <div class="snap-panel">
+      <h3>Snapshot B</h3>
+      <div class="snap-meta" id="snap-b-meta">Not captured yet.</div>
+      <button class="btn btn-gold" id="btn-snap-b" onclick="captureSnap('b')" title="Capture thread snapshot B">&#x1F4F8; Capture</button>
+      <div id="snap-b-threads" class="mt12"></div>
+    </div>
+  </div>
+  <div class="section-hd">
+    <h2>Diff Analysis</h2>
+    <div class="actions">
+      <button class="btn" id="btn-compare" onclick="runDiff()" disabled title="Compare snapshots A and B to find stuck threads">&#x1F50D; Compare</button>
+    </div>
+  </div>
+  <div id="diff-result"></div>
+</section>
+
+<!-- ════════════ TAB 3: FLAME GRAPH ════════════ -->
+<section class="panel" id="panel-flame" role="tabpanel" aria-labelledby="tab-flame">
+  <div id="fg-err" class="err-banner" role="alert"></div>
+  <div class="flex mb12">
+    <button class="btn btn-gold" id="btn-fg10" onclick="profileFull()" title="Run py-spy profiling for 10 seconds then display flamegraph">
+      &#x1F525; Profile 10s
+    </button>
+    <button class="btn" id="btn-fg5" onclick="flamegraphQuick()" title="Fetch quick 5-second flamegraph SVG sample">
+      &#x26A1; Quick 5s
+    </button>
+    <button class="btn" id="btn-tdump" onclick="fetchThreadDump()" title="Fetch live py-spy thread text dump">
+      &#x1F9F5; Thread Dump
+    </button>
+    <a class="btn hidden" id="btn-dl-svg" download="flamegraph.svg" title="Download flame graph as SVG file">&#x1F4E5; Download SVG</a>
+    <div id="fg-status" class="flex text2" style="font-size:0.8rem"></div>
+  </div>
+  <div id="fg-container" aria-label="Flame graph visualization">
+    <span class="text3" style="font-size:0.82rem">No flame graph captured yet. Click Profile 10s or Quick 5s.</span>
+  </div>
+  <div class="section-hd mt16">
+    <h2>Thread Dump</h2>
+  </div>
+  <pre id="tdump-pre" aria-label="py-spy thread dump output">No thread dump yet. Click Thread Dump.</pre>
+</section>
+
+<!-- ════════════ TAB 4: MEMORY ════════════ -->
+<section class="panel" id="panel-memory" role="tabpanel" aria-labelledby="tab-memory">
+  <div id="mem-err" class="err-banner" role="alert"></div>
+  <div class="flex mb12">
+    <button class="btn btn-gold" id="btn-mem" onclick="fetchMemory()" title="Sample tracemalloc top allocations (first call starts tracing, second shows data)">
+      &#x1F4CA; Sample Memory
+    </button>
+    <span class="text3" style="font-size:0.75rem;margin-left:4px">(first call starts tracemalloc, second shows data)</span>
+  </div>
+  <div id="mem-total" class="stats-bar hidden">
+    <span>Total traced:<span class="sv" id="mem-total-val">—</span></span>
+    <span>Allocations:<span class="sv" id="mem-alloc-count">—</span></span>
+    <span>Sample time:<span class="sv" id="mem-sample-time">—</span></span>
+  </div>
+  <div class="tbl-wrap">
+    <table id="mem-table" aria-label="Memory allocations">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>File</th>
+          <th>Line</th>
+          <th>Size (KB)</th>
+          <th>Count</th>
+          <th style="min-width:100px">Share</th>
+        </tr>
+      </thead>
+      <tbody id="mem-tbody">
+        <tr><td colspan="6" style="color:var(--text3);text-align:center;padding:24px">No data. Click Sample Memory.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════ TAB 5: QUERY TRACE ════════════ -->
+<section class="panel" id="panel-queries" role="tabpanel" aria-labelledby="tab-queries">
+  <div id="q-err" class="err-banner" role="alert"></div>
+  <div class="stats-bar" id="q-stats-bar" aria-label="Query statistics summary">
+    <span>Avg latency:<span class="sv" id="q-avg-lat">—</span></span>
+    <span>Total cost:<span class="sv" id="q-total-cost">—</span></span>
+    <span>Cache hit:<span class="sv" id="q-cache-pct">—</span></span>
+    <span>Local:<span class="sv" id="q-local-pct">—</span></span>
+    <span>Queries:<span class="sv" id="q-count">—</span></span>
+  </div>
+  <div class="filter-bar">
+    <input type="search" id="q-search" placeholder="Search intent_id..." aria-label="Filter queries by intent ID" oninput="filterQueries()"/>
+    <select id="q-tier-filter" aria-label="Filter by tier" onchange="filterQueries()">
+      <option value="">All tiers</option>
+      <option value="cache">cache</option>
+      <option value="local">local</option>
+      <option value="cloud_cheap">cloud_cheap</option>
+      <option value="cloud_full">cloud_full</option>
+    </select>
+    <select id="q-model-filter" aria-label="Filter by model" onchange="filterQueries()">
+      <option value="">All models</option>
+    </select>
+    <button class="btn" onclick="loadQueries()" title="Refresh query trace data">&#x21BA; Refresh</button>
+  </div>
+  <div class="tbl-wrap">
+    <table id="q-table" aria-label="Query trace log">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Intent ID</th>
+          <th>Tier</th>
+          <th>Model</th>
+          <th>Latency</th>
+          <th>Cost</th>
+          <th>Cache</th>
+        </tr>
+      </thead>
+      <tbody id="q-tbody">
+        <tr><td colspan="7" style="color:var(--text3);text-align:center;padding:24px">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════ TAB 6: ADMIN ════════════ -->
+<section class="panel" id="panel-admin" role="tabpanel" aria-labelledby="tab-admin">
+  <div id="admin-err" class="err-banner" role="alert"></div>
+  <div class="admin-grid">
+    <!-- API Keys -->
+    <div class="admin-card">
+      <h3>API Key Status</h3>
+      <div id="admin-keys">
+        <div class="provider-row"><span>Anthropic</span><span id="key-anthropic" class="prov-no">&#x274C; Not set</span></div>
+        <div class="provider-row"><span>OpenAI</span><span id="key-openai" class="prov-no">&#x274C; Not set</span></div>
+        <div class="provider-row"><span>Google</span><span id="key-google" class="prov-no">&#x274C; Not set</span></div>
+        <div class="provider-row"><span>Together</span><span id="key-together" class="prov-no">&#x274C; Not set</span></div>
+      </div>
+    </div>
+    <!-- Spend today -->
+    <div class="admin-card">
+      <h3>Spend Today</h3>
+      <div class="card-value mono" id="admin-spend">$—</div>
+      <div class="card-sub mt8" id="admin-spend-sub">Last 24 hours</div>
+      <div class="mt12" id="admin-spend-breakdown" style="font-size:0.76rem;color:var(--text2);font-family:var(--mono);line-height:2"></div>
+    </div>
+    <!-- Server info -->
+    <div class="admin-card">
+      <h3>Server Info</h3>
+      <div class="cfg-row"><span class="cfg-key">Python</span><span class="cfg-val" id="info-python">—</span></div>
+      <div class="cfg-row"><span class="cfg-key">FastAPI</span><span class="cfg-val" id="info-fastapi">—</span></div>
+      <div class="cfg-row"><span class="cfg-key">Platform</span><span class="cfg-val" id="info-platform">—</span></div>
+      <div class="cfg-row"><span class="cfg-key">Started</span><span class="cfg-val" id="info-started">—</span></div>
+      <div class="cfg-row"><span class="cfg-key">Uptime</span><span class="cfg-val" id="info-uptime">—</span></div>
+    </div>
+    <!-- Config -->
+    <div class="admin-card">
+      <h3>Config (read-only)</h3>
+      <div class="cfg-row"><span class="cfg-key">CONCURRENCY</span><span class="cfg-val" id="cfg-concurrency">—</span></div>
+      <div class="cfg-row"><span class="cfg-key">ESCALATION_KEEP_ALIVE</span><span class="cfg-val" id="cfg-eka">—</span></div>
+      <div class="cfg-row"><span class="cfg-key">CACHE_THRESHOLD</span><span class="cfg-val" id="cfg-cache">—</span></div>
+      <div class="cfg-row"><span class="cfg-key">LOCAL_MODEL</span><span class="cfg-val" id="cfg-local-model">—</span></div>
+      <div class="cfg-row"><span class="cfg-key">PORT</span><span class="cfg-val" id="cfg-port">8100</span></div>
+    </div>
+  </div>
+
+  <!-- Shutdown -->
+  <div id="shutdown-card">
+    <h3>&#x1F534; Emergency Shutdown</h3>
+    <p style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">
+      Type <code>SHUTDOWN_MULLM</code> below to unlock the button, then click to shut down the server process.
+    </p>
+    <input
+      type="text"
+      id="shutdown-input"
+      placeholder="Type SHUTDOWN_MULLM to confirm"
+      autocomplete="off"
+      spellcheck="false"
+      aria-label="Shutdown confirmation phrase"
+      oninput="checkShutdownInput()"
+    />
+    <div class="flex mt8">
+      <button class="btn btn-red" id="btn-shutdown" disabled onclick="initiateShutdown()" title="Permanently shut down muLLM server process">
+        &#x1F534; EMERGENCY SHUTDOWN
+      </button>
+    </div>
+    <div id="shutdown-countdown" aria-live="assertive"></div>
+  </div>
+</section>
+
+<!-- ════════════ TAB 7: SELF-TEST ════════════ -->
+<section class="panel" id="panel-selftest" role="tabpanel" aria-labelledby="tab-selftest">
+  <div class="section-hd">
+    <h2>&#x1FA7A; muLLM Self-Diagnostics</h2>
+    <div class="actions">
+      <button class="btn btn-gold" id="btn-selftest-run" onclick="runSelfTest()" title="Run all self-tests against the live server">
+        &#x25B6; Run Tests
+      </button>
+    </div>
+  </div>
+  <div id="self-summary" role="status" aria-live="polite"></div>
+  <ul id="self-test-list" aria-label="Self-test results">
+    <li style="color:var(--text3);font-size:0.82rem;border:none;background:none">
+      Click <strong>Run Tests</strong> or visit <code>?self=true</code> to run diagnostics.
+    </li>
+  </ul>
+</section>
+
+</main>
+
+<!-- ── Server dark overlay ── -->
+<div id="server-dark" role="alert" aria-live="assertive">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+  </svg>
+  <div id="dark-msg" style="font-size:1.4rem;font-weight:700">Server stopped.</div>
+  <div style="font-size:0.85rem;color:#666;margin-top:4px">The muLLM process has been shut down.</div>
+</div>
+
+<script>
+'use strict';
+/* ══════════════════════════════════════════════════════════════
+   muLLM Debug Console — vanilla JS, no external deps
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Helpers ── */
+const $ = id => document.getElementById(id);
+const fmt = {
+  bytes(b) {
+    if (b == null) return '—';
+    const u = ['B','KB','MB','GB','TB'];
+    let i = 0; while (b >= 1024 && i < u.length-1) { b /= 1024; i++; }
+    return b.toFixed(i ? 1 : 0) + ' ' + u[i];
+  },
+  pct(v) { return v == null ? '—' : v.toFixed(1) + '%'; },
+  ms(v)  { return v == null ? '—' : (v < 1000 ? Math.round(v) + 'ms' : (v/1000).toFixed(2) + 's'); },
+  usd(v) { return v == null ? '$—' : '$' + (v < 0.01 ? v.toFixed(6) : v.toFixed(4)); },
+  time(ts) {
+    if (!ts) return '—';
+    const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+    return d.toLocaleTimeString();
+  },
+  dur(sec) {
+    if (sec == null) return '—';
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60);
+    return h ? `${h}h ${m}m` : m ? `${m}m ${s}s` : `${s}s`;
+  },
+};
+
+/* ── Connection health ── */
+let connOk = false;
+function setConn(ok, label) {
+  connOk = ok;
+  const dot = $('conn-dot'), lbl = $('conn-label');
+  dot.className = ok ? 'online' : 'offline';
+  lbl.textContent = ok ? 'Connected' : (label || 'Offline');
+}
+async function pingServer() {
+  try {
+    const r = await fetch('/api/debug/system', {credentials:'same-origin', signal:AbortSignal.timeout(3000)});
+    setConn(r.ok);
+    return r.ok;
+  } catch { setConn(false); return false; }
+}
+
+/* ── Self-debug banner ── */
+if (new URLSearchParams(location.search).get('self') === 'true') {
+  $('self-banner').classList.add('show');
+  // Auto-navigate to self-test tab and run
+  setTimeout(() => { activateTab('selftest', false); runSelfTest(); }, 100);
+}
+
+/* ── Tab routing ── */
+let activeTab = null;
+let sysInterval = null;
+
+function activateTab(name, push = true) {
+  const prevTab = activeTab;
+  activeTab = name;
+
+  // Clear intervals from previous tab
+  if (prevTab === 'system') {
+    clearInterval(sysInterval);
+    sysInterval = null;
+  }
+
+  // Update tab buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const sel = btn.dataset.tab === name;
+    btn.setAttribute('aria-selected', sel ? 'true' : 'false');
+  });
+
+  // Update panels
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'panel-' + name);
+  });
+
+  // Tab activation logic
+  if (name === 'system') {
+    fetchSystem();
+    sysInterval = setInterval(() => { if (activeTab === 'system') fetchSystem(); }, 3000);
+  } else if (name === 'queries') {
+    loadQueries();
+  } else if (name === 'admin') {
+    loadAdmin();
+  } else if (name === 'selftest') {
+    // panel loaded on demand — runSelfTest called explicitly or via ?self=true
+  }
+
+  if (push) history.pushState({tab: name}, '', '#' + name);
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+  btn.addEventListener('keydown', e => {
+    const tabs = [...document.querySelectorAll('.tab-btn')];
+    const idx = tabs.indexOf(btn);
+    if (e.key === 'ArrowRight') { e.preventDefault(); tabs[(idx+1)%tabs.length].focus(); }
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); tabs[(idx-1+tabs.length)%tabs.length].focus(); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
+  });
+});
+
+window.addEventListener('popstate', e => {
+  const tab = (e.state && e.state.tab) || location.hash.slice(1) || 'system';
+  activateTab(tab, false);
+});
+
+/* ── Init ── */
+const initTab = location.hash.slice(1) || 'system';
+activateTab(initTab, false);
+
+/* ── Blink refresh tick ── */
+function blink() {
+  const t = $('refresh-tick');
+  t.classList.add('blink');
+  setTimeout(() => t.classList.remove('blink'), 300);
+}
+
+/* ── Error display ── */
+function showErr(id, msg) {
+  const el = $(id);
+  el.textContent = 'Error: ' + msg;
+  el.classList.add('show');
+}
+function clearErr(id) {
+  const el = $(id);
+  el.textContent = '';
+  el.classList.remove('show');
+}
+
+/* ── Pulse on value change ── */
+const _prevVals = {};
+function setVal(id, val) {
+  const el = $(id);
+  if (!el) return;
+  if (_prevVals[id] !== undefined && _prevVals[id] !== val) {
+    el.classList.remove('pulse');
+    void el.offsetWidth; // reflow
+    el.classList.add('pulse');
+    setTimeout(() => el.classList.remove('pulse'), 400);
+  }
+  _prevVals[id] = val;
+  el.textContent = val;
+}
+
+/* ══════════════════════════════════
+   TAB 1: SYSTEM
+   ══════════════════════════════════ */
+async function fetchSystem() {
+  try {
+    const r = await fetch('/api/debug/system', {credentials:'same-origin', signal:AbortSignal.timeout(5000)});
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    const d = await r.json();
+    clearErr('sys-err');
+    setConn(true);
+    blink();
+
+    // CPU
+    const cpu = d.cpu_percent ?? d.cpu ?? null;
+    setVal('s-cpu', fmt.pct(cpu));
+    $('s-cpu-cores').textContent = (d.cpu_count ?? d.cores ?? '?') + ' cores';
+    if (cpu != null) $('s-cpu-bar').style.width = Math.min(cpu,100) + '%';
+
+    // RAM
+    const ramUsed = d.memory?.used ?? d.ram_used ?? null;
+    const ramTotal = d.memory?.total ?? d.ram_total ?? null;
+    const ramPct = (ramUsed && ramTotal) ? (ramUsed/ramTotal*100) : (d.memory?.percent ?? null);
+    setVal('s-ram', fmt.pct(ramPct));
+    $('s-ram-sub').textContent = fmt.bytes(ramUsed) + ' used of ' + fmt.bytes(ramTotal);
+    if (ramPct != null) $('s-ram-bar').style.width = Math.min(ramPct,100) + '%';
+
+    // Swap
+    const swapUsed = d.swap?.used ?? d.swap_used ?? null;
+    const swapTotal = d.swap?.total ?? d.swap_total ?? null;
+    const swapPct = (swapUsed && swapTotal) ? (swapUsed/swapTotal*100) : (d.swap?.percent ?? 0);
+    setVal('s-swap', fmt.pct(swapPct));
+    $('s-swap-sub').textContent = fmt.bytes(swapUsed) + ' used of ' + fmt.bytes(swapTotal);
+    $('s-swap-bar').style.width = Math.min(swapPct||0,100) + '%';
+
+    // Process
+    const pid = d.process?.pid ?? d.pid ?? null;
+    setVal('s-pid', pid ?? '—');
+    $('s-uptime').textContent = 'up ' + fmt.dur(d.process?.uptime ?? d.uptime ?? null);
+
+    // Threads / FDs
+    setVal('s-threads', d.process?.threads ?? d.threads ?? '—');
+    setVal('s-fds', d.process?.open_fds ?? d.open_fds ?? '—');
+
+    // Disk
+    const dr = d.disk_io?.read_bytes ?? d.disk_read ?? null;
+    const dw = d.disk_io?.write_bytes ?? d.disk_write ?? null;
+    setVal('s-disk-r', fmt.bytes(dr));
+    setVal('s-disk-w', fmt.bytes(dw));
+
+    // GPU
+    const gpus = d.gpus ?? (d.gpu ? [d.gpu] : []);
+    if (gpus.length > 0) {
+      const g = gpus[0];
+      $('gpu-name').textContent = g.name ?? 'Unknown GPU';
+      $('gpu-temp').textContent = (g.temperature ?? g.temp ?? '?') + '°C';
+      const vram_used = g.memory_used ?? g.vram_used ?? null;
+      const vram_total = g.memory_total ?? g.vram_total ?? null;
+      const vram_pct = (vram_used && vram_total) ? vram_used/vram_total*100 : (g.memory_percent ?? 0);
+      setVal('gpu-vram-used', fmt.bytes(vram_used ? vram_used * 1024 * 1024 : null));
+      $('gpu-vram-sub').textContent = fmt.bytes(vram_used ? vram_used*1024*1024 : null) + ' / ' + fmt.bytes(vram_total ? vram_total*1024*1024 : null);
+      $('gpu-vram-bar').style.width = Math.min(vram_pct,100) + '%';
+      const util = g.utilization ?? g.gpu_util ?? g.utilization_gpu ?? null;
+      setVal('gpu-util', fmt.pct(util));
+      $('gpu-util-bar').style.width = Math.min(util??0,100) + '%';
+      const pwr = g.power_draw ?? g.power ?? null;
+      $('gpu-power').textContent = pwr != null ? pwr.toFixed(1) + 'W' : '—';
+      const clk = g.memory_clock ?? g.clocks_mem ?? null;
+      $('gpu-clock').textContent = clk != null ? clk + ' MHz' : '—';
+      $('gpu-card').classList.remove('hidden');
+    } else {
+      $('gpu-name').textContent = 'No GPU detected';
+    }
+
+    // Net
+    const ns = d.net_io ?? d.net ?? {};
+    setVal('s-net-sent', fmt.bytes(ns.bytes_sent ?? null));
+    setVal('s-net-recv', fmt.bytes(ns.bytes_recv ?? null));
+    setVal('s-conns', d.connections ?? ns.connections ?? '—');
+    $('s-updated').textContent = new Date().toLocaleTimeString();
+
+  } catch(e) {
+    setConn(false);
+    showErr('sys-err', e.message);
+  }
+}
+
+/* ══════════════════════════════════
+   TAB 2: THREADS
+   ══════════════════════════════════ */
+const snaps = {a: null, b: null};
+
+function renderThreadList(data, containerId) {
+  const c = $(containerId);
+  if (!data || !data.threads || data.threads.length === 0) {
+    c.innerHTML = '<span style="color:var(--text3);font-size:0.78rem">No threads in snapshot.</span>';
+    return;
+  }
+  c.innerHTML = data.threads.slice(0,20).map(t => `
+    <div class="thread-block" data-tid="${t.id ?? ''}">
+      <div class="thread-hd" onclick="this.parentElement.classList.toggle('open')" role="button" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' ')this.click()"
+           aria-expanded="false" title="Expand thread stack frames">
+        <span class="thread-name">${esc(t.name ?? 'Thread-'+t.id)}</span>
+        <span style="color:var(--text3);font-size:0.72rem;font-family:var(--mono)">#${t.id ?? '?'}</span>
+        <span style="color:var(--text2);font-size:0.72rem;margin-left:4px">${t.status ?? ''}</span>
+        <span class="chevron">&#x25BC;</span>
+      </div>
+      <div class="thread-frames">
+        ${renderFrames(t.frames ?? t.stack ?? [])}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderFrames(frames) {
+  if (!frames.length) return '<span style="color:var(--text3)">No frames.</span>';
+  return frames.map(f => {
+    const file = esc(f.file ?? f.filename ?? '');
+    const line = esc(String(f.line ?? f.lineno ?? '?'));
+    const func = esc(f.name ?? f.function ?? '?');
+    return `<div><span class="frame-file">${file}</span>:<span class="frame-lineno">${line}</span> in <span class="frame-func">${func}</span></div>`;
+  }).join('');
+}
+
+async function captureSnap(which) {
+  const btn = $('btn-snap-' + which);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Capturing...';
+  clearErr('thr-err');
+  try {
+    const r = await fetch('/api/debug/snapshot', {credentials:'same-origin', signal:AbortSignal.timeout(15000)});
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    const d = await r.json();
+    snaps[which] = d;
+    const ts = new Date().toLocaleTimeString();
+    $('snap-'+which+'-meta').innerHTML =
+      `Captured at <strong>${ts}</strong><br>${(d.threads??[]).length} threads, ${(d.tasks??[]).length} asyncio tasks`;
+    renderThreadList(d, 'snap-'+which+'-threads');
+    // Enable compare if both captured
+    if (snaps.a && snaps.b) $('btn-compare').disabled = false;
+  } catch(e) {
+    showErr('thr-err', e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '&#x1F4F8; Capture';
+  }
+}
+
+async function runDiff() {
+  const btn = $('btn-compare');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Comparing...';
+  clearErr('thr-err');
+  try {
+    const r = await fetch('/api/debug/snapshot/diff', {credentials:'same-origin', signal:AbortSignal.timeout(15000)});
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    const d = await r.json();
+    renderDiff(d);
+  } catch(e) {
+    // Fall back to client-side diff if endpoint not available
+    try {
+      clientDiff();
+    } catch(e2) {
+      showErr('thr-err', e.message);
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '&#x1F50D; Compare';
+    if (snaps.a && snaps.b) btn.disabled = false;
+  }
+}
+
+function clientDiff() {
+  if (!snaps.a || !snaps.b) return;
+  const a_map = {};
+  (snaps.a.threads ?? []).forEach(t => { a_map[t.id ?? t.name] = t; });
+  const b_map = {};
+  (snaps.b.threads ?? []).forEach(t => { b_map[t.id ?? t.name] = t; });
+
+  const stuck = [], progressing = [], newGone = [];
+  for (const [k, bt] of Object.entries(b_map)) {
+    const at = a_map[k];
+    if (!at) { newGone.push({type:'new', thread: bt}); continue; }
+    // Compare top frame
+    const af = (at.frames ?? at.stack ?? [])[0];
+    const bf = (bt.frames ?? bt.stack ?? [])[0];
+    const aKey = af ? (af.file+':'+af.line+':'+af.name) : '';
+    const bKey = bf ? (bf.file+':'+bf.line+':'+bf.name) : '';
+    if (aKey && bKey && aKey === bKey) {
+      stuck.push({a: at, b: bt, frame: bf});
+    } else {
+      progressing.push({a: at, b: bt, before: af, after: bf});
+    }
+  }
+  for (const [k, at] of Object.entries(a_map)) {
+    if (!b_map[k]) newGone.push({type:'gone', thread: at});
+  }
+
+  renderDiff({stuck, progressing, new_gone: newGone});
+}
+
+function renderDiff(d) {
+  const out = [];
+  // STUCK
+  const stuck = d.stuck ?? [];
+  out.push(`
+    <div class="diff-section">
+      <div class="diff-section-hd" style="background:rgba(239,68,68,0.1)">
+        <span style="font-size:1rem">&#x1F534;</span>
+        <span>STUCK (${stuck.length}) — same frame in A and B</span>
+      </div>
+      <div class="diff-section-body">
+        ${stuck.length === 0 ? '<span class="text3">None. Good!</span>' :
+          stuck.map(t => {
+            const f = t.frame ?? {};
+            return `<div class="stuck-thread">&#x26A0; ${esc(t.a?.name ?? t.name ?? '?')} — ${esc(f.file??'')}:${esc(String(f.line??''))} in ${esc(f.name??'')}</div>`;
+          }).join('')}
+      </div>
+    </div>
+  `);
+  // PROGRESSING
+  const prog = d.progressing ?? [];
+  out.push(`
+    <div class="diff-section">
+      <div class="diff-section-hd" style="background:rgba(245,158,11,0.08)">
+        <span style="font-size:1rem">&#x1F7E1;</span>
+        <span>PROGRESSING (${prog.length}) — different frames</span>
+      </div>
+      <div class="diff-section-body">
+        ${prog.length === 0 ? '<span class="text3">None.</span>' :
+          prog.slice(0,10).map(t => {
+            const af = t.before ?? {}, bf = t.after ?? {};
+            return `<div class="prog-thread" title="${esc(t.a?.name??'?')} changed frame">
+              ${esc(t.a?.name??'?')} &rarr; ${esc(bf.name??'?')} (${esc(bf.file??'')})
+            </div>`;
+          }).join('')}
+      </div>
+    </div>
+  `);
+  // NEW/GONE
+  const ng = d.new_gone ?? d.newGone ?? [];
+  out.push(`
+    <div class="diff-section">
+      <div class="diff-section-hd" style="background:rgba(34,197,94,0.08)">
+        <span style="font-size:1rem">&#x1F7E2;</span>
+        <span>NEW / GONE (${ng.length})</span>
+      </div>
+      <div class="diff-section-body">
+        ${ng.length === 0 ? '<span class="text3">No changes.</span>' :
+          ng.map(t => `<div class="new-thread">${t.type === 'new' ? '+ NEW' : '- GONE'}: ${esc(t.thread?.name ?? '?')}</div>`).join('')}
+      </div>
+    </div>
+  `);
+  $('diff-result').innerHTML = out.join('');
+}
+
+/* ══════════════════════════════════
+   TAB 3: FLAME GRAPH
+   ══════════════════════════════════ */
+let currentSvgBlob = null;
+
+async function profileFull() {
+  const btn = $('btn-fg10');
+  btn.disabled = true;
+  $('btn-fg5').disabled = true;
+  clearErr('fg-err');
+  $('fg-status').innerHTML = '<span class="spinner"></span> Profiling 10s...';
+  $('fg-container').innerHTML = '<span class="text3" style="font-size:0.82rem">Profiling in progress... (10 seconds)</span>';
+
+  try {
+    const r = await fetch('/api/debug/profile?duration=10', {
+      method: 'POST',
+      credentials: 'same-origin',
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    const ct = r.headers.get('content-type') ?? '';
+    if (ct.includes('svg') || ct.includes('xml')) {
+      const svg = await r.text();
+      injectSvg(svg);
+    } else {
+      // speedscope JSON — show raw for now
+      const json = await r.json();
+      $('fg-container').innerHTML = `<pre style="padding:12px;font-size:0.72rem;color:var(--text2);white-space:pre-wrap;word-break:break-all">${esc(JSON.stringify(json, null, 2).slice(0,4000))}</pre>`;
+    }
+    $('fg-status').innerHTML = '<span style="color:var(--green)">&#x2714; Done</span>';
+  } catch(e) {
+    showErr('fg-err', e.message);
+    $('fg-container').innerHTML = '<span class="text3">Profile failed. Check server logs.</span>';
+    $('fg-status').innerHTML = '';
+  } finally {
+    btn.disabled = false;
+    $('btn-fg5').disabled = false;
+  }
+}
+
+async function flamegraphQuick() {
+  const btn = $('btn-fg5');
+  btn.disabled = true;
+  clearErr('fg-err');
+  $('fg-status').innerHTML = '<span class="spinner"></span> Sampling 5s...';
+  $('fg-container').innerHTML = '<span class="text3" style="font-size:0.82rem">Sampling... (5 seconds)</span>';
+
+  try {
+    const r = await fetch('/api/debug/flamegraph-svg', {credentials:'same-origin', signal:AbortSignal.timeout(20000)});
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    const svg = await r.text();
+    injectSvg(svg);
+    $('fg-status').innerHTML = '<span style="color:var(--green)">&#x2714; Done</span>';
+  } catch(e) {
+    showErr('fg-err', e.message);
+    $('fg-container').innerHTML = '<span class="text3">Flamegraph fetch failed. Is py-spy installed?</span>';
+    $('fg-status').innerHTML = '';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function injectSvg(svgText) {
+  const container = $('fg-container');
+  container.innerHTML = svgText;
+  // Ensure the SVG fills the container nicely
+  const svgEl = container.querySelector('svg');
+  if (svgEl) {
+    svgEl.style.maxWidth = '100%';
+    svgEl.removeAttribute('width');
+    svgEl.removeAttribute('height');
+  }
+  // Enable download
+  const blob = new Blob([svgText], {type:'image/svg+xml'});
+  if (currentSvgBlob) URL.revokeObjectURL(currentSvgBlob);
+  currentSvgBlob = URL.createObjectURL(blob);
+  const dl = $('btn-dl-svg');
+  dl.href = currentSvgBlob;
+  dl.classList.remove('hidden');
+}
+
+async function fetchThreadDump() {
+  const btn = $('btn-tdump');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  clearErr('fg-err');
+  try {
+    const r = await fetch('/api/debug/threaddump', {credentials:'same-origin', signal:AbortSignal.timeout(15000)});
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    const txt = await r.text();
+    $('tdump-pre').innerHTML = highlightThreadDump(txt);
+  } catch(e) {
+    showErr('fg-err', e.message);
+    $('tdump-pre').textContent = 'Thread dump failed.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '&#x1F9F5; Thread Dump';
+  }
+}
+
+function highlightThreadDump(txt) {
+  // Syntax highlight py-spy output
+  return esc(txt)
+    // Thread names (lines starting with "Thread" or function name headers)
+    .replace(/(^Thread\s+\S+.*$)/gm, '<span style="color:var(--gold);font-weight:700">$1</span>')
+    // File paths
+    .replace(/(\/[\w/.+\-]+\.py)/g, '<span style="color:var(--teal)">$1</span>')
+    // Line numbers
+    .replace(/(:(\d+))/g, '<span style="color:var(--purple)">$1</span>')
+    // async/await keywords
+    .replace(/\b(async|await|coroutine)\b/g, '<span style="color:var(--purple)">$1</span>');
+}
+
+/* ══════════════════════════════════
+   TAB 4: MEMORY
+   ══════════════════════════════════ */
+async function fetchMemory() {
+  const btn = $('btn-mem');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sampling...';
+  clearErr('mem-err');
+  try {
+    const r = await fetch('/api/debug/memory?top=30', {credentials:'same-origin', signal:AbortSignal.timeout(15000)});
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    const d = await r.json();
+    renderMemory(d);
+  } catch(e) {
+    showErr('mem-err', e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '&#x1F4CA; Sample Memory';
+  }
+}
+
+function renderMemory(d) {
+  const stats = d.stats ?? d.allocations ?? d.top ?? [];
+  const total = d.total_traced ?? d.total ?? null;
+
+  if (total != null) {
+    $('mem-total').classList.remove('hidden');
+    $('mem-total-val').textContent = fmt.bytes(total);
+    $('mem-alloc-count').textContent = stats.length;
+    $('mem-sample-time').textContent = d.sample_time ? new Date(d.sample_time * 1000).toLocaleTimeString() : new Date().toLocaleTimeString();
+  }
+
+  const maxSize = stats.reduce((m, s) => Math.max(m, s.size ?? s.total_size ?? 0), 0);
+  const tbody = $('mem-tbody');
+  if (stats.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text3);text-align:center;padding:24px">No data. tracemalloc may need a second call to start showing data.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = stats.map((s, i) => {
+    const size = s.size ?? s.total_size ?? 0;
+    const count = s.count ?? s.total_count ?? '?';
+    const file = s.filename ?? s.file ?? '?';
+    const lineno = s.lineno ?? s.line ?? '?';
+    const kb = (size / 1024).toFixed(1);
+    const pct = maxSize > 0 ? (size / maxSize * 100) : 0;
+    const shortFile = file.length > 40 ? '...' + file.slice(-37) : file;
+    return `<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td title="${esc(file)}" style="color:var(--teal);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(shortFile)}</td>
+      <td style="color:var(--purple)">${esc(String(lineno))}</td>
+      <td style="color:var(--text)">${kb}</td>
+      <td style="color:var(--text2)">${esc(String(count))}</td>
+      <td>
+        <div class="mem-bar-wrap" title="${pct.toFixed(1)}% of top allocation">
+          <div class="mem-bar-fill" style="width:${pct.toFixed(1)}%"></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════
+   TAB 5: QUERY TRACE
+   ══════════════════════════════════ */
+let allQueries = [];
+let modelSet = new Set();
+
+async function loadQueries() {
+  clearErr('q-err');
+  $('q-tbody').innerHTML = '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:24px"><span class="spinner" style="margin:0 auto;display:block"></span></td></tr>';
+  try {
+    const r = await fetch('/api/debug/queries?limit=100', {credentials:'same-origin', signal:AbortSignal.timeout(10000)});
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    const d = await r.json();
+    allQueries = (d.queries ?? d.results ?? d ?? []).reverse();
+    buildModelFilter();
+    renderQueryTable();
+    computeQueryStats();
+  } catch(e) {
+    showErr('q-err', e.message);
+    $('q-tbody').innerHTML = '<tr><td colspan="7" style="color:var(--red);text-align:center;padding:24px">Failed to load query trace.</td></tr>';
+  }
+}
+
+function buildModelFilter() {
+  modelSet = new Set(allQueries.map(q => q.model ?? q.model_used ?? '?').filter(Boolean));
+  const sel = $('q-model-filter');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All models</option>' +
+    [...modelSet].sort().map(m => `<option value="${esc(m)}" ${m===cur?'selected':''}>${esc(m)}</option>`).join('');
+}
+
+function filterQueries() {
+  renderQueryTable();
+}
+
+function renderQueryTable() {
+  const search = $('q-search').value.toLowerCase();
+  const tierFilter = $('q-tier-filter').value;
+  const modelFilter = $('q-model-filter').value;
+
+  const filtered = allQueries.filter(q => {
+    const id = (q.intent_id ?? q.query_id ?? q.id ?? '').toLowerCase();
+    const tier = q.tier ?? q.routing_tier ?? '';
+    const model = q.model ?? q.model_used ?? '';
+    return (!search || id.includes(search)) &&
+           (!tierFilter || tier === tierFilter) &&
+           (!modelFilter || model === modelFilter);
+  });
+
+  if (filtered.length === 0) {
+    $('q-tbody').innerHTML = '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:24px">No queries match filters.</td></tr>';
+    return;
+  }
+
+  $('q-tbody').innerHTML = filtered.slice(0,100).map((q, i) => {
+    const tid = q.intent_id ?? q.query_id ?? q.id ?? '—';
+    const tier = q.tier ?? q.routing_tier ?? '—';
+    const model = q.model ?? q.model_used ?? '—';
+    const lat = q.latency_ms ?? q.duration_ms ?? q.elapsed_ms ?? null;
+    const cost = q.cost ?? q.token_cost ?? null;
+    const cached = q.cache_hit ?? q.cached ?? false;
+    const ts = q.timestamp ?? q.created_at ?? null;
+    const tierCls = tier.includes('cache') ? 'tier-cache' : tier.includes('local') ? 'tier-local' : tier.includes('cheap') ? 'tier-cheap' : tier !== '—' ? 'tier-cloud' : '';
+    const rowId = 'qrow-' + i;
+    const detailId = 'qdetail-' + i;
+    return `
+      <tr onclick="toggleQueryRow('${rowId}','${detailId}')" title="Click to expand query details" tabindex="0"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+        <td style="color:var(--text2)">${fmt.time(ts)}</td>
+        <td class="mono" style="color:var(--text);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(tid)}">${esc(tid.slice(0,20))}</td>
+        <td><span class="tier ${tierCls}">${esc(tier)}</span></td>
+        <td style="color:var(--teal)">${esc(model)}</td>
+        <td style="color:${lat != null && lat > 5000 ? 'var(--red)' : lat != null && lat > 1000 ? 'var(--amber)' : 'var(--text)'}">${fmt.ms(lat)}</td>
+        <td style="color:var(--green)">${cost != null ? fmt.usd(cost) : '—'}</td>
+        <td style="color:${cached ? 'var(--blue)' : 'var(--text3)'}">${cached ? '&#x2714;' : '—'}</td>
+      </tr>
+      <tr class="q-detail-row" id="${detailId}">
+        <td class="q-detail-cell" colspan="7">
+          ${renderQueryDetail(q)}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function toggleQueryRow(rowId, detailId) {
+  const detail = $(detailId);
+  detail.classList.toggle('open');
+}
+
+function renderQueryDetail(q) {
+  const fields = [
+    ['Intent ID', q.intent_id ?? q.query_id ?? q.id],
+    ['Category', q.category ?? q.intent_category],
+    ['Complexity', q.complexity ?? q.complexity_score],
+    ['Tier', q.tier ?? q.routing_tier],
+    ['Model', q.model ?? q.model_used],
+    ['Latency', fmt.ms(q.latency_ms ?? q.duration_ms)],
+    ['Cost', fmt.usd(q.cost ?? q.token_cost)],
+    ['Tokens in', q.tokens_in ?? q.input_tokens],
+    ['Tokens out', q.tokens_out ?? q.output_tokens],
+    ['Cache hit', String(q.cache_hit ?? q.cached ?? false)],
+    ['Score', q.score ?? q.quality_score],
+  ].filter(([,v]) => v != null && v !== 'null' && v !== 'undefined');
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px">' +
+    fields.map(([k,v]) => `<span style="color:var(--text3)">${esc(k)}: </span><span style="color:var(--teal)">${esc(String(v))}</span>`).join('') +
+    '</div>';
+}
+
+function computeQueryStats() {
+  if (!allQueries.length) return;
+  const lats = allQueries.map(q => q.latency_ms ?? q.duration_ms).filter(v => v != null);
+  const costs = allQueries.map(q => q.cost ?? q.token_cost).filter(v => v != null);
+  const cacheHits = allQueries.filter(q => q.cache_hit ?? q.cached).length;
+  const localHits = allQueries.filter(q => (q.tier ?? q.routing_tier ?? '').includes('local')).length;
+  const avgLat = lats.length ? lats.reduce((a,b)=>a+b,0)/lats.length : null;
+  const totalCost = costs.reduce((a,b)=>a+b,0);
+  $('q-avg-lat').textContent = fmt.ms(avgLat);
+  $('q-total-cost').textContent = fmt.usd(totalCost);
+  $('q-cache-pct').textContent = allQueries.length ? (cacheHits/allQueries.length*100).toFixed(1)+'%' : '—';
+  $('q-local-pct').textContent = allQueries.length ? (localHits/allQueries.length*100).toFixed(1)+'%' : '—';
+  $('q-count').textContent = allQueries.length;
+}
+
+/* ══════════════════════════════════
+   TAB 6: ADMIN
+   ══════════════════════════════════ */
+async function loadAdmin() {
+  clearErr('admin-err');
+  try {
+    const r = await fetch('/api/debug/system', {credentials:'same-origin', signal:AbortSignal.timeout(8000)});
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    const d = await r.json();
+    renderAdminInfo(d);
+  } catch(e) {
+    showErr('admin-err', e.message);
+  }
+
+  // Load spend today from errors endpoint (as proxy) and query trace
+  try {
+    const r = await fetch('/api/debug/queries?limit=1000', {credentials:'same-origin', signal:AbortSignal.timeout(8000)});
+    if (r.ok) {
+      const d = await r.json();
+      const queries = d.queries ?? d.results ?? d ?? [];
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      const recent = queries.filter(q => {
+        const ts = q.timestamp ?? q.created_at;
+        if (!ts) return false;
+        const t = typeof ts === 'number' ? ts * 1000 : new Date(ts).getTime();
+        return (now - t) < day;
+      });
+      const total = recent.reduce((a,q) => a + (q.cost ?? q.token_cost ?? 0), 0);
+      $('admin-spend').textContent = fmt.usd(total);
+
+      // Breakdown by model
+      const byModel = {};
+      recent.forEach(q => {
+        const m = q.model ?? q.model_used ?? 'unknown';
+        byModel[m] = (byModel[m] ?? 0) + (q.cost ?? q.token_cost ?? 0);
+      });
+      $('admin-spend-breakdown').innerHTML = Object.entries(byModel)
+        .sort(([,a],[,b]) => b-a)
+        .slice(0,5)
+        .map(([m, c]) => `${esc(m)}: ${fmt.usd(c)}`)
+        .join('<br>');
+    }
+  } catch { /* non-critical */ }
+}
+
+function renderAdminInfo(d) {
+  // API keys — check presence flag (server should indicate set/not-set)
+  const keys = d.api_keys ?? d.env_keys ?? {};
+  const providers = [
+    ['anthropic', 'Anthropic', 'key-anthropic'],
+    ['openai', 'OpenAI', 'key-openai'],
+    ['google', 'Google', 'key-google'],
+    ['together', 'Together', 'key-together'],
+  ];
+  providers.forEach(([k, name, elId]) => {
+    const el = $(elId);
+    const set = keys[k] ?? keys[k.toUpperCase() + '_API_KEY'] ?? false;
+    el.className = set ? 'prov-ok' : 'prov-no';
+    el.innerHTML = set ? '&#x2705; Set' : '&#x274C; Not set';
+  });
+
+  // Server info
+  $('info-python').textContent = d.python_version ?? d.python ?? '—';
+  $('info-fastapi').textContent = d.fastapi_version ?? d.fastapi ?? '—';
+  $('info-platform').textContent = d.platform ?? d.os ?? '—';
+  $('info-started').textContent = d.start_time ? fmt.time(d.start_time) : (d.process?.create_time ? fmt.time(d.process.create_time) : '—');
+  $('info-uptime').textContent = fmt.dur(d.uptime ?? d.process?.uptime ?? null);
+
+  // Config
+  const cfg = d.config ?? d.settings ?? {};
+  $('cfg-concurrency').textContent = cfg.CONCURRENCY ?? cfg.concurrency ?? d.concurrency ?? '—';
+  $('cfg-eka').textContent = cfg.ESCALATION_KEEP_ALIVE ?? cfg.escalation_keep_alive ?? d.escalation_keep_alive ?? '—';
+  $('cfg-cache').textContent = cfg.CACHE_THRESHOLD ?? cfg.cache_threshold ?? d.cache_threshold ?? '—';
+  $('cfg-local-model').textContent = cfg.LOCAL_MODEL ?? cfg.local_model ?? d.local_model ?? '—';
+}
+
+/* ── Shutdown ── */
+function checkShutdownInput() {
+  const val = $('shutdown-input').value;
+  $('btn-shutdown').disabled = val !== 'SHUTDOWN_MULLM';
+}
+
+let countdownTimer = null;
+function initiateShutdown() {
+  const btn = $('btn-shutdown');
+  btn.disabled = true;
+  const cdEl = $('shutdown-countdown');
+  cdEl.style.display = 'block';
+  let n = 5;
+  cdEl.textContent = n;
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(async () => {
+    n--;
+    if (n <= 0) {
+      clearInterval(countdownTimer);
+      cdEl.textContent = '...';
+      try {
+        const r = await fetch('/api/debug/shutdown', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({confirm: 'SHUTDOWN_MULLM'}),
+          signal: AbortSignal.timeout(5000),
+        });
+        if (r.ok || r.status === 0) {
+          // Success or network error (server gone)
+          serverDark();
+        } else {
+          const j = await r.json().catch(() => ({}));
+          showErr('admin-err', 'Shutdown failed: ' + (j.detail ?? r.statusText));
+          cdEl.style.display = 'none';
+          btn.disabled = false;
+        }
+      } catch {
+        // Server likely stopped responding — treat as success
+        serverDark();
+      }
+    } else {
+      cdEl.textContent = n;
+    }
+  }, 1000);
+}
+
+function serverDark() {
+  $('server-dark').classList.add('show');
+  $('dark-msg').textContent = 'Server stopped.';
+  // Stop all intervals
+  clearInterval(sysInterval);
+  sysInterval = null;
+}
+
+/* ── Escape HTML ── */
+function esc(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+/* ── Initial connection check ── */
+pingServer().then(() => {
+  if (!connOk) setConn(false, 'Server unreachable');
+});
+setInterval(pingServer, 30000);
+
+/* ── Self-Test ── */
+async function runSelfTest() {
+  const btn = $('btn-selftest-run');
+  const list = $('self-test-list');
+  const summary = $('self-summary');
+  if (btn) btn.disabled = true;
+
+  // Render placeholder spinners for all 7 tests
+  const TEST_NAMES = [
+    'Groundtruth check (2+2=4)',
+    'Code routing (fibonacci → local)',
+    'Cache populated',
+    'Ollama model alive',
+    'Scoring log writable',
+    'Redis connectivity',
+    'Response quality (capital of France)',
+  ];
+  list.innerHTML = TEST_NAMES.map(n =>
+    `<li class="running" data-name="${n}">
+      <span class="test-icon"><span class="spinner" style="width:16px;height:16px;border-width:2px"></span></span>
+      <span class="test-name">${n}</span>
+      <span class="test-detail text3">running…</span>
+      <span class="test-ms"></span>
+    </li>`
+  ).join('');
+  summary.style.display = 'none';
+
+  try {
+    const r = await fetch('/api/debug/self', {credentials: 'same-origin', signal: AbortSignal.timeout(90000)});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+
+    // Update each row
+    (data.tests || []).forEach(t => {
+      const li = list.querySelector(`li[data-name="${t.name}"]`);
+      if (!li) return;
+      const icon = t.status === 'pass' ? '✅' : t.status === 'warn' ? '⚠️' : '❌';
+      li.className = t.status;
+      li.querySelector('.test-icon').textContent = icon;
+      li.querySelector('.test-detail').textContent = t.detail || '';
+      li.querySelector('.test-ms').textContent = t.ms != null ? `${t.ms}ms` : '';
+    });
+
+    // Show summary banner
+    const overall = data.overall || 'unknown';
+    summary.className = overall;
+    summary.style.display = 'block';
+    if (overall === 'healthy') {
+      summary.textContent = `✅ muLLM is HEALTHY — all ${data.passes || 0} tests passed (score ${data.score}/100)`;
+    } else if (overall === 'degraded') {
+      summary.textContent = `⚠️ muLLM DEGRADED — ${data.warns || 0} warning(s), ${data.passes || 0} passed (score ${data.score}/100)`;
+    } else {
+      summary.textContent = `❌ ${data.fails || 0} issue(s) found — score ${data.score}/100`;
+    }
+  } catch(err) {
+    list.innerHTML = `<li class="fail"><span class="test-icon">❌</span><span class="test-name">Self-test request failed</span><span class="test-detail">${err.message}</span></li>`;
+    summary.className = 'unhealthy';
+    summary.style.display = 'block';
+    summary.textContent = '❌ Could not reach /api/debug/self';
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

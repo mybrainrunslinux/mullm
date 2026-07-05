@@ -96,3 +96,4 @@ certs/*.pem
 certs/ca.key
 certs/ca.srl
 certs/*.csr
+original/

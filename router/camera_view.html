@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera View Toggle</title>
+    <style>
+        #view-toggle {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #view-toggle:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+    </style>
+</head>
+<body>
+    <button id="view-toggle">Switch to Third Person</button>
+    <script>
+        let isThirdPerson = false;
+        const toggleButton = document.getElementById('view-toggle');
+
+        toggleButton.addEventListener('click', () => {
+            isThirdPerson = !isThirdPerson;
+            if (isThirdPerson) {
+                toggleButton.textContent = 'Switch to First Person';
+                enableThirdPersonView();
+            } else {
+                toggleButton.textContent = 'Switch to Third Person';
+                enableFirstPersonView();
+            }
+        });
+
+        function enableFirstPersonView() {
+            console.log('First Person View Enabled');
+            // Add logic to set camera to first person
+            // Example: camera.position.set(0, 1.6, 0); // Head height
+            // camera.lookAt(player.position);
+        }
+
+        function enableThirdPersonView() {
+            console.log('Third Person View Enabled');
+            // Add logic to set camera to third person
+            // Example: camera.position.set(0, 2, 5); // Behind and above player
+            // camera.lookAt(player.position);
+        }
+    </script>
+</body>
+</html>

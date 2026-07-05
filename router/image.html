@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Generation — muLLM</title>
+<style>
+/* ── Design tokens ── */
+:root {
+  --bg:        #0a0a0f;
+  --bg2:       #111118;
+  --bg3:       #1a1a25;
+  --bg4:       #22223a;
+  --border:    #2a2a50;
+  --gold:      #d4af37;
+  --gold-dim:  #8a6f20;
+  --blue:      #38bdf8;
+  --green:     #22c55e;
+  --red:       #ef4444;
+  --purple:    #a855f7;
+  --text:      #e2e8f0;
+  --text-dim:  #94a3b8;
+  --text-faint:#475569;
+  --radius:    10px;
+  --radius-lg: 16px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Header ── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header h1 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: -0.02em;
+}
+
+.header-sub {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.nav-links {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nav-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.nav-links a:hover { color: var(--gold); border-color: var(--gold-dim); }
+.nav-links a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ── Main layout ── */
+.main {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 24px;
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .main { grid-template-columns: 1fr; }
+}
+
+/* ── Form panel ── */
+.form-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-card h2 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Form elements */
+label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+}
+
+textarea, input[type="text"], select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 10px 12px;
+  transition: border-color 0.15s;
+  outline: none;
+  resize: vertical;
+}
+
+textarea:focus, input:focus, select:focus {
+  border-color: var(--gold-dim);
+}
+
+textarea { min-height: 100px; }
+select option { background: var(--bg3); }
+
+/* ── Model selector ── */
+.model-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-group-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 4px 0 2px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  min-height: 44px;
+}
+
+.model-option:hover:not(.disabled) { border-color: var(--gold-dim); background: var(--bg4); }
+.model-option.selected { border-color: var(--gold); background: var(--bg4); }
+.model-option:focus-within { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+.model-option.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.model-option input[type="radio"] {
+  accent-color: var(--gold);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.model-option.disabled input[type="radio"] {
+  cursor: not-allowed;
+}
+
+.model-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.model-desc {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.model-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.badge-free   { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+.badge-paid   { background: rgba(212,175,55,0.12); color: var(--gold); border: 1px solid rgba(212,175,55,0.25); }
+.badge-locked { background: rgba(71,85,105,0.3); color: var(--text-faint); border: 1px solid var(--border); }
+
+.lock-icon { font-size: 0.75rem; color: var(--text-faint); flex-shrink: 0; }
+
+/* ── Size selector ── */
+.size-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.size-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 10px 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  min-height: 52px;
+  line-height: 1.3;
+}
+
+.size-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+.size-btn.selected { border-color: var(--gold); color: var(--gold); background: var(--bg4); }
+.size-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.size-btn .size-label { display: block; font-size: 0.7rem; color: var(--text-faint); margin-top: 2px; }
+
+/* ── LoRA checkboxes ── */
+.lora-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lora-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color 0.15s;
+}
+
+.lora-item:hover { border-color: var(--gold-dim); }
+.lora-item:has(input:checked) { border-color: var(--gold-dim); background: var(--bg4); }
+
+.lora-item input[type="checkbox"] {
+  accent-color: var(--gold);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.lora-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+.lora-tag  { font-size: 0.68rem; color: var(--gold); margin-top: 1px; }
+
+/* ── Negative prompt toggle ── */
+.neg-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s;
+  min-height: 44px;
+}
+
+.neg-toggle-btn:hover { color: var(--gold); }
+.neg-toggle-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+
+.neg-toggle-btn .arrow {
+  transition: transform 0.2s;
+  display: inline-block;
+  font-size: 0.65rem;
+}
+
+.neg-toggle-btn.open .arrow { transform: rotate(90deg); }
+
+/* ── Toggle switch ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.toggle-label { font-size: 0.82rem; color: var(--text); }
+.toggle-sub   { font-size: 0.7rem; color: var(--text-faint); }
+
+.toggle-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input { display: none; }
+
+.toggle-switch .slider {
+  position: absolute;
+  inset: 0;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.toggle-switch .slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: var(--text-dim);
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch input:checked + .slider {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+}
+
+.toggle-switch input:checked + .slider::before {
+  transform: translateX(18px);
+  background: var(--gold);
+}
+
+/* ── Generate button ── */
+.generate-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--gold-dim), #a07820);
+  border: 1px solid var(--gold);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 14px 24px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: opacity 0.15s, transform 0.1s;
+  min-height: 52px;
+}
+
+.generate-btn:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
+.generate-btn:active:not(:disabled) { transform: translateY(0); }
+.generate-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.generate-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* ── Right column ── */
+.right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Status card ── */
+.status-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.status-card h2 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.status-empty {
+  color: var(--text-faint);
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 8px;
+}
+
+.job-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.job-status {
+  font-weight: 700;
+  min-width: 70px;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.job-status.queued  { color: var(--text-dim); }
+.job-status.running { color: var(--blue); }
+.job-status.done    { color: var(--green); }
+.job-status.error   { color: var(--red); }
+
+.job-prompt {
+  flex: 1;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Gallery ── */
+.gallery-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  flex: 1;
+}
+
+.gallery-card h2 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Masonry via CSS columns */
+.masonry-grid {
+  column-count: 3;
+  column-gap: 14px;
+}
+
+@media (max-width: 1100px) { .masonry-grid { column-count: 2; } }
+@media (max-width: 600px)  { .masonry-grid { column-count: 1; } }
+
+.gallery-item {
+  break-inside: avoid;
+  margin-bottom: 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s;
+  animation: fadeIn 0.35s ease;
+  cursor: pointer;
+}
+
+.gallery-item:hover { border-color: var(--gold-dim); }
+.gallery-item:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: var(--radius); }
+
+.gallery-item img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.gallery-caption {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gallery-caption-text {
+  flex: 1;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gallery-caption-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(212,175,55,0.12);
+  color: var(--gold);
+  border: 1px solid rgba(212,175,55,0.2);
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.gallery-caption a {
+  color: var(--gold);
+  font-size: 0.8rem;
+  text-decoration: none;
+  padding: 2px 6px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.gallery-caption a:hover { opacity: 0.75; }
+.gallery-caption a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Spinner placeholder in gallery */
+.gallery-spinner-card {
+  break-inside: avoid;
+  margin-bottom: 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  animation: fadeIn 0.35s ease;
+}
+
+.gallery-spinner-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  min-height: 180px;
+  color: var(--text-faint);
+  font-size: 0.82rem;
+}
+
+.spinner-large {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.gallery-empty {
+  color: var(--text-faint);
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+/* ── Lightbox ── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.lightbox.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.lightbox-inner {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lightbox-inner img {
+  max-width: 90vw;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  display: block;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 32px;
+  height: 32px;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  line-height: 1;
+}
+
+.lightbox-close:hover { background: var(--bg3); color: var(--gold); }
+.lightbox-close:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.lightbox-caption {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ── Toast ── */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  color: var(--text);
+  animation: fadeIn 0.2s ease;
+  pointer-events: auto;
+  max-width: 320px;
+}
+
+.toast.error  { border-color: var(--red); color: var(--red); }
+.toast.success { border-color: var(--green); color: var(--green); }
+
+.hidden { display: none !important; }
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <h1>muLLM Image</h1>
+    <div class="header-sub">AI Image Generation</div>
+  </div>
+  <nav class="nav-links" aria-label="Site navigation">
+    <a href="/chat">Chat</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/3d">3D</a>
+    <a href="/video">Video</a>
+    <a href="/assets">Assets</a>
+    <a href="http://10.0.0.165:8188" target="_blank" rel="noopener"
+       title="Open ComfyUI node graph editor"
+       style="color:var(--purple);border-color:var(--purple)">ComfyUI ↗</a>
+  </nav>
+</header>
+
+<div class="main">
+
+  <!-- ── Left: Form panel ── -->
+  <div class="form-panel" role="main" aria-label="Image generation controls">
+
+    <!-- Model -->
+    <div class="panel-card">
+      <h2>Model</h2>
+      <div class="model-grid" role="radiogroup" aria-label="Select image generation model" id="model-group">
+
+        <div class="model-group-label">Local (Free)</div>
+
+        <label class="model-option selected" id="opt-sdxl-turbo">
+          <input type="radio" name="model" value="sdxl-turbo" checked onchange="handleModelChange(this)">
+          <div class="model-info">
+            <div class="model-name">SDXL Turbo</div>
+            <div class="model-desc">4-step fast generation (~3s)</div>
+          </div>
+          <span class="model-badge badge-free">Free</span>
+        </label>
+
+        <label class="model-option" id="opt-sdxl-base">
+          <input type="radio" name="model" value="sdxl-base" onchange="handleModelChange(this)">
+          <div class="model-info">
+            <div class="model-name">SDXL Base</div>
+            <div class="model-desc">30-step, better quality</div>
+          </div>
+          <span class="model-badge badge-free">Free</span>
+        </label>
+
+        <div class="model-group-label">OpenAI</div>
+
+        <label class="model-option disabled" id="opt-gpt-image-2"
+               title="OpenAI provider not enabled — configure in /setup">
+          <input type="radio" name="model" value="gpt-image-2" disabled onchange="handleModelChange(this)">
+          <div class="model-info">
+            <div class="model-name">GPT-Image-2</div>
+            <div class="model-desc">Newest — reasoning + generation (Apr 2026)</div>
+          </div>
+          <span class="lock-icon" aria-hidden="true">&#128274;</span>
+          <span class="model-badge badge-locked">Locked</span>
+        </label>
+
+        <label class="model-option disabled" id="opt-gpt-image-1.5"
+               title="OpenAI provider not enabled — configure in /setup">
+          <input type="radio" name="model" value="gpt-image-1.5" disabled onchange="handleModelChange(this)">
+          <div class="model-info">
+            <div class="model-name">GPT-Image-1.5</div>
+            <div class="model-desc">4x faster, precise edits (Dec 2025)</div>
+          </div>
+          <span class="lock-icon" aria-hidden="true">&#128274;</span>
+          <span class="model-badge badge-locked">Locked</span>
+        </label>
+
+        <label class="model-option disabled" id="opt-gpt-image-1"
+               title="OpenAI provider not enabled — configure in /setup">
+          <input type="radio" name="model" value="gpt-image-1" disabled onchange="handleModelChange(this)">
+          <div class="model-info">
+            <div class="model-name">GPT-Image-1</div>
+            <div class="model-desc">Excellent text rendering (Apr 2025)</div>
+          </div>
+          <span class="lock-icon" aria-hidden="true">&#128274;</span>
+          <span class="model-badge badge-locked">Locked</span>
+        </label>
+
+        <label class="model-option disabled" id="opt-dall-e-3"
+               title="OpenAI provider not enabled — configure in /setup">
+          <input type="radio" name="model" value="dall-e-3" disabled onchange="handleModelChange(this)">
+          <div class="model-info">
+            <div class="model-name">DALL-E 3</div>
+            <div class="model-desc">Classic — high quality, accurate prompts</div>
+          </div>
+          <span class="lock-icon" aria-hidden="true">&#128274;</span>
+          <span class="model-badge badge-locked">Locked</span>
+        </label>
+
+        <div class="model-group-label">Google Gemini (Nano Banana)</div>
+
+        <label class="model-option disabled" id="opt-gemini-3-pro-image"
+               title="Google provider not enabled — configure in /setup">
+          <input type="radio" name="model" value="gemini-3-pro-image" disabled onchange="handleModelChange(this)">
+          <div class="model-info">
+            <div class="model-name">Nano Banana Pro</div>
+            <div class="model-desc">gemini-3-pro-image — pro asset quality</div>
+          </div>
+          <span class="lock-icon" aria-hidden="true">&#128274;</span>
+          <span class="model-badge badge-locked">Locked</span>
+        </label>
+
+        <label class="model-option disabled" id="opt-gemini-2.5-flash-image"
+               title="Google provider not enabled — configure in /setup">
+          <input type="radio" name="model" value="gemini-2.5-flash-image" disabled onchange="handleModelChange(this)">
+          <div class="model-info">
+            <div class="model-name">Nano Banana</div>
+            <div class="model-desc">gemini-2.5-flash-image — fast + multimodal</div>
+          </div>
+          <span class="lock-icon" aria-hidden="true">&#128274;</span>
+          <span class="model-badge badge-locked">Locked</span>
+        </label>
+
+        <label class="model-option disabled" id="opt-imagen-4"
+               title="Google provider not enabled — configure in /setup">
+          <input type="radio" name="model" value="imagen-4" disabled onchange="handleModelChange(this)">
+          <div class="model-info">
+            <div class="model-name">Imagen 4</div>
+            <div class="model-desc">Best text rendering in Imagen family</div>
+          </div>
+          <span class="lock-icon" aria-hidden="true">&#128274;</span>
+          <span class="model-badge badge-locked">Locked</span>
+        </label>
+
+        <div class="model-group-label">Anthropic</div>
+
+        <div class="model-option disabled"
+             title="Anthropic does not offer image generation models"
+             aria-disabled="true"
+             role="note">
+          <div class="model-info">
+            <div class="model-name" style="color:var(--text-faint)">Anthropic</div>
+            <div class="model-desc">No image generation available</div>
+          </div>
+          <span class="lock-icon" aria-hidden="true">&#128683;</span>
+          <span class="model-badge badge-locked">N/A</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Prompt -->
+    <div class="panel-card">
+      <h2>Prompt</h2>
+      <div>
+        <label for="prompt-input">Image description</label>
+        <textarea id="prompt-input" rows="4"
+          placeholder="A photorealistic crystal sword floating in golden light, studio lighting, 8K..."
+          aria-required="true"></textarea>
+      </div>
+
+      <!-- Negative prompt (collapsed) -->
+      <div>
+        <button class="neg-toggle-btn" id="neg-toggle-btn"
+                onclick="toggleNegPrompt()"
+                aria-expanded="false"
+                aria-controls="neg-prompt-section">
+          <span class="arrow" aria-hidden="true">&#9658;</span>
+          Add negative prompt
+        </button>
+        <div id="neg-prompt-section" class="hidden">
+          <label for="neg-prompt-input">Negative prompt</label>
+          <textarea id="neg-prompt-input" rows="2"
+            placeholder="blurry, low quality, watermark, text, distorted..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- LoRA (local only) -->
+    <div class="panel-card" id="lora-panel">
+      <h2>LoRA Adapters</h2>
+      <div class="lora-list" role="group" aria-label="LoRA adapters">
+
+        <label class="lora-item" title="Adds photorealism and fine skin/texture detail to SDXL outputs">
+          <input type="checkbox" name="lora" value="Touch-of-Realism-SDXL">
+          <div>
+            <div class="lora-name">Touch-of-Realism-SDXL</div>
+            <div class="lora-tag">+realism</div>
+          </div>
+        </label>
+
+        <label class="lora-item" title="Adds subtle analog film grain for a more cinematic, textured look">
+          <input type="checkbox" name="lora" value="Touch-of-Grain-SDXL">
+          <div>
+            <div class="lora-name">Touch-of-Grain-SDXL</div>
+            <div class="lora-tag">+film grain</div>
+          </div>
+        </label>
+
+        <label class="lora-item" title="Hyper-SD 4-step turbo LoRA — best used with SDXL Base for fast high-quality output">
+          <input type="checkbox" name="lora" value="Hyper-SDXL-4steps">
+          <div>
+            <div class="lora-name">Hyper-SDXL-4steps</div>
+            <div class="lora-tag">faster — use with SDXL Base</div>
+          </div>
+        </label>
+
+      </div>
+    </div>
+
+    <!-- Size -->
+    <div class="panel-card">
+      <h2>Size</h2>
+      <div class="size-grid" role="group" aria-label="Output image size">
+        <button class="size-btn selected" data-w="1024" data-h="1024"
+                onclick="selectSize(this)" title="Square 1024×1024 pixels"
+                aria-pressed="true">
+          Square 1:1
+          <span class="size-label">1024 × 1024</span>
+        </button>
+        <button class="size-btn" data-w="1344" data-h="768"
+                onclick="selectSize(this)" title="Landscape 1344×768 pixels — good for scenery"
+                aria-pressed="false">
+          Landscape 16:9
+          <span class="size-label">1344 × 768</span>
+        </button>
+        <button class="size-btn" data-w="768" data-h="1344"
+                onclick="selectSize(this)" title="Portrait 768×1344 pixels — good for characters"
+                aria-pressed="false">
+          Portrait 9:16
+          <span class="size-label">768 × 1344</span>
+        </button>
+        <button class="size-btn" data-w="1536" data-h="640"
+                onclick="selectSize(this)" title="Wide 1536×640 pixels — cinematic banner"
+                aria-pressed="false">
+          Wide 2:1
+          <span class="size-label">1536 × 640</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- NSFW (local only) -->
+    <div class="panel-card" id="nsfw-panel">
+      <h2>Content</h2>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">NSFW Content</div>
+          <div class="toggle-sub">Only available for local models</div>
+        </div>
+        <label class="toggle-switch" title="Enable NSFW content generation (local models only)">
+          <input type="checkbox" id="nsfw-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <button class="generate-btn" id="gen-btn" onclick="generate()">
+      Generate Image
+    </button>
+
+  </div>
+
+  <!-- ── Right column ── -->
+  <div class="right-col">
+
+    <!-- Status -->
+    <div class="status-card" id="status-card" aria-live="polite" aria-label="Generation status">
+      <h2>Status</h2>
+      <div class="status-empty" id="status-empty">No jobs yet. Generate an image to get started.</div>
+      <div id="jobs-list"></div>
+    </div>
+
+    <!-- Gallery -->
+    <div class="gallery-card" aria-label="Generated images gallery">
+      <h2>Gallery</h2>
+      <div class="masonry-grid" id="gallery-grid" role="list">
+        <div class="gallery-empty" id="gallery-empty">No images yet. Your generated images will appear here.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Full size image"
+     onclick="closeLightbox(event)">
+  <div class="lightbox-inner">
+    <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close lightbox">&times;</button>
+    <img id="lightbox-img" src="#" alt="" loading="lazy">
+    <div class="lightbox-caption" id="lightbox-caption"></div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+<script>
+// ── State ──
+const state = {
+  selectedModel: 'sdxl-turbo',
+  selectedSize: { w: 1024, h: 1024 },
+  jobs: {},
+  pollingTimers: {},
+  spinnerCardId: null,
+};
+
+// ── Util ──
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function showToast(msg, type = '') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ── Provider status ──
+async function loadProviderStatus() {
+  try {
+    const resp = await fetch('/api/providers/status');
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    const openaiModels = ['gpt-image-2', 'gpt-image-1.5', 'gpt-image-1', 'dall-e-3'];
+    const googleModels = ['gemini-3-pro-image', 'gemini-2.5-flash-image', 'imagen-4'];
+
+    if (data.openai) {
+      openaiModels.forEach(m => enableModel(m));
+    }
+    if (data.google) {
+      googleModels.forEach(m => enableModel(m));
+    }
+  } catch (_) { /* provider status optional */ }
+}
+
+function enableModel(modelValue) {
+  const optEl = document.getElementById('opt-' + modelValue);
+  if (!optEl) return;
+  optEl.classList.remove('disabled');
+  optEl.removeAttribute('title');
+  const radio = optEl.querySelector('input[type="radio"]');
+  if (radio) radio.disabled = false;
+  const badge = optEl.querySelector('.model-badge');
+  if (badge) { badge.className = 'model-badge badge-paid'; badge.textContent = 'Paid'; }
+  const lock = optEl.querySelector('.lock-icon');
+  if (lock) lock.remove();
+}
+
+// ── NSFW setting ──
+async function loadNsfwSetting() {
+  try {
+    const resp = await fetch('/api/settings');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (typeof data.nsfw === 'boolean') {
+      document.getElementById('nsfw-toggle').checked = data.nsfw;
+    }
+  } catch (_) { /* ignore */ }
+}
+
+// ── Model change ──
+function handleModelChange(radio) {
+  state.selectedModel = radio.value;
+
+  // Update selected highlight
+  document.querySelectorAll('.model-option').forEach(el => el.classList.remove('selected'));
+  const parent = radio.closest('.model-option');
+  if (parent) parent.classList.add('selected');
+
+  const isLocal = radio.value === 'sdxl-turbo' || radio.value === 'sdxl-base' || radio.value === 'flux';
+  document.getElementById('lora-panel').style.display  = isLocal ? '' : 'none';
+  document.getElementById('nsfw-panel').style.display  = isLocal ? '' : 'none';
+}
+
+// ── Size selection ──
+function selectSize(btn) {
+  document.querySelectorAll('.size-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.setAttribute('aria-pressed', 'false');
+  });
+  btn.classList.add('selected');
+  btn.setAttribute('aria-pressed', 'true');
+  state.selectedSize = { w: parseInt(btn.dataset.w), h: parseInt(btn.dataset.h) };
+}
+
+// ── Negative prompt toggle ──
+function toggleNegPrompt() {
+  const btn     = document.getElementById('neg-toggle-btn');
+  const section = document.getElementById('neg-prompt-section');
+  const isOpen  = !section.classList.contains('hidden');
+  section.classList.toggle('hidden', isOpen);
+  btn.classList.toggle('open', !isOpen);
+  btn.setAttribute('aria-expanded', String(!isOpen));
+}
+
+// ── Generate ──
+async function generate() {
+  const prompt = document.getElementById('prompt-input').value.trim();
+  if (!prompt) {
+    document.getElementById('prompt-input').focus();
+    showToast('Please enter a prompt', 'error');
+    return;
+  }
+
+  const genBtn = document.getElementById('gen-btn');
+  genBtn.disabled = true;
+  genBtn.textContent = 'Queueing...';
+
+  // Collect LoRAs
+  const loras = Array.from(
+    document.querySelectorAll('input[name="lora"]:checked')
+  ).map(cb => cb.value);
+
+  const body = {
+    prompt,
+    negative: document.getElementById('neg-prompt-input').value.trim(),
+    model:    state.selectedModel,
+    size:     `${state.selectedSize.w}x${state.selectedSize.h}`,
+    loras,
+    nsfw:     document.getElementById('nsfw-toggle').checked,
+  };
+
+  // Show spinner card in gallery
+  const spinnerId = 'spinner-' + Date.now();
+  state.spinnerCardId = spinnerId;
+  addSpinnerCard(spinnerId, prompt);
+
+  try {
+    const resp = await fetch('/api/image/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      removeSpinnerCard(spinnerId);
+      showToast(data.detail || data.error || 'Generation failed', 'error');
+      addJobRow(null, prompt, 'error', data.detail || data.error || 'failed');
+    } else {
+      addJobRow(data.job_id, prompt, 'queued');
+      startPolling(data.job_id, spinnerId, prompt);
+    }
+  } catch (err) {
+    removeSpinnerCard(spinnerId);
+    showToast('Network error: ' + err.message, 'error');
+    addJobRow(null, prompt, 'error', err.message);
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = 'Generate Image';
+  }
+}
+
+// ── Spinner card ──
+function addSpinnerCard(id, prompt) {
+  const grid = document.getElementById('gallery-grid');
+  const empty = document.getElementById('gallery-empty');
+  if (empty && empty.parentNode === grid) empty.remove();
+
+  const card = document.createElement('div');
+  card.className = 'gallery-spinner-card';
+  card.id = id;
+  card.innerHTML = `
+    <div class="gallery-spinner-inner">
+      <div class="spinner-large" role="status" aria-label="Generating image"></div>
+      <span>${escHtml(prompt.length > 60 ? prompt.slice(0, 60) + '...' : prompt)}</span>
+    </div>`;
+  grid.prepend(card);
+}
+
+function removeSpinnerCard(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ── Job rows ──
+function addJobRow(jobId, prompt, status, errMsg) {
+  const list  = document.getElementById('jobs-list');
+  const empty = document.getElementById('status-empty');
+  if (empty) empty.classList.add('hidden');
+
+  const rowId = jobId ? 'job-' + jobId : 'job-err-' + Date.now();
+  const isActive = status === 'queued' || status === 'running';
+
+  const row = document.createElement('div');
+  row.className = 'job-row';
+  row.id = rowId;
+  row.innerHTML = `
+    ${isActive ? '<div class="spinner"></div>' : ''}
+    <span class="job-status ${status}">${status}</span>
+    <span class="job-prompt" title="${escAttr(errMsg || prompt)}">${escHtml(errMsg || prompt)}</span>`;
+  list.prepend(row);
+
+  if (jobId) state.jobs[jobId] = { jobId, prompt, status, rowId };
+}
+
+function updateJobRow(jobId, status, viewUrl) {
+  const job = state.jobs[jobId];
+  if (!job) return;
+  job.status = status;
+
+  const row = document.getElementById(job.rowId);
+  if (!row) return;
+
+  const isActive = status === 'queued' || status === 'running';
+  row.innerHTML = `
+    ${isActive ? '<div class="spinner"></div>' : ''}
+    <span class="job-status ${status}">${status}</span>
+    <span class="job-prompt" title="${escAttr(job.prompt)}">${escHtml(job.prompt)}</span>
+    ${viewUrl ? `<a href="${escAttr(viewUrl)}" target="_blank" style="color:var(--gold);font-size:0.75rem;white-space:nowrap;text-decoration:none;" title="View full size image">View</a>` : ''}`;
+}
+
+// ── Polling ──
+function startPolling(jobId, spinnerId, prompt) {
+  const MAX_POLLS = 300; // 10 minutes at 2s
+  let count = 0;
+
+  const timer = setInterval(async () => {
+    count++;
+    if (count > MAX_POLLS) {
+      clearInterval(timer);
+      delete state.pollingTimers[jobId];
+      removeSpinnerCard(spinnerId);
+      updateJobRow(jobId, 'error');
+      showToast('Generation timed out', 'error');
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/api/image/${jobId}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+
+      updateJobRow(jobId, data.status, data.output_url);
+
+      if (data.status === 'done') {
+        clearInterval(timer);
+        delete state.pollingTimers[jobId];
+        removeSpinnerCard(spinnerId);
+        if (data.output_url) addGalleryItem({ url: data.output_url, prompt, model: state.selectedModel });
+        showToast('Image generated', 'success');
+        loadGallery();
+      } else if (data.status === 'error') {
+        clearInterval(timer);
+        delete state.pollingTimers[jobId];
+        removeSpinnerCard(spinnerId);
+        showToast(data.error || 'Generation failed', 'error');
+      }
+    } catch (_) { /* ignore transient errors */ }
+  }, 2000);
+
+  state.pollingTimers[jobId] = timer;
+}
+
+// ── Gallery ──
+async function loadGallery() {
+  try {
+    const resp = await fetch('/api/image/list');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    renderGallery(data.images || []);
+  } catch (_) { /* API may not exist yet */ }
+}
+
+function renderGallery(images) {
+  const grid  = document.getElementById('gallery-grid');
+  const empty = document.getElementById('gallery-empty');
+
+  if (!images.length) {
+    if (!grid.querySelector('.gallery-item')) {
+      if (!grid.querySelector('.gallery-empty')) {
+        grid.innerHTML = '<div class="gallery-empty" id="gallery-empty">No images yet. Your generated images will appear here.</div>';
+      }
+    }
+    return;
+  }
+
+  // Remove empty placeholder
+  if (empty && empty.parentNode === grid) empty.remove();
+
+  // Track existing URLs to avoid duplicates
+  const existingUrls = new Set(
+    Array.from(grid.querySelectorAll('img[data-url]')).map(i => i.dataset.url)
+  );
+
+  for (const img of images) {
+    if (existingUrls.has(img.url)) continue;
+    addGalleryItem(img);
+  }
+}
+
+function addGalleryItem(img) {
+  const grid  = document.getElementById('gallery-grid');
+  const empty = document.getElementById('gallery-empty');
+  if (empty && empty.parentNode === grid) empty.remove();
+
+  const caption  = img.prompt || img.filename || '';
+  const modelStr = img.model  || '';
+  const dlName   = (img.filename || 'image.png').replace(/[^a-z0-9._-]/gi, '_');
+
+  const item = document.createElement('div');
+  item.className = 'gallery-item';
+  item.setAttribute('role', 'listitem');
+  item.setAttribute('tabindex', '0');
+  item.setAttribute('aria-label', 'Generated image: ' + caption.slice(0, 80));
+  item.innerHTML = `
+    <img src="${escAttr(img.url)}" alt="${escAttr(caption.slice(0, 120))}"
+         data-url="${escAttr(img.url)}" loading="lazy">
+    <div class="gallery-caption">
+      <span class="gallery-caption-text" title="${escAttr(caption)}">${escHtml(caption)}</span>
+      ${modelStr ? `<span class="gallery-caption-badge" title="Model used">${escHtml(modelStr)}</span>` : ''}
+      <a href="${escAttr(img.url)}" download="${escAttr(dlName)}"
+         title="Download image"
+         onclick="event.stopPropagation()">&#8595;</a>
+    </div>`;
+
+  item.addEventListener('click', () => openLightbox(img.url, caption));
+  item.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(img.url, caption); }
+  });
+
+  grid.prepend(item);
+}
+
+// ── Lightbox ──
+function openLightbox(url, caption) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox-img').alt = caption;
+  document.getElementById('lightbox-caption').textContent = caption;
+  const lb = document.getElementById('lightbox');
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  lb.querySelector('.lightbox-close').focus();
+}
+
+function closeLightbox(evt) {
+  if (evt && evt.target !== document.getElementById('lightbox') &&
+      !evt.target.classList.contains('lightbox-close')) return;
+  const lb = document.getElementById('lightbox');
+  lb.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeLightbox({ target: document.getElementById('lightbox') });
+});
+
+// ── Init ──
+loadProviderStatus();
+loadNsfwSetting();
+loadGallery();
+setInterval(loadGallery, 30000);
+</script>
+</body>
+</html>

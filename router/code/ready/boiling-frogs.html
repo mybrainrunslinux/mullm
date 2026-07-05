@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Boiling Frogs</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e14;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+
+/* ── Title / Menu ── */
+#menu{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0e14;transition:opacity .4s}
+#menu.hidden{opacity:0;pointer-events:none}
+#menu h1{font-size:clamp(32px,6vw,56px);color:#4dd9c0;letter-spacing:2px;margin-bottom:4px;text-shadow:0 0 30px rgba(77,217,192,.4)}
+#menu .subtitle{font-size:clamp(12px,2vw,16px);color:#888;margin-bottom:32px;text-align:center;max-width:90vw}
+.menu-section{margin-bottom:24px;text-align:center}
+.menu-section h2{font-size:14px;color:#4dd9c0;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px}
+.menu-btn{display:block;width:260px;margin:8px auto;padding:14px 24px;background:rgba(26,138,122,.15);border:1px solid #1a8a7a;color:#e0e0e0;font-size:16px;border-radius:8px;cursor:pointer;transition:all .15s;font-family:inherit}
+.menu-btn:hover,.menu-btn:focus{background:#1a8a7a;color:#fff;transform:scale(1.03);outline:none;box-shadow:0 0 12px rgba(77,217,192,.4)}
+.menu-btn:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.menu-btn .desc{font-size:11px;color:#aaa;margin-top:4px}
+.menu-btn:hover .desc,.menu-btn:focus .desc{color:#ccc}
+#frog-counter-menu{margin-top:24px;font-size:13px;color:#666;cursor:pointer}
+#frog-counter-menu:hover{color:#4dd9c0}
+#difficulty-select{margin-top:8px}
+.diff-btn{display:inline-block;width:auto;min-width:100px;padding:8px 16px;margin:4px;font-size:13px}
+.diff-btn.active{background:#1a8a7a;color:#fff;border-color:#4dd9c0}
+
+/* ── Game UI ── */
+#game-ui{position:fixed;inset:0;z-index:10;display:none;pointer-events:none}
+#game-ui.active{display:block}
+#header{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:rgba(10,14,20,.85);border-bottom:1px solid #1a8a7a;pointer-events:auto}
+#header h1{font-size:16px;color:#4dd9c0;letter-spacing:1px}
+#back-btn{background:none;border:1px solid #555;color:#aaa;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit}
+#back-btn:hover,#back-btn:focus{color:#fff;border-color:#4dd9c0}
+#back-btn:focus-visible{outline:3px solid #fff;outline-offset:2px}
+
+/* Thermometer */
+#thermo{position:fixed;right:16px;top:60px;bottom:80px;width:40px;z-index:15;pointer-events:none}
+#thermo-bg{position:absolute;inset:0;background:rgba(20,24,32,.9);border:1px solid #333;border-radius:20px;overflow:hidden}
+#thermo-fill{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,#4a9eff,#ff4444);border-radius:0 0 20px 20px;transition:height .3s}
+#thermo-label{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:10px;color:#4dd9c0;text-transform:uppercase;letter-spacing:1px;white-space:nowrap}
+#thermo-val{position:absolute;left:50%;transform:translateX(-50%);font-size:14px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:2;bottom:8px}
+
+/* HUD */
+#hud{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:16px;z-index:15;pointer-events:none;flex-wrap:wrap;justify-content:center}
+.stat{text-align:center;background:rgba(10,14,20,.8);border:1px solid #1a8a7a;border-radius:8px;padding:6px 14px;min-width:70px}
+.stat .label{font-size:10px;color:#4dd9c0;text-transform:uppercase;letter-spacing:1px}
+.stat .val{font-size:20px;font-weight:700;color:#fff}
+
+/* Jump button (Frog mode) */
+#jump-zone{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:auto;display:none}
+#jump-btn{width:clamp(100px,20vw,160px);height:clamp(100px,20vw,160px);border-radius:50%;background:radial-gradient(circle,#2a9a4a,#1a6a3a);border:3px solid #4dd9c0;color:#fff;font-size:clamp(18px,3vw,28px);font-weight:900;cursor:pointer;font-family:inherit;transition:all .1s;box-shadow:0 0 20px rgba(77,217,192,.3)}
+#jump-btn:hover{transform:scale(1.08);box-shadow:0 0 30px rgba(77,217,192,.6)}
+#jump-btn:active{transform:scale(.95)}
+#jump-btn:focus-visible{outline:3px solid #fff;outline-offset:4px}
+#jump-btn.sluggish{opacity:.7;filter:blur(1px)}
+
+/* Scientist controls */
+#sci-controls{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:auto;display:none;text-align:center;background:rgba(10,14,20,.9);border:1px solid #1a8a7a;border-radius:12px;padding:16px 24px}
+#heat-slider{width:clamp(200px,50vw,400px);height:8px;-webkit-appearance:none;appearance:none;background:linear-gradient(to right,#4a9eff,#ff4444);border-radius:4px;outline:none;cursor:pointer}
+#heat-slider::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;background:#4dd9c0;border-radius:50%;cursor:grab;border:2px solid #fff}
+#heat-slider:focus-visible{outline:3px solid #fff;outline-offset:4px}
+#heat-label{font-size:12px;color:#aaa;margin-top:8px}
+
+/* Result overlay */
+#result{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.92)}
+#result.active{display:flex}
+#result-panel{background:rgba(15,20,30,.98);border:2px solid #4dd9c0;border-radius:16px;padding:32px 48px;text-align:center;max-width:90vw}
+#result-panel h2{color:#4dd9c0;font-size:28px;margin-bottom:8px}
+#result-msg{font-size:16px;color:#ccc;margin-bottom:16px;max-width:400px;line-height:1.5}
+#result-score{font-size:36px;font-weight:900;color:#fff;margin-bottom:8px}
+#result-record{color:#f0c040;font-size:14px;display:none;margin-bottom:8px}
+#guilt-msg{font-size:13px;color:#e07050;margin-bottom:12px;max-width:400px;line-height:1.5;display:none}
+.result-btn{background:#1a8a7a;color:#fff;border:none;padding:12px 28px;font-size:16px;border-radius:8px;cursor:pointer;margin:6px;font-weight:700;font-family:inherit}
+.result-btn:hover{background:#4dd9c0;color:#0a0e14}
+.result-btn:focus-visible{outline:3px solid #fff;outline-offset:2px}
+
+/* Conservation modal */
+#conservation{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(10,14,20,.95)}
+#conservation.active{display:flex}
+#conservation-panel{background:#0f1420;border:2px solid #2a9a4a;border-radius:16px;padding:32px;max-width:500px;max-height:80vh;overflow-y:auto;text-align:left}
+#conservation-panel h2{color:#2a9a4a;margin-bottom:16px;font-size:22px}
+#conservation-panel p{color:#ccc;font-size:14px;line-height:1.6;margin-bottom:12px}
+#conservation-panel a{color:#4dd9c0}
+#conservation-panel .close-cons{display:block;margin:16px auto 0;background:#2a9a4a;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit}
+#conservation-panel .close-cons:focus-visible{outline:3px solid #fff;outline-offset:2px}
+
+/* Boiled counter */
+#boiled-counter{position:fixed;top:60px;left:16px;z-index:15;font-size:12px;color:#666;cursor:pointer;pointer-events:auto}
+#boiled-counter:hover{color:#e07050}
+
+/* Canvas */
+canvas{display:block;position:fixed;inset:0;z-index:1}
+
+/* Screen reader only */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+@media(prefers-reduced-motion:reduce){
+  .menu-btn{transition:none}
+  #thermo-fill{transition:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Screen reader live region -->
+<div id="sr-announce" class="sr-only" aria-live="assertive" role="status"></div>
+
+<!-- Menu -->
+<div id="menu" role="main" aria-label="Boiling Frogs main menu">
+  <h1>BOILING FROGS</h1>
+  <p class="subtitle">Based on the (debunked) boiling frog experiment. Can you detect the change?</p>
+
+  <div class="menu-section">
+    <h2>Choose Your Role</h2>
+    <button class="menu-btn" id="btn-frog" aria-label="Frog Mode: You are the frog, detect the rising temperature and jump to escape" title="You ARE the frog. Detect the rising temperature and jump to escape.">
+      Frog Mode
+      <div class="desc">You are the frog. Detect the change. JUMP!</div>
+    </button>
+    <button class="menu-btn" id="btn-scientist" aria-label="Scientist Mode: Control the heating rate and try to boil the AI frog" title="You control the heat. Boil the frog before it notices.">
+      Scientist Mode
+      <div class="desc">Control the heat. Boil before it notices.</div>
+    </button>
+  </div>
+
+  <div class="menu-section" id="difficulty-select" style="display:none">
+    <h2>Difficulty</h2>
+    <button class="menu-btn diff-btn active" data-diff="normal" title="Standard controls, fair warning signs">Normal</button>
+    <button class="menu-btn diff-btn" data-diff="sedated" title="Controls get progressively sluggish as temperature rises">Sedated</button>
+    <button class="menu-btn diff-btn" data-diff="lobotomized" title="Controls invert at high temperatures">Lobotomized</button>
+    <button class="menu-btn diff-btn" data-diff="drugged" title="Narrowing escape window and random control swaps">Drugged</button>
+  </div>
+
+  <div class="menu-section" id="personality-select" style="display:none">
+    <h2>Frog Personality</h2>
+    <button class="menu-btn diff-btn active" data-pers="nervous" title="Jumps at slight temperature changes">Nervous Nelly</button>
+    <button class="menu-btn diff-btn" data-pers="chill" title="Stays until it's clearly dangerous">Chill Chad</button>
+    <button class="menu-btn diff-btn" data-pers="professor" title="Calculates the optimal jump point">Professor Frog</button>
+    <button class="menu-btn diff-btn" data-pers="baby" title="Completely unpredictable behavior">Baby Frog</button>
+  </div>
+
+  <div class="menu-section" id="start-section" style="display:none">
+    <button class="menu-btn" id="btn-start" style="background:#1a8a7a;color:#fff;font-weight:700" title="Start the game">START</button>
+  </div>
+
+  <div id="frog-counter-menu" role="button" tabindex="0" aria-label="Click to see conservation info" title="Click to see conservation information">
+    Frogs boiled: <span id="fc-menu">0</span>
+  </div>
+</div>
+
+<!-- Game UI overlay -->
+<div id="game-ui" aria-label="Game interface">
+  <div id="header">
+    <h1 id="mode-label" aria-label="Game mode">FROG MODE</h1>
+    <button id="back-btn" title="Return to main menu" aria-label="Return to main menu">MENU</button>
+  </div>
+
+  <div id="thermo" aria-label="Temperature thermometer" role="meter" aria-valuemin="20" aria-valuemax="100" aria-valuenow="20">
+    <div id="thermo-label">TEMP</div>
+    <div id="thermo-bg"><div id="thermo-fill" style="height:0%"></div></div>
+    <div id="thermo-val">20C</div>
+  </div>
+
+  <div id="hud" role="status" aria-live="polite" aria-label="Game statistics">
+    <div class="stat" title="Current water temperature"><div class="label">Temp</div><div class="val" id="h-temp">20C</div></div>
+    <div class="stat" title="Current score"><div class="label">Score</div><div class="val" id="h-score">0</div></div>
+    <div class="stat" title="Time elapsed"><div class="label">Time</div><div class="val" id="h-time">0s</div></div>
+  </div>
+
+  <div id="jump-zone">
+    <button id="jump-btn" aria-label="Jump! Press to escape the water" title="JUMP to escape!">JUMP!</button>
+  </div>
+
+  <div id="sci-controls" aria-label="Heat controls">
+    <label for="heat-slider" style="font-size:14px;color:#4dd9c0;display:block;margin-bottom:8px">HEATING RATE</label>
+    <input type="range" id="heat-slider" min="0" max="100" value="20" aria-label="Heating rate slider" title="Control how fast the water heats up">
+    <div id="heat-label">Heating: 20%</div>
+  </div>
+
+  <div id="boiled-counter" role="button" tabindex="0" aria-label="Frogs boiled counter, click for conservation info" title="Click for conservation info">
+    Frogs boiled: <span id="fc-game">0</span>
+  </div>
+</div>
+
+<!-- Result overlay -->
+<div id="result" role="dialog" aria-modal="true" aria-labelledby="result-heading">
+  <div id="result-panel">
+    <h2 id="result-heading">RESULT</h2>
+    <div id="result-msg"></div>
+    <div id="result-score"></div>
+    <div id="result-record">NEW RECORD!</div>
+    <div id="guilt-msg" role="alert"></div>
+    <button class="result-btn" id="retry-btn" title="Play again" aria-label="Play again">RETRY</button>
+    <button class="result-btn" id="menu-btn-result" title="Return to menu" aria-label="Return to menu" style="background:transparent;border:1px solid #1a8a7a">MENU</button>
+  </div>
+</div>
+
+<!-- Conservation modal -->
+<div id="conservation" role="dialog" aria-modal="true" aria-labelledby="cons-heading">
+  <div id="conservation-panel">
+    <h2 id="cons-heading">Amphibian Conservation</h2>
+    <p>The "boiling frog" experiment was debunked in the 19th century. Frogs <strong>do</strong> jump out of gradually heated water -- as long as they are not sedated or deceived.</p>
+    <p>But real frogs face a genuine slow-boiling crisis: <strong>habitat loss, climate change, pollution, and chytrid fungus</strong> have driven over 40% of amphibian species toward extinction. This is the real "boiling water" -- and unlike the myth, frogs can't just jump out.</p>
+    <p><strong>Over 2,000 amphibian species</strong> are currently threatened. The global amphibian population has declined by an estimated 3.1% per year since 1970.</p>
+    <p>Learn more and help:</p>
+    <p>
+      <a href="https://www.amphibians.org/" target="_blank" rel="noopener">Amphibian Survival Alliance</a><br>
+      <a href="https://www.savethefrogs.com/" target="_blank" rel="noopener">Save The Frogs</a><br>
+      <a href="https://amphibiaweb.org/" target="_blank" rel="noopener">AmphibiaWeb</a><br>
+      <a href="https://www.iucnredlist.org/" target="_blank" rel="noopener">IUCN Red List</a>
+    </p>
+    <p id="cons-debunk" style="display:none;color:#e07050;font-weight:700;margin-top:8px">You know this experiment was debunked, right? The frogs in the original 1869 experiment were lobotomized. Intact frogs always jumped out.</p>
+    <p id="cons-shame" style="display:none;color:#e07050;margin-top:8px"></p>
+    <button class="close-cons" aria-label="Close conservation panel" title="Close">Got It</button>
+  </div>
+</div>
+
+<canvas id="c" aria-hidden="true"></canvas>
+
+<script>
+'use strict';
+// ── State ──
+const C = document.getElementById('c');
+const ctx = C.getContext('2d');
+let W, H;
+let mode = null; // 'frog' | 'scientist'
+let difficulty = 'normal';
+let personality = 'nervous';
+let gameActive = false;
+let temp = 20; // Celsius, 20=room temp, 100=boiling
+let heatRate = 0.3; // degrees per second (frog mode base)
+let sciHeatRate = 0.2;
+let score = 0;
+let elapsed = 0;
+let lastFrame = 0;
+let jumpPending = false;
+let jumpDelay = 0; // ms of input lag for sedated mode
+let controlsInverted = false;
+let escapeWindowNarrow = 0;
+let gameResult = null; // 'escaped' | 'boiled' | 'frog_escaped' | 'frog_boiled'
+
+// Frog expression: 0=happy, 1=content, 2=warm, 3=uncomfortable, 4=panicked, 5=dead
+let frogExpression = 0;
+let frogY = 0; // vertical position for jump anim
+let frogJumping = false;
+let frogJumpVel = 0;
+
+// AI frog (scientist mode)
+let aiFrogThreshold = 50;
+let aiFrogNoise = 0;
+let aiFrogCheckInterval = 1;
+let aiFrogLastCheck = 0;
+let aiFrogEscaped = false;
+
+// Particles
+const bubbles = [];
+const steamParticles = [];
+const MAX_BUBBLES = 80;
+const MAX_STEAM = 60;
+
+// Audio
+let audioCtx = null;
+let bubbleOsc = null;
+let croakTimeout = null;
+
+// localStorage
+let frogsBoiled = parseInt(localStorage.getItem('bf_boiled') || '0', 10);
+let highScoreFrog = parseInt(localStorage.getItem('bf_hs_frog') || '0', 10);
+let highScoreSci = parseInt(localStorage.getItem('bf_hs_sci') || '0', 10);
+
+// DOM refs
+const $menu = document.getElementById('menu');
+const $gameUI = document.getElementById('game-ui');
+const $result = document.getElementById('result');
+const $conservation = document.getElementById('conservation');
+const $jumpZone = document.getElementById('jump-zone');
+const $jumpBtn = document.getElementById('jump-btn');
+const $sciControls = document.getElementById('sci-controls');
+const $heatSlider = document.getElementById('heat-slider');
+const $thermoFill = document.getElementById('thermo-fill');
+const $thermoVal = document.getElementById('thermo-val');
+const $thermo = document.getElementById('thermo');
+const $srAnnounce = document.getElementById('sr-announce');
+
+function announce(msg) {
+  $srAnnounce.textContent = '';
+  requestAnimationFrame(() => { $srAnnounce.textContent = msg; });
+}
+
+// ── Resize ──
+function resize() {
+  W = C.width = window.innerWidth;
+  H = C.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── Audio ──
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch(e) {}
+}
+
+function playBubble() {
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 200 + Math.random() * 400;
+    gain.gain.value = 0.03 + (temp - 20) / 80 * 0.05;
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.05 + Math.random() * 0.1);
+  } catch(e) {}
+}
+
+function playCroak() {
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 80 + Math.random() * 40;
+    gain.gain.value = 0.08;
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  } catch(e) {}
+}
+
+function playJump() {
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 300;
+    osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.15);
+    gain.gain.value = 0.1;
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.2);
+  } catch(e) {}
+}
+
+function playBoil() {
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 60;
+    gain.gain.value = 0.15;
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 1);
+  } catch(e) {}
+}
+
+// ── Water color ──
+function waterColor(t) {
+  // 20C = cool blue, 50 = green, 65 = yellow, 80 = orange, 95+ = red
+  const p = Math.max(0, Math.min(1, (t - 20) / 80));
+  let r, g, b;
+  if (p < 0.25) { // blue to teal
+    const s = p / 0.25;
+    r = lerp(30, 40, s); g = lerp(80, 160, s); b = lerp(180, 140, s);
+  } else if (p < 0.5) { // teal to green-yellow
+    const s = (p - 0.25) / 0.25;
+    r = lerp(40, 180, s); g = lerp(160, 180, s); b = lerp(140, 40, s);
+  } else if (p < 0.75) { // yellow to orange
+    const s = (p - 0.5) / 0.25;
+    r = lerp(180, 230, s); g = lerp(180, 120, s); b = lerp(40, 20, s);
+  } else { // orange to red
+    const s = (p - 0.75) / 0.25;
+    r = lerp(230, 220, s); g = lerp(120, 40, s); b = lerp(20, 30, s);
+  }
+  return `rgb(${r|0},${g|0},${b|0})`;
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// ── Particles ──
+function spawnBubble() {
+  if (bubbles.length >= MAX_BUBBLES) return;
+  const waterTop = H * 0.35;
+  bubbles.push({
+    x: Math.random() * W,
+    y: H - Math.random() * (H - waterTop) * 0.3,
+    r: 2 + Math.random() * 6,
+    vy: -20 - Math.random() * 40,
+    vx: (Math.random() - 0.5) * 10,
+    life: 1,
+    maxLife: 2 + Math.random() * 3
+  });
+}
+
+function spawnSteam() {
+  if (steamParticles.length >= MAX_STEAM) return;
+  const waterTop = H * 0.35;
+  steamParticles.push({
+    x: Math.random() * W,
+    y: waterTop - Math.random() * 20,
+    r: 4 + Math.random() * 12,
+    vy: -30 - Math.random() * 50,
+    vx: (Math.random() - 0.5) * 20,
+    alpha: 0.4 + Math.random() * 0.3,
+    life: 0,
+    maxLife: 1 + Math.random() * 2
+  });
+}
+
+function updateParticles(dt) {
+  const waterTop = H * 0.35;
+  // Bubble spawn rate increases with temp
+  const bubbleChance = Math.max(0, (temp - 30) / 70);
+  if (Math.random() < bubbleChance * dt * 20) { spawnBubble(); playBubble(); }
+  if (Math.random() < bubbleChance * dt * 8) spawnBubble();
+
+  // Steam above 60C
+  const steamChance = Math.max(0, (temp - 55) / 45);
+  if (Math.random() < steamChance * dt * 15) spawnSteam();
+
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const b = bubbles[i];
+    b.y += b.vy * dt;
+    b.x += b.vx * dt;
+    b.life += dt;
+    if (b.y < waterTop || b.life > b.maxLife) { bubbles.splice(i, 1); }
+  }
+
+  for (let i = steamParticles.length - 1; i >= 0; i--) {
+    const s = steamParticles[i];
+    s.y += s.vy * dt;
+    s.x += s.vx * dt;
+    s.life += dt;
+    s.alpha -= dt * 0.3;
+    if (s.alpha <= 0 || s.life > s.maxLife) { steamParticles.splice(i, 1); }
+  }
+}
+
+// ── Draw frog (CSS art via canvas) ──
+function drawFrog(cx, cy, size, expression) {
+  // expression: 0=happy, 1=content, 2=warm, 3=uncomfortable, 4=panicked, 5=dead
+  const s = size;
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Body
+  const bodyColors = ['#2a9a4a', '#3a9a3a', '#5a9a2a', '#8a8a1a', '#aa6a1a', '#666'];
+  const bodyColor = bodyColors[Math.min(expression, 5)];
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.5, s * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Belly
+  ctx.fillStyle = expression >= 5 ? '#888' : '#8fdf6f';
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.05, s * 0.3, s * 0.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes
+  const eyeSpread = s * 0.2;
+  const eyeY = -s * 0.25;
+  const eyeR = s * 0.12;
+  // eye whites
+  ctx.fillStyle = expression >= 5 ? '#999' : '#fff';
+  ctx.beginPath();
+  ctx.arc(-eyeSpread, eyeY, eyeR, 0, Math.PI * 2);
+  ctx.arc(eyeSpread, eyeY, eyeR, 0, Math.PI * 2);
+  ctx.fill();
+  // pupils
+  ctx.fillStyle = expression >= 5 ? '#555' : '#111';
+  const pupilR = eyeR * (expression >= 4 ? 0.3 : 0.5);
+  const pupilOff = expression >= 3 ? (Math.random() - 0.5) * 2 : 0; // jitter when panicked
+  ctx.beginPath();
+  ctx.arc(-eyeSpread + pupilOff, eyeY, pupilR, 0, Math.PI * 2);
+  ctx.arc(eyeSpread + pupilOff, eyeY, pupilR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye expression details
+  if (expression >= 4 && expression < 5) {
+    // Panicked: wide eyes, brow lines
+    ctx.strokeStyle = bodyColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-eyeSpread - eyeR, eyeY - eyeR - 3);
+    ctx.lineTo(-eyeSpread + eyeR, eyeY - eyeR - 6);
+    ctx.moveTo(eyeSpread - eyeR, eyeY - eyeR - 6);
+    ctx.lineTo(eyeSpread + eyeR, eyeY - eyeR - 3);
+    ctx.stroke();
+  }
+  if (expression >= 5) {
+    // Dead: X eyes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    const xr = eyeR * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(-eyeSpread - xr, eyeY - xr);
+    ctx.lineTo(-eyeSpread + xr, eyeY + xr);
+    ctx.moveTo(-eyeSpread + xr, eyeY - xr);
+    ctx.lineTo(-eyeSpread - xr, eyeY + xr);
+    ctx.moveTo(eyeSpread - xr, eyeY - xr);
+    ctx.lineTo(eyeSpread + xr, eyeY + xr);
+    ctx.moveTo(eyeSpread + xr, eyeY - xr);
+    ctx.lineTo(eyeSpread - xr, eyeY + xr);
+    ctx.stroke();
+  }
+
+  // Mouth
+  ctx.strokeStyle = expression >= 5 ? '#555' : '#1a5a2a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (expression === 0) {
+    // happy smile
+    ctx.arc(0, -s * 0.05, s * 0.15, 0.1 * Math.PI, 0.9 * Math.PI);
+  } else if (expression <= 2) {
+    // neutral/slight frown
+    ctx.moveTo(-s * 0.1, s * 0.05);
+    ctx.lineTo(s * 0.1, s * 0.05);
+  } else if (expression <= 4) {
+    // open mouth (distress)
+    ctx.fillStyle = '#d44';
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.05, s * 0.1, s * 0.06 + expression * 0.01 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // dead: tongue out
+    ctx.moveTo(-s * 0.1, s * 0.05);
+    ctx.lineTo(s * 0.1, s * 0.05);
+    ctx.stroke();
+    ctx.fillStyle = '#d44';
+    ctx.beginPath();
+    ctx.ellipse(s * 0.05, s * 0.12, s * 0.04, s * 0.08, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.stroke();
+
+  // Legs
+  ctx.strokeStyle = bodyColor;
+  ctx.lineWidth = s * 0.08;
+  ctx.lineCap = 'round';
+  // Back legs
+  const legY = s * 0.2;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.4, legY);
+  ctx.quadraticCurveTo(-s * 0.7, legY + s * 0.3, -s * 0.5, legY + s * 0.45);
+  ctx.moveTo(s * 0.4, legY);
+  ctx.quadraticCurveTo(s * 0.7, legY + s * 0.3, s * 0.5, legY + s * 0.45);
+  ctx.stroke();
+  // Front legs
+  ctx.lineWidth = s * 0.06;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.25, legY);
+  ctx.lineTo(-s * 0.35, legY + s * 0.3);
+  ctx.moveTo(s * 0.25, legY);
+  ctx.lineTo(s * 0.35, legY + s * 0.3);
+  ctx.stroke();
+
+  // Sweat drops at high temp
+  if (expression >= 2 && expression < 5) {
+    const drops = expression - 1;
+    ctx.fillStyle = 'rgba(100,180,255,0.7)';
+    for (let d = 0; d < drops; d++) {
+      const dx = (d - drops / 2) * s * 0.2;
+      const dy = -s * 0.35 - Math.sin(Date.now() / 300 + d) * 3;
+      ctx.beginPath();
+      ctx.ellipse(dx, dy, 2, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+// ── Draw scene ──
+function drawScene() {
+  ctx.clearRect(0, 0, W, H);
+
+  const waterTop = H * 0.35;
+  const waterH = H - waterTop;
+
+  // Sky / background
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, waterTop);
+  skyGrad.addColorStop(0, '#0a0e14');
+  skyGrad.addColorStop(1, '#0f1828');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, waterTop);
+
+  // Water
+  const wc = waterColor(temp);
+  const waterGrad = ctx.createLinearGradient(0, waterTop, 0, H);
+  waterGrad.addColorStop(0, wc);
+  // Darken bottom
+  const p = Math.max(0, Math.min(1, (temp - 20) / 80));
+  const darkR = lerp(15, 100, p);
+  const darkG = lerp(40, 20, p);
+  const darkB = lerp(90, 15, p);
+  waterGrad.addColorStop(1, `rgb(${darkR|0},${darkG|0},${darkB|0})`);
+  ctx.fillStyle = waterGrad;
+  ctx.fillRect(0, waterTop, W, waterH);
+
+  // Water surface wave
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, waterTop);
+  const waveAmp = 3 + p * 8;
+  const waveFreq = 0.01 + p * 0.005;
+  const t = Date.now() / 1000;
+  for (let x = 0; x <= W; x += 4) {
+    const y = waterTop + Math.sin(x * waveFreq + t * 2) * waveAmp
+      + Math.sin(x * waveFreq * 2.3 + t * 3.1) * waveAmp * 0.5;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, waterTop - 10);
+  ctx.lineTo(0, waterTop - 10);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(10,14,20,0.3)';
+  ctx.fill();
+  ctx.restore();
+
+  // Bubbles
+  for (const b of bubbles) {
+    const alpha = Math.max(0, 1 - b.life / b.maxLife) * 0.5;
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.stroke();
+    // highlight
+    ctx.fillStyle = `rgba(255,255,255,${alpha * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Steam
+  for (const s of steamParticles) {
+    ctx.fillStyle = `rgba(200,210,220,${Math.max(0, s.alpha)})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Pot edges (decorative)
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.05, waterTop - 5);
+  ctx.lineTo(W * 0.05, H);
+  ctx.moveTo(W * 0.95, waterTop - 5);
+  ctx.lineTo(W * 0.95, H);
+  // Rim
+  ctx.moveTo(W * 0.03, waterTop - 5);
+  ctx.lineTo(W * 0.97, waterTop - 5);
+  ctx.stroke();
+  // Pot rim detail
+  ctx.strokeStyle = '#777';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.03, waterTop - 8);
+  ctx.lineTo(W * 0.97, waterTop - 8);
+  ctx.stroke();
+
+  // Burner glow at bottom
+  if (temp > 30) {
+    const glow = Math.min(1, (temp - 30) / 50);
+    const burnerGrad = ctx.createRadialGradient(W / 2, H + 20, 0, W / 2, H + 20, W * 0.5);
+    burnerGrad.addColorStop(0, `rgba(255,${100 - glow * 60|0},0,${glow * 0.3})`);
+    burnerGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = burnerGrad;
+    ctx.fillRect(0, H * 0.8, W, H * 0.2);
+  }
+
+  // Frog
+  const frogSize = Math.min(W, H) * 0.12;
+  const frogBaseY = waterTop + waterH * 0.25;
+  const frogX = W / 2;
+  const actualFrogY = frogBaseY + frogY;
+  const bob = Math.sin(t * 1.5) * 3;
+  drawFrog(frogX, actualFrogY + bob, frogSize, frogExpression);
+}
+
+// ── Frog expression from temp ──
+function updateFrogExpression() {
+  if (temp < 28) frogExpression = 0;
+  else if (temp < 40) frogExpression = 1;
+  else if (temp < 55) frogExpression = 2;
+  else if (temp < 75) frogExpression = 3;
+  else if (temp < 95) frogExpression = 4;
+  else frogExpression = 5;
+}
+
+// ── Score calculations ──
+function calcFrogScore() {
+  // Higher temp when jumping = higher score, but too late = 0
+  if (temp >= 100) return 0; // boiled
+  // Sweet spot: 70-90C
+  if (temp < 25) return Math.round((temp - 20) * 2); // jumped too early
+  const base = Math.round((temp - 20) * 12.5);
+  // Bonus for difficulty
+  const diffMult = { normal: 1, sedated: 1.5, lobotomized: 2, drugged: 2.5 };
+  return Math.round(base * (diffMult[difficulty] || 1));
+}
+
+function calcSciScore() {
+  return Math.round(temp * 10);
+}
+
+// ── Difficulty effects ──
+function getDifficultyEffects() {
+  const p = Math.max(0, Math.min(1, (temp - 20) / 80));
+  switch (difficulty) {
+    case 'sedated':
+      jumpDelay = Math.round(p * 1500); // up to 1.5s input lag
+      controlsInverted = false;
+      escapeWindowNarrow = 0;
+      break;
+    case 'lobotomized':
+      jumpDelay = 0;
+      controlsInverted = p > 0.5; // inverted above 60C
+      escapeWindowNarrow = 0;
+      break;
+    case 'drugged':
+      jumpDelay = Math.round(p * 500);
+      controlsInverted = Math.random() < p * 0.3; // random swaps
+      escapeWindowNarrow = p * 0.4; // narrows escape window
+      break;
+    default:
+      jumpDelay = 0;
+      controlsInverted = false;
+      escapeWindowNarrow = 0;
+  }
+
+  // Visual feedback on jump button
+  if (jumpDelay > 200) {
+    $jumpBtn.classList.add('sluggish');
+  } else {
+    $jumpBtn.classList.remove('sluggish');
+  }
+}
+
+// ── AI Frog (scientist mode) ──
+function setupAIFrog() {
+  switch (personality) {
+    case 'nervous':
+      aiFrogThreshold = 35 + Math.random() * 10;
+      aiFrogNoise = 8;
+      aiFrogCheckInterval = 0.5;
+      break;
+    case 'chill':
+      aiFrogThreshold = 70 + Math.random() * 15;
+      aiFrogNoise = 5;
+      aiFrogCheckInterval = 2;
+      break;
+    case 'professor':
+      aiFrogThreshold = 80 + Math.random() * 8;
+      aiFrogNoise = 2;
+      aiFrogCheckInterval = 1;
+      break;
+    case 'baby':
+      aiFrogThreshold = 30 + Math.random() * 50;
+      aiFrogNoise = 20;
+      aiFrogCheckInterval = 0.3 + Math.random() * 2;
+      break;
+  }
+  aiFrogEscaped = false;
+  aiFrogLastCheck = 0;
+}
+
+function updateAIFrog(dt) {
+  if (aiFrogEscaped) return;
+  aiFrogLastCheck += dt;
+  if (aiFrogLastCheck >= aiFrogCheckInterval) {
+    aiFrogLastCheck = 0;
+    // Check if frog decides to jump
+    const threshold = aiFrogThreshold + (Math.random() - 0.5) * aiFrogNoise;
+    // Rate of change matters too — fast heating makes frog more likely to notice
+    const rateBonus = sciHeatRate > 1.5 ? (sciHeatRate - 1.5) * 8 : 0;
+    const effectiveTemp = temp + rateBonus;
+
+    if (effectiveTemp >= threshold) {
+      // Probability increases as temp exceeds threshold
+      const jumpProb = Math.min(0.95, (effectiveTemp - threshold + 5) / 30);
+      if (Math.random() < jumpProb) {
+        aiFrogEscaped = true;
+        frogJumping = true;
+        frogJumpVel = -400;
+        playJump();
+        playCroak();
+        setTimeout(() => endGame('frog_escaped'), 800);
+      }
+    }
+    // Professor frog also considers rate of change explicitly
+    if (personality === 'professor' && !aiFrogEscaped) {
+      if (sciHeatRate > 2 && temp > 40) {
+        const rateJumpProb = (sciHeatRate - 2) * 0.15;
+        if (Math.random() < rateJumpProb) {
+          aiFrogEscaped = true;
+          frogJumping = true;
+          frogJumpVel = -400;
+          playJump();
+          setTimeout(() => endGame('frog_escaped'), 800);
+        }
+      }
+    }
+  }
+}
+
+// ── Game loop ──
+function gameLoop(ts) {
+  if (!gameActive) { requestAnimationFrame(gameLoop); drawScene(); return; }
+  if (!lastFrame) lastFrame = ts;
+  const dt = Math.min(0.1, (ts - lastFrame) / 1000);
+  lastFrame = ts;
+  elapsed += dt;
+
+  // Update temperature
+  if (mode === 'frog') {
+    // Gradually accelerating heat
+    const accel = 1 + elapsed * 0.02; // speeds up over time
+    temp += heatRate * accel * dt;
+  } else {
+    // Scientist controls the rate
+    sciHeatRate = ($heatSlider.value / 100) * 3; // 0-3 degrees/sec
+    temp += sciHeatRate * dt;
+  }
+  temp = Math.min(105, temp); // slight over-boil for drama
+
+  // Update frog expression
+  updateFrogExpression();
+
+  // Difficulty effects (frog mode)
+  if (mode === 'frog') getDifficultyEffects();
+
+  // AI frog (scientist mode)
+  if (mode === 'scientist') updateAIFrog(dt);
+
+  // Frog jump animation
+  if (frogJumping) {
+    frogY += frogJumpVel * dt;
+    frogJumpVel += 600 * dt; // gravity
+    if (frogY > 0) { frogY = 0; frogJumping = false; }
+  }
+
+  // Particles
+  updateParticles(dt);
+
+  // Croak occasionally
+  if (frogExpression >= 2 && frogExpression < 5 && Math.random() < dt * 0.3) {
+    playCroak();
+  }
+
+  // Check boiled
+  if (temp >= 100 && !frogJumping) {
+    if (mode === 'frog') endGame('boiled');
+    else if (!aiFrogEscaped) endGame('frog_boiled');
+  }
+
+  // Update HUD
+  document.getElementById('h-temp').textContent = `${temp|0}C`;
+  document.getElementById('h-score').textContent = mode === 'frog' ? calcFrogScore() : calcSciScore();
+  document.getElementById('h-time').textContent = `${elapsed|0}s`;
+
+  // Thermometer
+  const thermoPct = Math.max(0, Math.min(100, ((temp - 20) / 80) * 100));
+  $thermoFill.style.height = thermoPct + '%';
+  $thermoVal.textContent = `${temp|0}C`;
+  $thermo.setAttribute('aria-valuenow', temp|0);
+
+  // Heat slider label
+  if (mode === 'scientist') {
+    document.getElementById('heat-label').textContent = `Heating: ${($heatSlider.value)|0}% (${sciHeatRate.toFixed(1)} C/s)`;
+  }
+
+  // Announce temp milestones for screen readers
+  const tempMilestones = [30, 40, 50, 60, 70, 80, 90];
+  for (const m of tempMilestones) {
+    if (temp >= m && temp - heatRate * dt * 2 < m) {
+      announce(`Temperature reached ${m} degrees.${m >= 70 ? ' Danger!' : ''}`);
+    }
+  }
+
+  drawScene();
+  requestAnimationFrame(gameLoop);
+}
+
+// ── Handle jump ──
+function doJump() {
+  if (!gameActive || mode !== 'frog' || frogJumping) return;
+  initAudio();
+
+  // For drugged: chance the jump fails
+  if (difficulty === 'drugged' && escapeWindowNarrow > 0) {
+    if (Math.random() < escapeWindowNarrow * 0.5) {
+      // Jump fizzles
+      announce('Jump failed! Controls unresponsive.');
+      $jumpBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { $jumpBtn.style.transform = ''; }, 200);
+      return;
+    }
+  }
+
+  // For lobotomized: inverted means jump pushes you down briefly
+  if (controlsInverted) {
+    frogY += 20;
+    announce('Controls inverted! Jump went the wrong way.');
+    setTimeout(() => { frogY = 0; }, 300);
+    return;
+  }
+
+  // Apply sedation delay
+  if (jumpDelay > 0) {
+    announce(`Jump delayed by ${(jumpDelay / 1000).toFixed(1)} seconds...`);
+    jumpPending = true;
+    $jumpBtn.style.opacity = '0.4';
+    setTimeout(() => {
+      $jumpBtn.style.opacity = '';
+      jumpPending = false;
+      if (gameActive) executeJump();
+    }, jumpDelay);
+  } else {
+    executeJump();
+  }
+}
+
+function executeJump() {
+  if (!gameActive) return;
+  frogJumping = true;
+  frogJumpVel = -500;
+  playJump();
+  playCroak();
+  setTimeout(() => {
+    if (gameActive) endGame('escaped');
+  }, 600);
+}
+
+// ── End game ──
+function endGame(result) {
+  if (!gameActive) return;
+  gameActive = false;
+  gameResult = result;
+
+  const $heading = document.getElementById('result-heading');
+  const $msg = document.getElementById('result-msg');
+  const $score = document.getElementById('result-score');
+  const $record = document.getElementById('result-record');
+  const $guilt = document.getElementById('guilt-msg');
+
+  let finalScore = 0;
+  let isRecord = false;
+
+  $guilt.style.display = 'none';
+  $record.style.display = 'none';
+
+  switch (result) {
+    case 'escaped':
+      finalScore = calcFrogScore();
+      $heading.textContent = 'ESCAPED!';
+      $heading.style.color = '#4dd9c0';
+      if (finalScore < 100) {
+        $msg.textContent = 'You jumped too early! The water was barely warm. Where is your froggy courage?';
+      } else if (finalScore < 500) {
+        $msg.textContent = 'Good timing! You sensed the danger and leapt to safety.';
+      } else {
+        $msg.textContent = 'Incredible! You pushed it to the limit and escaped with a legendary score!';
+      }
+      $score.textContent = finalScore;
+      if (finalScore > highScoreFrog) {
+        highScoreFrog = finalScore;
+        localStorage.setItem('bf_hs_frog', highScoreFrog);
+        $record.style.display = 'block';
+        isRecord = true;
+      }
+      announce(`Escaped! Score: ${finalScore}${isRecord ? '. New record!' : ''}`);
+      break;
+
+    case 'boiled':
+      finalScore = 0;
+      frogsBoiled++;
+      localStorage.setItem('bf_boiled', frogsBoiled);
+      $heading.textContent = 'BOILED';
+      $heading.style.color = '#e05040';
+      $msg.textContent = 'The water reached boiling point. You did not jump in time. The frog is... well, you know.';
+      $score.textContent = '0';
+      playBoil();
+      showGuilt($guilt);
+      announce('Boiled! The frog did not survive.');
+      break;
+
+    case 'frog_escaped':
+      finalScore = calcSciScore();
+      $heading.textContent = 'FROG ESCAPED!';
+      $heading.style.color = '#4dd9c0';
+      $msg.textContent = `The frog noticed the heat at ${temp|0}C and jumped out! Your slow-cook strategy wasn't slow enough.`;
+      $score.textContent = finalScore;
+      if (finalScore > highScoreSci) {
+        highScoreSci = finalScore;
+        localStorage.setItem('bf_hs_sci', highScoreSci);
+        $record.style.display = 'block';
+        isRecord = true;
+      }
+      announce(`Frog escaped at ${temp|0} degrees. Score: ${finalScore}`);
+      break;
+
+    case 'frog_boiled':
+      finalScore = calcSciScore();
+      frogsBoiled++;
+      localStorage.setItem('bf_boiled', frogsBoiled);
+      $heading.textContent = 'FROG BOILED';
+      $heading.style.color = '#e05040';
+      $msg.textContent = `You successfully raised the temperature to boiling without the frog noticing. Congratulations... monster.`;
+      $score.textContent = finalScore;
+      if (finalScore > highScoreSci) {
+        highScoreSci = finalScore;
+        localStorage.setItem('bf_hs_sci', highScoreSci);
+        $record.style.display = 'block';
+        isRecord = true;
+      }
+      playBoil();
+      showGuilt($guilt);
+      announce(`Frog boiled. Score: ${finalScore}`);
+      break;
+  }
+
+  updateBoiledCounters();
+  $result.classList.add('active');
+  document.getElementById('retry-btn').focus();
+}
+
+// ── Guilt messages ──
+function showGuilt($el) {
+  const msgs = [];
+  if (frogsBoiled >= 1) msgs.push(`Total frogs boiled: ${frogsBoiled}.`);
+  if (frogsBoiled >= 3) msgs.push('Over 2,000 real amphibian species are currently threatened with extinction.');
+  if (frogsBoiled >= 5) msgs.push('The global amphibian population has declined by 3.1% per year since 1970.');
+  if (frogsBoiled >= 10) msgs.push('You know this experiment was debunked, right? The original 1869 frogs were lobotomized.');
+  if (frogsBoiled >= 15) msgs.push('Chytrid fungus has caused the decline of at least 501 amphibian species worldwide.');
+  if (frogsBoiled >= 20) msgs.push('Seriously, you have boiled ' + frogsBoiled + ' frogs. Consider donating to savethefrogs.com.');
+  if (frogsBoiled >= 25) msgs.push('At this point you should really visit amphibians.org and make this right.');
+
+  if (msgs.length > 0) {
+    $el.textContent = msgs[msgs.length - 1];
+    $el.style.display = 'block';
+  }
+}
+
+// ── Boiled counters ──
+function updateBoiledCounters() {
+  document.getElementById('fc-menu').textContent = frogsBoiled;
+  document.getElementById('fc-game').textContent = frogsBoiled;
+}
+
+// ── Start game ──
+function startGame() {
+  initAudio();
+  temp = 20;
+  elapsed = 0;
+  score = 0;
+  lastFrame = 0;
+  frogExpression = 0;
+  frogY = 0;
+  frogJumping = false;
+  frogJumpVel = 0;
+  jumpPending = false;
+  jumpDelay = 0;
+  controlsInverted = false;
+  escapeWindowNarrow = 0;
+  gameResult = null;
+  bubbles.length = 0;
+  steamParticles.length = 0;
+
+  if (mode === 'frog') {
+    // Base heat rates by difficulty
+    const rates = { normal: 0.4, sedated: 0.35, lobotomized: 0.5, drugged: 0.45 };
+    heatRate = rates[difficulty] || 0.4;
+    $jumpZone.style.display = 'block';
+    $sciControls.style.display = 'none';
+    document.getElementById('mode-label').textContent = `FROG MODE - ${difficulty.toUpperCase()}`;
+  } else {
+    setupAIFrog();
+    $jumpZone.style.display = 'none';
+    $sciControls.style.display = 'block';
+    $heatSlider.value = 20;
+    document.getElementById('mode-label').textContent = `SCIENTIST MODE - ${personality.toUpperCase()}`;
+  }
+
+  $menu.classList.add('hidden');
+  $gameUI.classList.add('active');
+  $result.classList.remove('active');
+  gameActive = true;
+
+  announce(`Game started. ${mode === 'frog' ? 'You are the frog. Press Space or tap Jump to escape.' : 'Control the heat. Boil the frog before it jumps.'}`);
+}
+
+function showMenu() {
+  gameActive = false;
+  $menu.classList.remove('hidden');
+  $gameUI.classList.remove('active');
+  $result.classList.remove('active');
+  $jumpZone.style.display = 'none';
+  $sciControls.style.display = 'none';
+  document.getElementById('difficulty-select').style.display = 'none';
+  document.getElementById('personality-select').style.display = 'none';
+  document.getElementById('start-section').style.display = 'none';
+  updateBoiledCounters();
+}
+
+// ── Menu interactions ──
+document.getElementById('btn-frog').addEventListener('click', () => {
+  mode = 'frog';
+  document.getElementById('difficulty-select').style.display = 'block';
+  document.getElementById('personality-select').style.display = 'none';
+  document.getElementById('start-section').style.display = 'block';
+  announce('Frog mode selected. Choose difficulty, then press Start.');
+});
+
+document.getElementById('btn-scientist').addEventListener('click', () => {
+  mode = 'scientist';
+  document.getElementById('difficulty-select').style.display = 'none';
+  document.getElementById('personality-select').style.display = 'block';
+  document.getElementById('start-section').style.display = 'block';
+  announce('Scientist mode selected. Choose frog personality, then press Start.');
+});
+
+// Difficulty buttons
+document.querySelectorAll('[data-diff]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-diff]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    difficulty = btn.dataset.diff;
+    announce(`Difficulty set to ${difficulty}`);
+  });
+});
+
+// Personality buttons
+document.querySelectorAll('[data-pers]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-pers]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    personality = btn.dataset.pers;
+    announce(`Frog personality set to ${btn.textContent.trim()}`);
+  });
+});
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('retry-btn').addEventListener('click', startGame);
+document.getElementById('menu-btn-result').addEventListener('click', showMenu);
+document.getElementById('back-btn').addEventListener('click', showMenu);
+
+// Jump button
+$jumpBtn.addEventListener('click', doJump);
+$jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); doJump(); }, { passive: false });
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ' || e.key === 'Enter') {
+    if (gameActive && mode === 'frog') {
+      e.preventDefault();
+      doJump();
+    }
+  }
+  if (e.key === 'Escape') {
+    if ($conservation.classList.contains('active')) {
+      $conservation.classList.remove('active');
+    } else if ($result.classList.contains('active')) {
+      showMenu();
+    } else if (gameActive) {
+      showMenu();
+    }
+  }
+  // Scientist mode: arrow keys for heat
+  if (gameActive && mode === 'scientist') {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      $heatSlider.value = Math.min(100, parseInt($heatSlider.value) + 5);
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      $heatSlider.value = Math.max(0, parseInt($heatSlider.value) - 5);
+    }
+  }
+});
+
+// Gamepad support
+let lastGamepadJump = false;
+function pollGamepad() {
+  const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const gp of gps) {
+    if (!gp) continue;
+    // A button (0) for jump
+    if (gp.buttons[0] && gp.buttons[0].pressed && !lastGamepadJump) {
+      lastGamepadJump = true;
+      if (gameActive && mode === 'frog') doJump();
+    }
+    if (gp.buttons[0] && !gp.buttons[0].pressed) lastGamepadJump = false;
+
+    // Triggers/sticks for scientist heat
+    if (gameActive && mode === 'scientist') {
+      // Right stick Y or triggers
+      const axis = gp.axes[3] || 0; // right stick Y
+      if (Math.abs(axis) > 0.1) {
+        $heatSlider.value = Math.max(0, Math.min(100, parseInt($heatSlider.value) - axis * 2));
+      }
+    }
+  }
+  requestAnimationFrame(pollGamepad);
+}
+pollGamepad();
+
+// Conservation modal
+function showConservation() {
+  $conservation.classList.add('active');
+  if (frogsBoiled >= 10) document.getElementById('cons-debunk').style.display = 'block';
+  if (frogsBoiled >= 25) {
+    const shame = document.getElementById('cons-shame');
+    shame.textContent = `You have boiled ${frogsBoiled} virtual frogs. Please consider supporting real amphibian conservation.`;
+    shame.style.display = 'block';
+  }
+  $conservation.querySelector('.close-cons').focus();
+  announce('Conservation information panel opened.');
+}
+
+document.getElementById('frog-counter-menu').addEventListener('click', showConservation);
+document.getElementById('frog-counter-menu').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showConservation(); }});
+document.getElementById('boiled-counter').addEventListener('click', showConservation);
+document.getElementById('boiled-counter').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showConservation(); }});
+document.querySelector('.close-cons').addEventListener('click', () => {
+  $conservation.classList.remove('active');
+});
+
+// ── Init ──
+updateBoiledCounters();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

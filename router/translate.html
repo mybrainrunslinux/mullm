@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>muLLM — Translate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #080c14; --bg2: #0f1520; --bg3: #161e2e; --bg4: #1e2940;
+      --border: #1e2d3d; --border2: #2a3a4e;
+      --teal: #14b8a6; --amber: #f59e0b; --green: #22c55e;
+      --blue: #3b82f6; --coral: #ef6c4c; --purple: #a78bfa;
+      --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+      --mono: "JetBrains Mono", monospace;
+      --radius: 6px;
+      --glow-t: 0 0 18px rgba(20,184,166,0.18);
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 14px; line-height: 1.6; }
+    .page { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+    .header-logo { font-size: 1.5rem; font-weight: 700; color: var(--teal); text-decoration: none; text-shadow: var(--glow-t); }
+    .header-title { font-size: 1.15rem; font-weight: 600; flex: 1; }
+    .header-sub { font-size: 0.78rem; color: var(--text3); }
+
+    /* Tabs */
+    .tabs { display: flex; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 1.5rem; }
+    .tab { padding: 0.55rem 1.2rem; font-family: var(--mono); font-size: 0.8rem; font-weight: 600; background: transparent; border: none; color: var(--text2); cursor: pointer; transition: background 0.15s, color 0.15s; }
+    .tab:hover { background: var(--bg3); color: var(--text); }
+    .tab.active { background: var(--bg4); color: var(--teal); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Controls */
+    .lang-row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+    .lang-select { background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 0.82rem; padding: 0.45rem 0.75rem; border-radius: var(--radius); cursor: pointer; }
+    .lang-select:focus { outline: 2px solid var(--teal); outline-offset: 2px; }
+    label.lang-label { font-size: 0.75rem; color: var(--text3); }
+
+    /* Textareas */
+    .textarea-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    @media (max-width: 640px) { .textarea-pair { grid-template-columns: 1fr; } }
+    .ta-wrap { display: flex; flex-direction: column; gap: 0.35rem; }
+    .ta-label { font-size: 0.68rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+    textarea {
+      width: 100%; min-height: 200px; padding: 0.75rem; resize: vertical;
+      background: var(--bg2); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 0.82rem; line-height: 1.6;
+      border-radius: var(--radius); transition: border-color 0.15s;
+    }
+    textarea:focus { outline: none; border-color: var(--teal); }
+    textarea::placeholder { color: var(--text3); }
+    textarea[readonly] { background: var(--bg3); color: var(--text2); cursor: default; }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.2rem; font-family: var(--mono); font-size: 0.82rem; font-weight: 600; border-radius: var(--radius); border: none; cursor: pointer; transition: opacity 0.15s, box-shadow 0.15s, transform 0.1s; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: var(--teal); color: #080c14; }
+    .btn-primary:hover:not(:disabled) { box-shadow: var(--glow-t); opacity: 0.92; }
+    .btn-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--border2); }
+    .btn-secondary:hover:not(:disabled) { color: var(--text); border-color: var(--border2); }
+    .btn-purple { background: rgba(167,139,250,0.15); color: var(--purple); border: 1px solid rgba(167,139,250,0.3); }
+    .btn-amber { background: rgba(245,158,11,0.12); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+
+    /* Cost badge */
+    .cost-badge { font-size: 0.72rem; color: var(--green); background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); border-radius: 4px; padding: 0.15em 0.55em; }
+    .cost-badge.cloud { color: var(--amber); background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.25); }
+
+    /* Status bar */
+    .status-bar { min-height: 1.5rem; font-size: 0.75rem; color: var(--text3); margin-top: 0.5rem; }
+    .status-bar.error { color: var(--coral); }
+    .status-bar.ok { color: var(--green); }
+
+    /* JSON / file mode */
+    .file-drop { border: 2px dashed var(--border2); border-radius: var(--radius); padding: 2rem 1.5rem; text-align: center; color: var(--text3); cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+    .file-drop:hover, .file-drop.drag-over { border-color: var(--teal); background: rgba(20,184,166,0.04); }
+    .file-drop input[type=file] { display: none; }
+    .kv-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.75rem; }
+    .kv-table th { background: var(--bg3); padding: 0.5rem 0.75rem; text-align: left; font-size: 0.68rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+    .kv-table td { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; word-break: break-word; }
+    .kv-table tr:last-child td { border-bottom: none; }
+    .kv-key { color: var(--teal); font-weight: 600; max-width: 200px; }
+    .kv-src { color: var(--text2); }
+    .kv-tgt { color: var(--text); }
+    .kv-status { text-align: center; }
+    .kv-pass { color: var(--green); }
+    .kv-pend { color: var(--text3); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); max-height: 400px; overflow-y: auto; }
+    .progress-bar-bg { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin: 0.6rem 0; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--teal), var(--green)); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+
+    /* Code / snippet */
+    .code-block { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; font-size: 0.78rem; line-height: 1.7; color: var(--text2); overflow-x: auto; position: relative; }
+    .code-block .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; font-size: 0.7rem; padding: 0.2rem 0.55rem; }
+    .code-kw { color: var(--teal); }
+    .code-str { color: var(--amber); }
+    .code-attr { color: var(--purple); }
+    .code-cm { color: var(--text3); }
+
+    /* XLIFF preview */
+    .xliff-preview { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; font-size: 0.75rem; color: var(--text2); max-height: 240px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+
+    /* Section title */
+    .section-title { font-size: 0.78rem; font-weight: 700; color: var(--teal); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.5rem; }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+    .row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+    .spacer { flex: 1; }
+    .muted { color: var(--text3); font-size: 0.76rem; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header class="header">
+    <a href="/" class="header-logo" aria-label="muLLM home">muLLM</a>
+    <div>
+      <div class="header-title">Translate</div>
+      <div class="header-sub">AI translation · JSON i18n · XLIFF 1.2 · Drop-in snippet · $0 local</div>
+    </div>
+  </header>
+
+  <!-- Lang selector (global) -->
+  <div class="lang-row">
+    <label class="lang-label" for="global-lang">Target language:</label>
+    <select class="lang-select" id="global-lang" onchange="onLangChange()">
+      <option value="hu">🇭🇺 Hungarian</option>
+      <option value="es">🇪🇸 Spanish</option>
+      <option value="fr">🇫🇷 French</option>
+      <option value="de">🇩🇪 German</option>
+      <option value="it">🇮🇹 Italian</option>
+      <option value="pt">🇵🇹 Portuguese</option>
+      <option value="nl">🇳🇱 Dutch</option>
+      <option value="ru">🇷🇺 Russian</option>
+      <option value="zh">🇨🇳 Chinese (Simplified)</option>
+      <option value="zh-TW">🇹🇼 Chinese (Traditional)</option>
+      <option value="ja">🇯🇵 Japanese</option>
+      <option value="ko">🇰🇷 Korean</option>
+      <option value="ar">🇸🇦 Arabic</option>
+      <option value="hi">🇮🇳 Hindi</option>
+      <option value="bn">🇧🇩 Bengali</option>
+      <option value="tr">🇹🇷 Turkish</option>
+      <option value="pl">🇵🇱 Polish</option>
+      <option value="sv">🇸🇪 Swedish</option>
+      <option value="no">🇳🇴 Norwegian</option>
+      <option value="fi">🇫🇮 Finnish</option>
+      <option value="da">🇩🇰 Danish</option>
+      <option value="uk">🇺🇦 Ukrainian</option>
+      <option value="cs">🇨🇿 Czech</option>
+      <option value="ro">🇷🇴 Romanian</option>
+      <option value="vi">🇻🇳 Vietnamese</option>
+      <option value="id">🇮🇩 Indonesian</option>
+    </select>
+    <span id="last-cost-badge" class="cost-badge" style="display:none">$0.00 · local</span>
+  </div>
+
+  <!-- Mode tabs -->
+  <div class="tabs" role="tablist">
+    <button class="tab active" role="tab" aria-selected="true" onclick="switchTab('text')">Text</button>
+    <button class="tab" role="tab" aria-selected="false" onclick="switchTab('json')">JSON / i18n</button>
+    <button class="tab" role="tab" aria-selected="false" onclick="switchTab('xliff')">XLIFF</button>
+    <button class="tab" role="tab" aria-selected="false" onclick="switchTab('snippet')">Drop-in Snippet</button>
+  </div>
+
+  <!-- ── Text Tab ── -->
+  <div class="panel active" id="panel-text">
+    <div class="textarea-pair">
+      <div class="ta-wrap">
+        <div class="ta-label">Source (auto-detected)</div>
+        <textarea id="src-text" placeholder="Type or paste text to translate…" aria-label="Source text"></textarea>
+      </div>
+      <div class="ta-wrap">
+        <div class="ta-label" id="tgt-label">Translation</div>
+        <textarea id="tgt-text" readonly placeholder="Translation will appear here…" aria-label="Translation output"></textarea>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn btn-primary" id="btn-translate" onclick="translateText()">▶ Translate</button>
+      <button class="btn btn-secondary" onclick="clearText()">✕ Clear</button>
+      <button class="btn btn-secondary" onclick="copyResult()" id="btn-copy" disabled>⎘ Copy</button>
+      <span class="spacer"></span>
+      <span class="muted" id="detect-label"></span>
+    </div>
+    <div class="status-bar" id="text-status"></div>
+  </div>
+
+  <!-- ── JSON Tab ── -->
+  <div class="panel" id="panel-json">
+    <div class="section-title">Input JSON</div>
+
+    <!-- Drop zone -->
+    <div class="file-drop" id="json-drop" onclick="document.getElementById('json-file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onFileDrop(event)" aria-label="Drop JSON file or click to browse" role="button" tabindex="0">
+      <input type="file" id="json-file-input" accept=".json" onchange="onFileSelect(event)" />
+      <div style="font-size:1.4rem;margin-bottom:0.4rem;color:var(--teal)">📂</div>
+      <div>Drop a <strong>.json</strong> file here or click to browse</div>
+      <div class="muted" style="margin-top:0.3rem">Or paste JSON below</div>
+    </div>
+
+    <textarea id="json-src" style="min-height:140px;margin-top:0.75rem" placeholder='{"greeting": "Hello", "farewell": "Goodbye", "nav.home": "Home"}' aria-label="Source JSON"></textarea>
+
+    <div class="row" style="margin-top:0.75rem;margin-bottom:0.75rem">
+      <button class="btn btn-primary" id="btn-json-translate" onclick="translateJSON()">▶ Translate All Keys</button>
+      <button class="btn btn-secondary" onclick="clearJSON()">✕ Clear</button>
+      <span class="spacer"></span>
+      <span class="muted" id="json-key-count"></span>
+    </div>
+
+    <div class="progress-bar-bg" id="json-progress-wrap" style="display:none">
+      <div class="progress-bar-fill" id="json-progress-fill"></div>
+    </div>
+
+    <div id="json-table-wrap" style="display:none">
+      <div class="section-title">Results</div>
+      <div class="table-wrap">
+        <table class="kv-table" aria-label="Translation results">
+          <thead><tr><th>Key</th><th>Source</th><th>Translation</th><th style="text-align:center">✓</th></tr></thead>
+          <tbody id="json-tbody"></tbody>
+        </table>
+      </div>
+      <div class="row" style="margin-top:0.75rem">
+        <button class="btn btn-secondary" onclick="downloadJSON()" id="btn-dl-json" disabled>⬇ Download translated JSON</button>
+        <button class="btn btn-amber" onclick="downloadXLIFF()" id="btn-dl-xliff" disabled>⬇ Export XLIFF 1.2</button>
+        <button class="btn btn-secondary" onclick="copyTranslatedJSON()" id="btn-copy-json" disabled>⎘ Copy JSON</button>
+      </div>
+    </div>
+    <div class="status-bar" id="json-status"></div>
+  </div>
+
+  <!-- ── XLIFF Tab ── -->
+  <div class="panel" id="panel-xliff">
+    <div class="card">
+      <div class="section-title">XLIFF 1.2 Generator</div>
+      <div style="font-size:0.8rem;color:var(--text2);margin-bottom:1rem">
+        Paste your source strings (one per line, or as <code style="color:var(--teal)">key=value</code> pairs) and generate a valid XLIFF 1.2 file ready for professional translation tools.
+      </div>
+      <textarea id="xliff-src" style="min-height:160px" placeholder="One string per line, or key=value format:&#10;greeting=Hello world&#10;farewell=Goodbye&#10;nav.home=Home"></textarea>
+      <div class="row" style="margin-top:0.75rem">
+        <button class="btn btn-primary" onclick="generateXLIFF()">⚡ Generate XLIFF</button>
+        <button class="btn btn-amber" onclick="translateAndExportXLIFF()">▶ Translate + Export</button>
+      </div>
+    </div>
+    <div id="xliff-output-wrap" style="display:none">
+      <div class="section-title">XLIFF 1.2 Output</div>
+      <pre class="xliff-preview" id="xliff-preview"></pre>
+      <div class="row" style="margin-top:0.6rem">
+        <button class="btn btn-secondary" onclick="downloadRawXLIFF()">⬇ Download .xliff</button>
+        <button class="btn btn-secondary" onclick="copyXLIFF()">⎘ Copy</button>
+      </div>
+    </div>
+    <div class="status-bar" id="xliff-status"></div>
+  </div>
+
+  <!-- ── Drop-in Snippet Tab ── -->
+  <div class="panel" id="panel-snippet">
+    <div class="card">
+      <div class="section-title">Drop-in i18n Snippet</div>
+      <div style="font-size:0.8rem;color:var(--text2);margin-bottom:1rem">
+        Add this script tag to any HTML page. It will auto-translate all elements with <code style="color:var(--teal)">data-i18n</code> attributes using the muLLM translation API.
+      </div>
+      <div class="code-block" style="margin-bottom:1rem">
+        <button class="btn btn-secondary copy-btn" onclick="copySnippet('basic')" id="copy-basic">⎘ Copy</button>
+<span class="code-cm">&lt;!-- Add to your HTML &lt;head&gt; --&gt;</span>
+<span class="code-kw">&lt;script</span> <span class="code-attr">src</span>=<span class="code-str">"<span id="snippet-host">https://10.0.0.165:6856</span>/api/i18n.js?lang=<span id="snippet-lang">es</span>"</span><span class="code-kw">&gt;&lt;/script&gt;</span>
+
+<span class="code-cm">&lt;!-- Then mark elements: --&gt;</span>
+<span class="code-kw">&lt;h1</span> <span class="code-attr">data-i18n</span>=<span class="code-str">"greeting"</span><span class="code-kw">&gt;</span>Hello<span class="code-kw">&lt;/h1&gt;</span>
+<span class="code-kw">&lt;p</span> <span class="code-attr">data-i18n</span>=<span class="code-str">"description"</span><span class="code-kw">&gt;</span>This text will be translated.<span class="code-kw">&lt;/p&gt;</span>
+      </div>
+
+      <div class="section-title">Programmatic API</div>
+      <div class="code-block" style="margin-bottom:1rem">
+        <button class="btn btn-secondary copy-btn" onclick="copySnippet('api')" id="copy-api">⎘ Copy</button>
+<span class="code-cm">// POST /api/translate</span>
+<span class="code-kw">const</span> res = <span class="code-kw">await</span> fetch(<span class="code-str">'<span class="snippet-host">https://10.0.0.165:6856</span>/api/translate'</span>, {
+  method: <span class="code-str">'POST'</span>,
+  headers: { <span class="code-str">'Content-Type'</span>: <span class="code-str">'application/json'</span> },
+  body: JSON.stringify({
+    text: <span class="code-str">'Hello world'</span>,
+    target_lang: <span class="code-str">'es'</span>,
+    source_lang: <span class="code-str">'auto'</span>  <span class="code-cm">// optional</span>
+  })
+});
+<span class="code-kw">const</span> { translation, source_lang, cost } = <span class="code-kw">await</span> res.json();
+      </div>
+
+      <div class="section-title">Batch API</div>
+      <div class="code-block">
+        <button class="btn btn-secondary copy-btn" onclick="copySnippet('batch')" id="copy-batch">⎘ Copy</button>
+<span class="code-cm">// POST /api/translate/batch — translate many strings at once</span>
+<span class="code-kw">const</span> res = <span class="code-kw">await</span> fetch(<span class="code-str">'<span class="snippet-host">https://10.0.0.165:6856</span>/api/translate/batch'</span>, {
+  method: <span class="code-str">'POST'</span>,
+  headers: { <span class="code-str">'Content-Type'</span>: <span class="code-str">'application/json'</span> },
+  body: JSON.stringify({
+    strings: { greeting: <span class="code-str">'Hello'</span>, farewell: <span class="code-str">'Goodbye'</span> },
+    target_lang: <span class="code-str">'fr'</span>
+  })
+});
+<span class="code-kw">const</span> { translations } = <span class="code-kw">await</span> res.json(); <span class="code-cm">// { greeting: 'Bonjour', farewell: 'Au revoir' }</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .page -->
+
+<script>
+const BASE = window.location.origin;
+let _jsonResults = {};   // key → translated string
+let _xliffData = null;   // last generated XLIFF string
+
+// ── Language handling ─────────────────────────────────────────
+const LANG_NAMES = {
+  hu:'Hungarian',
+  es:'Spanish', fr:'French', de:'German', it:'Italian', pt:'Portuguese', nl:'Dutch',
+  ru:'Russian', zh:'Chinese (Simplified)', 'zh-TW':'Chinese (Traditional)',
+  ja:'Japanese', ko:'Korean', ar:'Arabic', hi:'Hindi', bn:'Bengali', tr:'Turkish',
+  pl:'Polish', sv:'Swedish', no:'Norwegian', fi:'Finnish', da:'Danish',
+  uk:'Ukrainian', cs:'Czech', ro:'Romanian', vi:'Vietnamese', id:'Indonesian',
+};
+
+function getLang() { return document.getElementById('global-lang').value; }
+
+function onLangChange() {
+  const lang = getLang();
+  localStorage.setItem('mullm_translate_lang', lang);
+  document.getElementById('snippet-lang').textContent = lang;
+  document.getElementById('tgt-label').textContent = 'Translation (' + (LANG_NAMES[lang] || lang) + ')';
+}
+
+// Restore saved language
+(function() {
+  const saved = localStorage.getItem('mullm_translate_lang');
+  if (saved) {
+    const sel = document.getElementById('global-lang');
+    for (const opt of sel.options) { if (opt.value === saved) { opt.selected = true; break; } }
+  }
+  onLangChange();
+  // Set snippet host to current origin
+  document.querySelectorAll('.snippet-host, #snippet-host').forEach(el => { el.textContent = window.location.origin; });
+})();
+
+// ── Tab switching ─────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['text','json','xliff','snippet'];
+    const active = names[i] === name;
+    t.classList.toggle('active', active);
+    t.setAttribute('aria-selected', String(active));
+  });
+  document.querySelectorAll('.panel').forEach((p, i) => {
+    const names = ['text','json','xliff','snippet'];
+    p.classList.toggle('active', names[i] === name);
+  });
+}
+
+// ── Core API call ─────────────────────────────────────────────
+async function apiTranslate(text, targetLang, sourceLang) {
+  const resp = await fetch(BASE + '/api/translate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, target_lang: targetLang, source_lang: sourceLang || 'auto' }),
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  return await resp.json();
+}
+
+function showCost(cost, tier) {
+  const b = document.getElementById('last-cost-badge');
+  b.style.display = '';
+  b.textContent = '$' + (cost || 0).toFixed(4) + ' · ' + (tier || 'local');
+  b.className = 'cost-badge' + ((cost || 0) > 0 ? ' cloud' : '');
+}
+
+// ── Text tab ─────────────────────────────────────────────────
+async function translateText() {
+  const src = document.getElementById('src-text').value.trim();
+  if (!src) return;
+  const btn = document.getElementById('btn-translate');
+  const status = document.getElementById('text-status');
+  btn.disabled = true; btn.textContent = '⏳ Translating…';
+  status.className = 'status-bar'; status.textContent = '';
+  try {
+    const lang = getLang();
+    const result = await apiTranslate(src, lang);
+    document.getElementById('tgt-text').value = result.translation || '';
+    document.getElementById('btn-copy').disabled = false;
+    if (result.source_lang) document.getElementById('detect-label').textContent = 'Detected: ' + result.source_lang;
+    showCost(result.cost, result.tier);
+    status.className = 'status-bar ok'; status.textContent = '✓ Done';
+  } catch (e) {
+    status.className = 'status-bar error'; status.textContent = 'Error: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = '▶ Translate';
+}
+
+function clearText() {
+  document.getElementById('src-text').value = '';
+  document.getElementById('tgt-text').value = '';
+  document.getElementById('btn-copy').disabled = true;
+  document.getElementById('detect-label').textContent = '';
+  document.getElementById('text-status').textContent = '';
+}
+
+function copyResult() {
+  const v = document.getElementById('tgt-text').value;
+  if (v) navigator.clipboard.writeText(v).then(() => {
+    const b = document.getElementById('btn-copy'); const orig = b.textContent;
+    b.textContent = '✓ Copied!'; setTimeout(() => { b.textContent = orig; }, 1500);
+  });
+}
+
+// ── JSON tab ─────────────────────────────────────────────────
+function onDragOver(e) { e.preventDefault(); document.getElementById('json-drop').classList.add('drag-over'); }
+function onDragLeave(e) { document.getElementById('json-drop').classList.remove('drag-over'); }
+function onFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('json-drop').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readJSONFile(file);
+}
+function onFileSelect(e) { const file = e.target.files[0]; if (file) readJSONFile(file); }
+function readJSONFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('json-src').value = ev.target.result;
+    updateKeyCount();
+  };
+  reader.readAsText(file);
+}
+
+function updateKeyCount() {
+  try {
+    const obj = JSON.parse(document.getElementById('json-src').value);
+    const n = Object.keys(obj).filter(k => typeof obj[k] === 'string').length;
+    document.getElementById('json-key-count').textContent = n + ' string key' + (n !== 1 ? 's' : '');
+  } catch { document.getElementById('json-key-count').textContent = ''; }
+}
+
+document.getElementById('json-src').addEventListener('input', updateKeyCount);
+
+async function translateJSON() {
+  const raw = document.getElementById('json-src').value.trim();
+  if (!raw) return;
+  let obj;
+  try { obj = JSON.parse(raw); } catch { document.getElementById('json-status').textContent = 'Invalid JSON'; document.getElementById('json-status').className = 'status-bar error'; return; }
+
+  const keys = Object.keys(obj).filter(k => typeof obj[k] === 'string');
+  if (!keys.length) { document.getElementById('json-status').textContent = 'No string values found'; return; }
+
+  const btn = document.getElementById('btn-json-translate');
+  const status = document.getElementById('json-status');
+  const progress = document.getElementById('json-progress-wrap');
+  const fill = document.getElementById('json-progress-fill');
+  btn.disabled = true; btn.textContent = '⏳ Translating…';
+  status.className = 'status-bar'; status.textContent = '';
+  progress.style.display = '';
+  fill.style.width = '0%';
+
+  const tbody = document.getElementById('json-tbody');
+  tbody.innerHTML = '';
+  _jsonResults = {};
+
+  // Render pending rows
+  keys.forEach(k => {
+    const tr = document.createElement('tr');
+    tr.id = 'jrow-' + btoa(k).replace(/[^a-z0-9]/gi,'');
+    tr.innerHTML = `<td class="kv-key">${escHtml(k)}</td><td class="kv-src">${escHtml(obj[k])}</td><td class="kv-tgt" id="jval-${btoa(k).replace(/[^a-z0-9]/gi,'')}">…</td><td class="kv-status kv-pend" id="jst-${btoa(k).replace(/[^a-z0-9]/gi,'')}">⏳</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('json-table-wrap').style.display = '';
+
+  const lang = getLang();
+  let done = 0, errors = 0;
+
+  // Translate in batches of 5 for speed
+  const BATCH = 5;
+  for (let i = 0; i < keys.length; i += BATCH) {
+    const batch = keys.slice(i, i + BATCH);
+    await Promise.all(batch.map(async k => {
+      const bid = btoa(k).replace(/[^a-z0-9]/gi,'');
+      try {
+        const result = await apiTranslate(obj[k], lang);
+        _jsonResults[k] = result.translation || obj[k];
+        const vEl = document.getElementById('jval-' + bid);
+        const sEl = document.getElementById('jst-' + bid);
+        if (vEl) vEl.textContent = _jsonResults[k];
+        if (sEl) { sEl.textContent = '✓'; sEl.className = 'kv-status kv-pass'; }
+      } catch {
+        _jsonResults[k] = obj[k]; errors++;
+        const sEl = document.getElementById('jst-' + bid);
+        if (sEl) { sEl.textContent = '✗'; sEl.className = 'kv-status'; sEl.style.color = 'var(--coral)'; }
+      }
+      done++;
+      fill.style.width = (done / keys.length * 100) + '%';
+    }));
+  }
+
+  btn.disabled = false; btn.textContent = '▶ Translate All Keys';
+  progress.style.display = 'none';
+  document.getElementById('btn-dl-json').disabled = false;
+  document.getElementById('btn-dl-xliff').disabled = false;
+  document.getElementById('btn-copy-json').disabled = false;
+  status.className = 'status-bar ok';
+  status.textContent = '✓ ' + done + ' translated' + (errors ? ', ' + errors + ' errors' : '');
+}
+
+function getTranslatedJSON() {
+  try {
+    const obj = JSON.parse(document.getElementById('json-src').value);
+    const out = {};
+    Object.keys(obj).forEach(k => { out[k] = typeof obj[k] === 'string' && _jsonResults[k] ? _jsonResults[k] : obj[k]; });
+    return out;
+  } catch { return _jsonResults; }
+}
+
+function downloadJSON() {
+  const out = getTranslatedJSON();
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'translations.' + getLang() + '.json'; a.click();
+}
+
+function copyTranslatedJSON() {
+  navigator.clipboard.writeText(JSON.stringify(getTranslatedJSON(), null, 2));
+}
+
+function clearJSON() {
+  document.getElementById('json-src').value = '';
+  document.getElementById('json-tbody').innerHTML = '';
+  document.getElementById('json-table-wrap').style.display = 'none';
+  document.getElementById('json-status').textContent = '';
+  document.getElementById('json-key-count').textContent = '';
+  _jsonResults = {};
+}
+
+// ── XLIFF 1.2 generation ──────────────────────────────────────
+function parseSourceStrings(raw) {
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const entries = [];
+  for (const line of lines) {
+    const eq = line.indexOf('=');
+    if (eq > 0) {
+      entries.push({ key: line.slice(0, eq).trim(), source: line.slice(eq + 1).trim(), target: '' });
+    } else {
+      const id = 'str_' + entries.length;
+      entries.push({ key: id, source: line, target: '' });
+    }
+  }
+  return entries;
+}
+
+function buildXLIFF(entries, sourceLang, targetLang, withTranslations) {
+  const srcLang = sourceLang || 'en';
+  const tgtLang = targetLang || getLang();
+  const units = entries.map(e => {
+    const tgt = withTranslations && e.target
+      ? `\n        <target>${escXml(e.target)}</target>`
+      : '';
+    return `    <trans-unit id="${escXml(e.key)}">\n        <source>${escXml(e.source)}</source>${tgt}\n    </trans-unit>`;
+  }).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="${srcLang}" target-language="${tgtLang}" datatype="plaintext" original="muLLM">
+    <body>
+${units}
+    </body>
+  </file>
+</xliff>`;
+}
+
+function generateXLIFF() {
+  const raw = document.getElementById('xliff-src').value.trim();
+  if (!raw) return;
+  const entries = parseSourceStrings(raw);
+  _xliffData = buildXLIFF(entries, 'en', getLang(), false);
+  document.getElementById('xliff-preview').textContent = _xliffData;
+  document.getElementById('xliff-output-wrap').style.display = '';
+}
+
+async function translateAndExportXLIFF() {
+  const raw = document.getElementById('xliff-src').value.trim();
+  if (!raw) return;
+  const entries = parseSourceStrings(raw);
+  const status = document.getElementById('xliff-status');
+  status.className = 'status-bar'; status.textContent = 'Translating…';
+  const lang = getLang();
+  await Promise.all(entries.map(async e => {
+    try { const r = await apiTranslate(e.source, lang); e.target = r.translation || e.source; }
+    catch { e.target = e.source; }
+  }));
+  _xliffData = buildXLIFF(entries, 'en', lang, true);
+  document.getElementById('xliff-preview').textContent = _xliffData;
+  document.getElementById('xliff-output-wrap').style.display = '';
+  status.className = 'status-bar ok'; status.textContent = '✓ ' + entries.length + ' units translated';
+}
+
+function downloadRawXLIFF() {
+  if (!_xliffData) return;
+  const blob = new Blob([_xliffData], { type: 'application/xml' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'translations.' + getLang() + '.xliff'; a.click();
+}
+
+function copyXLIFF() {
+  if (!_xliffData) return;
+  navigator.clipboard.writeText(_xliffData).then(() => {
+    document.getElementById('xliff-status').className = 'status-bar ok';
+    document.getElementById('xliff-status').textContent = '✓ Copied to clipboard';
+  });
+}
+
+function downloadXLIFF() {
+  // From JSON tab — build XLIFF from translated results
+  const obj = getTranslatedJSON();
+  try {
+    const src = JSON.parse(document.getElementById('json-src').value);
+    const entries = Object.keys(src).filter(k => typeof src[k] === 'string').map(k => ({
+      key: k, source: src[k], target: obj[k] || src[k],
+    }));
+    const xliff = buildXLIFF(entries, 'en', getLang(), true);
+    const blob = new Blob([xliff], { type: 'application/xml' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'translations.' + getLang() + '.xliff'; a.click();
+  } catch (e) { console.error(e); }
+}
+
+// ── Snippet copy ──────────────────────────────────────────────
+const _snippets = {
+  basic: () => `<script src="${window.location.origin}/api/i18n.js?lang=${getLang()}"><\/script>`,
+  api: () => `// POST /api/translate\nconst res = await fetch('${window.location.origin}/api/translate', {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({ text: 'Hello world', target_lang: '${getLang()}', source_lang: 'auto' })\n});\nconst { translation, source_lang, cost } = await res.json();`,
+  batch: () => `// POST /api/translate/batch\nconst res = await fetch('${window.location.origin}/api/translate/batch', {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({ strings: { greeting: 'Hello', farewell: 'Goodbye' }, target_lang: '${getLang()}' })\n});\nconst { translations } = await res.json();`,
+};
+
+function copySnippet(which) {
+  const text = _snippets[which]();
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-' + which);
+    const orig = btn.textContent; btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escXml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+</script>
+</body>
+</html>

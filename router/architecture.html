@@ -1,0 +1,1211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — Architecture</title>
+  <meta name="description" content="Interactive architecture diagram of the muLLM local-first LLM routing pipeline." />
+  <meta name="theme-color" content="#22c55e" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#16a34a" media="(prefers-color-scheme: light)" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root, [data-theme="dark"] {
+      --bg: #080c14;
+      --bg2: #0f1520;
+      --bg3: #161e2e;
+      --bg4: #1e2940;
+      --border: #1e2d3d;
+      --border2: #2a3a4e;
+      --green: #22c55e;
+      --teal: #14b8a6;
+      --blue: #3b82f6;
+      --amber: #f59e0b;
+      --coral: #ef6c4c;
+      --purple: #a78bfa;
+      --pink: #ec4899;
+      --text: #e2e8f0;
+      --text2: #94a3b8;
+      --text3: #8294a7;
+      --mono: "Space Mono", monospace;
+      --sans: "DM Sans", sans-serif;
+      --glow-green: 0 0 20px rgba(34,197,94,0.15);
+      --glow-teal: 0 0 20px rgba(20,184,166,0.15);
+      --focus-ring: 0 0 0 2px var(--teal);
+      color-scheme: dark;
+    }
+    [data-theme="light"] {
+      --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --bg4: #cbd5e1;
+      --border: #cbd5e1; --border2: #94a3b8;
+      --green: #16a34a; --teal: #0d9488; --blue: #2563eb; --amber: #d97706;
+      --coral: #dc2626; --purple: #7c3aed; --pink: #db2777;
+      --text: #0f172a; --text2: #475569; --text3: #64748b;
+      --glow-green: 0 0 20px rgba(22,163,74,0.1);
+      --glow-teal: 0 0 20px rgba(13,148,136,0.1);
+      --focus-ring: 0 0 0 2px var(--teal);
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --bg4: #cbd5e1;
+        --border: #cbd5e1; --border2: #94a3b8;
+        --green: #16a34a; --teal: #0d9488; --blue: #2563eb; --amber: #d97706;
+        --coral: #dc2626; --purple: #7c3aed; --pink: #db2777;
+        --text: #0f172a; --text2: #475569; --text3: #64748b;
+        --glow-green: 0 0 20px rgba(22,163,74,0.1);
+        --glow-teal: 0 0 20px rgba(13,148,136,0.1);
+        color-scheme: light;
+      }
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100dvh;
+    }
+
+    /* ── TOPBAR ─────────────────────────────────────────── */
+    .topbar {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      flex-wrap: wrap;
+    }
+    .logo { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 0; text-decoration: none; border: none !important; padding: 0 !important; }
+    .logo-mu { color: var(--amber); font-family: 'Times New Roman', Georgia, serif; font-size: 18px; font-style: italic; line-height: 14px; text-shadow: 0 0 12px rgba(245,158,11,0.3); }
+    .logo-pipe { color: var(--text3); font-size: 20px; line-height: 14px; margin: 0 -1px; font-weight: 400; opacity: 0.5; position: relative; top: -1px; }
+    .logo-llm { color: var(--teal); letter-spacing: 1px; font-family: var(--mono); }
+    .logo-tardi { height: 14px; margin-left: 6px; opacity: 0.7; filter: invert(1) brightness(0.8); transition: opacity 0.2s; }
+    .logo-tardi:hover { opacity: 1; }
+
+    .topbar-sep { color: var(--border2); opacity: 0.6; }
+    .topbar-title { color: var(--text2); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; font-family: var(--mono); }
+
+    .nav-links { display: flex; align-items: center; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+    .nav-link {
+      color: var(--text2); text-decoration: none; padding: 4px 10px;
+      border-radius: 6px; font-size: 12px; transition: color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .nav-link:hover { color: var(--text); background: var(--bg3); }
+    .nav-link.active { color: var(--teal); }
+    .nav-link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+    .theme-btn {
+      background: none; border: 1px solid var(--border2); color: var(--text2);
+      padding: 3px 8px; border-radius: 6px; font-size: 11px; cursor: pointer;
+      font-family: var(--mono); transition: all 0.15s;
+    }
+    .theme-btn:hover { color: var(--text); border-color: var(--teal); }
+    .theme-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+    /* ── LAYOUT ─────────────────────────────────────────── */
+    .page { max-width: 1200px; margin: 0 auto; padding: 32px 20px 64px; }
+
+    .page-header { margin-bottom: 40px; }
+    .page-header h1 { font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 700; color: var(--text); letter-spacing: -0.5px; }
+    .page-header p { color: var(--text2); margin-top: 8px; font-size: 15px; max-width: 640px; }
+
+    .section { margin-bottom: 56px; }
+    .section-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 2px;
+      color: var(--text3); font-family: var(--mono); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-title::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ── PIPELINE ───────────────────────────────────────── */
+    .pipeline {
+      display: flex; flex-direction: column; gap: 0;
+      position: relative;
+    }
+    .pipe-row {
+      display: flex; align-items: stretch; gap: 0;
+      position: relative;
+    }
+    /* vertical connector between rows */
+    .pipe-connector-v {
+      width: 2px; background: var(--border2); margin: 0 auto;
+      height: 24px; position: relative;
+    }
+    .pipe-connector-v::after {
+      content: ''; position: absolute; bottom: -5px; left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent; border-top-color: var(--border2);
+    }
+    /* branch row: local / split / cloud side by side */
+    .pipe-branch-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+      position: relative;
+    }
+    .pipe-branch-row::before {
+      content: ''; position: absolute; top: 0; left: calc(16.66% + 6px);
+      right: calc(16.66% + 6px); height: 2px; background: var(--border2);
+    }
+    .branch-node {
+      position: relative;
+    }
+    .branch-node::before {
+      content: ''; position: absolute; top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 2px; height: 12px; background: var(--border2);
+    }
+
+    .pipe-node {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+      user-select: none;
+      position: relative;
+      width: 100%;
+    }
+    .pipe-node:hover {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 1px var(--teal), var(--glow-teal);
+      transform: translateY(-1px);
+    }
+    .pipe-node:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+    .pipe-node.expanded { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal); }
+    .pipe-node[data-color="green"] { border-color: var(--green); }
+    .pipe-node[data-color="green"]:hover, .pipe-node[data-color="green"].expanded { box-shadow: 0 0 0 1px var(--green), var(--glow-green); }
+    .pipe-node[data-color="amber"] { border-color: var(--amber); }
+    .pipe-node[data-color="amber"]:hover, .pipe-node[data-color="amber"].expanded { box-shadow: 0 0 0 1px var(--amber); }
+    .pipe-node[data-color="coral"] { border-color: var(--coral); }
+    .pipe-node[data-color="blue"] { border-color: var(--blue); }
+    .pipe-node[data-color="purple"] { border-color: var(--purple); }
+    .pipe-node[data-color="pink"] { border-color: var(--pink); }
+
+    .node-header { display: flex; align-items: center; gap: 10px; }
+    .node-icon { font-size: 18px; flex-shrink: 0; }
+    .node-meta { flex: 1; min-width: 0; }
+    .node-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text3); font-family: var(--mono); }
+    .node-title { font-size: 15px; font-weight: 600; color: var(--text); margin-top: 1px; }
+    .node-badge {
+      font-size: 10px; font-family: var(--mono); padding: 2px 7px;
+      border-radius: 4px; background: var(--bg4); color: var(--text2);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .node-badge.fast { background: rgba(34,197,94,0.15); color: var(--green); }
+    .node-badge.cloud { background: rgba(59,130,246,0.15); color: var(--blue); }
+    .node-badge.local { background: rgba(20,184,166,0.15); color: var(--teal); }
+
+    .node-chevron {
+      flex-shrink: 0; color: var(--text3); font-size: 12px;
+      transition: transform 0.2s;
+    }
+    .pipe-node.expanded .node-chevron { transform: rotate(180deg); }
+
+    .node-detail {
+      display: none; margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid var(--border); font-size: 13px; color: var(--text2);
+      line-height: 1.65;
+    }
+    .pipe-node.expanded .node-detail { display: block; }
+
+    .node-detail ul { padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+    .node-detail li { list-style: disc; }
+    .node-detail code {
+      font-family: var(--mono); font-size: 11px; background: var(--bg4);
+      padding: 1px 5px; border-radius: 3px; color: var(--teal);
+    }
+    .node-detail .tag {
+      display: inline-block; font-size: 10px; font-family: var(--mono);
+      padding: 2px 6px; border-radius: 4px; margin: 0 2px;
+    }
+    .node-detail .tag-green { background: rgba(34,197,94,0.12); color: var(--green); }
+    .node-detail .tag-amber { background: rgba(245,158,11,0.12); color: var(--amber); }
+    .node-detail .tag-blue { background: rgba(59,130,246,0.12); color: var(--blue); }
+    .node-detail .tag-coral { background: rgba(239,108,76,0.12); color: var(--coral); }
+    .node-detail .tag-purple { background: rgba(167,139,250,0.12); color: var(--purple); }
+
+    /* ── CLEVER TECHNIQUES ──────────────────────────────── */
+    .technique-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .technique-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .technique-card:hover { border-color: var(--border2); }
+    .technique-header {
+      padding: 16px 20px; cursor: pointer;
+      display: flex; align-items: center; gap: 12px;
+      user-select: none;
+    }
+    .technique-header:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 12px; }
+    .tech-icon {
+      width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 17px;
+    }
+    .tech-icon.green { background: rgba(34,197,94,0.12); }
+    .tech-icon.teal { background: rgba(20,184,166,0.12); }
+    .tech-icon.amber { background: rgba(245,158,11,0.12); }
+    .tech-icon.blue { background: rgba(59,130,246,0.12); }
+    .tech-icon.coral { background: rgba(239,108,76,0.12); }
+    .tech-icon.purple { background: rgba(167,139,250,0.12); }
+    .tech-icon.pink { background: rgba(236,72,153,0.12); }
+
+    .tech-meta { flex: 1; min-width: 0; }
+    .tech-title { font-size: 14px; font-weight: 600; color: var(--text); }
+    .tech-subtitle { font-size: 12px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+    .tech-chevron { color: var(--text3); font-size: 12px; flex-shrink: 0; transition: transform 0.2s; }
+    .technique-card.open .tech-chevron { transform: rotate(180deg); }
+    .technique-card.open .technique-header { border-bottom: 1px solid var(--border); }
+
+    .technique-body {
+      display: none; padding: 16px 20px; font-size: 13px; color: var(--text2);
+      line-height: 1.7;
+    }
+    .technique-card.open .technique-body { display: block; }
+    .technique-body ul { padding-left: 18px; display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+    .technique-body li { list-style: disc; }
+    .technique-body code { font-family: var(--mono); font-size: 11px; background: var(--bg4); padding: 1px 5px; border-radius: 3px; color: var(--teal); }
+    .technique-body strong { color: var(--text); }
+
+    /* ── TECH STACK ─────────────────────────────────────── */
+    .stack-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;
+    }
+    .stack-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 18px 16px; display: flex; flex-direction: column; gap: 8px;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .stack-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+    .stack-icon { font-size: 24px; }
+    .stack-name { font-size: 14px; font-weight: 600; color: var(--text); }
+    .stack-role { font-size: 11px; color: var(--text3); font-family: var(--mono); line-height: 1.4; }
+    .stack-badge {
+      display: inline-block; font-size: 9px; font-family: var(--mono); padding: 2px 6px;
+      border-radius: 3px; width: fit-content; margin-top: 2px;
+    }
+    .stack-badge.be { background: rgba(59,130,246,0.12); color: var(--blue); }
+    .stack-badge.fe { background: rgba(20,184,166,0.12); color: var(--teal); }
+    .stack-badge.store { background: rgba(245,158,11,0.12); color: var(--amber); }
+    .stack-badge.model { background: rgba(167,139,250,0.12); color: var(--purple); }
+
+    /* ── ENDPOINT MAP ───────────────────────────────────── */
+    .ep-loading { color: var(--text3); font-family: var(--mono); font-size: 13px; padding: 24px 0; }
+    .ep-groups { display: flex; flex-direction: column; gap: 20px; }
+    .ep-group-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text3); font-family: var(--mono); margin-bottom: 10px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    .ep-list { display: flex; flex-direction: column; gap: 6px; }
+    .ep-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 14px; background: var(--bg2); border-radius: 8px;
+      border: 1px solid var(--border); font-size: 13px;
+      transition: border-color 0.15s;
+    }
+    .ep-row:hover { border-color: var(--border2); }
+    .ep-methods { display: flex; gap: 4px; flex-shrink: 0; margin-top: 1px; }
+    .ep-method {
+      font-size: 9px; font-family: var(--mono); padding: 2px 5px;
+      border-radius: 3px; font-weight: 700; letter-spacing: 0.5px;
+    }
+    .ep-method.get { background: rgba(34,197,94,0.15); color: var(--green); }
+    .ep-method.post { background: rgba(59,130,246,0.15); color: var(--blue); }
+    .ep-method.delete { background: rgba(239,108,76,0.15); color: var(--coral); }
+    .ep-method.put { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .ep-path { font-family: var(--mono); font-size: 12px; color: var(--teal); flex-shrink: 0; }
+    .ep-desc { color: var(--text2); flex: 1; }
+
+    /* ── LIVE STATS ─────────────────────────────────────── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    .stat-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 18px 16px; position: relative; overflow: hidden;
+    }
+    .stat-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 2px; background: var(--stat-accent, var(--teal));
+    }
+    .stat-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text3); font-family: var(--mono); margin-bottom: 8px;
+    }
+    .stat-value {
+      font-size: clamp(1.4rem, 4vw, 1.8rem); font-weight: 700;
+      font-family: var(--mono); color: var(--text);
+      line-height: 1; margin-bottom: 4px;
+    }
+    .stat-sub { font-size: 11px; color: var(--text3); }
+    .stat-loading { color: var(--text3); font-size: 14px; font-family: var(--mono); }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .live-dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 6px var(--green);
+      animation: pulse-dot 2s ease-in-out infinite; vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    /* system ring meters */
+    .meters-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 6px; }
+    .meter-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .meter-label { font-size: 10px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 1px; }
+    .meter-ring { position: relative; width: 70px; height: 70px; }
+    .meter-ring svg { transform: rotate(-90deg); }
+    .meter-val {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; font-family: var(--mono); color: var(--text);
+    }
+
+    /* ── FLOW LINES (SVG connectors in pipeline) ─────── */
+    .flow-arrow {
+      display: flex; justify-content: center; align-items: center;
+      height: 28px; position: relative;
+    }
+    .flow-arrow svg { color: var(--border2); }
+    .flow-label {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      top: 50%; transform: translateX(-50%) translateY(-50%);
+      font-size: 9px; font-family: var(--mono); color: var(--text3);
+      letter-spacing: 1px; text-transform: uppercase;
+      background: var(--bg); padding: 0 6px; white-space: nowrap;
+    }
+
+    /* pipeline full width centered */
+    .pipeline-wrap { max-width: 680px; margin: 0 auto; }
+    .branch-wrap { max-width: 900px; margin: 0 auto; }
+
+    /* ── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .topbar { gap: 10px; }
+      .nav-links { gap: 2px; }
+      .nav-link { padding: 4px 7px; font-size: 11px; }
+      .technique-grid { grid-template-columns: 1fr; }
+      .stack-grid { grid-template-columns: repeat(2, 1fr); }
+      .pipe-branch-row { grid-template-columns: 1fr; }
+      .pipe-branch-row::before { display: none; }
+      .branch-node::before { display: none; }
+    }
+
+    /* ── ACCESSIBILITY ──────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+    :focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ── TOPBAR ────────────────────────────────────────────────── -->
+<header class="topbar" role="banner">
+  <a href="/chat" class="logo" aria-label="muLLM home">
+    <span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span>
+    <img class="logo-tardi"
+      src="/static/tardigrade.svg"
+      alt="tardigrade mascot"
+      title="Tardigrade mascot" />
+  </a>
+  <span class="topbar-sep" aria-hidden="true">|</span>
+  <span class="topbar-title">Architecture</span>
+
+  <nav class="nav-links" aria-label="Main navigation">
+    <a href="/chat" class="nav-link">Chat</a>
+    <a href="/dashboard" class="nav-link">Dashboard</a>
+    <a href="/performance" class="nav-link">Performance</a>
+    <a href="/accuracy" class="nav-link">Accuracy</a>
+    <a href="/privacy" class="nav-link">Privacy</a>
+    <a href="/cost" class="nav-link">Cost</a>
+    <a href="/demo" class="nav-link">Demo</a>
+    <a href="/unblock" class="nav-link">Unblock</a>
+    <a href="/games" class="nav-link">Games</a>
+    <a href="/architecture" class="nav-link active" aria-current="page">Arch</a>
+    <button class="theme-btn" id="theme-btn" aria-label="Toggle light/dark theme">◑</button>
+  </nav>
+</header>
+
+<main class="page" role="main" id="main-content">
+  <div class="page-header">
+    <h1>System Architecture</h1>
+    <p>muLLM routes queries through a tiered pipeline — ground truth fast-path first, vector cache second, LLM routing last. Cloud tokens fire only when the local tier genuinely cannot handle it.</p>
+  </div>
+
+  <!-- ── 1. PIPELINE DIAGRAM ──────────────────────────────────── -->
+  <section class="section" aria-labelledby="pipeline-heading">
+    <div class="section-title" id="pipeline-heading">Pipeline</div>
+
+    <div class="pipeline-wrap" role="region" aria-label="Interactive pipeline diagram — click each stage to expand details">
+
+      <!-- Stage 1: User Query -->
+      <div class="pipeline">
+        <div class="pipe-node" role="button" tabindex="0" aria-expanded="false"
+             data-color="teal" data-node="query"
+             onclick="toggleNode(this)" onkeydown="keyNode(event,this)">
+          <div class="node-header">
+            <span class="node-icon" aria-hidden="true">⌨️</span>
+            <div class="node-meta">
+              <div class="node-label">Entry</div>
+              <div class="node-title">User Query</div>
+            </div>
+            <span class="node-badge">POST /query</span>
+            <span class="node-chevron" aria-hidden="true">▼</span>
+          </div>
+          <div class="node-detail" id="detail-query" role="region">
+            <ul>
+              <li>Accepted via <code>POST /query</code> with JSON body <code>{"content": "..."}</code></li>
+              <li>Source tag (<code>api</code>, <code>chat</code>, <code>mcp</code>, <code>voice</code>) controls routing hints</li>
+              <li>Request deduplication: identical queries within <code>DEDUP_WINDOW_SECONDS</code> return the cached result immediately</li>
+              <li>Rapid-fire protection: sessions limited to 20 requests/minute</li>
+              <li>Loop detection: same content hash 3+ times in 5 minutes triggers a warning</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">
+          <svg width="2" height="28" viewBox="0 0 2 28"><line x1="1" y1="0" x2="1" y2="20" stroke="currentColor" stroke-width="2"/><polygon points="1,28 -4,18 6,18" fill="currentColor"/></svg>
+        </div>
+
+        <!-- Stage 2: Ground Truth -->
+        <div class="pipe-node" role="button" tabindex="0" aria-expanded="false"
+             data-color="green" data-node="ground"
+             onclick="toggleNode(this)" onkeydown="keyNode(event,this)">
+          <div class="node-header">
+            <span class="node-icon" aria-hidden="true">⚡</span>
+            <div class="node-meta">
+              <div class="node-label">Fast Path</div>
+              <div class="node-title">Ground Truth Resolver</div>
+            </div>
+            <span class="node-badge fast">~0.1 ms</span>
+            <span class="node-chevron" aria-hidden="true">▼</span>
+          </div>
+          <div class="node-detail" role="region">
+            <ul>
+              <li><strong>200+ instant answers</strong> for dates, math, philosophy quotes, music theory, HTTP codes, ASCII art, and more</li>
+              <li>Identity resolver handles "who are you" / "what model" questions with zero LLM calls</li>
+              <li><code>try_resolve_locally()</code> — pure Python pattern matching, no network I/O</li>
+              <li>Shortcircuits the entire pipeline on a match, returning cost $0.000000</li>
+              <li>Categories: <span class="tag tag-green">dates/time</span> <span class="tag tag-amber">math</span> <span class="tag tag-blue">HTTP codes</span> <span class="tag tag-coral">philosophy</span> <span class="tag tag-purple">music</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">
+          <svg width="2" height="28" viewBox="0 0 2 28"><line x1="1" y1="0" x2="1" y2="20" stroke="currentColor" stroke-width="2"/><polygon points="1,28 -4,18 6,18" fill="currentColor"/></svg>
+        </div>
+
+        <!-- Stage 3: Vector Cache -->
+        <div class="pipe-node" role="button" tabindex="0" aria-expanded="false"
+             data-color="amber" data-node="cache"
+             onclick="toggleNode(this)" onkeydown="keyNode(event,this)">
+          <div class="node-header">
+            <span class="node-icon" aria-hidden="true">🗄️</span>
+            <div class="node-meta">
+              <div class="node-label">Cache</div>
+              <div class="node-title">Vector Similarity Cache</div>
+            </div>
+            <span class="node-badge fast">ChromaDB</span>
+            <span class="node-chevron" aria-hidden="true">▼</span>
+          </div>
+          <div class="node-detail" role="region">
+            <ul>
+              <li>Embeds query with <code>nomic-embed-text</code> (Ollama), looks up nearest vectors in ChromaDB</li>
+              <li>Cosine similarity threshold: hits above <code>0.92</code> (configurable) are returned immediately</li>
+              <li>Cache misses continue down the pipeline; hits are returned with <code>"source": "cache"</code></li>
+              <li>Async-aware: <code>lookup_async()</code> runs embedding in a thread pool to avoid blocking the event loop</li>
+              <li>Cache displacement Elo tracks which model's answers get displaced — passive model ranking with zero extra calls</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">
+          <svg width="2" height="28" viewBox="0 0 2 28"><line x1="1" y1="0" x2="1" y2="20" stroke="currentColor" stroke-width="2"/><polygon points="1,28 -4,18 6,18" fill="currentColor"/></svg>
+        </div>
+
+        <!-- Stage 4: Classifier -->
+        <div class="pipe-node" role="button" tabindex="0" aria-expanded="false"
+             data-color="teal" data-node="classifier"
+             onclick="toggleNode(this)" onkeydown="keyNode(event,this)">
+          <div class="node-header">
+            <span class="node-icon" aria-hidden="true">🧠</span>
+            <div class="node-meta">
+              <div class="node-label">Classify</div>
+              <div class="node-title">Hybrid Intent Classifier</div>
+            </div>
+            <span class="node-badge local">Ollama</span>
+            <span class="node-chevron" aria-hidden="true">▼</span>
+          </div>
+          <div class="node-detail" role="region">
+            <ul>
+              <li><strong>Layer 1 — Keyword rules:</strong> 80+ regex patterns, ~0.01 ms, handles 80%+ of queries without any LLM call</li>
+              <li><strong>Layer 2 — LLM dual opinion:</strong> if rule confidence &lt; <code>CLASSIFIER_DUAL_THRESHOLD</code>, a local Ollama model classifies as a second opinion</li>
+              <li>Categories: <code>simple</code>, <code>code</code>, <code>note</code>, <code>vision</code>, <code>general</code>, <code>complex</code>, <code>creative</code>, <code>math</code></li>
+              <li>Returns an <code>IntentObject</code> with category, complexity score 1–5, and confidence</li>
+              <li>Semaphore-limited Ollama concurrency prevents VRAM saturation</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">
+          <svg width="2" height="28" viewBox="0 0 2 28"><line x1="1" y1="0" x2="1" y2="20" stroke="currentColor" stroke-width="2"/><polygon points="1,28 -4,18 6,18" fill="currentColor"/></svg>
+        </div>
+
+        <!-- Stage 5: Tier Selection -->
+        <div class="pipe-node" role="button" tabindex="0" aria-expanded="false"
+             data-color="purple" data-node="tier"
+             onclick="toggleNode(this)" onkeydown="keyNode(event,this)">
+          <div class="node-header">
+            <span class="node-icon" aria-hidden="true">⚖️</span>
+            <div class="node-meta">
+              <div class="node-label">Route</div>
+              <div class="node-title">Cost-Optimized Tier Selection</div>
+            </div>
+            <span class="node-badge">5 Tiers</span>
+            <span class="node-chevron" aria-hidden="true">▼</span>
+          </div>
+          <div class="node-detail" role="region">
+            <ul>
+              <li><strong>Tier 1 — Simple Local</strong> (complexity 1): instant local inference, free</li>
+              <li><strong>Tier 2 — Local</strong> (complexity 2): full local Ollama model, free</li>
+              <li><strong>Tier 3 — Local Multi</strong> (complexity 3): multi-step local reasoning, free</li>
+              <li><strong>Tier 4 — Cloud Cheap</strong> (complexity 4): Haiku, GPT-4o-mini, Gemini Flash, lowest cloud cost</li>
+              <li><strong>Tier 5 — Cloud Full</strong> (complexity 5): Sonnet, GPT-4o, Gemini Pro, full power</li>
+              <li>Daily budget cap ($5/day default) blocks over-spend; auto-approval ceiling controls user prompts</li>
+              <li>Spend velocity tracking: if costs accelerate, tier selection gets more conservative</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Branch: Local / Split / Cloud -->
+    <div style="margin-top: 28px;">
+      <div class="section-title" style="margin-bottom: 12px; font-size: 10px;">Execution branches</div>
+      <div class="branch-wrap">
+        <div class="pipe-branch-row" role="group" aria-label="Execution branches">
+
+          <div class="branch-node">
+            <div class="pipe-node" role="button" tabindex="0" aria-expanded="false"
+                 data-color="green" data-node="local"
+                 onclick="toggleNode(this)" onkeydown="keyNode(event,this)">
+              <div class="node-header">
+                <span class="node-icon" aria-hidden="true">💻</span>
+                <div class="node-meta">
+                  <div class="node-label">Tier 1–3</div>
+                  <div class="node-title">Local Ollama</div>
+                </div>
+                <span class="node-badge local">$0.00</span>
+                <span class="node-chevron" aria-hidden="true">▼</span>
+              </div>
+              <div class="node-detail" role="region">
+                <ul>
+                  <li>Runs <code>qwen3.5:9b</code> on RTX 5090 32GB via Ollama HTTP API</li>
+                  <li>SSE streaming via <code>GET /query/stream</code> for real-time token delivery</li>
+                  <li>Models pre-warmed on startup with a trivial prompt to load into VRAM</li>
+                  <li>Keepalive loop pings every 30 min to prevent VRAM eviction</li>
+                  <li>Separate models for general, code, classifier, and vision tasks</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="branch-node">
+            <div class="pipe-node" role="button" tabindex="0" aria-expanded="false"
+                 data-color="amber" data-node="split"
+                 onclick="toggleNode(this)" onkeydown="keyNode(event,this)">
+              <div class="node-header">
+                <span class="node-icon" aria-hidden="true">🔀</span>
+                <div class="node-meta">
+                  <div class="node-label">Split Route</div>
+                  <div class="node-title">Parallel Decomposition</div>
+                </div>
+                <span class="node-badge fast">Parallel</span>
+                <span class="node-chevron" aria-hidden="true">▼</span>
+              </div>
+              <div class="node-detail" role="region">
+                <ul>
+                  <li><code>POST /query/split</code> — decomposes multi-part prompts into sub-tasks</li>
+                  <li>Each sub-task is classified and routed independently to cheapest capable model</li>
+                  <li><code>asyncio.gather()</code> runs all sub-tasks in parallel, not sequential</li>
+                  <li>Returns <code>SplitResult</code> with per-subtask tier, cost, and latency breakdown</li>
+                  <li>Optimal for prompts like "explain X and also write Y and summarize Z"</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="branch-node">
+            <div class="pipe-node" role="button" tabindex="0" aria-expanded="false"
+                 data-color="blue" data-node="cloud"
+                 onclick="toggleNode(this)" onkeydown="keyNode(event,this)">
+              <div class="node-header">
+                <span class="node-icon" aria-hidden="true">☁️</span>
+                <div class="node-meta">
+                  <div class="node-label">Tier 4–5</div>
+                  <div class="node-title">Cloud APIs</div>
+                </div>
+                <span class="node-badge cloud">Paid</span>
+                <span class="node-chevron" aria-hidden="true">▼</span>
+              </div>
+              <div class="node-detail" role="region">
+                <ul>
+                  <li>Anthropic (Claude Haiku, Sonnet), OpenAI (GPT-4o-mini, GPT-4o), Google (Gemini Flash, Pro)</li>
+                  <li>Pricing config in <code>config/settings.py</code> — 12 cloud model variants with per-token costs</li>
+                  <li>Model selection uses Elo-ranked leaderboard to prefer highest-performing at each price point</li>
+                  <li>Async HTTP via <code>httpx.AsyncClient</code>, shared session with connection pooling</li>
+                  <li>Fires only when local tier cannot handle complexity or user explicitly forces cloud</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Score + Cache Back -->
+    <div style="margin-top: 28px;">
+      <div class="pipeline-wrap">
+        <div class="flow-arrow" aria-hidden="true">
+          <svg width="2" height="28" viewBox="0 0 2 28"><line x1="1" y1="0" x2="1" y2="20" stroke="currentColor" stroke-width="2"/><polygon points="1,28 -4,18 6,18" fill="currentColor"/></svg>
+        </div>
+        <div class="pipe-node" role="button" tabindex="0" aria-expanded="false"
+             data-color="coral" data-node="score"
+             onclick="toggleNode(this)" onkeydown="keyNode(event,this)">
+          <div class="node-header">
+            <span class="node-icon" aria-hidden="true">📊</span>
+            <div class="node-meta">
+              <div class="node-label">Post-process</div>
+              <div class="node-title">Score + Cache Back</div>
+            </div>
+            <span class="node-badge">JSONL log</span>
+            <span class="node-chevron" aria-hidden="true">▼</span>
+          </div>
+          <div class="node-detail" role="region">
+            <ul>
+              <li>Response scored: latency, token count, cost, tier used, cache hit/miss</li>
+              <li>Result written to ChromaDB vector cache for future retrieval</li>
+              <li>Outcome appended to JSONL scoring log (<code>cache/data/scoring_log.jsonl</code>)</li>
+              <li>Session cost updated via <code>add_session_cost()</code>, live ticker emits via SSE</li>
+              <li>Cache displacement Elo updated if a new answer replaces an existing cached one</li>
+              <li>SSE event published to all dashboard subscribers for real-time updates</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2. CLEVER TECHNIQUES ──────────────────────────────────── -->
+  <section class="section" aria-labelledby="techniques-heading">
+    <div class="section-title" id="techniques-heading">Clever Techniques</div>
+    <div class="technique-grid" role="list">
+
+      <article class="technique-card" role="listitem">
+        <div class="technique-header" role="button" tabindex="0" aria-expanded="false"
+             onclick="toggleTech(this.closest('.technique-card'))"
+             onkeydown="keyTech(event, this.closest('.technique-card'))">
+          <div class="tech-icon teal" aria-hidden="true">🔍</div>
+          <div class="tech-meta">
+            <div class="tech-title">Vector Cache</div>
+            <div class="tech-subtitle">cosine similarity · ChromaDB</div>
+          </div>
+          <span class="tech-chevron" aria-hidden="true">▼</span>
+        </div>
+        <div class="technique-body" role="region">
+          <p>Queries are embedded with <code>nomic-embed-text</code> and stored as high-dimensional vectors in ChromaDB. On each new query, the embedding is computed and the top-k nearest neighbors are fetched by cosine similarity. If the closest match exceeds the <strong>0.92 threshold</strong>, the stored answer is returned instantly — no LLM call.</p>
+          <ul>
+            <li>Threshold tunable via <code>CACHE_SIMILARITY_THRESHOLD</code> env var</li>
+            <li>Async embedding via thread pool — never blocks FastAPI event loop</li>
+            <li>Cache grows passively; every answered query seeds future hits</li>
+            <li>ChromaDB persists to disk across restarts (<code>cache/data/chromadb/</code>)</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="technique-card" role="listitem">
+        <div class="technique-header" role="button" tabindex="0" aria-expanded="false"
+             onclick="toggleTech(this.closest('.technique-card'))"
+             onkeydown="keyTech(event, this.closest('.technique-card'))">
+          <div class="tech-icon amber" aria-hidden="true">🧬</div>
+          <div class="tech-meta">
+            <div class="tech-title">Hybrid Classifier</div>
+            <div class="tech-subtitle">keyword rules + LLM dual opinion</div>
+          </div>
+          <span class="tech-chevron" aria-hidden="true">▼</span>
+        </div>
+        <div class="technique-body" role="region">
+          <p>Classification is a two-layer cascade. Layer 1 runs <strong>80+ regex rules</strong> in ~0.01 ms and handles roughly 80% of queries — no LLM token burn. Only when confidence falls below <code>CLASSIFIER_DUAL_THRESHOLD</code> does Layer 2 fire an Ollama LLM as a second opinion.</p>
+          <ul>
+            <li>Rules cover: notes, code, math, creative, general, complex, vision, retrieval</li>
+            <li>Each rule has a weight and minimum confidence to trigger Layer 2</li>
+            <li>Dual opinion aggregated by highest confidence wins</li>
+            <li>Semaphore limits Ollama calls — no VRAM saturation under bursty load</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="technique-card" role="listitem">
+        <div class="technique-header" role="button" tabindex="0" aria-expanded="false"
+             onclick="toggleTech(this.closest('.technique-card'))"
+             onkeydown="keyTech(event, this.closest('.technique-card'))">
+          <div class="tech-icon purple" aria-hidden="true">🏆</div>
+          <div class="tech-meta">
+            <div class="tech-title">Cache Displacement Elo</div>
+            <div class="tech-subtitle">passive model ranking</div>
+          </div>
+          <span class="tech-chevron" aria-hidden="true">▼</span>
+        </div>
+        <div class="technique-body" role="region">
+          <p>Whenever a new answer <strong>displaces</strong> an existing cached one (the user ran the same query again and got a different model), the Elo rating of each model is updated. No explicit rating calls, no annotations — the act of displacement is the signal.</p>
+          <ul>
+            <li>Winner: the model whose answer was chosen to replace the old one</li>
+            <li>Loser: the model whose answer was evicted from cache</li>
+            <li>Elo K-factor: 32 (standard competitive rating)</li>
+            <li>Leaderboard visible at <code>GET /api/leaderboard</code></li>
+            <li>Tier selection uses Elo rankings to pick highest-rated model at each price tier</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="technique-card" role="listitem">
+        <div class="technique-header" role="button" tabindex="0" aria-expanded="false"
+             onclick="toggleTech(this.closest('.technique-card'))"
+             onkeydown="keyTech(event, this.closest('.technique-card'))">
+          <div class="tech-icon green" aria-hidden="true">⚡</div>
+          <div class="tech-meta">
+            <div class="tech-title">Ground Truth Resolver</div>
+            <div class="tech-subtitle">200+ instant answers, 0 tokens</div>
+          </div>
+          <span class="tech-chevron" aria-hidden="true">▼</span>
+        </div>
+        <div class="technique-body" role="region">
+          <p>A library of <strong>200+ deterministic answers</strong> for queries where an LLM adds zero value. Pattern-matched in pure Python before the pipeline even starts — under 0.1 ms, zero network, zero cost.</p>
+          <ul>
+            <li><strong>Dates/time:</strong> "what day is it", "what year", "current time"</li>
+            <li><strong>Math:</strong> arithmetic, powers, factorials via <code>eval()</code> sandbox</li>
+            <li><strong>Philosophy quotes:</strong> Stoics, Socrates, Nietzsche, Kant</li>
+            <li><strong>Music theory:</strong> chord names, intervals, scales</li>
+            <li><strong>HTTP codes:</strong> 200, 404, 418, 500, 503 explained</li>
+            <li><strong>Identity:</strong> "who are you", "what model" — always honest about being muLLM</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="technique-card" role="listitem">
+        <div class="technique-header" role="button" tabindex="0" aria-expanded="false"
+             onclick="toggleTech(this.closest('.technique-card'))"
+             onkeydown="keyTech(event, this.closest('.technique-card'))">
+          <div class="tech-icon coral" aria-hidden="true">🔀</div>
+          <div class="tech-meta">
+            <div class="tech-title">Split Routing</div>
+            <div class="tech-subtitle">decompose + parallel execution</div>
+          </div>
+          <span class="tech-chevron" aria-hidden="true">▼</span>
+        </div>
+        <div class="technique-body" role="region">
+          <p>Multi-part prompts (e.g. "explain X, write code for Y, and summarize Z") are decomposed into independent sub-tasks, each routed to the cheapest model that can handle its complexity, then executed in <strong>parallel with asyncio.gather()</strong>.</p>
+          <ul>
+            <li>Decomposition via local LLM — one cheap classification call</li>
+            <li>Sub-tasks can mix tiers: simple sub-task = local free, complex = cloud cheap</li>
+            <li>Total cost = sum of sub-task costs, often cheaper than routing the whole thing cloud</li>
+            <li>Response recombined with section headers per sub-task</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="technique-card" role="listitem">
+        <div class="technique-header" role="button" tabindex="0" aria-expanded="false"
+             onclick="toggleTech(this.closest('.technique-card'))"
+             onkeydown="keyTech(event, this.closest('.technique-card'))">
+          <div class="tech-icon blue" aria-hidden="true">💰</div>
+          <div class="tech-meta">
+            <div class="tech-title">Cost-Optimized Tier Selection</div>
+            <div class="tech-subtitle">daily budget + velocity guard</div>
+          </div>
+          <span class="tech-chevron" aria-hidden="true">▼</span>
+        </div>
+        <div class="technique-body" role="region">
+          <p>The router never fires cloud unless complexity demands it. Tier selection uses the intent complexity score (1–5), Elo rankings, daily budget remaining, and spend velocity to pick the <strong>cheapest capable model</strong>.</p>
+          <ul>
+            <li>Daily hard cap: default $5/day, configurable via <code>DAILY_BUDGET_CAP</code></li>
+            <li>Auto-approve ceiling: cloud calls below threshold proceed without confirmation</li>
+            <li>Ask-approval ceiling: calls above threshold prompt user in the Unblock panel</li>
+            <li>Spend velocity: if cost/minute spikes, tier ceiling lowers automatically</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="technique-card" role="listitem">
+        <div class="technique-header" role="button" tabindex="0" aria-expanded="false"
+             onclick="toggleTech(this.closest('.technique-card'))"
+             onkeydown="keyTech(event, this.closest('.technique-card'))">
+          <div class="tech-icon pink" aria-hidden="true">📡</div>
+          <div class="tech-meta">
+            <div class="tech-title">Session Cost Ticker</div>
+            <div class="tech-subtitle">live SSE · per-session tracking</div>
+          </div>
+          <span class="tech-chevron" aria-hidden="true">▼</span>
+        </div>
+        <div class="technique-body" role="region">
+          <p>Every query result publishes a cost event to an <strong>SSE event bus</strong>. The chat UI receives real-time token counts and dollar amounts without polling. Session cost accumulates in memory and is queryable at any time.</p>
+          <ul>
+            <li><code>GET /query/stream</code> — SSE endpoint, each message includes <code>cost</code> field</li>
+            <li><code>GET /api/session/cost</code> — current session total</li>
+            <li>Multiple dashboard subscribers each get their own <code>asyncio.Queue</code></li>
+            <li>Queue overflow protection: put_nowait silently drops if subscriber is slow</li>
+          </ul>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ── 3. TECH STACK ──────────────────────────────────────────── -->
+  <section class="section" aria-labelledby="stack-heading">
+    <div class="section-title" id="stack-heading">Tech Stack</div>
+    <div class="stack-grid" role="list">
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">⚡</div>
+        <div class="stack-name">FastAPI</div>
+        <div class="stack-role">Async Python web framework, port 6856, Uvicorn ASGI, GZip middleware</div>
+        <span class="stack-badge be">Backend</span>
+      </div>
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">🦙</div>
+        <div class="stack-name">Ollama</div>
+        <div class="stack-role">Local model runtime, qwen3.5:9b on RTX 5090 32GB, SSE streaming</div>
+        <span class="stack-badge model">Local Model</span>
+      </div>
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">🔵</div>
+        <div class="stack-name">ChromaDB</div>
+        <div class="stack-role">Vector database, cosine similarity cache, disk-persistent embeddings</div>
+        <span class="stack-badge store">Storage</span>
+      </div>
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">🤖</div>
+        <div class="stack-name">Anthropic</div>
+        <div class="stack-role">Claude Haiku 3.5, Claude Sonnet 4.5 — cloud tier 4 and 5</div>
+        <span class="stack-badge model">Cloud API</span>
+      </div>
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">🟢</div>
+        <div class="stack-name">OpenAI</div>
+        <div class="stack-role">GPT-4o-mini, GPT-4o — cloud tier 4 and 5 alternatives</div>
+        <span class="stack-badge model">Cloud API</span>
+      </div>
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">💎</div>
+        <div class="stack-name">Google</div>
+        <div class="stack-role">Gemini 2.0 Flash, Gemini 2.0 Pro — cost-competitive cloud models</div>
+        <span class="stack-badge model">Cloud API</span>
+      </div>
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">🗃️</div>
+        <div class="stack-name">Dexie.js</div>
+        <div class="stack-role">IndexedDB wrapper for client-side chat history, no server DB needed</div>
+        <span class="stack-badge fe">Frontend</span>
+      </div>
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">📄</div>
+        <div class="stack-name">JSONL Log</div>
+        <div class="stack-role">Append-only scoring log, source of truth for all dashboard metrics</div>
+        <span class="stack-badge store">Storage</span>
+      </div>
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">🔴</div>
+        <div class="stack-name">Redis</div>
+        <div class="stack-role">Optional A2A agent registry, task queues, session state (store.py)</div>
+        <span class="stack-badge store">Storage</span>
+      </div>
+
+      <div class="stack-card" role="listitem">
+        <div class="stack-icon" aria-hidden="true">🌐</div>
+        <div class="stack-name">Single-file HTML</div>
+        <div class="stack-role">chat.html, dashboard.html — inline CSS+JS, no build step, instant load</div>
+        <span class="stack-badge fe">Frontend</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── 4. ENDPOINT MAP ───────────────────────────────────────── -->
+  <section class="section" aria-labelledby="endpoints-heading">
+    <div class="section-title" id="endpoints-heading">Endpoint Map</div>
+    <div id="ep-container">
+      <p class="ep-loading" role="status" aria-live="polite">Loading endpoints from /api/endpoints...</p>
+    </div>
+  </section>
+
+  <!-- ── 5. LIVE STATS ─────────────────────────────────────────── -->
+  <section class="section" aria-labelledby="stats-heading">
+    <div class="section-title" id="stats-heading">
+      <span class="live-dot" aria-label="Live data"></span>Live Stats
+    </div>
+
+    <!-- System meters -->
+    <div id="system-section">
+      <p class="ep-loading" role="status" aria-live="polite" id="system-loading">Loading system stats...</p>
+      <div class="meters-row" id="meters-row" style="display:none;" aria-label="System resource meters"></div>
+    </div>
+
+    <!-- Dashboard stats -->
+    <div style="margin-top: 24px;">
+      <p class="ep-loading" role="status" aria-live="polite" id="dash-loading">Loading dashboard stats...</p>
+      <div class="stats-grid" id="stats-grid" style="display:none;" aria-label="Pipeline statistics"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // ── Theme toggle ────────────────────────────────────────────────
+  const savedTheme = localStorage.getItem('mullm-theme');
+  if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+
+  document.getElementById('theme-btn').addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('mullm-theme', next);
+  });
+
+  // ── Pipeline nodes: expand/collapse ────────────────────────────
+  function toggleNode(el) {
+    const expanded = el.classList.toggle('expanded');
+    el.setAttribute('aria-expanded', String(expanded));
+  }
+  function keyNode(e, el) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNode(el); }
+  }
+
+  // ── Technique cards: expand/collapse ───────────────────────────
+  function toggleTech(card) {
+    const header = card.querySelector('.technique-header');
+    const opened = card.classList.toggle('open');
+    header.setAttribute('aria-expanded', String(opened));
+  }
+  function keyTech(e, card) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTech(card); }
+  }
+
+  // ── Endpoint grouping helpers ───────────────────────────────────
+  function categorize(path) {
+    if (path.startsWith('/query')) return 'Query Pipeline';
+    if (path.startsWith('/api/dashboard') || path.startsWith('/api/stats') || path.startsWith('/api/coverage') || path.startsWith('/api/leaderboard') || path.startsWith('/api/displacements')) return 'Analytics';
+    if (path.startsWith('/api/system') || path.startsWith('/api/performance') || path.startsWith('/api/config')) return 'System';
+    if (path.startsWith('/api/sessions') || path.startsWith('/api/agents') || path.startsWith('/api/memory')) return 'Agents & Sessions';
+    if (path.startsWith('/api/budget') || path.startsWith('/api/session/cost')) return 'Budget & Cost';
+    if (path.startsWith('/api/setup') || path.startsWith('/api/endpoints')) return 'Setup & Meta';
+    if (path.startsWith('/api/queries')) return 'Query Management';
+    if (path === '/chat' || path === '/dashboard' || path === '/games' || path === '/unblock' || path === '/architecture' || path === '/performance' || path === '/accuracy' || path === '/privacy' || path === '/cost' || path === '/space' || path === '/demo' || path === '/' || path === '/setup' || path === '/mcp' || path === '/a2a' || path === '/coverage' || path === '/routes' || path === '/toc' || path === '/urls') return 'Pages';
+    return 'Other';
+  }
+
+  function methodClass(m) {
+    return m.toLowerCase();
+  }
+
+  // ── Load endpoints ──────────────────────────────────────────────
+  async function loadEndpoints() {
+    const container = document.getElementById('ep-container');
+    try {
+      const base = window.location.origin;
+      const r = await fetch(base + '/api/endpoints');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      const eps = data.endpoints || [];
+
+      // Group
+      const groups = {};
+      for (const ep of eps) {
+        const cat = categorize(ep.path);
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(ep);
+      }
+
+      // Preferred order
+      const order = ['Query Pipeline', 'Analytics', 'Budget & Cost', 'System', 'Query Management', 'Agents & Sessions', 'Setup & Meta', 'Pages', 'Other'];
+      const sortedKeys = order.filter(k => groups[k]).concat(Object.keys(groups).filter(k => !order.includes(k)));
+
+      let html = '<div class="ep-groups">';
+      for (const cat of sortedKeys) {
+        const list = groups[cat];
+        html += '<div>';
+        html += '<div class="ep-group-title">' + escHtml(cat) + ' <span style="color:var(--text3);font-weight:400;">(' + list.length + ')</span></div>';
+        html += '<div class="ep-list" role="list">';
+        for (const ep of list) {
+          const methods = (ep.methods || []).filter(m => m !== 'HEAD' && m !== 'OPTIONS');
+          const methodsHtml = methods.map(m => '<span class="ep-method ' + methodClass(m) + '">' + escHtml(m) + '</span>').join('');
+          html += '<div class="ep-row" role="listitem">';
+          html += '<div class="ep-methods">' + (methodsHtml || '<span class="ep-method get">GET</span>') + '</div>';
+          html += '<code class="ep-path">' + escHtml(ep.path) + '</code>';
+          html += '<span class="ep-desc">' + escHtml(ep.description || '') + '</span>';
+          html += '</div>';
+        }
+        html += '</div></div>';
+      }
+      html += '<p style="margin-top:12px;font-size:11px;color:var(--text3);font-family:var(--mono);">Total: ' + eps.length + ' endpoints</p>';
+      html += '</div>';
+      container.innerHTML = html;
+    } catch (e) {
+      container.innerHTML = '<p class="ep-loading" style="color:var(--coral);">Could not load endpoints: ' + escHtml(String(e)) + '. Is muLLM running at :6856?</p>';
+    }
+  }
+
+  // ── Load system stats ───────────────────────────────────────────
+  async function loadSystem() {
+    try {
+      const base = window.location.origin;
+      const r = await fetch(base + '/api/system');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+
+      document.getElementById('system-loading').style.display = 'none';
+      const row = document.getElementById('meters-row');
+      row.style.display = 'flex';
+
+      const meters = [];
+      if (d.cpu_percent != null) meters.push({ label: 'CPU', value: d.cpu_percent, color: '#14b8a6' });
+      if (d.ram_percent != null) meters.push({ label: 'RAM', value: d.ram_percent, color: '#a78bfa' });
+      if (d.gpu_percent != null) meters.push({ label: 'GPU', value: d.gpu_percent, color: '#22c55e' });
+      if (d.vram_percent != null) meters.push({ label: 'VRAM', value: d.vram_percent, color: '#f59e0b' });
+
+      for (const m of meters) {
+        const pct = Math.round(m.value);
+        const r = 30;
+        const circ = 2 * Math.PI * r;
+        const dash = circ * (pct / 100);
+        const item = document.createElement('div');
+        item.className = 'meter-item';
+        item.innerHTML =
+          '<div class="meter-label">' + escHtml(m.label) + '</div>' +
+          '<div class="meter-ring" title="' + escHtml(m.label) + ': ' + pct + '%">' +
+          '<svg width="70" height="70" viewBox="0 0 70 70" aria-hidden="true">' +
+          '<circle cx="35" cy="35" r="' + r + '" fill="none" stroke="var(--border)" stroke-width="5"/>' +
+          '<circle cx="35" cy="35" r="' + r + '" fill="none" stroke="' + escHtml(m.color) + '" stroke-width="5" ' +
+          'stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '" stroke-linecap="round"/>' +
+          '</svg>' +
+          '<div class="meter-val">' + pct + '<span style="font-size:9px">%</span></div>' +
+          '</div>';
+        row.appendChild(item);
+      }
+
+      // GPU name / extra info
+      if (d.gpu_name) {
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:11px;color:var(--text3);font-family:var(--mono);align-self:center;margin-left:8px;';
+        note.textContent = d.gpu_name;
+        row.appendChild(note);
+      }
+    } catch (e) {
+      document.getElementById('system-loading').textContent = 'System stats unavailable (muLLM not running?)';
+    }
+  }
+
+  // ── Load dashboard stats ────────────────────────────────────────
+  async function loadDashboard() {
+    try {
+      const base = window.location.origin;
+      const r = await fetch(base + '/api/dashboard');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+
+      document.getElementById('dash-loading').style.display = 'none';
+      const grid = document.getElementById('stats-grid');
+      grid.style.display = 'grid';
+
+      const stats = [
+        { label: 'Total Queries', value: fmt(d.total_queries ?? d.total ?? '—'), sub: 'all time', accent: '#14b8a6' },
+        { label: 'Cache Hit Rate', value: fmtPct(d.cache_hit_rate ?? d.hit_rate), sub: 'vector similarity', accent: '#22c55e' },
+        { label: 'Avg Latency', value: fmtMs(d.avg_latency_ms ?? d.avg_latency), sub: 'end-to-end ms', accent: '#a78bfa' },
+        { label: 'Cloud Spend', value: fmtCost(d.total_cost ?? d.cloud_cost), sub: 'real dollars spent', accent: '#f59e0b' },
+        { label: 'Cost Saved', value: fmtCost(d.savings ?? d.cost_saved), sub: 'vs all-cloud routing', accent: '#22c55e' },
+        { label: 'Local Rate', value: fmtPct(d.local_rate ?? d.local_pct), sub: 'queries handled free', accent: '#14b8a6' },
+        { label: 'Cache Docs', value: fmt(d.cache_size ?? d.cache_docs ?? '—'), sub: 'stored embeddings', accent: '#3b82f6' },
+        { label: 'Sessions', value: fmt(d.session_count ?? d.sessions ?? '—'), sub: 'unique sessions', accent: '#ec4899' },
+      ];
+
+      for (const s of stats) {
+        const card = document.createElement('div');
+        card.className = 'stat-card';
+        card.style.setProperty('--stat-accent', s.accent);
+        card.innerHTML =
+          '<div class="stat-label">' + escHtml(s.label) + '</div>' +
+          '<div class="stat-value">' + escHtml(String(s.value)) + '</div>' +
+          '<div class="stat-sub">' + escHtml(s.sub) + '</div>';
+        grid.appendChild(card);
+      }
+    } catch (e) {
+      document.getElementById('dash-loading').textContent = 'Dashboard stats unavailable.';
+    }
+  }
+
+  // ── Formatting helpers ──────────────────────────────────────────
+  function fmt(n) {
+    if (n == null || n === '—') return '—';
+    const num = Number(n);
+    if (isNaN(num)) return String(n);
+    if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+    return String(num);
+  }
+  function fmtPct(n) {
+    if (n == null) return '—';
+    const v = Number(n);
+    if (isNaN(v)) return '—';
+    return (v <= 1 ? (v * 100).toFixed(1) : v.toFixed(1)) + '%';
+  }
+  function fmtMs(n) {
+    if (n == null) return '—';
+    const v = Number(n);
+    if (isNaN(v)) return '—';
+    if (v >= 1000) return (v / 1000).toFixed(1) + 's';
+    return Math.round(v) + 'ms';
+  }
+  function fmtCost(n) {
+    if (n == null) return '—';
+    const v = Number(n);
+    if (isNaN(v)) return '—';
+    if (v === 0) return '$0.00';
+    if (v < 0.001) return '$' + v.toFixed(6);
+    if (v < 1) return '$' + v.toFixed(4);
+    return '$' + v.toFixed(2);
+  }
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Boot ────────────────────────────────────────────────────────
+  loadEndpoints();
+  loadSystem();
+  loadDashboard();
+</script>
+</body>
+</html>

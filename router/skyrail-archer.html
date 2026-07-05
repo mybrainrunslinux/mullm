@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Skyrail Archer</title>
+<style>
+  :root{color-scheme:dark;--bg:#07101c;--panel:rgba(7,16,28,.78);--line:#24364b;--text:#eef6ff;--muted:#93a7bd;--gold:#f4c95d;--teal:#45e0c6;--red:#ff6b6b}
+  *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(circle at 50% 10%,#16324c,#07101c 58%);font-family:Inter,system-ui,sans-serif;color:var(--text);touch-action:none}
+  #wrap{position:fixed;inset:0;display:grid;place-items:center}
+  canvas{width:100%;height:100%;display:block}
+  .hud{position:fixed;inset:12px 12px auto;display:flex;gap:8px;justify-content:center;pointer-events:none}.pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 10px;font-weight:800;font-size:13px;backdrop-filter:blur(8px)}.pill span{color:var(--gold)}
+  .panel{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;backdrop-filter:blur(8px)}button{background:#132236;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-weight:850}button.active{border-color:var(--gold);color:var(--gold)}
+  .help{position:fixed;left:12px;bottom:12px;max-width:270px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;color:var(--muted);font-size:12px;line-height:1.35;backdrop-filter:blur(8px)}.help b{color:var(--teal)}
+  .modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(4,9,16,.78);backdrop-filter:blur(10px)}.card{width:min(470px,calc(100vw - 28px));background:linear-gradient(145deg,#101d2e,#0b1422);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 24px 90px #0008}.card h1{margin:0 0 8px;font-size:26px}.card p{color:var(--muted);line-height:1.45}.card button{background:var(--gold);color:#1a1200;border-color:var(--gold)}
+  @media(max-width:760px){.help{display:none}.hud{justify-content:space-between}.pill{font-size:12px;padding:6px 8px}.panel{width:calc(100vw - 24px);justify-content:center}}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game" aria-label="Skyrail Archer game canvas"></canvas></div>
+<div class="hud"><div class="pill">Score <span id="score">0</span></div><div class="pill">Focus <span id="focus">100</span></div><div class="pill">Bow <span id="bow">Ash</span></div><div class="pill">Wave <span id="wave">1</span></div></div>
+<div class="panel"><button id="draw">Draw</button><button id="slow">Focus</button><button id="upgrade">Upgrade</button><button id="restart">Restart</button></div>
+<div class="help"><b>Equal-screen rule:</b> targets spawn inside the same portrait gameplay lane on every device. Desktop gets scenery and UI room, not extra target warning.</div>
+<div class="modal" id="start"><div class="card"><h1>Skyrail Archer</h1><p>First-person rail archery built for tall phones and wide monitors. Drag or tilt to aim, hold Draw, release to fire. Upgrade bows for steadier aim and special arrows.</p><button onclick="startGame()">Start Run</button></div></div>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);let W=1,H=1,lane={x:0,y:0,w:1,h:1},running=false,last=0,spawn=0,score=0,wave=1,focus=100,draw=0,aim={x:.5,y:.52},tilt={x:0,y:0},targets=[],arrows=[],particles=[],shake=0,bowLevel=0,slow=false;
+const bows=[{name:'Ash',spread:.012,power:1,color:'#caa06a'},{name:'Horn',spread:.008,power:1.25,color:'#d8c28b'},{name:'Moonsteel',spread:.004,power:1.55,color:'#d9f4ff'},{name:'Dragonbone',spread:.002,power:1.9,color:'#ffd36b'}];
+function resize(){W=canvas.width=Math.floor(innerWidth*devicePixelRatio);H=canvas.height=Math.floor(innerHeight*devicePixelRatio);ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);const vw=innerWidth,vh=innerHeight;const lw=Math.min(vw, vh*.62);lane={x:(vw-lw)/2,y:0,w:lw,h:vh};}
+addEventListener('resize',resize);resize();
+function startGame(){running=true;$('start').style.display='none';last=performance.now();requestAnimationFrame(loop)}
+window.startGame=startGame;
+function reset(){score=0;wave=1;focus=100;draw=0;bowLevel=0;targets=[];arrows=[];particles=[];running=true;$('start').style.display='none';}
+$('restart').onclick=reset;$('upgrade').onclick=()=>{if(score>=80*(bowLevel+1)&&bowLevel<bows.length-1){score-=80*(bowLevel+1);bowLevel++;flash(lane.x+lane.w/2,lane.h*.35,'UPGRADE',bows[bowLevel].color)}};$('slow').onclick=()=>slow=!slow;
+$('draw').onpointerdown=()=>draw=.1;$('draw').onpointerup=fire;addEventListener('pointerdown',e=>{aimAt(e);if(e.target===canvas)draw=.1});addEventListener('pointermove',aimAt);addEventListener('pointerup',()=>{if(draw>0)fire()});
+addEventListener('deviceorientation',e=>{tilt.x=(e.gamma||0)/45;tilt.y=(e.beta||0)/70});
+function aimAt(e){aim.x=(e.clientX-lane.x)/lane.w;aim.y=e.clientY/lane.h;aim.x=Math.max(.05,Math.min(.95,aim.x));aim.y=Math.max(.08,Math.min(.9,aim.y))}
+function fire(){if(draw<=0)return;const b=bows[bowLevel];const sp=b.spread*(1.2-draw);arrows.push({x:lane.x+lane.w/2,y:lane.h*.86,vx:(aim.x-.5+rand(-sp,sp))*900,vy:(aim.y-.86+rand(-sp,sp))*900,p:draw*b.power,life:1.1});draw=0;shake=3}
+function spawnTarget(){const side=Math.random()<.5?-1:1;const y=rand(.12,.56);targets.push({x:lane.x+lane.w*(side<0?-.05:1.05),y:lane.h*y,vx:-side*rand(40,78+wave*8),r:rand(17,29),hp:1+Math.floor(wave/3),kind:Math.random()<.14?'gold':'normal',bob:rand(0,6.28)})}
+function loop(t){const dt=Math.min(.033,(t-last)/1000||.016);last=t;if(running)update(dt*(slow&&focus>0?.45:1));drawScene(t/1000);requestAnimationFrame(loop)}
+function update(dt){if(draw>0)draw=Math.min(1,draw+dt*.78);if(slow&&focus>0)focus=Math.max(0,focus-dt*16);else focus=Math.min(100,focus+dt*7);spawn-=dt;if(spawn<=0){spawnTarget();spawn=Math.max(.28,1.08-wave*.045)}if(score>wave*150){wave++;flash(lane.x+lane.w/2,120,'WAVE '+wave,'#45e0c6')}const wind=Math.sin(performance.now()/1600)*18;for(const tar of targets){tar.x+=tar.vx*dt;tar.y+=Math.sin(tar.bob+performance.now()/400)*.18;tar.vx+=wind*dt}targets=targets.filter(t=>t.x>-80&&t.x<innerWidth+80&&t.hp>0);for(const a of arrows){a.x+=a.vx*dt;a.y+=a.vy*dt;a.vy+=420*dt;a.life-=dt;for(const tar of targets){const d=Math.hypot(a.x-tar.x,a.y-tar.y);if(d<tar.r+a.p*8&&a.life>0){tar.hp-=a.p>.82?2:1;a.life=0;score+=tar.kind==='gold'?45:20;if(d<tar.r*.38){score+=30;flash(tar.x,tar.y,'CRIT','#ffd36b')}burst(tar.x,tar.y,tar.kind==='gold'?'#ffd36b':'#ff8b6b');shake=7;}}}arrows=arrows.filter(a=>a.life>0);particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt});particles=particles.filter(p=>p.life>0);$('score').textContent=Math.floor(score);$('focus').textContent=Math.floor(focus);$('bow').textContent=bows[bowLevel].name;$('wave').textContent=wave;}
+function drawScene(time){ctx.clearRect(0,0,innerWidth,innerHeight);const sx=shake?rand(-shake,shake):0,sy=shake?rand(-shake,shake):0;shake*=.88;ctx.save();ctx.translate(sx,sy);sky(time);scenery(time);ctx.save();ctx.beginPath();ctx.rect(lane.x,lane.y,lane.w,lane.h);ctx.clip();laneWorld(time);for(const tar of targets)drawTarget(tar,time);for(const a of arrows)drawArrow(a);for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3+p.life*4,0,7);ctx.fill();ctx.globalAlpha=1}reticle();bow();ctx.restore();ctx.strokeStyle='rgba(255,255,255,.16)';ctx.lineWidth=2;ctx.strokeRect(lane.x,lane.y,lane.w,lane.h);ctx.restore();}
+function sky(t){const g=ctx.createLinearGradient(0,0,0,innerHeight);g.addColorStop(0,'#163b66');g.addColorStop(.55,'#0b1d32');g.addColorStop(1,'#07101c');ctx.fillStyle=g;ctx.fillRect(0,0,innerWidth,innerHeight);for(let i=0;i<60;i++){ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect((i*97+t*12)%innerWidth,i*41%innerHeight,2,2)}}
+function scenery(t){ctx.fillStyle='rgba(69,224,198,.08)';for(let i=0;i<12;i++){const x=(i*170-t*24)%(innerWidth+240)-120;ctx.beginPath();ctx.moveTo(x,innerHeight);ctx.lineTo(x+90,innerHeight*.55+Math.sin(i)*80);ctx.lineTo(x+190,innerHeight);ctx.fill()}}
+function laneWorld(t){for(let i=0;i<9;i++){const y=(i*120+t*180)%lane.h;ctx.strokeStyle='rgba(244,201,93,.22)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(lane.x+lane.w*.18,y);ctx.lineTo(lane.x+lane.w*.5,lane.h*.88);ctx.lineTo(lane.x+lane.w*.82,y);ctx.stroke()}ctx.fillStyle='rgba(255,255,255,.04)';ctx.fillRect(lane.x,lane.h*.82,lane.w,lane.h*.18)}
+function drawTarget(t,tick){ctx.save();ctx.translate(t.x,t.y);ctx.rotate(Math.sin(tick*3+t.bob)*.18);ctx.fillStyle=t.kind==='gold'?'#f4c95d':'#ca5c4b';ctx.beginPath();ctx.ellipse(0,0,t.r*1.15,t.r*.82,0,0,7);ctx.fill();ctx.strokeStyle='#fff2';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,t.r*.38,0,7);ctx.fill();ctx.fillStyle='#172033';ctx.beginPath();ctx.arc(0,0,t.r*.16,0,7);ctx.fill();ctx.restore()}
+function drawArrow(a){ctx.strokeStyle='#e8d7ac';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(a.x-a.vx*.025,a.y-a.vy*.025);ctx.lineTo(a.x,a.y);ctx.stroke()}
+function reticle(){const x=lane.x+aim.x*lane.w+tilt.x*10,y=aim.y*lane.h+tilt.y*8;ctx.strokeStyle=draw>0?'#f4c95d':'#45e0c6';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,18+draw*10,0,7);ctx.moveTo(x-28,y);ctx.lineTo(x-8,y);ctx.moveTo(x+8,y);ctx.lineTo(x+28,y);ctx.moveTo(x,y-28);ctx.lineTo(x,y-8);ctx.moveTo(x,y+8);ctx.lineTo(x,y+28);ctx.stroke()}
+function bow(){const b=bows[bowLevel];const cx=lane.x+lane.w/2,cy=lane.h*.9;ctx.strokeStyle=b.color;ctx.lineWidth=9;ctx.beginPath();ctx.arc(cx,cy,70,-1.1,1.1);ctx.stroke();ctx.strokeStyle='#e8e0c8';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx+32,cy-62);ctx.quadraticCurveTo(cx+(aim.x-.5)*90,cy-20-draw*55,cx+32,cy+62);ctx.stroke();if(draw>0){ctx.fillStyle='rgba(244,201,93,.25)';ctx.fillRect(lane.x,cy+18,lane.w*draw,5)}}
+function burst(x,y,c){for(let i=0;i<18;i++)particles.push({x,y,vx:rand(-120,120),vy:rand(-150,40),life:rand(.35,.75),c})}
+function flash(x,y,text,c){particles.push({x,y,vx:0,vy:-28,life:1,c});setTimeout(()=>{},0)}
+function rand(a,b){return a+Math.random()*(b-a)}
+</script>
+</body>
+</html>

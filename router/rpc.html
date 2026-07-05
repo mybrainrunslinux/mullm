@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<title>muLLM — JSON-RPC 2.0 Docs</title>
+<meta name="description" content="muLLM JSON-RPC 2.0 endpoint documentation — query, classify, cache, budget, system, agents.">
+<meta name="theme-color" content="#3b82f6">
+<link rel="manifest" href="/manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;--border:#1e2d3d;
+  --green:#22c55e;--teal:#14b8a6;--blue:#3b82f6;--amber:#f59e0b;
+  --coral:#ef6c4c;--purple:#a78bfa;--pink:#ec4899;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code','SF Mono',monospace;
+  --sans:'Inter',-apple-system,sans-serif;
+  color-scheme:dark;
+}
+@media(prefers-color-scheme:light){
+  :root{
+    --bg:#f8fafc;--bg2:#f1f5f9;--bg3:#e2e8f0;--border:#cbd5e1;
+    --green:#16a34a;--teal:#0d9488;--blue:#2563eb;--amber:#d97706;
+    --coral:#dc2626;--purple:#7c3aed;--pink:#db2777;
+    --text:#0f172a;--text2:#475569;--text3:#64748b;
+    color-scheme:light;
+  }
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;overflow-x:hidden}
+a{color:var(--teal);text-decoration:none}
+a:hover{text-decoration:underline}
+*:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.skip-link{position:absolute;top:-40px;left:0;background:var(--teal);color:#000;padding:8px 16px;z-index:10000;font-weight:600;border-radius:0 0 8px 0;transition:top 0.2s}
+.skip-link:focus{top:0}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:13px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.logo{font-weight:700;font-size:14px;letter-spacing:1px;display:flex;align-items:center;gap:0}
+.logo-mu{color:var(--amber);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{display:flex;gap:8px;margin-left:auto}
+.nav a{color:var(--text2);font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;transition:all .2s;font-family:var(--mono)}
+.nav a:hover,.nav a.active{color:var(--blue);border-color:var(--blue);text-decoration:none}
+.container{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+h1{font-family:var(--mono);font-size:24px;color:var(--blue);margin:32px 0 8px;letter-spacing:1px}
+h2{font-family:var(--mono);font-size:16px;color:var(--green);margin:28px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+h3{font-family:var(--mono);font-size:13px;color:var(--amber);margin:20px 0 6px;text-transform:uppercase;letter-spacing:1px}
+p{color:var(--text2);margin:6px 0 12px;font-size:14px}
+ul,ol{color:var(--text2);margin:6px 0 12px 20px;font-size:14px}
+li{margin:4px 0}
+pre{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.6;margin:8px 0 16px;position:relative}
+code{font-family:var(--mono);font-size:12px}
+.lang-tag{position:absolute;top:4px;right:8px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+.copy-btn{position:absolute;top:4px;right:60px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-family:var(--mono);font-size:10px;color:var(--text3);cursor:pointer;transition:all .2s}
+.copy-btn:hover{color:var(--blue);border-color:var(--blue)}
+.inline-code{background:var(--bg3);padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:12px;color:var(--blue)}
+
+/* method card */
+.method-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:10px 0;transition:border-color .2s}
+.method-card:hover{border-color:var(--blue)}
+.method-name{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--blue)}
+.method-desc{font-size:12px;color:var(--text2);margin:4px 0}
+.method-params{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:4px}
+.method-params span{color:var(--amber)}
+
+/* try it */
+.try-panel{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin:12px 0}
+.try-panel textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-family:var(--mono);font-size:12px;resize:vertical;min-height:120px;line-height:1.5}
+.try-panel textarea:focus{outline:none;border-color:var(--blue)}
+.try-btn{margin-top:8px;padding:8px 20px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.try-btn:hover{background:#2563eb;box-shadow:0 0 12px rgba(59,130,246,0.3)}
+.try-btn:disabled{opacity:0.5;cursor:not-allowed}
+.try-result{margin-top:10px;max-height:400px;overflow:auto}
+.try-result pre{margin:0;white-space:pre-wrap;word-break:break-word}
+.try-status{font-family:var(--mono);font-size:11px;margin-top:6px}
+.try-status.ok{color:var(--green)}
+.try-status.err{color:var(--coral)}
+</style>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<div class="topbar">
+  <a href="/" class="logo" style="text-decoration:none">
+    <span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot">
+  </a>
+  <div class="nav">
+    <a href="/">Chat</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/mcp">MCP</a>
+    <a href="/a2a">A2A</a>
+    <a href="/rpc/docs" class="active">RPC</a>
+    <a href="/cost">Cost</a>
+    <a href="/games">Games</a>
+  </div>
+</div>
+
+<main id="main" class="container">
+
+<h1>POST /rpc — JSON-RPC 2.0</h1>
+<p>A single endpoint for all muLLM operations using the <a href="https://www.jsonrpc.org/specification" target="_blank" rel="noopener">JSON-RPC 2.0</a> specification. Supports single and batch requests.</p>
+
+<h2>Available Methods</h2>
+
+<div class="method-card">
+  <div class="method-name">query</div>
+  <div class="method-desc">Run the full classify &rarr; route &rarr; execute pipeline. Returns the response from the cheapest capable model.</div>
+  <div class="method-params">
+    <span>content</span> (string, required) &mdash; the query text<br>
+    <span>source</span> (string) &mdash; "api", "chat", "mcp" (default: "api")<br>
+    <span>skip_cache</span> (bool) &mdash; bypass cache lookup<br>
+    <span>force_tier</span> (string) &mdash; "local", "cloud_cheap", "cloud_full"<br>
+    <span>temperature</span> (float) &mdash; override temperature<br>
+    <span>session_id</span> (string) &mdash; for cost/session tracking<br>
+    <span>history</span> (array) &mdash; conversation history [{role, content}]
+  </div>
+</div>
+
+<div class="method-card">
+  <div class="method-name">classify</div>
+  <div class="method-desc">Classify intent and determine routing tier without executing the query.</div>
+  <div class="method-params">
+    <span>content</span> (string, required) &mdash; the query text<br>
+    Returns: category, complexity, confidence, tier, model, provider, reasoning
+  </div>
+</div>
+
+<div class="method-card">
+  <div class="method-name">cache.search</div>
+  <div class="method-desc">Semantic vector cache lookup. Returns cached answer if similarity exceeds threshold.</div>
+  <div class="method-params">
+    <span>query</span> or <span>content</span> (string, required) &mdash; search text<br>
+    <span>n_results</span> (int, max 20) &mdash; number of results
+  </div>
+</div>
+
+<div class="method-card">
+  <div class="method-name">cache.lookup</div>
+  <div class="method-desc">Alias for cache.search. Returns one cache hit when available.</div>
+  <div class="method-params">
+    <span>query</span> or <span>content</span> (string, required) &mdash; search text
+  </div>
+</div>
+
+<div class="method-card">
+  <div class="method-name">cache.store</div>
+  <div class="method-desc">Store an answer in the semantic cache.</div>
+  <div class="method-params">
+    <span>query</span> or <span>content</span> (string, required) &mdash; cache key text<br>
+    <span>response</span> or <span>answer</span> (string, required) &mdash; answer to cache<br>
+    <span>metadata</span> (object) &mdash; optional metadata
+  </div>
+</div>
+
+<div class="method-card">
+  <div class="method-name">budget.status</div>
+  <div class="method-desc">Current spend vs limits — daily, weekly, tiered thresholds, override status.</div>
+  <div class="method-params">No parameters required.</div>
+</div>
+
+<div class="method-card">
+  <div class="method-name">system.info</div>
+  <div class="method-desc">System resource stats — CPU, GPU, VRAM, RAM, temperature.</div>
+  <div class="method-params">No parameters required.</div>
+</div>
+
+<div class="method-card">
+  <div class="method-name">agents.list</div>
+  <div class="method-desc">List registered A2A agents. Optionally filter by capability.</div>
+  <div class="method-params">
+    <span>capability</span> (string) &mdash; filter agents by capability (e.g. "code", "translate")
+  </div>
+</div>
+
+<div class="method-card">
+  <div class="method-name">agents.register</div>
+  <div class="method-desc">Register an A2A-style agent in muLLM's in-process registry.</div>
+  <div class="method-params">
+    <span>agent_id</span> or <span>id</span> (string, required) &mdash; safe identifier<br>
+    <span>endpoint</span> (string) &mdash; http(s) endpoint for the agent<br>
+    <span>capabilities</span> (array or comma-separated string) &mdash; discoverable capabilities
+  </div>
+</div>
+
+<h2>Quick Start</h2>
+
+<h3>Classify a query (no execution, free)</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s -X POST https://localhost:6856/rpc \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "classify",
+    "params": {"content": "What is 2+2?"}
+  }' | jq</pre>
+
+<h3>Execute a query</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s -X POST https://localhost:6856/rpc \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "query",
+    "params": {"content": "Explain quicksort in 3 sentences"}
+  }' | jq</pre>
+
+<h3>Check budget</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s -X POST https://localhost:6856/rpc \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"budget.status","params":{}}' | jq</pre>
+
+<h3>Batch request (3 calls in 1)</h3>
+<pre><span class="lang-tag">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button>curl -s -X POST https://localhost:6856/rpc \
+  -H 'Content-Type: application/json' \
+  -d '[
+    {"jsonrpc":"2.0","id":1,"method":"budget.status","params":{}},
+    {"jsonrpc":"2.0","id":2,"method":"system.info","params":{}},
+    {"jsonrpc":"2.0","id":3,"method":"classify","params":{"content":"Write a poem"}}
+  ]' | jq</pre>
+
+<h3>Python</h3>
+<pre><span class="lang-tag">python</span><button class="copy-btn" onclick="copyCode(this)">copy</button>import httpx
+
+client = httpx.Client(base_url="https://localhost:6856", verify=False)
+
+# Classify
+r = client.post("/rpc", json={
+    "jsonrpc": "2.0", "id": 1,
+    "method": "classify",
+    "params": {"content": "Deploy to production"}
+})
+data = r.json()
+print(f"Tier: {data['result']['tier']}, Model: {data['result']['model']}")
+
+# Batch
+r = client.post("/rpc", json=[
+    {"jsonrpc": "2.0", "id": 1, "method": "budget.status", "params": {}},
+    {"jsonrpc": "2.0", "id": 2, "method": "system.info", "params": {}},
+])
+for resp in r.json():
+    print(f"#{resp['id']}: {list(resp.get('result', {}).keys())[:5]}")</pre>
+
+<h2>Try It</h2>
+<div class="try-panel">
+  <textarea id="rpc-input">{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "classify",
+  "params": {
+    "content": "What is the meaning of life?"
+  }
+}</textarea>
+  <button class="try-btn" id="rpc-send" onclick="sendRpc()">Send Request</button>
+  <div class="try-status" id="rpc-status"></div>
+  <div class="try-result" id="rpc-result"></div>
+</div>
+
+<h2>Error Codes</h2>
+<pre><span class="lang-tag">reference</span>-32700  Parse error       Invalid JSON body
+-32600  Invalid request   Missing jsonrpc/method fields
+-32601  Method not found  Unknown method name
+-32602  Invalid params    Wrong/missing required params
+-32603  Internal error    Server-side failure (traceback in data)</pre>
+
+<h2>Protocol Notes</h2>
+<ul>
+  <li>All responses return HTTP 200 (errors are in the JSON-RPC error object, not HTTP status)</li>
+  <li>Notifications (requests without <span class="inline-code">id</span>) return HTTP 204 with no body</li>
+  <li>Batch requests are capped at 50 per call</li>
+  <li>The <span class="inline-code">/rpc</span> endpoint is POST-only; GET redirects here</li>
+  <li>See also: <a href="/mcp">/mcp</a> for MCP tool protocol, <a href="/a2a">/a2a</a> for A2A agent protocol</li>
+</ul>
+
+</main>
+
+<script>
+async function sendRpc() {
+  const btn = document.getElementById('rpc-send');
+  const status = document.getElementById('rpc-status');
+  const result = document.getElementById('rpc-result');
+  const input = document.getElementById('rpc-input');
+
+  btn.disabled = true;
+  status.className = 'try-status';
+  status.textContent = 'Sending...';
+  result.innerHTML = '';
+
+  try {
+    const body = JSON.parse(input.value);
+    const start = performance.now();
+    const r = await fetch('/rpc', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    const elapsed = Math.round(performance.now() - start);
+    const data = await r.json();
+
+    status.className = 'try-status ok';
+    status.textContent = `${r.status} OK — ${elapsed}ms`;
+    result.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+  } catch (e) {
+    status.className = 'try-status err';
+    status.textContent = `Error: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('pre');
+  const text = pre.textContent.replace(/^(bash|python|json|reference)\s*copy\s*/, '');
+  navigator.clipboard.writeText(text.trim());
+  btn.textContent = 'copied!';
+  setTimeout(() => btn.textContent = 'copy', 1500);
+}
+</script>
+</body>
+</html>

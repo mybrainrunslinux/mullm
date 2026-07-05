@@ -1,0 +1,34 @@
+# Security-pinned lower bounds for muLLM dependencies.
+# Resolves known CVEs in transitive deps.
+# Usage:
+#   pip install -c constraints.txt mullm-1.0.0-py3-none-any.whl
+#   pip install -c constraints.txt -e .
+#
+# CVEs addressed:
+#   python-jose < 3.5.0   CVE-2024-33663 (algorithm confusion)
+#   GitPython  < 3.1.50   CVE-2024-22190 (remote code via crafted repo)
+#   Pillow     < 12.2.0   CVE-2025-* (several image parsing issues)
+#   requests   < 2.33.0   CVE-2024-35195 (proxy credential leak)
+#   urllib3    < 2.6.3    CVE-2024-37891 (proxy header injection)
+#   litellm    < 1.83.7   internal security patches
+#   pytest     < 9.0.3    CVE-2025-71176 (dev/test local tempdir issue)
+#
+# Compatibility pins:
+#   ChromaDB pulls OpenTelemetry exporters; all OTel packages must stay on
+#   the same minor version or Chroma can fail at import time.
+
+python-jose>=3.5.0
+GitPython>=3.1.50
+Pillow>=12.2.0
+numpy>=2.1.0
+requests>=2.33.0
+urllib3>=2.6.3
+litellm>=1.83.14
+pytest>=9.0.3
+keyring>=25.0.0
+
+opentelemetry-api==1.40.0
+opentelemetry-sdk==1.40.0
+opentelemetry-proto==1.40.0
+opentelemetry-exporter-otlp-proto-common==1.40.0
+opentelemetry-exporter-otlp-proto-grpc==1.40.0

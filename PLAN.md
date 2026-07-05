@@ -1,0 +1,23 @@
+Create a game using any technology and libraries but likely ThreeJS in browser wrapped with Tauri or Electron if needed, with the following gameplay:
+
+- First person or third person views
+- Stylized stick-figure with physics on a unicycle with physics
+- lean to turn, pedaling is automatic for now very much a game about balancing left/right
+- on screen we have the unicycle or just knees and arms to steady plus a semi transparent gauge with the mechanic of constantly tipping out of center/balance over time moreso on higher difficulties later levels or specific terrain like on tightropes and logs crossing rivers and canyons and ravines and treacherous dirt downhill trails with boulders
+- The centering gauge also has on screen buttons at the left and right ends of the gauge you can click or tap to adjust the left/right balance
+- Fully mobile compatible including on very narrow screens like Fold4
+- Looks stunning still on larger widths like a 1440 or even 4k monitors
+- Beautiful skybox style vistas, parallax feel of movement
+- Creaky rusty unicycle at first but RPG and tech tree style upgrades for more height, more visibility, simple visor to keep sun glare lens flares to a minimum, pogo attachment to make jumps later in game, go go gadget or speed racer style upgrades in much later game
+- Option to also control with a gyroscop tilt left/right (twist the screen like a steering wheel to steer)
+- Option to also control with webcam tilt head left/right to steer/lean
+- Initial tutorial level is somewhat flat but we always pedal move forward at least at a slowish speed
+- We demonstrate the basic controls and some of the traversal challenges obstacles and basic navigation in the tutorial
+- Then there are smooth levels at least 100 maybe more like 200 or 500 levels but these do not always interrupt, they go in groups so like the first real level might be very very simple get a few pedals worth to a golden shiny goal, but then by the end of levels halfway through it takes a few minutes to clear there are some options for which paths some puzzly mechanics traversal mechanics some tony hawk style combo grinding wallriding all of it fairly automatic still maybe later we can add more difficult modes where you have to intentionally combo for now these can be defined totally "on a spline" kind of pathings or "caputre into the beam" kind of mechanic if you can smooth it enough to be believable works too
+- Generate a system of Procedural Generation for levels that are traversable / winnable but known to get more difficult without just repeating the same mechanics over and over, actually adding some fun variance jumping over fire or having to intentionally lean a bit to grab a torch or tip something over that burns things or creates a bridge later in the level we can pass
+- Add weather, clouds, parallax, fog, visibility challenges, various trees rocks terrain (you can use your own terrain generator)
+- Add a level designer
+- Make sure there is a basic HUD showing speed maybe percent or rough progressbar through level maybe time taken is tracked and max speed too
+- Toggleable Optimal Line where we show a faint green ribbon on the ground where the designed perfect line is through the level
+- Add a large flat Practice Arena with a bit of coliseum arena design where I move at the default slowest pace flat ground but I can practice the leaning and dial in the physics and visual presence of the background, skybox, environment, parallax, weather, fog, and the character and unicycle itself
+- Test the game in browser to ensure the Tutorial and first level can definitely be completed, this will be a critical path test for Demo Proof of Concept

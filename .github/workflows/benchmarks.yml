@@ -1,0 +1,37 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      benchmark:
+        description: "Benchmark suite to run"
+        required: true
+        default: "mupatch"
+        type: choice
+        options:
+          - mupatch
+          - pr-gauntlet
+          - pr-gauntlet-omniroute
+          - pr-gauntlet-combined
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark-plan:
+    name: Benchmark plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Show selected benchmark
+        run: |
+          echo "Selected benchmark: ${{ inputs.benchmark }}"
+          echo "This workflow is intentionally manual until PR-Gauntlet/muPatch runners are restored in the refactor."
+          echo "Expected targets:"
+          echo "  - muLLM only"
+          echo "  - OmniRoute only"
+          echo "  - muLLM classifier/budget gate -> OmniRoute fallback"
+

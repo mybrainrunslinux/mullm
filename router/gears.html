@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>muLLM Gearworks — Steampunk Router Visualization</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',system-ui,sans-serif;background:#0a0705;color:#f3e8c8}
+#canvas3d{width:100%;height:100%;display:block;position:absolute;top:0;left:0}
+
+/* Loading screen */
+#loader{position:fixed;inset:0;background:radial-gradient(ellipse at center,#1a130a 0%,#0a0705 70%);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.8s}
+#loader.hidden{opacity:0;pointer-events:none}
+.gear-spinner{position:relative;width:140px;height:140px;margin-bottom:30px}
+.gear-spinner svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 0 18px rgba(255,170,60,0.6))}
+.gear-spinner .g1{animation:spin 4s linear infinite}
+.gear-spinner .g2{animation:spin 3s linear infinite reverse;transform-origin:center}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+#loader h1{font-family:Georgia,serif;font-size:2rem;color:#e0b050;text-shadow:0 0 20px rgba(224,176,80,0.5);letter-spacing:0.08em;margin-bottom:12px}
+#loader .sub{color:#9c7a4c;font-size:0.85rem;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:30px}
+.progress-bar{width:320px;height:6px;background:rgba(224,176,80,0.15);border-radius:3px;overflow:hidden;border:1px solid rgba(224,176,80,0.25)}
+.progress-fill{height:100%;background:linear-gradient(90deg,#8a4a18,#e0b050,#ffd880);width:0%;transition:width 0.3s;box-shadow:0 0 12px rgba(255,180,60,0.8)}
+#progress-text{margin-top:14px;color:#c49657;font-size:0.78rem;letter-spacing:0.08em}
+
+/* HUD */
+#hud{position:fixed;top:18px;left:18px;z-index:10;pointer-events:none;max-width:300px}
+.hud-plate{background:linear-gradient(135deg,rgba(26,15,8,0.88),rgba(12,8,5,0.88));backdrop-filter:blur(10px);border:1px solid rgba(224,176,80,0.35);border-radius:4px;padding:14px 18px;margin-bottom:10px;pointer-events:auto;position:relative;box-shadow:0 4px 30px rgba(0,0,0,0.6),inset 0 1px 0 rgba(224,176,80,0.15)}
+.hud-plate::before{content:"";position:absolute;top:4px;left:4px;right:4px;bottom:4px;border:1px solid rgba(224,176,80,0.12);border-radius:2px;pointer-events:none}
+.hud-plate .label{color:#9c7a4c;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.14em;font-family:Georgia,serif}
+.hud-plate .value{color:#ffd880;font-weight:700;font-size:1.6rem;font-family:Georgia,serif;text-shadow:0 0 14px rgba(255,180,60,0.5);line-height:1}
+.hud-plate .sub{color:#c49657;font-size:0.72rem;margin-top:4px}
+.hud-plate .rivets{position:absolute;top:3px;right:3px;bottom:3px;left:3px;pointer-events:none}
+.rivet{position:absolute;width:4px;height:4px;background:radial-gradient(circle,#e0b050,#6a4418);border-radius:50%;box-shadow:0 0 2px rgba(0,0,0,0.8)}
+.rivet.tl{top:2px;left:2px}.rivet.tr{top:2px;right:2px}.rivet.bl{bottom:2px;left:2px}.rivet.br{bottom:2px;right:2px}
+
+#title{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:10;text-align:center;pointer-events:none}
+#title h1{font-family:Georgia,serif;font-size:1.6rem;color:#e0b050;letter-spacing:0.12em;text-shadow:0 2px 20px rgba(255,180,60,0.4),0 0 2px #000}
+#title .subtitle{color:#9c7a4c;font-size:0.7rem;letter-spacing:0.2em;text-transform:uppercase;margin-top:3px}
+
+/* Routing flow panel (right) */
+#flowPanel{position:fixed;top:18px;right:18px;z-index:10;background:linear-gradient(135deg,rgba(26,15,8,0.88),rgba(12,8,5,0.88));backdrop-filter:blur(10px);border:1px solid rgba(224,176,80,0.35);border-radius:4px;padding:14px 18px;width:240px;box-shadow:0 4px 30px rgba(0,0,0,0.6),inset 0 1px 0 rgba(224,176,80,0.15)}
+#flowPanel h3{color:#e0b050;font-family:Georgia,serif;font-size:0.9rem;letter-spacing:0.08em;margin-bottom:10px;border-bottom:1px solid rgba(224,176,80,0.25);padding-bottom:6px}
+.route-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:0.76rem}
+.route-row .name{color:#c49657}
+.route-row .bar{flex:1;margin:0 10px;height:5px;background:rgba(224,176,80,0.12);border-radius:3px;overflow:hidden}
+.route-row .fill{height:100%;transition:width 0.6s ease-out;border-radius:3px}
+.route-row .pct{color:#ffd880;font-weight:600;min-width:36px;text-align:right;font-family:Georgia,serif}
+.fill-local{background:linear-gradient(90deg,#2a8a3e,#56d973);box-shadow:0 0 8px rgba(86,217,115,0.5)}
+.fill-cloud{background:linear-gradient(90deg,#8a4a18,#e0b050);box-shadow:0 0 8px rgba(224,176,80,0.5)}
+
+/* Bottom controls */
+#controls{position:fixed;bottom:18px;right:18px;z-index:10;display:flex;gap:8px}
+#controls button{background:linear-gradient(135deg,rgba(26,15,8,0.88),rgba(12,8,5,0.88));backdrop-filter:blur(8px);border:1px solid rgba(224,176,80,0.35);border-radius:4px;padding:10px 16px;color:#f3e8c8;font-size:0.74rem;cursor:pointer;font-family:Georgia,serif;letter-spacing:0.06em;transition:all 0.2s;box-shadow:0 2px 12px rgba(0,0,0,0.5)}
+#controls button:hover{border-color:#e0b050;background:rgba(224,176,80,0.15);color:#ffd880}
+#controls button.active{border-color:#e0b050;color:#ffd880;background:rgba(224,176,80,0.2)}
+#controls button:focus-visible{outline:2px solid #e0b050;outline-offset:2px}
+
+/* Legend */
+#legend{position:fixed;bottom:18px;left:18px;z-index:10;background:linear-gradient(135deg,rgba(26,15,8,0.88),rgba(12,8,5,0.88));backdrop-filter:blur(10px);border:1px solid rgba(224,176,80,0.35);border-radius:4px;padding:12px 16px;font-size:0.72rem;max-width:240px;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
+#legend h4{color:#9c7a4c;font-family:Georgia,serif;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:8px}
+.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:4px;color:#c49657}
+.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px currentColor}
+.dot-intake{background:#6fd6ff;color:#6fd6ff}
+.dot-local{background:#56d973;color:#56d973}
+.dot-cloud{background:#e0b050;color:#e0b050}
+.dot-steam{background:#d0d0d0;color:#d0d0d0}
+
+/* Steam particles (CSS) */
+#steamLayer{position:fixed;inset:0;pointer-events:none;z-index:5;overflow:hidden}
+.steam-puff{position:absolute;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,rgba(220,210,200,0.35) 0%,rgba(220,210,200,0) 70%);animation:rise 6s linear forwards;will-change:transform,opacity}
+@keyframes rise{
+  0%{transform:translate(0,0) scale(0.4);opacity:0}
+  15%{opacity:0.7}
+  100%{transform:translate(var(--drift,0),-220px) scale(2.2);opacity:0}
+}
+
+/* Scrolling ticker */
+#ticker{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;z-index:9;background:rgba(12,8,5,0.8);backdrop-filter:blur(8px);border:1px solid rgba(224,176,80,0.25);border-radius:4px;padding:8px 16px;font-size:0.74rem;color:#c49657;font-family:'Courier New',monospace;max-width:520px;overflow:hidden;white-space:nowrap}
+#ticker .msg{display:inline-block;animation:tick 20s linear infinite}
+@keyframes tick{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+
+/* Canvas resets */
+canvas{outline:none}
+
+@media (max-width:720px){
+  #flowPanel{width:180px;padding:10px 12px}
+  #title h1{font-size:1.1rem}
+  #hud{max-width:160px}
+  .hud-plate .value{font-size:1.2rem}
+  #legend{display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="loader" role="status" aria-live="polite">
+  <div class="gear-spinner" aria-hidden="true">
+    <svg class="g1" viewBox="0 0 100 100"><defs><radialGradient id="gg1"><stop offset="0%" stop-color="#ffd880"/><stop offset="100%" stop-color="#8a4a18"/></radialGradient></defs><path fill="url(#gg1)" d="M50 5 L58 12 L68 10 L72 20 L82 24 L80 34 L88 42 L82 50 L88 58 L80 66 L82 76 L72 80 L68 90 L58 88 L50 95 L42 88 L32 90 L28 80 L18 76 L20 66 L12 58 L18 50 L12 42 L20 34 L18 24 L28 20 L32 10 L42 12 Z M50 32 A18 18 0 1 0 50 68 A18 18 0 1 0 50 32 Z"/></svg>
+    <svg class="g2" viewBox="0 0 100 100" style="width:70%;height:70%;top:15%;left:15%"><defs><radialGradient id="gg2"><stop offset="0%" stop-color="#e0b050"/><stop offset="100%" stop-color="#6a4418"/></radialGradient></defs><path fill="url(#gg2)" d="M50 8 L56 14 L65 12 L68 21 L77 24 L75 33 L82 40 L76 48 L82 56 L75 63 L77 72 L68 75 L65 84 L56 82 L50 88 L44 82 L35 84 L32 75 L23 72 L25 63 L18 56 L24 48 L18 40 L25 33 L23 24 L32 21 L35 12 L44 14 Z M50 34 A14 14 0 1 0 50 62 A14 14 0 1 0 50 34 Z"/></svg>
+  </div>
+  <h1>muLLM Gearworks</h1>
+  <div class="sub">Stoking the boilers &middot; Winding the mainspring</div>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  <div id="progress-text">Initializing &hellip;</div>
+</div>
+
+<canvas id="canvas3d"></canvas>
+<div id="steamLayer" aria-hidden="true"></div>
+
+<div id="title" aria-hidden="false">
+  <h1>muLLM GEARWORKS</h1>
+  <div class="subtitle">Steam-Driven Query Routing Apparatus</div>
+</div>
+
+<div id="hud">
+  <div class="hud-plate">
+    <div class="rivets"><span class="rivet tl"></span><span class="rivet tr"></span><span class="rivet bl"></span><span class="rivet br"></span></div>
+    <div class="label">Queries Routed Today</div>
+    <div class="value" id="totalQueries">&mdash;</div>
+    <div class="sub" id="totalSub">Awaiting telegraph</div>
+  </div>
+  <div class="hud-plate">
+    <div class="rivets"><span class="rivet tl"></span><span class="rivet tr"></span><span class="rivet bl"></span><span class="rivet br"></span></div>
+    <div class="label">Boiler Pressure</div>
+    <div class="value" id="pressure">0 psi</div>
+    <div class="sub" id="pressureSub">Nominal</div>
+  </div>
+</div>
+
+<div id="flowPanel" role="complementary" aria-label="Routing distribution">
+  <h3>Routing Distribution</h3>
+  <div class="route-row">
+    <span class="name">Local Engine</span>
+    <div class="bar"><div class="fill fill-local" id="localBar" style="width:0%"></div></div>
+    <span class="pct" id="localPct">0%</span>
+  </div>
+  <div class="route-row">
+    <span class="name">Cloud Tower</span>
+    <div class="bar"><div class="fill fill-cloud" id="cloudBar" style="width:0%"></div></div>
+    <span class="pct" id="cloudPct">0%</span>
+  </div>
+  <div class="route-row" style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(224,176,80,0.2);font-size:0.7rem">
+    <span class="name">Cache Hits</span>
+    <span class="pct" id="cacheVal">&mdash;</span>
+  </div>
+</div>
+
+<div id="ticker" aria-live="polite"><span class="msg" id="tickerMsg">Steam engines online &middot; Mainspring wound &middot; Differential analyzer ready &middot; Punch-card reader idle &middot; Telegraph receiver listening</span></div>
+
+<div id="legend">
+  <h4>Legend</h4>
+  <div class="legend-item"><span class="legend-dot dot-intake"></span>Intake queries</div>
+  <div class="legend-item"><span class="legend-dot dot-local"></span>Local engine route</div>
+  <div class="legend-item"><span class="legend-dot dot-cloud"></span>Cloud tower route</div>
+  <div class="legend-item"><span class="legend-dot dot-steam"></span>Steam vents</div>
+</div>
+
+<div id="controls">
+  <button id="btnSound" aria-pressed="false" title="Toggle ambient steampunk soundscape">Sound Off</button>
+  <button id="btnBloom" aria-pressed="true" title="Toggle bloom post-processing">Bloom On</button>
+  <button id="btnAuto" aria-pressed="true" title="Toggle auto camera">Auto Cam</button>
+  <button id="btnHome" title="Reset camera">Home</button>
+</div>
+
+<script src="https://unpkg.com/three@0.157.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.157.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://unpkg.com/three@0.157.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.157.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://unpkg.com/three@0.157.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://unpkg.com/three@0.157.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://unpkg.com/three@0.157.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://unpkg.com/three@0.157.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://unpkg.com/three@0.157.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+
+<script>
+(function(){
+'use strict';
+
+// ================== Config ==================
+const LOW_MEM = (navigator.deviceMemory && navigator.deviceMemory < 4) || /Mobi|Android/i.test(navigator.userAgent);
+let BLOOM_ON = !LOW_MEM;
+
+// ================== Scene ==================
+const canvas = document.getElementById('canvas3d');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:!LOW_MEM, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 1.75));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0705);
+scene.fog = new THREE.FogExp2(0x1a0f08, 0.018);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 500);
+camera.position.set(14, 9, 22);
+
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.48;
+controls.minDistance = 6;
+controls.maxDistance = 60;
+controls.target.set(0, 3, 0);
+
+// ================== Lights ==================
+const ambient = new THREE.AmbientLight(0x2a1a10, 0.6);
+scene.add(ambient);
+
+const hemi = new THREE.HemisphereLight(0xffd080, 0x1a0a05, 0.35);
+scene.add(hemi);
+
+// Key warm torch light
+const keyLight = new THREE.DirectionalLight(0xffb060, 1.2);
+keyLight.position.set(18, 24, 12);
+keyLight.castShadow = !LOW_MEM;
+if(keyLight.castShadow){
+  keyLight.shadow.mapSize.set(1024, 1024);
+  keyLight.shadow.camera.near = 1;
+  keyLight.shadow.camera.far = 80;
+  keyLight.shadow.camera.left = -25;
+  keyLight.shadow.camera.right = 25;
+  keyLight.shadow.camera.top = 25;
+  keyLight.shadow.camera.bottom = -25;
+  keyLight.shadow.bias = -0.0005;
+}
+scene.add(keyLight);
+
+// Cool accent
+const accentLight = new THREE.DirectionalLight(0x4080c0, 0.45);
+accentLight.position.set(-20, 18, -10);
+scene.add(accentLight);
+
+// Flickering torch point lights
+const torchLights = [];
+function addTorch(x, y, z, color=0xff8030, intensity=2.4, dist=18){
+  const L = new THREE.PointLight(color, intensity, dist, 2);
+  L.position.set(x, y, z);
+  torchLights.push({light:L, base:intensity, phase:Math.random()*Math.PI*2});
+  scene.add(L);
+  // Glow sphere
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 8, 8),
+    new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.9})
+  );
+  glow.position.copy(L.position);
+  scene.add(glow);
+}
+addTorch(-11, 6, -8, 0xff8030, 2.8);
+addTorch( 11, 6, -8, 0xff8030, 2.8);
+addTorch(-11, 6,  8, 0xff8030, 2.8);
+addTorch( 11, 6,  8, 0xff8030, 2.8);
+addTorch(-7, 5,  0, 0x56d973, 1.8, 12); // local side accent (green)
+addTorch( 7, 5,  0, 0xe0b050, 2.2, 14); // cloud side accent (gold)
+addTorch( 0, 8,  0, 0x80c8ff, 1.6, 16); // intake cool
+
+// ================== Ground & environment ==================
+const groundGeo = new THREE.CircleGeometry(80, 64);
+const groundMat = new THREE.MeshStandardMaterial({
+  color:0x1a0f08,
+  roughness:0.9,
+  metalness:0.2
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -0.01;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Grid / plating detail
+const plateGeo = new THREE.RingGeometry(3, 14, 32, 4);
+const plateMat = new THREE.MeshStandardMaterial({
+  color:0x3a2616, roughness:0.7, metalness:0.55, side:THREE.DoubleSide
+});
+const plate = new THREE.Mesh(plateGeo, plateMat);
+plate.rotation.x = -Math.PI/2;
+plate.position.y = 0.001;
+plate.receiveShadow = true;
+scene.add(plate);
+
+// ================== Procedural gear helper ==================
+function makeGearMesh(radius=1, teeth=14, thickness=0.3, color=0xb87a30, metalness=0.85, roughness=0.35){
+  const shape = new THREE.Shape();
+  const toothH = radius * 0.18;
+  const step = (Math.PI*2)/teeth;
+  for(let i=0;i<teeth;i++){
+    const a1 = i*step;
+    const a2 = a1 + step*0.35;
+    const a3 = a1 + step*0.5;
+    const a4 = a1 + step*0.85;
+    const a5 = a1 + step;
+    const pts = [
+      [Math.cos(a1)*radius, Math.sin(a1)*radius],
+      [Math.cos(a2)*(radius+toothH), Math.sin(a2)*(radius+toothH)],
+      [Math.cos(a3)*(radius+toothH), Math.sin(a3)*(radius+toothH)],
+      [Math.cos(a4)*radius, Math.sin(a4)*radius],
+      [Math.cos(a5)*radius, Math.sin(a5)*radius]
+    ];
+    if(i===0) shape.moveTo(pts[0][0], pts[0][1]);
+    for(let p=1;p<pts.length;p++) shape.lineTo(pts[p][0], pts[p][1]);
+  }
+  const hole = new THREE.Path();
+  hole.absarc(0,0,radius*0.22,0,Math.PI*2,true);
+  shape.holes.push(hole);
+  const geom = new THREE.ExtrudeGeometry(shape, {depth:thickness, bevelEnabled:true, bevelSize:0.03, bevelThickness:0.02, bevelSegments:2, curveSegments:6});
+  geom.center();
+  const mat = new THREE.MeshStandardMaterial({color, metalness, roughness, emissive:new THREE.Color(color).multiplyScalar(0.08)});
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.castShadow = !LOW_MEM;
+  mesh.receiveShadow = !LOW_MEM;
+  return mesh;
+}
+
+// Gear train (central classifier)
+const gearGroup = new THREE.Group();
+scene.add(gearGroup);
+
+const gears = [];
+function addAnimGear(x,y,z,r,teeth,color,speed,axis='z'){
+  const g = makeGearMesh(r, teeth, 0.35, color);
+  g.position.set(x,y,z);
+  if(axis==='z') g.rotation.x = 0; else if(axis==='y') g.rotation.y = Math.PI/2;
+  gearGroup.add(g);
+  gears.push({mesh:g, speed, axis});
+  return g;
+}
+addAnimGear(0, 5, 0, 2.2, 18, 0xc88a40, 0.35);
+addAnimGear(3.4, 5, 0, 1.4, 12, 0xa6701e, -0.55);
+addAnimGear(-3.4, 5, 0, 1.4, 12, 0xa6701e, -0.55);
+addAnimGear(0, 7.8, 0, 1.1, 10, 0xe0b050, 0.7);
+addAnimGear(0, 2.3, 0, 1.5, 14, 0x9c6418, 0.45);
+
+// ================== Intake hopper ==================
+const hopperGeo = new THREE.ConeGeometry(2.4, 3, 12, 1, true);
+const hopperMat = new THREE.MeshStandardMaterial({color:0x4a2e18, metalness:0.7, roughness:0.4, side:THREE.DoubleSide});
+const hopper = new THREE.Mesh(hopperGeo, hopperMat);
+hopper.position.set(0, 11, 0);
+hopper.rotation.x = Math.PI;
+hopper.castShadow = !LOW_MEM;
+scene.add(hopper);
+
+// Hopper rim
+const rim = new THREE.Mesh(
+  new THREE.TorusGeometry(2.4, 0.18, 8, 24),
+  new THREE.MeshStandardMaterial({color:0xc88a40, metalness:0.9, roughness:0.25})
+);
+rim.position.set(0, 12.5, 0);
+rim.rotation.x = Math.PI/2;
+scene.add(rim);
+
+// ================== Conveyor belts ==================
+function makeConveyor(x1,z1,x2,z2,width=1.6,y=1.2, color=0x1a0f08, rails=0x8a5020){
+  const g = new THREE.Group();
+  const dx = x2-x1, dz = z2-z1;
+  const len = Math.sqrt(dx*dx+dz*dz);
+  const belt = new THREE.Mesh(
+    new THREE.BoxGeometry(len, 0.14, width),
+    new THREE.MeshStandardMaterial({color, metalness:0.35, roughness:0.85})
+  );
+  belt.position.set((x1+x2)/2, y, (z1+z2)/2);
+  belt.rotation.y = -Math.atan2(dz, dx);
+  belt.receiveShadow = !LOW_MEM;
+  g.add(belt);
+  // Rails
+  for(let side=-1; side<=1; side+=2){
+    const rail = new THREE.Mesh(
+      new THREE.BoxGeometry(len, 0.2, 0.08),
+      new THREE.MeshStandardMaterial({color:rails, metalness:0.85, roughness:0.3})
+    );
+    const ang = -Math.atan2(dz, dx);
+    rail.position.set((x1+x2)/2 + Math.sin(-ang)*side*(width/2+0.05), y+0.12, (z1+z2)/2 + Math.cos(-ang)*side*(width/2+0.05));
+    rail.rotation.y = ang;
+    g.add(rail);
+  }
+  // End rollers
+  for(let end=0; end<2; end++){
+    const ex = end===0 ? x1 : x2;
+    const ez = end===0 ? z1 : z2;
+    const roller = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.22, 0.22, width+0.2, 12),
+      new THREE.MeshStandardMaterial({color:0xb87a30, metalness:0.9, roughness:0.2})
+    );
+    roller.position.set(ex, y, ez);
+    roller.rotation.x = Math.PI/2;
+    roller.rotation.z = Math.atan2(dz, dx);
+    g.add(roller);
+  }
+  scene.add(g);
+  return {group:g, x1,z1,x2,z2,y,len};
+}
+
+const beltLocal = makeConveyor(-1.5, 0, -12, 0, 1.6, 1.2);
+const beltCloud = makeConveyor( 1.5, 0,  12, 0, 1.6, 1.2);
+
+// Destination pedestals
+function makeDestination(x,z,color,label){
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.8, 2.1, 2.4, 12),
+    new THREE.MeshStandardMaterial({color:0x3a2616, metalness:0.7, roughness:0.5})
+  );
+  base.position.set(x, 1.2, z);
+  base.castShadow = !LOW_MEM;
+  g.add(base);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1.8, 0.12, 8, 18),
+    new THREE.MeshStandardMaterial({color, metalness:0.95, roughness:0.15, emissive:new THREE.Color(color).multiplyScalar(0.3)})
+  );
+  ring.position.set(x, 2.4, z);
+  ring.rotation.x = Math.PI/2;
+  g.add(ring);
+  // Glow pillar
+  const pillar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.35, 0.4, 4, 10),
+    new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:1.2, metalness:0.2, roughness:0.3, transparent:true, opacity:0.85})
+  );
+  pillar.position.set(x, 4.4, z);
+  g.add(pillar);
+  // Spire
+  const spire = new THREE.Mesh(
+    new THREE.ConeGeometry(0.5, 1.6, 8),
+    new THREE.MeshStandardMaterial({color:0x8a5020, metalness:0.8, roughness:0.3})
+  );
+  spire.position.set(x, 7.2, z);
+  g.add(spire);
+  scene.add(g);
+  return g;
+}
+const destLocal = makeDestination(-13.5, 0, 0x56d973, 'LOCAL');
+const destCloud = makeDestination( 13.5, 0, 0xe0b050, 'CLOUD');
+
+// Destination labels via sprites
+function makeLabelSprite(text, color='#ffd880'){
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = 'rgba(12,8,5,0.85)';
+  ctx.fillRect(0,0,256,64);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(3,3,250,58);
+  ctx.fillStyle = color;
+  ctx.font = 'bold 28px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 32);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.SpriteMaterial({map:tex, transparent:true});
+  const spr = new THREE.Sprite(mat);
+  spr.scale.set(3.2, 0.8, 1);
+  return spr;
+}
+const lblLocal = makeLabelSprite('LOCAL ENGINE', '#7ef29b');
+lblLocal.position.set(-13.5, 9, 0);
+scene.add(lblLocal);
+const lblCloud = makeLabelSprite('CLOUD TOWER', '#ffd880');
+lblCloud.position.set(13.5, 9, 0);
+scene.add(lblCloud);
+const lblIntake = makeLabelSprite('INTAKE', '#9fe0ff');
+lblIntake.position.set(0, 14.2, 0);
+scene.add(lblIntake);
+
+// ================== God ray / skylight beams ==================
+const beams = [];
+function addBeam(x, z, color=0xffd880, radiusTop=0.4, radiusBot=4, height=16){
+  const geom = new THREE.CylinderGeometry(radiusTop, radiusBot, height, 20, 1, true);
+  const mat = new THREE.MeshBasicMaterial({
+    color,
+    transparent:true,
+    opacity:0.07,
+    side:THREE.DoubleSide,
+    blending:THREE.AdditiveBlending,
+    depthWrite:false
+  });
+  const m = new THREE.Mesh(geom, mat);
+  m.position.set(x, height/2+1, z);
+  scene.add(m);
+  beams.push(m);
+}
+addBeam(0, 0, 0xffe0a0);
+addBeam(-10, -4, 0xffb070);
+addBeam(10, -4, 0xffb070);
+addBeam(-12, 6, 0x80c0ff, 0.25, 2.4, 14);
+addBeam(12, 6, 0x80c0ff, 0.25, 2.4, 14);
+
+// ================== Data packets (pooled) ==================
+const PACKET_POOL_SIZE = 40;
+const packetPool = [];
+const activePackets = [];
+const packetGeo = new THREE.BoxGeometry(0.28, 0.28, 0.28);
+for(let i=0;i<PACKET_POOL_SIZE;i++){
+  const mat = new THREE.MeshStandardMaterial({
+    color:0x80c0ff, emissive:0x4080ff, emissiveIntensity:1.5, metalness:0.2, roughness:0.4
+  });
+  const m = new THREE.Mesh(packetGeo, mat);
+  m.visible = false;
+  scene.add(m);
+  packetPool.push(m);
+}
+
+function getPacket(){
+  for(let i=0;i<packetPool.length;i++) if(!packetPool[i].visible) return packetPool[i];
+  return null;
+}
+
+function spawnPacket(toLocal){
+  const m = getPacket();
+  if(!m) return;
+  m.visible = true;
+  const color = toLocal ? 0x56d973 : 0xe0b050;
+  const emi   = toLocal ? 0x30a048 : 0xb87018;
+  m.material.color.setHex(color);
+  m.material.emissive.setHex(emi);
+  m.material.emissiveIntensity = 1.8;
+  m.scale.set(1,1,1);
+  const p = {
+    mesh:m, toLocal, t:0, dur: 2.2 + Math.random()*1.0,
+    phase:'fall', // fall -> belt -> arrive -> dissolve
+    fallFrom:new THREE.Vector3(0, 12, 0),
+    beltStart:new THREE.Vector3(toLocal ? -1.5 : 1.5, 1.38, 0),
+    beltEnd:new THREE.Vector3(toLocal ? -12 : 12, 1.38, 0),
+  };
+  m.position.copy(p.fallFrom);
+  activePackets.push(p);
+  if(audioReady) playRouteSound(toLocal);
+}
+
+// ================== Post-processing ==================
+let composer = null, bloomPass = null;
+function setupComposer(){
+  composer = new THREE.EffectComposer(renderer);
+  const rp = new THREE.RenderPass(scene, camera);
+  composer.addPass(rp);
+  bloomPass = new THREE.UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.85,  // strength
+    0.55,  // radius
+    0.22   // threshold
+  );
+  composer.addPass(bloomPass);
+}
+if(BLOOM_ON) setupComposer();
+
+// ================== GLB loading ==================
+const loader = new THREE.GLTFLoader();
+const loaderState = {loaded:0, total:1};
+const progressFill = document.getElementById('progress-fill');
+const progressText = document.getElementById('progress-text');
+
+function updateProgress(txt, pct){
+  progressFill.style.width = Math.min(100, pct) + '%';
+  progressText.textContent = txt;
+}
+
+function loadGLB(url, onDone, label, priority=1){
+  loader.load(url, (gltf)=>{
+    onDone(gltf);
+  }, (xhr)=>{
+    if(xhr.lengthComputable){
+      const p = (xhr.loaded / xhr.total) * 100;
+      updateProgress(`${label} &mdash; ${Math.round(p)}%`, p);
+    }
+  }, (err)=>{
+    console.warn('GLB load failed', url, err);
+  });
+}
+
+const loadedModels = {};
+
+function placeFactory(gltf){
+  const root = gltf.scene;
+  // Scale to fit
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const targetSize = 16;
+  const scale = targetSize / Math.max(1e-3, maxDim);
+  root.scale.setScalar(scale);
+  const center = box.getCenter(new THREE.Vector3()).multiplyScalar(scale);
+  root.position.set(-center.x, -box.min.y*scale, -center.z);
+  root.position.y += 0;
+  // Shadows + find gear-like meshes
+  root.traverse((o)=>{
+    if(o.isMesh){
+      o.castShadow = !LOW_MEM;
+      o.receiveShadow = !LOW_MEM;
+      if(o.material && o.material.map) o.material.map.colorSpace = THREE.SRGBColorSpace;
+      // Heuristic: things with "gear", "cog", "wheel" in name spin
+      const n = (o.name||'').toLowerCase();
+      if(/gear|cog|wheel|spin/.test(n)){
+        factoryGears.push({mesh:o, speed:0.3 + Math.random()*0.6});
+      }
+    }
+  });
+  scene.add(root);
+  loadedModels.factory = root;
+}
+
+const factoryGears = [];
+
+function placeProp(gltf, {pos, scaleTo=4, rotY=0}){
+  const root = gltf.scene;
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const s = scaleTo / Math.max(1e-3, maxDim);
+  root.scale.setScalar(s);
+  const cen = box.getCenter(new THREE.Vector3()).multiplyScalar(s);
+  root.position.set(pos.x - cen.x, pos.y - box.min.y*s, pos.z - cen.z);
+  root.rotation.y = rotY;
+  root.traverse((o)=>{
+    if(o.isMesh){
+      o.castShadow = !LOW_MEM;
+      o.receiveShadow = !LOW_MEM;
+      if(o.material && o.material.map) o.material.map.colorSpace = THREE.SRGBColorSpace;
+    }
+  });
+  scene.add(root);
+  return root;
+}
+
+// Load sequence: hero first, then secondaries (fire-and-forget)
+updateProgress('Loading gear factory &hellip;', 2);
+
+loadGLB('/assets/3d/meshy-gear-factory.glb', (gltf)=>{
+  try { placeFactory(gltf); } catch(e){ console.warn(e); }
+  updateProgress('Stoking boilers &hellip;', 90);
+  setTimeout(()=>{
+    document.getElementById('loader').classList.add('hidden');
+    // Secondary loads (optional)
+    loadGLB('/assets/3d/meshy-steam-core.glb', (g)=>{
+      try { placeProp(g, {pos:new THREE.Vector3(0, 0, -12), scaleTo:5}); } catch(e){}
+    }, 'steam core');
+    loadGLB('/assets/3d/meshy-iron-torch-stand.glb', (g)=>{
+      try { placeProp(g, {pos:new THREE.Vector3(-18, 0,  0), scaleTo:3}); } catch(e){}
+      try { const g2 = g.scene.clone(); g2.position.set(18,0,0); scene.add(g2); } catch(e){}
+    }, 'torches');
+    if(!LOW_MEM){
+      loadGLB('/assets/3d/meshy-steampunk-fountain-refined.glb', (g)=>{
+        try { placeProp(g, {pos:new THREE.Vector3(0, 0, 14), scaleTo:5}); } catch(e){}
+      }, 'fountain');
+      loadGLB('/assets/3d/meshy-steam-workshop.glb', (g)=>{
+        try { placeProp(g, {pos:new THREE.Vector3(-22, 0, -18), scaleTo:9, rotY:Math.PI*0.25}); } catch(e){}
+      }, 'workshop');
+    }
+  }, 250);
+}, 'gear factory');
+
+// Fallback: if hero load stalls, still reveal after 20s
+setTimeout(()=>{
+  if(!document.getElementById('loader').classList.contains('hidden')){
+    document.getElementById('loader').classList.add('hidden');
+  }
+}, 20000);
+
+// ================== CSS steam particles ==================
+const steamLayer = document.getElementById('steamLayer');
+function spawnSteamCSS(){
+  if(LOW_MEM || document.hidden) return;
+  const positions = [
+    {x:'22%', y:'62%'},
+    {x:'34%', y:'58%'},
+    {x:'48%', y:'52%'},
+    {x:'62%', y:'58%'},
+    {x:'76%', y:'62%'}
+  ];
+  const pos = positions[Math.floor(Math.random()*positions.length)];
+  const el = document.createElement('div');
+  el.className = 'steam-puff';
+  el.style.left = pos.x;
+  el.style.top = pos.y;
+  el.style.setProperty('--drift', (Math.random()*80-40)+'px');
+  el.style.opacity = 0;
+  steamLayer.appendChild(el);
+  setTimeout(()=>el.remove(), 6200);
+}
+setInterval(spawnSteamCSS, 280);
+
+// ================== Audio (Web Audio procedural) ==================
+let audioCtx = null, audioReady = false, audioOn = false;
+let rumbleGain = null, rumbleOsc = null, masterGain = null;
+
+function initAudio(){
+  if(audioCtx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return;
+  audioCtx = new AC();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.0;
+  masterGain.connect(audioCtx.destination);
+
+  // Low rumble
+  rumbleOsc = audioCtx.createOscillator();
+  rumbleOsc.type = 'sawtooth';
+  rumbleOsc.frequency.value = 58;
+  const rumbleLP = audioCtx.createBiquadFilter();
+  rumbleLP.type = 'lowpass';
+  rumbleLP.frequency.value = 120;
+  rumbleGain = audioCtx.createGain();
+  rumbleGain.gain.value = 0.25;
+  rumbleOsc.connect(rumbleLP).connect(rumbleGain).connect(masterGain);
+  rumbleOsc.start();
+
+  // LFO on rumble pitch for mechanical wobble
+  const lfo = audioCtx.createOscillator();
+  lfo.frequency.value = 0.7;
+  const lfoGain = audioCtx.createGain();
+  lfoGain.gain.value = 3;
+  lfo.connect(lfoGain).connect(rumbleOsc.frequency);
+  lfo.start();
+
+  audioReady = true;
+  scheduleClank();
+  scheduleHiss();
+}
+
+function playRouteSound(toLocal){
+  if(!audioOn) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'triangle';
+  o.frequency.value = toLocal ? 520 : 780;
+  g.gain.setValueAtTime(0.0, now);
+  g.gain.linearRampToValueAtTime(0.08, now+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, now+0.6);
+  o.connect(g).connect(masterGain);
+  o.start(now);
+  o.stop(now+0.65);
+}
+
+function scheduleClank(){
+  if(!audioReady) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'square';
+  o.frequency.value = 140 + Math.random()*60;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 600;
+  bp.Q.value = 4;
+  g.gain.setValueAtTime(0.0, now);
+  g.gain.linearRampToValueAtTime(0.12, now+0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, now+0.18);
+  o.connect(bp).connect(g).connect(masterGain);
+  o.start(now);
+  o.stop(now+0.2);
+  setTimeout(scheduleClank, 1800 + Math.random()*2400);
+}
+
+function scheduleHiss(){
+  if(!audioReady) return;
+  // Noise burst
+  const sr = audioCtx.sampleRate;
+  const len = sr * 0.8;
+  const buf = audioCtx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<len;i++){
+    const env = Math.exp(-i/(len*0.35));
+    data[i] = (Math.random()*2-1) * env * 0.3;
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 2400;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.12;
+  src.connect(hp).connect(g).connect(masterGain);
+  src.start();
+  setTimeout(scheduleHiss, 4000 + Math.random()*5000);
+}
+
+function setAudioOn(on){
+  audioOn = on;
+  if(on && !audioCtx) initAudio();
+  if(audioCtx){
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(on ? 0.35 : 0.0, audioCtx.currentTime + 0.4);
+  }
+  const btn = document.getElementById('btnSound');
+  btn.textContent = on ? 'Sound On' : 'Sound Off';
+  btn.setAttribute('aria-pressed', on ? 'true':'false');
+  btn.classList.toggle('active', on);
+}
+
+// ================== HUD / Dashboard data ==================
+let dashboardData = {total_queries:0, local_pct:0, cloud_pct:0, cache_hit:0};
+
+async function fetchDashboard(){
+  try{
+    const r = await fetch('/api/dashboard', {credentials:'same-origin'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    // Tolerant parsing — structures vary
+    const total = j.total_queries ?? j.totalQueries ?? j.total ?? (j.stats && j.stats.total) ?? 0;
+    let local = j.local_pct, cloud = j.cloud_pct;
+    if(local == null && j.local != null && j.cloud != null){
+      const s = (j.local + j.cloud) || 1;
+      local = (j.local/s)*100; cloud = (j.cloud/s)*100;
+    }
+    if(local == null && j.routes){
+      const lc = j.routes.local || 0;
+      const cc = j.routes.cloud || 0;
+      const s = (lc+cc) || 1;
+      local = (lc/s)*100; cloud = (cc/s)*100;
+    }
+    if(local == null){ local = 85; cloud = 15; }
+    const cache = j.cache_hit_rate ?? j.cache_hits ?? j.cacheHitRate ?? 0;
+    dashboardData = {total_queries:total, local_pct:local, cloud_pct:cloud, cache_hit:cache};
+    renderHUD();
+  } catch(e){
+    // Use sim values
+    dashboardData.total_queries = dashboardData.total_queries || 0;
+    if(!dashboardData.local_pct){ dashboardData.local_pct = 85; dashboardData.cloud_pct = 15; }
+    renderHUD();
+  }
+}
+
+function renderHUD(){
+  document.getElementById('totalQueries').textContent = (dashboardData.total_queries||0).toLocaleString();
+  document.getElementById('totalSub').textContent = 'Telegraph synced';
+  const lp = Math.round(dashboardData.local_pct||0);
+  const cp = Math.round(dashboardData.cloud_pct||0);
+  document.getElementById('localBar').style.width = lp+'%';
+  document.getElementById('cloudBar').style.width = cp+'%';
+  document.getElementById('localPct').textContent = lp+'%';
+  document.getElementById('cloudPct').textContent = cp+'%';
+  const ch = dashboardData.cache_hit;
+  document.getElementById('cacheVal').textContent = ch ? (typeof ch==='number' && ch<=1 ? Math.round(ch*100)+'%' : ch) : '—';
+}
+
+fetchDashboard();
+setInterval(fetchDashboard, 5000);
+
+// Boiler pressure simulation
+let pressure = 0;
+setInterval(()=>{
+  pressure = 60 + Math.sin(Date.now()*0.0004)*18 + Math.random()*8;
+  document.getElementById('pressure').textContent = Math.round(pressure)+' psi';
+  const el = document.getElementById('pressureSub');
+  el.textContent = pressure > 80 ? 'Venting steam' : pressure < 45 ? 'Stoking' : 'Nominal';
+  el.style.color = pressure > 80 ? '#ff9050' : pressure < 45 ? '#80c0ff' : '#c49657';
+}, 600);
+
+// ================== Packet spawn loop ==================
+function spawnLoop(){
+  const toLocal = Math.random() < ((dashboardData.local_pct||85)/100);
+  spawnPacket(toLocal);
+  setTimeout(spawnLoop, 900 + Math.random()*1800);
+}
+spawnLoop();
+
+// ================== Controls / buttons ==================
+document.getElementById('btnSound').addEventListener('click', ()=> setAudioOn(!audioOn));
+document.getElementById('btnBloom').addEventListener('click', ()=>{
+  BLOOM_ON = !BLOOM_ON;
+  if(BLOOM_ON && !composer) setupComposer();
+  const btn = document.getElementById('btnBloom');
+  btn.textContent = BLOOM_ON ? 'Bloom On' : 'Bloom Off';
+  btn.setAttribute('aria-pressed', BLOOM_ON ? 'true':'false');
+  btn.classList.toggle('active', BLOOM_ON);
+});
+let autoCam = true;
+document.getElementById('btnAuto').addEventListener('click', ()=>{
+  autoCam = !autoCam;
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = autoCam ? 'Auto Cam' : 'Free Cam';
+  btn.setAttribute('aria-pressed', autoCam ? 'true':'false');
+  btn.classList.toggle('active', autoCam);
+});
+document.getElementById('btnHome').addEventListener('click', ()=>{
+  camera.position.set(14, 9, 22);
+  controls.target.set(0, 3, 0);
+});
+document.getElementById('btnBloom').classList.add('active');
+document.getElementById('btnAuto').classList.add('active');
+
+// Keyboard accessibility
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='m' || e.key==='M') setAudioOn(!audioOn);
+  if(e.key==='b' || e.key==='B') document.getElementById('btnBloom').click();
+  if(e.key==='Home') document.getElementById('btnHome').click();
+});
+
+// ================== Animation loop ==================
+const clock = new THREE.Clock();
+let frameCount = 0;
+let lastFpsTime = performance.now();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, clock.getDelta());
+  const t = clock.elapsedTime;
+
+  // Rotate procedural gears
+  for(const g of gears){
+    g.mesh.rotation.z += g.speed * dt;
+  }
+  // Rotate GLB-identified gears (if any)
+  for(const g of factoryGears){
+    g.mesh.rotation.y += g.speed * dt;
+  }
+
+  // Torch flicker
+  for(const t2 of torchLights){
+    t2.light.intensity = t2.base * (0.82 + Math.sin(t*7 + t2.phase)*0.1 + Math.random()*0.08);
+  }
+
+  // Pulse destination pillars via bloom threshold modulation (visual-only)
+  // Packets
+  for(let i=activePackets.length-1; i>=0; i--){
+    const p = activePackets[i];
+    p.t += dt;
+    if(p.phase === 'fall'){
+      const k = Math.min(1, p.t / 0.8);
+      p.mesh.position.lerpVectors(p.fallFrom, p.beltStart, k*k);
+      p.mesh.rotation.x += dt*4;
+      p.mesh.rotation.y += dt*3;
+      if(k>=1){ p.phase = 'belt'; p.t = 0; }
+    } else if(p.phase === 'belt'){
+      const k = Math.min(1, p.t / p.dur);
+      p.mesh.position.lerpVectors(p.beltStart, p.beltEnd, k);
+      p.mesh.position.y = 1.38 + Math.sin(t*8 + i)*0.04;
+      p.mesh.rotation.y += dt*2;
+      if(k>=1){ p.phase = 'dissolve'; p.t = 0; }
+    } else if(p.phase === 'dissolve'){
+      const k = Math.min(1, p.t / 0.6);
+      p.mesh.scale.setScalar(1 + k*2);
+      p.mesh.material.emissiveIntensity = 1.8 * (1-k);
+      p.mesh.material.opacity = 1-k;
+      p.mesh.material.transparent = true;
+      if(k>=1){
+        p.mesh.visible = false;
+        p.mesh.material.transparent = false;
+        p.mesh.material.opacity = 1;
+        p.mesh.scale.set(1,1,1);
+        activePackets.splice(i,1);
+      }
+    }
+  }
+
+  // Beam flicker
+  for(const b of beams){
+    b.material.opacity = 0.05 + Math.sin(t*2 + b.position.x)*0.02 + Math.random()*0.01;
+  }
+
+  // Auto camera orbit
+  if(autoCam){
+    const r = 24;
+    const a = t * 0.06;
+    camera.position.x += (Math.cos(a)*r - camera.position.x)*0.01;
+    camera.position.z += (Math.sin(a)*r - camera.position.z)*0.01;
+    camera.position.y += (9 + Math.sin(t*0.3)*1.2 - camera.position.y)*0.01;
+    camera.lookAt(controls.target);
+  }
+
+  controls.update();
+
+  if(BLOOM_ON && composer) composer.render();
+  else renderer.render(scene, camera);
+
+  frameCount++;
+  const now = performance.now();
+  if(now - lastFpsTime > 2000){
+    const fps = frameCount * 1000 / (now - lastFpsTime);
+    frameCount = 0;
+    lastFpsTime = now;
+    // Auto-downgrade if very low fps
+    if(fps < 22 && BLOOM_ON){
+      BLOOM_ON = false;
+      const btn = document.getElementById('btnBloom');
+      if(btn){ btn.textContent = 'Bloom Off'; btn.classList.remove('active'); }
+    }
+  }
+}
+animate();
+
+// Resize
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  if(composer) composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Pause animation when hidden
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden && audioCtx && audioOn) audioCtx.suspend();
+  else if(audioCtx && audioOn) audioCtx.resume();
+});
+
+})();
+</script>
+</body>
+</html>

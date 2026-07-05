@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>neurogolf-2026 — ARC-AGI Competition</title>
+<style>
+/* ─── Design tokens ─────────────────────────────────────────── */
+:root {
+  --bg:        #0a0a1a;
+  --bg2:       #0f0f28;
+  --bg3:       #141430;
+  --bg4:       #1a1a3e;
+  --surface:   #1e1e4a;
+  --border:    #2a2a5a;
+  --border2:   #3a3a6a;
+  --green:     #00ff88;
+  --green2:    #00cc6a;
+  --green-dim: #00ff8833;
+  --yellow:    #ffdc00;
+  --red:       #ff4136;
+  --blue:      #0074d9;
+  --gray:      #aaaaaa;
+  --text:      #e8e8ff;
+  --text2:     #9090b0;
+  --text3:     #6060a0;
+  --gold:      #ffd700;
+  --radius:    8px;
+  --radius-sm: 4px;
+  --font:      'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* ─── Reset & base ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--green); }
+
+/* ─── Layout ────────────────────────────────────────────────── */
+.page { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+/* ─── Header / Hero ─────────────────────────────────────────── */
+.hero {
+  padding: 2.5rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+.hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.hero-title {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--green);
+  text-shadow: 0 0 30px #00ff8866, 0 0 60px #00ff8822;
+}
+.hero-sub {
+  color: var(--text2);
+  font-size: 0.9rem;
+  margin-top: 0.4rem;
+  letter-spacing: 0.05em;
+}
+.hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+
+/* ─── Buttons ───────────────────────────────────────────────── */
+.btn {
+  padding: 0.55rem 1.2rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  min-height: 44px;
+  min-width: 44px;
+}
+.btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.btn-primary {
+  background: var(--green);
+  color: #000;
+  font-weight: 700;
+}
+.btn-primary:hover { background: #00ffaa; box-shadow: 0 0 12px #00ff8866; }
+.btn-primary:active { transform: scale(0.97); }
+.btn-ghost {
+  background: transparent;
+  color: var(--green);
+  border: 1px solid var(--green);
+}
+.btn-ghost:hover { background: var(--green-dim); }
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--border2); background: var(--bg4); }
+.btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; min-height: 32px; }
+.btn-danger {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+.btn-danger:hover { background: #ff413622; }
+
+/* ─── Stats strip ───────────────────────────────────────────── */
+.stats-strip {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.4rem;
+  min-width: 140px;
+  flex: 1;
+  max-width: 220px;
+}
+.stat-label { color: var(--text2); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.stat-value { font-size: 1.7rem; font-weight: 700; margin-top: 0.25rem; color: var(--green); line-height: 1; }
+.stat-value.yellow { color: var(--yellow); }
+.stat-value.blue { color: #7fdbff; }
+.stat-value.gray { color: var(--gray); }
+.stat-sub { font-size: 0.7rem; color: var(--text3); margin-top: 0.2rem; }
+
+/* ─── Score pulse animation ─────────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% { text-shadow: 0 0 10px #00ff8866; }
+  50% { text-shadow: 0 0 25px #00ff88cc, 0 0 50px #00ff8866; }
+}
+.score-live { animation: pulse-glow 2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .score-live { animation: none; }
+}
+
+/* ─── Section headers ───────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.section-title::before {
+  content: '//';
+  color: var(--green);
+  margin-right: 0.4rem;
+}
+
+/* ─── Filters ───────────────────────────────────────────────── */
+.filters-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.filter-tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.filter-tab {
+  padding: 0.35rem 0.85rem;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+  min-height: 32px;
+}
+.filter-tab:hover { border-color: var(--border2); color: var(--text); }
+.filter-tab.active {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 600;
+}
+.filter-tab:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.sort-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  min-height: 32px;
+}
+.sort-select:focus { outline: 2px solid var(--green); outline-offset: 2px; }
+.search-input {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+  min-height: 32px;
+  width: 180px;
+}
+.search-input:focus { outline: 2px solid var(--green); border-color: var(--green); }
+.search-input::placeholder { color: var(--text3); }
+
+/* ─── Task grid ─────────────────────────────────────────────── */
+.tasks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 2000px;
+}
+
+/* ─── Task card ─────────────────────────────────────────────── */
+.task-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.65rem;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  opacity: 0;
+  animation: card-in 0.2s ease forwards;
+}
+.task-card:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 12px #00ff8822;
+  transform: translateY(-2px);
+}
+.task-card:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.task-card.solved { border-left: 3px solid var(--green); }
+.task-card.unsolved { border-left: 3px solid var(--border2); }
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-card { animation: none; opacity: 1; }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+.task-id {
+  font-size: 0.72rem;
+  color: var(--text2);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.score-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.score-badge.green  { background: #00ff8822; color: var(--green); border: 1px solid #00ff8844; }
+.score-badge.yellow { background: #ffdc0022; color: var(--yellow); border: 1px solid #ffdc0044; }
+.score-badge.red    { background: #ff413622; color: var(--red); border: 1px solid #ff413644; }
+.score-badge.none   { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+
+.xform-badge {
+  font-size: 0.65rem;
+  color: var(--text3);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.1rem 0.4rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xform-badge.has-xform { color: #7fdbff; border-color: #7fdbff44; background: #7fdbff11; }
+
+.card-preview {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.preview-arrow { color: var(--text3); font-size: 0.7rem; }
+
+/* ─── Loading / empty states ─────────────────────────────────── */
+.state-panel {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text2);
+  grid-column: 1 / -1;
+}
+.state-panel .icon { font-size: 2.5rem; margin-bottom: 0.75rem; opacity: 0.5; }
+.state-panel h3 { font-size: 1rem; color: var(--text); margin-bottom: 0.5rem; }
+.state-panel p { font-size: 0.85rem; max-width: 400px; margin: 0 auto; line-height: 1.6; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 1rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; border-color: var(--green); }
+}
+
+/* ─── Leaderboard section ────────────────────────────────────── */
+.leaderboard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+}
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.lb-row:last-child { margin-bottom: 0; }
+.lb-rank {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text3);
+  width: 1.5rem;
+  flex-shrink: 0;
+}
+.lb-name { font-size: 0.85rem; color: var(--text2); flex: 1; }
+.lb-name.us { color: var(--green); font-weight: 700; }
+.lb-bar-wrap { width: 200px; height: 12px; background: var(--bg3); border-radius: 6px; overflow: hidden; }
+.lb-bar { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+.lb-bar.top { background: var(--gold); }
+.lb-bar.us  { background: var(--green); box-shadow: 0 0 6px #00ff8866; }
+.lb-score { font-size: 0.85rem; font-weight: 700; color: var(--text); min-width: 50px; text-align: right; }
+
+/* ─── Comparison section ─────────────────────────────────────── */
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+.compare-col {
+  background: var(--surface);
+  padding: 1rem;
+}
+.compare-col-header {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.compare-col-header.onnx { color: var(--green); }
+.compare-col-header.mullm { color: #7fdbff; }
+.compare-empty { color: var(--text3); font-size: 0.8rem; padding: 1rem; text-align: center; }
+
+/* ─── Modal ─────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.96) translateY(8px);
+  transition: transform 0.2s;
+}
+.modal-overlay.open .modal {
+  transform: scale(1) translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay, .modal { transition: none; }
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 1rem;
+}
+.modal-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0.25rem;
+  border-radius: 4px;
+  min-width: 32px; min-height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+.modal-close:hover { color: var(--red); background: #ff413622; }
+.modal-close:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.modal-body {
+  overflow-y: auto;
+  padding: 1.25rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.modal-section-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+.modal-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 600px) {
+  .modal-two-col { grid-template-columns: 1fr; }
+}
+.modal-footer {
+  padding: 0.9rem 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.modal-meta {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.meta-item { font-size: 0.78rem; }
+.meta-label { color: var(--text3); }
+.meta-value { color: var(--text); margin-left: 0.3rem; }
+.meta-value.green { color: var(--green); }
+.meta-value.yellow { color: var(--yellow); }
+.meta-value.red { color: var(--red); }
+
+/* ─── ARC grid display ───────────────────────────────────────── */
+.pairs-scroll {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+.pair-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.pair-label { font-size: 0.65rem; color: var(--text3); text-align: center; }
+.pair-row { display: flex; gap: 0.35rem; align-items: center; }
+.pair-arrow { color: var(--text3); font-size: 0.7rem; }
+
+.grid-canvas {
+  image-rendering: pixelated;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  display: block;
+  transition: border-color 0.15s;
+}
+.grid-canvas:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 8px #00ff8833;
+}
+.grid-canvas.predicted { border-color: var(--yellow); box-shadow: 0 0 6px #ffdc0033; }
+.grid-canvas.missing { border-color: var(--border); opacity: 0.4; }
+
+/* status strip inside modal */
+.status-strip {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: var(--bg3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.status-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 10px;
+}
+.status-pill.solved { background: #00ff8822; color: var(--green); border: 1px solid #00ff8844; }
+.status-pill.unsolved { background: var(--bg4); color: var(--text3); border: 1px solid var(--border); }
+
+/* ─── Toast ─────────────────────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.toast {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 0.7rem 1rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  min-width: 220px;
+  box-shadow: 0 4px 20px #00000060;
+  animation: toast-in 0.25s ease forwards;
+}
+.toast.success { border-left: 3px solid var(--green); }
+.toast.error   { border-left: 3px solid var(--red); }
+.toast.info    { border-left: 3px solid #7fdbff; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+  to { opacity: 0; transform: translateX(12px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+
+/* ─── Misc ──────────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+.placeholder-canvas {
+  background: var(--bg4);
+  border: 1px dashed var(--border2);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text3);
+  font-size: 0.65rem;
+}
+.run-status {
+  font-size: 0.78rem;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.run-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text3);
+}
+.run-dot.running {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-glow 1s ease-in-out infinite;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Hero ─────────────────────────────────────────── -->
+  <header class="hero" role="banner">
+    <div class="hero-top">
+      <div>
+        <h1 class="hero-title">neurogolf-2026</h1>
+        <p class="hero-sub">ARC-AGI minimal ONNX network solver &mdash; competition review</p>
+      </div>
+      <div class="hero-actions">
+        <span class="run-status" id="runStatus">
+          <span class="run-dot" id="runDot"></span>
+          <span id="runStatusText">idle</span>
+        </span>
+        <button class="btn btn-ghost" id="btnRunAll" onclick="runSolver(null)" title="Trigger the full solver pipeline">
+          &#9654; Run Solver
+        </button>
+        <button class="btn btn-secondary" id="btnExport" onclick="exportSubmission()" title="Export Kaggle submission CSV">
+          &#8681; Export
+        </button>
+        <button class="btn btn-secondary" onclick="loadData()" title="Refresh data from server" aria-label="Refresh data">
+          &#8635; Refresh
+        </button>
+      </div>
+    </div>
+
+    <div class="stats-strip" role="region" aria-label="Competition statistics">
+      <div class="stat-card">
+        <div class="stat-label">Solved</div>
+        <div class="stat-value score-live" id="statSolved">—</div>
+        <div class="stat-sub" id="statTotal">of — tasks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Score</div>
+        <div class="stat-value yellow" id="statScore">—</div>
+        <div class="stat-sub">sum of task scores</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Score</div>
+        <div class="stat-value blue" id="statAvg">—</div>
+        <div class="stat-sub">per solved task</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Leaderboard</div>
+        <div class="stat-value gray" id="statLB">~?</div>
+        <div class="stat-sub">est. position</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Leaderboard bar ───────────────────────────────── -->
+  <section aria-labelledby="lbTitle" style="margin-bottom: 2rem;">
+    <div class="section-header">
+      <h2 class="section-title" id="lbTitle">Leaderboard</h2>
+    </div>
+    <div class="leaderboard" role="list" aria-label="Competition leaderboard comparison">
+      <div class="lb-row" role="listitem">
+        <div class="lb-rank">#1</div>
+        <div class="lb-name">Top submission</div>
+        <div class="lb-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="540" aria-label="Top score 539.50">
+          <div class="lb-bar top" id="lbBarTop" style="width:0%"></div>
+        </div>
+        <div class="lb-score" id="lbScoreTop">539.50</div>
+      </div>
+      <div class="lb-row" role="listitem">
+        <div class="lb-rank">#?</div>
+        <div class="lb-name us">muLLM / neurogolf</div>
+        <div class="lb-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="0" aria-label="Our score" id="lbBarOursWrap">
+          <div class="lb-bar us" id="lbBarOurs" style="width:0%"></div>
+        </div>
+        <div class="lb-score" id="lbScoreOurs">0.00</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Filters ───────────────────────────────────────── -->
+  <div class="section-header">
+    <h2 class="section-title">Tasks</h2>
+    <span style="font-size:0.75rem; color:var(--text3);" id="visibleCount"></span>
+  </div>
+  <div class="filters-row" role="toolbar" aria-label="Task filters">
+    <div class="filter-tabs" role="group" aria-label="Filter by status">
+      <button class="filter-tab active" data-filter="all"    onclick="setFilter('all',this)" aria-pressed="true">All</button>
+      <button class="filter-tab"        data-filter="solved" onclick="setFilter('solved',this)" aria-pressed="false">Solved</button>
+      <button class="filter-tab"        data-filter="unsolved" onclick="setFilter('unsolved',this)" aria-pressed="false">Unsolved</button>
+    </div>
+    <div class="filter-tabs" id="xformFilters" role="group" aria-label="Filter by transformation"></div>
+    <select class="sort-select" id="sortSelect" onchange="applySort(this.value)" aria-label="Sort tasks by">
+      <option value="score_desc">Score &#8595;</option>
+      <option value="score_asc">Score &#8593;</option>
+      <option value="id_asc">Task ID A-Z</option>
+      <option value="id_desc">Task ID Z-A</option>
+      <option value="cost_desc">Cost &#8595;</option>
+    </select>
+    <input
+      class="search-input"
+      type="search"
+      placeholder="Search task ID…"
+      oninput="applySearch(this.value)"
+      aria-label="Search by task ID"
+    >
+  </div>
+
+  <!-- ── Task grid ─────────────────────────────────────── -->
+  <main>
+    <div class="tasks-grid" id="tasksGrid" role="list" aria-label="ARC task cards">
+      <div class="state-panel">
+        <div class="spinner" role="status" aria-label="Loading"></div>
+        <h3>Loading tasks…</h3>
+        <p>Fetching task list from the server.</p>
+      </div>
+    </div>
+  </main>
+
+  <div class="divider"></div>
+
+  <!-- ── ONNX vs muLLM compare ─────────────────────────── -->
+  <section aria-labelledby="compareTitle" style="margin-bottom: 2rem;">
+    <div class="section-header">
+      <h2 class="section-title" id="compareTitle">ONNX vs muLLM Direct</h2>
+    </div>
+    <div class="compare-grid">
+      <div class="compare-col">
+        <div class="compare-col-header onnx">ONNX Network</div>
+        <div id="compareOnnxContent" class="compare-empty">No comparison data yet. Run the solver to populate.</div>
+      </div>
+      <div class="compare-col">
+        <div class="compare-col-header mullm">muLLM Direct</div>
+        <div id="compareMullmContent" class="compare-empty">No muLLM results yet.</div>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+<!-- ── Modal ────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTaskTitle">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modalTaskTitle">Task —</h2>
+      <button class="modal-close" onclick="closeModal()" aria-label="Close modal">&#10005;</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div class="state-panel"><div class="spinner"></div><p>Loading…</p></div>
+    </div>
+    <div class="modal-footer" id="modalFooter">
+      <button class="btn btn-ghost btn-sm" id="modalRerunBtn" onclick="rerunTask()">&#9654; Re-run</button>
+      <div class="modal-meta" id="modalMeta"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast container ──────────────────────────────────────── -->
+<div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="false"></div>
+
+<script>
+'use strict';
+
+/* ─── ARC color palette (canonical) ──────────────────────────── */
+const ARC_COLORS = {
+  0: '#000000',
+  1: '#0074D9',
+  2: '#FF4136',
+  3: '#2ECC40',
+  4: '#FFDC00',
+  5: '#AAAAAA',
+  6: '#F012BE',
+  7: '#FF851B',
+  8: '#7FDBFF',
+  9: '#870C25',
+};
+
+/* ─── State ───────────────────────────────────────────────────── */
+let allTasks = [];
+let currentFilter = 'all';
+let currentSearch = '';
+let currentSort = 'score_desc';
+let currentTaskId = null;
+let xformTypes = new Set();
+let currentXform = null;
+
+/* ─── Grid renderer ───────────────────────────────────────────── */
+/**
+ * Renders an ARC grid onto a canvas element.
+ * @param {number[][]} grid - 2D array of color indices 0-9
+ * @param {HTMLCanvasElement} canvas
+ * @param {number} cellSize - px per cell
+ */
+function renderGrid(grid, canvas, cellSize = 20) {
+  if (!grid || !grid.length || !canvas) return;
+  const rows = grid.length;
+  const cols = Math.max(...grid.map(r => r.length));
+  canvas.width  = cols * cellSize;
+  canvas.height = rows * cellSize;
+  const ctx = canvas.getContext('2d');
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < (grid[r] ? grid[r].length : 0); c++) {
+      const v = grid[r][c] ?? 0;
+      ctx.fillStyle = ARC_COLORS[v] ?? '#000';
+      ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+      // subtle border between cells
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(c * cellSize + 0.25, r * cellSize + 0.25, cellSize - 0.5, cellSize - 0.5);
+    }
+  }
+}
+
+/**
+ * Creates a canvas element with a rendered ARC grid.
+ * @param {number[][]} grid
+ * @param {number} cellSize
+ * @param {string} [extraClass]
+ * @returns {HTMLCanvasElement}
+ */
+function makeGridCanvas(grid, cellSize, extraClass) {
+  const canvas = document.createElement('canvas');
+  canvas.className = 'grid-canvas' + (extraClass ? ' ' + extraClass : '');
+  if (!grid || !grid.length) {
+    const size = cellSize * 3;
+    canvas.width = size;
+    canvas.height = size;
+    canvas.className += ' missing';
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#1a1a3e';
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = '#6060a0';
+    ctx.font = `${cellSize * 0.6}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', size / 2, size / 2);
+    return canvas;
+  }
+  renderGrid(grid, canvas, cellSize);
+  return canvas;
+}
+
+/* ─── Score badge helpers ─────────────────────────────────────── */
+function scoreBadgeClass(score, solved) {
+  if (!solved) return 'none';
+  if (score >= 20) return 'green';
+  if (score >= 15) return 'yellow';
+  return 'red';
+}
+
+function scoreBadgeText(score, solved) {
+  if (!solved) return '—';
+  return score.toFixed(1);
+}
+
+/* ─── Card builder ────────────────────────────────────────────── */
+function buildCard(task) {
+  const card = document.createElement('div');
+  card.className = 'task-card ' + (task.solved ? 'solved' : 'unsolved');
+  card.setAttribute('role', 'listitem');
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('aria-label', `Task ${task.id}, ${task.solved ? 'solved' : 'unsolved'}, score ${task.solved ? task.score.toFixed(1) : 'n/a'}`);
+  card.dataset.taskId = task.id;
+
+  const bClass = scoreBadgeClass(task.score, task.solved);
+  const bText  = scoreBadgeText(task.score, task.solved);
+  const xClass = task.transformation ? 'has-xform' : '';
+  const xText  = task.transformation ? task.transformation.replace(/_/g, ' ') : 'unknown';
+
+  card.innerHTML = `
+    <div class="card-header">
+      <span class="task-id">${escHtml(task.id)}</span>
+      <span class="score-badge ${bClass}" title="Score">${escHtml(bText)}</span>
+    </div>
+    <span class="xform-badge ${xClass}" title="Transformation">${escHtml(xText)}</span>
+    <div class="card-preview" id="preview-${escHtml(task.id)}"></div>
+  `;
+
+  card.addEventListener('click',   () => openModal(task.id));
+  card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(task.id); } });
+  return card;
+}
+
+/* ─── Load / render tasks ─────────────────────────────────────── */
+async function loadData() {
+  const grid = document.getElementById('tasksGrid');
+  grid.innerHTML = `<div class="state-panel"><div class="spinner" role="status" aria-label="Loading"></div><h3>Loading…</h3></div>`;
+
+  try {
+    const res = await fetch('/api/kaggle/arc/tasks');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    allTasks = data.tasks || [];
+    updateStats(data);
+    buildXformFilters();
+    renderGrid_tasks();
+    loadMullmCompare();
+  } catch (err) {
+    grid.innerHTML = `<div class="state-panel">
+      <div class="icon">&#9888;</div>
+      <h3>Failed to load tasks</h3>
+      <p>${escHtml(String(err))}</p>
+    </div>`;
+    toast('Failed to load: ' + err.message, 'error');
+  }
+}
+
+function updateStats(data) {
+  const solved = data.solved ?? 0;
+  const total  = data.total ?? 0;
+  const score  = data.total_score ?? 0;
+  const avg    = solved > 0 ? score / solved : 0;
+
+  setText('statSolved', solved.toString());
+  setText('statTotal',  `of ${total} tasks`);
+  setText('statScore',  score.toFixed(1));
+  setText('statAvg',    avg.toFixed(1));
+
+  // Est. leaderboard position (rough heuristic vs top score 539.50)
+  const topScore = 539.50;
+  if (score > 0) {
+    const pct = score / topScore;
+    const estPos = pct >= 0.9 ? 'top 10' : pct >= 0.5 ? 'top 50' : pct >= 0.1 ? 'top 200' : 'unranked';
+    setText('statLB', estPos);
+  } else {
+    setText('statLB', 'unranked');
+  }
+
+  // Update leaderboard bars
+  const topVal = 539.50;
+  document.getElementById('lbBarTop').style.width  = '100%';
+  document.getElementById('lbBarOurs').style.width = Math.min(100, (score / topVal) * 100) + '%';
+  setText('lbScoreOurs', score.toFixed(2));
+  document.getElementById('lbBarOursWrap').setAttribute('aria-valuenow', Math.round(score));
+}
+
+function buildXformFilters() {
+  xformTypes = new Set(allTasks.map(t => t.transformation).filter(Boolean));
+  const container = document.getElementById('xformFilters');
+  container.innerHTML = '';
+
+  for (const xf of [...xformTypes].sort()) {
+    const btn = document.createElement('button');
+    btn.className = 'filter-tab';
+    btn.textContent = xf.replace(/_/g, ' ');
+    btn.dataset.xform = xf;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.addEventListener('click', () => setXformFilter(xf, btn));
+    container.appendChild(btn);
+  }
+}
+
+function renderGrid_tasks() {
+  const grid = document.getElementById('tasksGrid');
+  const tasks = getFilteredSortedTasks();
+
+  if (!tasks.length) {
+    grid.innerHTML = `<div class="state-panel">
+      <div class="icon">&#128269;</div>
+      <h3>No tasks match</h3>
+      <p>Try a different filter or run the solver to generate results.</p>
+    </div>`;
+    setText('visibleCount', '');
+    return;
+  }
+
+  setText('visibleCount', `${tasks.length} task${tasks.length !== 1 ? 's' : ''}`);
+  grid.innerHTML = '';
+
+  const fragment = document.createDocumentFragment();
+  tasks.forEach(task => {
+    fragment.appendChild(buildCard(task));
+  });
+  grid.appendChild(fragment);
+
+  // Lazy-render preview canvases via IntersectionObserver
+  observePreviewsIO();
+}
+
+// Intersection observer for lazy canvas rendering
+let _ioPreview = null;
+function observePreviewsIO() {
+  if (_ioPreview) _ioPreview.disconnect();
+  _ioPreview = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const card = entry.target.closest('.task-card');
+      if (!card) return;
+      const tid = card.dataset.taskId;
+      const previewSlot = card.querySelector('.card-preview');
+      if (!previewSlot || previewSlot.dataset.loaded) return;
+      previewSlot.dataset.loaded = '1';
+      _ioPreview.unobserve(entry.target);
+      fetchAndRenderPreview(tid, previewSlot);
+    });
+  }, { rootMargin: '200px' });
+
+  document.querySelectorAll('.task-card .card-preview').forEach(el => {
+    _ioPreview.observe(el);
+  });
+}
+
+async function fetchAndRenderPreview(taskId, slot) {
+  try {
+    const res = await fetch(`/api/kaggle/arc/task/${encodeURIComponent(taskId)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const firstTrain = (data.train || [])[0];
+    if (!firstTrain) return;
+
+    slot.innerHTML = '';
+    const inCanvas  = makeGridCanvas(firstTrain.input, 6);
+    const outCanvas = makeGridCanvas(firstTrain.output, 6);
+    const arrow = document.createElement('span');
+    arrow.className = 'preview-arrow';
+    arrow.textContent = '→';
+    slot.appendChild(inCanvas);
+    slot.appendChild(arrow);
+    slot.appendChild(outCanvas);
+  } catch (_) { /* silent */ }
+}
+
+/* ─── Filtering / sorting ─────────────────────────────────────── */
+function getFilteredSortedTasks() {
+  let tasks = allTasks.slice();
+
+  if (currentFilter === 'solved')   tasks = tasks.filter(t => t.solved);
+  if (currentFilter === 'unsolved') tasks = tasks.filter(t => !t.solved);
+  if (currentXform) tasks = tasks.filter(t => t.transformation === currentXform);
+
+  if (currentSearch) {
+    const q = currentSearch.toLowerCase();
+    tasks = tasks.filter(t => t.id.toLowerCase().includes(q));
+  }
+
+  tasks.sort((a, b) => {
+    switch (currentSort) {
+      case 'score_desc': return b.score - a.score;
+      case 'score_asc':  return a.score - b.score;
+      case 'id_asc':     return a.id.localeCompare(b.id);
+      case 'id_desc':    return b.id.localeCompare(a.id);
+      case 'cost_desc':  return (b.cost || 0) - (a.cost || 0);
+      default:           return 0;
+    }
+  });
+
+  return tasks;
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  currentXform  = null;
+  document.querySelectorAll('.filter-tab').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-pressed', 'false');
+  });
+  btn.classList.add('active');
+  btn.setAttribute('aria-pressed', 'true');
+  renderGrid_tasks();
+}
+
+function setXformFilter(xform, btn) {
+  if (currentXform === xform) {
+    currentXform = null;
+    btn.classList.remove('active');
+    btn.setAttribute('aria-pressed', 'false');
+  } else {
+    currentXform = xform;
+    document.querySelectorAll('#xformFilters .filter-tab').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
+  }
+  renderGrid_tasks();
+}
+
+function applySort(value) {
+  currentSort = value;
+  renderGrid_tasks();
+}
+
+function applySearch(value) {
+  currentSearch = value.trim();
+  renderGrid_tasks();
+}
+
+/* ─── Modal ───────────────────────────────────────────────────── */
+async function openModal(taskId) {
+  currentTaskId = taskId;
+  const overlay = document.getElementById('modalOverlay');
+  const body    = document.getElementById('modalBody');
+  const title   = document.getElementById('modalTaskTitle');
+  const meta    = document.getElementById('modalMeta');
+
+  title.textContent = `Task ${taskId}`;
+  meta.innerHTML    = '';
+  body.innerHTML    = `<div class="state-panel"><div class="spinner" role="status" aria-label="Loading task"></div><p>Loading…</p></div>`;
+  overlay.classList.add('open');
+
+  // Trap focus
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.querySelector('.modal-close')?.focus(), 100);
+
+  try {
+    const res  = await fetch(`/api/kaggle/arc/task/${encodeURIComponent(taskId)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderModalContent(data);
+  } catch (err) {
+    body.innerHTML = `<div class="state-panel">
+      <div class="icon">&#9888;</div>
+      <h3>Failed to load task</h3>
+      <p>${escHtml(String(err))}</p>
+    </div>`;
+  }
+}
+
+function closeModal() {
+  const overlay = document.getElementById('modalOverlay');
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  currentTaskId = null;
+}
+
+function renderModalContent(data) {
+  const body   = document.getElementById('modalBody');
+  const meta   = document.getElementById('modalMeta');
+  const result = data.result || {};
+  const solved = !!result.solved;
+
+  body.innerHTML = '';
+
+  // Status strip
+  const strip = document.createElement('div');
+  strip.className = 'status-strip';
+  strip.innerHTML = `
+    <span class="status-pill ${solved ? 'solved' : 'unsolved'}" aria-label="Status">
+      ${solved ? '&#10003; Solved' : '&#215; Unsolved'}
+    </span>
+    ${result.transformation ? `<span style="font-size:0.78rem;color:#7fdbff;">${escHtml(result.transformation.replace(/_/g,' '))}</span>` : ''}
+    ${result.error ? `<span style="font-size:0.75rem;color:var(--red);" title="${escHtml(result.error)}">Error: ${escHtml(result.error.substring(0,60))}${result.error.length > 60 ? '…' : ''}</span>` : ''}
+  `;
+  body.appendChild(strip);
+
+  // Train pairs
+  if (data.train && data.train.length) {
+    const section = document.createElement('div');
+    const lbl = document.createElement('div');
+    lbl.className = 'modal-section-label';
+    lbl.textContent = `Train examples (${data.train.length} pairs)`;
+    section.appendChild(lbl);
+
+    const scroll = document.createElement('div');
+    scroll.className = 'pairs-scroll';
+
+    data.train.forEach((pair, i) => {
+      const block = document.createElement('div');
+      block.className = 'pair-block';
+
+      const pairLabel = document.createElement('div');
+      pairLabel.className = 'pair-label';
+      pairLabel.textContent = `Example ${i + 1}`;
+      block.appendChild(pairLabel);
+
+      const row = document.createElement('div');
+      row.className = 'pair-row';
+
+      const cellSize = computeCellSize(pair.input);
+      row.appendChild(makeGridCanvas(pair.input, cellSize));
+      const arrow = document.createElement('span');
+      arrow.className = 'pair-arrow';
+      arrow.textContent = '→';
+      row.appendChild(arrow);
+      row.appendChild(makeGridCanvas(pair.output, cellSize));
+
+      block.appendChild(row);
+      scroll.appendChild(block);
+    });
+
+    section.appendChild(scroll);
+    body.appendChild(section);
+  }
+
+  // Test pairs
+  if (data.test && data.test.length) {
+    const section = document.createElement('div');
+    const lbl = document.createElement('div');
+    lbl.className = 'modal-section-label';
+    lbl.textContent = `Test (${data.test.length} case${data.test.length !== 1 ? 's' : ''})`;
+    section.appendChild(lbl);
+
+    data.test.forEach((pair, i) => {
+      const colGrid = document.createElement('div');
+      colGrid.style.cssText = 'display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap; margin-bottom:0.75rem;';
+
+      const cellSize = computeCellSize(pair.input);
+
+      const mkBlock = (label, grid, extraClass) => {
+        const b = document.createElement('div');
+        b.innerHTML = `<div class="modal-section-label" style="margin-bottom:0.35rem;">${escHtml(label)}</div>`;
+        b.appendChild(makeGridCanvas(grid, cellSize, extraClass));
+        return b;
+      };
+
+      colGrid.appendChild(mkBlock('Input', pair.input));
+      if (pair.output) colGrid.appendChild(mkBlock('Expected output', pair.output));
+      if (data.predicted_output) colGrid.appendChild(mkBlock('Our output', data.predicted_output, 'predicted'));
+
+      section.appendChild(colGrid);
+    });
+
+    body.appendChild(section);
+  }
+
+  // Meta row
+  meta.innerHTML = '';
+  const metaItems = [
+    ['Score', result.solved ? result.score?.toFixed(1) : '—', result.solved ? (result.score >= 20 ? 'green' : result.score >= 15 ? 'yellow' : 'red') : ''],
+    ['Cost',  result.cost != null ? result.cost : '—', ''],
+    ['ONNX',  result.onnx_path ? result.onnx_path.split('/').pop() : '—', ''],
+  ];
+  metaItems.forEach(([label, val, cls]) => {
+    const span = document.createElement('span');
+    span.className = 'meta-item';
+    span.innerHTML = `<span class="meta-label">${escHtml(label)}:</span><span class="meta-value ${cls}">${escHtml(String(val))}</span>`;
+    meta.appendChild(span);
+  });
+}
+
+function computeCellSize(grid) {
+  if (!grid || !grid.length) return 20;
+  const maxDim = Math.max(grid.length, Math.max(...grid.map(r => r.length)));
+  if (maxDim <= 5)  return 32;
+  if (maxDim <= 10) return 24;
+  if (maxDim <= 20) return 16;
+  return 10;
+}
+
+/* ─── Re-run single task ──────────────────────────────────────── */
+async function rerunTask() {
+  if (!currentTaskId) return;
+  try {
+    const res = await fetch('/api/kaggle/arc/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({task_id: currentTaskId}),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    toast(`Re-running task ${currentTaskId}…`, 'info');
+    setRunning(true);
+  } catch (err) {
+    toast('Failed to re-run: ' + err.message, 'error');
+  }
+}
+
+/* ─── Run full solver ─────────────────────────────────────────── */
+let _pollTimer = null;
+async function runSolver(taskId) {
+  try {
+    const res = await fetch('/api/kaggle/arc/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(taskId ? {task_id: taskId} : {}),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    toast(taskId ? `Running task ${taskId}` : 'Running full solver…', 'info');
+    setRunning(true);
+    schedulePoll();
+  } catch (err) {
+    toast('Run failed: ' + err.message, 'error');
+  }
+}
+
+function schedulePoll() {
+  clearTimeout(_pollTimer);
+  _pollTimer = setTimeout(async () => {
+    await loadData();
+    // Re-poll once more after another 10s to catch completion
+    _pollTimer = setTimeout(async () => {
+      await loadData();
+      setRunning(false);
+    }, 10000);
+  }, 5000);
+}
+
+function setRunning(running) {
+  const dot  = document.getElementById('runDot');
+  const text = document.getElementById('runStatusText');
+  if (running) {
+    dot.classList.add('running');
+    text.textContent = 'running…';
+  } else {
+    dot.classList.remove('running');
+    text.textContent = 'idle';
+  }
+}
+
+/* ─── Export ──────────────────────────────────────────────────── */
+function exportSubmission() {
+  const solved = allTasks.filter(t => t.solved);
+  if (!solved.length) {
+    toast('No solved tasks to export yet.', 'info');
+    return;
+  }
+
+  // Build CSV in Kaggle ARC format
+  const rows = ['task_id,output'];
+  solved.forEach(t => {
+    rows.push(`${t.id},${t.transformation || ''}`);
+  });
+
+  const blob = new Blob([rows.join('\n')], {type: 'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `neurogolf_submission_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`Exported ${solved.length} solved tasks.`, 'success');
+}
+
+/* ─── muLLM compare ───────────────────────────────────────────── */
+async function loadMullmCompare() {
+  try {
+    const res = await fetch('/api/kaggle/arc/mullm_results');
+    if (!res.ok) return;
+    const data = await res.json();
+    const results = data.results || [];
+
+    const onnxEl  = document.getElementById('compareOnnxContent');
+    const mullmEl = document.getElementById('compareMullmContent');
+
+    if (!results.length) return;
+
+    // Find overlapping tasks
+    const onnxById = {};
+    allTasks.forEach(t => { if (t.solved) onnxById[t.id] = t; });
+    const both = results.filter(r => onnxById[r.task_id]);
+
+    if (!both.length) {
+      mullmEl.textContent = `${results.length} muLLM results loaded. No overlap with ONNX solved tasks yet.`;
+      return;
+    }
+
+    const makeOnnxRow = (task, mullm) => {
+      const onnxWon = task.score > (mullm.score || 0);
+      const tie = task.score === (mullm.score || 0);
+      const icon = onnxWon ? '&#10003;' : tie ? '&#8776;' : '&#10005;';
+      const color = onnxWon ? 'var(--green)' : tie ? 'var(--yellow)' : 'var(--text3)';
+      return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border);font-size:0.78rem;">
+        <span style="color:${color};width:1rem;text-align:center;">${icon}</span>
+        <span style="color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(task.id)}</span>
+        <span style="color:${onnxWon?'var(--green)':tie?'var(--yellow)':'var(--text3)'};font-weight:700;">${task.score.toFixed(1)}</span>
+      </div>`;
+    };
+
+    const makeMullmRow = (task, mullm) => {
+      const mullmWon = (mullm.score || 0) > task.score;
+      const tie = task.score === (mullm.score || 0);
+      const icon = mullmWon ? '&#10003;' : tie ? '&#8776;' : '&#10005;';
+      const color = mullmWon ? '#7fdbff' : tie ? 'var(--yellow)' : 'var(--text3)';
+      const diff = ((mullm.score || 0) - task.score);
+      const diffStr = (diff > 0 ? '+' : '') + diff.toFixed(1);
+      return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border);font-size:0.78rem;">
+        <span style="color:${color};width:1rem;text-align:center;">${icon}</span>
+        <span style="color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(task.id)}</span>
+        <span style="color:${mullmWon?'#7fdbff':tie?'var(--yellow)':'var(--text3)'};font-weight:700;">${(mullm.score||0).toFixed(1)}</span>
+        <span style="color:${diff>0?'#7fdbff':diff<0?'var(--red)':'var(--text3)'}; font-size:0.7rem;">${diffStr}</span>
+      </div>`;
+    };
+
+    const headerRow = (labels) => `<div style="display:flex;gap:0.5rem;padding:0.3rem 0;font-size:0.7rem;color:var(--text3);border-bottom:1px solid var(--border2);margin-bottom:0.25rem;">
+      <span style="width:1rem;"></span>${labels.map(l=>`<span>${l}</span>`).join('')}
+    </div>`;
+
+    onnxEl.innerHTML  = headerRow(['Task','Score']) + both.map(r => makeOnnxRow(onnxById[r.task_id], r)).join('');
+    mullmEl.innerHTML = headerRow(['Task','Score','Delta']) + both.map(r => makeMullmRow(onnxById[r.task_id], r)).join('');
+  } catch (_) { /* silent */ }
+}
+
+/* ─── Keyboard traps ──────────────────────────────────────────── */
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+/* ─── Toast helper ────────────────────────────────────────────── */
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  el.setAttribute('role', 'status');
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.animation = 'toast-out 0.3s ease forwards';
+    setTimeout(() => el.remove(), 320);
+  }, 3500);
+}
+
+/* ─── Utility ─────────────────────────────────────────────────── */
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ─── Init ────────────────────────────────────────────────────── */
+loadData();
+</script>
+</body>
+</html>

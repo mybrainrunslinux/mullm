@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — Route Directory</title>
+  <meta name="description" content="muLLM route directory — all HTTP endpoints grouped by prefix." />
+  <meta name="theme-color" content="#14b8a6" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#0d9488" media="(prefers-color-scheme: light)" />
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+    /* ── muLLM dark theme tokens (mirrors dashboard.html) ── */
+    :root, [data-theme="dark"] {
+      --bg: #0a0e1a; --bg2: #111827; --bg3: #1a2332; --border: #1e2d3d;
+      --green: #22c55e; --teal: #14b8a6; --blue: #3b82f6; --amber: #f59e0b;
+      --sky: #38bdf8; --purple: #a78bfa; --red: #ef4444;
+      --text: #e2e8f0; --text2: #94a3b8; --text3: #8294a7;
+      --mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
+      --sans: "Inter", -apple-system, sans-serif;
+      color-scheme: dark;
+    }
+    [data-theme="light"] {
+      --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --border: #cbd5e1;
+      --green: #16a34a; --teal: #0d9488; --blue: #2563eb; --amber: #d97706;
+      --sky: #0284c7; --purple: #7c3aed; --red: #dc2626;
+      --text: #0f172a; --text2: #475569; --text3: #64748b;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --border: #cbd5e1;
+        --green: #16a34a; --teal: #0d9488; --blue: #2563eb; --amber: #d97706;
+        --sky: #0284c7; --purple: #7c3aed; --red: #dc2626;
+        --text: #0f172a; --text2: #475569; --text3: #64748b;
+        color-scheme: light;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Shared nav (same structure as dashboard.html) ── */
+    #mullm-nav {
+      background: #0a0a0f;
+      border-bottom: 1px solid #2a2a3a;
+      padding: 0 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      height: 48px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      flex-shrink: 0;
+    }
+    #mullm-nav .mn-brand {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #d4af37;
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding: 0 0.25rem;
+    }
+    #mullm-nav .mn-spacer { flex: 1; }
+    #mullm-nav .mn-links {
+      display: flex;
+      align-items: center;
+      gap: 0.15rem;
+      list-style: none;
+    }
+    #mullm-nav .mn-links a {
+      color: #888899;
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 0.35rem 0.65rem;
+      border-radius: 5px;
+      transition: color 0.15s, background 0.15s;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    #mullm-nav .mn-links a:hover { color: #e8e8f0; background: rgba(255,255,255,0.06); }
+    #mullm-nav .mn-links a.mn-active { color: #d4af37; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+    @media (max-width: 639px) {
+      #mullm-nav .mn-links { display: none; }
+    }
+
+    /* ── Page layout ── */
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 20px 80px;
+    }
+
+    h1 {
+      font-family: var(--mono);
+      font-size: 1.4rem;
+      color: var(--teal);
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: var(--text2);
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    /* ── Stats pills ── */
+    .stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 14px 0 20px;
+    }
+    .pill {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 10px;
+      color: var(--text2);
+    }
+    .pill strong { color: var(--text); }
+    .pill a { color: var(--teal); text-decoration: none; }
+    .pill a:hover { text-decoration: underline; }
+
+    /* ── Search/filter ── */
+    .search-wrap {
+      margin: 0 0 16px;
+    }
+    #filter {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 9px 12px;
+      font: 0.8rem var(--mono);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    #filter:focus { border-color: var(--teal); }
+
+    /* ── Section headings ── */
+    .section-heading {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--amber);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 28px 0 10px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+
+    /* ── Route groups ── */
+    .group-block {
+      margin-bottom: 24px;
+    }
+    .group-label {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 16px 0 6px;
+      padding: 2px 0;
+      border-left: 3px solid var(--teal);
+      padding-left: 8px;
+    }
+
+    /* ── Table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      background: rgba(17, 24, 39, 0.45);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    th {
+      text-align: left;
+      padding: 8px 10px;
+      background: var(--bg2);
+      color: var(--teal);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    td {
+      padding: 7px 10px;
+      border-top: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr.route-row:hover { background: rgba(20, 184, 166, 0.06); }
+    tr.route-row.hidden { display: none; }
+
+    .method-get    { color: var(--green);  }
+    .method-post   { color: var(--blue);   }
+    .method-put    { color: var(--amber);  }
+    .method-patch  { color: var(--purple); }
+    .method-delete { color: var(--red);    }
+
+    .path-cell a { color: var(--sky); text-decoration: none; }
+    .path-cell a:hover { text-decoration: underline; }
+    .path-cell .path-plain { color: var(--text2); }
+
+    .desc-cell { color: var(--text2); font-family: var(--sans); font-size: 0.78rem; }
+
+    /* ── Loading / error state ── */
+    #status-msg {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--text3);
+      margin: 20px 0;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg2);
+    }
+    #status-msg.error { color: var(--red); border-color: var(--red); }
+  </style>
+</head>
+<body>
+
+<nav id="mullm-nav" role="navigation" aria-label="muLLM main navigation">
+  <a class="mn-brand" href="/" aria-label="muLLM home">m&#956;LLM</a>
+  <div class="mn-spacer" aria-hidden="true"></div>
+  <ul class="mn-links" role="list">
+    <li><a href="/chat">Chat</a></li>
+    <li><a href="/dashboard">Dashboard</a></li>
+    <li><a href="/setup">Setup</a></li>
+    <li><a href="/urls" class="mn-active" aria-current="page">URLs</a></li>
+  </ul>
+</nav>
+
+<main class="container">
+  <h1>Route Directory</h1>
+  <p class="subtitle">All HTTP endpoints registered in muLLM, grouped by prefix. Click page paths to navigate; API rows show the method and endpoint description.</p>
+
+  <div id="status-msg">Loading routes…</div>
+
+  <div id="content" style="display:none">
+    <div class="stats" id="stats-pills"></div>
+
+    <div class="search-wrap">
+      <input id="filter" type="search" placeholder="Filter by path or description…" aria-label="Filter routes" autocomplete="off" />
+    </div>
+
+    <div id="page-section">
+      <div class="section-heading">Pages</div>
+      <div id="page-groups"></div>
+    </div>
+
+    <div id="api-section">
+      <div class="section-heading">API Endpoints</div>
+      <div id="api-groups"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  function methodClass(method) {
+    const m = (method || '').toLowerCase();
+    const map = { get: 'method-get', post: 'method-post', put: 'method-put', patch: 'method-patch', delete: 'method-delete' };
+    return map[m] || '';
+  }
+
+  function prefixOf(path) {
+    // Group by first path segment(s) for API routes, e.g. /api/dashboard → /api/dashboard, /api/performance → /api/performance
+    // For pages (no /api prefix), group by first segment
+    if (!path || path === '/') return '/';
+    const parts = path.replace(/^\//, '').split('/');
+    if (parts[0] === 'api' && parts.length > 1) {
+      return '/' + parts[0] + '/' + parts[1];
+    }
+    if (parts[0] === 'v1' && parts.length > 1) {
+      return '/' + parts[0] + '/' + parts[1];
+    }
+    // Dynamic segments — group by first static segment
+    if (parts.length > 1 && parts[1].startsWith('{')) {
+      return '/' + parts[0];
+    }
+    return '/' + parts[0];
+  }
+
+  function buildTable(rows) {
+    const tbody = rows.map(function (r) {
+      const isPage = !r.path.startsWith('/api/') && !r.path.startsWith('/v1/') && !r.path.includes('{');
+      const pathHtml = isPage
+        ? '<td class="path-cell"><a href="' + escHtml(r.path) + '">' + escHtml(r.path) + '</a></td>'
+        : '<td class="path-cell"><span class="path-plain">' + escHtml(r.path) + '</span></td>';
+      return (
+        '<tr class="route-row">' +
+        '<td><span class="' + methodClass(r.method) + '">' + escHtml(r.method) + '</span></td>' +
+        pathHtml +
+        '<td class="desc-cell">' + escHtml(r.description || '') + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+
+    return (
+      '<table>' +
+      '<thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>' +
+      '<tbody>' + tbody + '</tbody>' +
+      '</table>'
+    );
+  }
+
+  function buildGroups(routes, container) {
+    // Group by prefix
+    const groups = {};
+    const order = [];
+    routes.forEach(function (r) {
+      const prefix = prefixOf(r.path);
+      if (!groups[prefix]) { groups[prefix] = []; order.push(prefix); }
+      groups[prefix].push(r);
+    });
+
+    order.forEach(function (prefix) {
+      const block = document.createElement('div');
+      block.className = 'group-block';
+      block.dataset.prefix = prefix;
+
+      const label = document.createElement('div');
+      label.className = 'group-label';
+      label.textContent = prefix;
+
+      block.appendChild(label);
+      block.insertAdjacentHTML('beforeend', buildTable(groups[prefix]));
+      container.appendChild(block);
+    });
+  }
+
+  function escHtml(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Filter ───────────────────────────────────────────────────────────────
+
+  var filterTimer = null;
+  document.getElementById('filter').addEventListener('input', function () {
+    clearTimeout(filterTimer);
+    var val = this.value;
+    filterTimer = setTimeout(function () { applyFilter(val.toLowerCase()); }, 80);
+  });
+
+  function applyFilter(q) {
+    var rows = document.querySelectorAll('.route-row');
+    rows.forEach(function (tr) {
+      var text = tr.textContent.toLowerCase();
+      tr.classList.toggle('hidden', q !== '' && !text.includes(q));
+    });
+    // Hide group-block labels when all their rows are hidden
+    document.querySelectorAll('.group-block').forEach(function (block) {
+      var visible = block.querySelectorAll('.route-row:not(.hidden)');
+      block.style.display = visible.length ? '' : 'none';
+    });
+    // Hide section headings when no groups visible in that section
+    ['page-section', 'api-section'].forEach(function (id) {
+      var sec = document.getElementById(id);
+      if (!sec) return;
+      var visible = sec.querySelectorAll('.route-row:not(.hidden)');
+      sec.style.display = visible.length ? '' : 'none';
+    });
+  }
+
+  // ── Fetch & render ───────────────────────────────────────────────────────
+
+  fetch('/api/urls')
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function (routes) {
+      var statusEl = document.getElementById('status-msg');
+      var contentEl = document.getElementById('content');
+
+      // Split pages vs API
+      var pages = routes.filter(function (r) {
+        return !r.path.startsWith('/api/') && !r.path.startsWith('/v1/') && !r.path.includes('{');
+      });
+      var apis = routes.filter(function (r) {
+        return r.path.startsWith('/api/') || r.path.startsWith('/v1/') || r.path.includes('{');
+      });
+
+      // Stats
+      var pills = document.getElementById('stats-pills');
+      pills.innerHTML = [
+        '<span class="pill"><strong>' + routes.length + '</strong> total</span>',
+        '<span class="pill"><strong>' + pages.length + '</strong> pages</span>',
+        '<span class="pill"><strong>' + apis.length + '</strong> API endpoints</span>',
+        '<span class="pill"><a href="/api/urls">JSON</a></span>',
+        '<span class="pill"><a href="/api/routes">Full inventory</a></span>',
+      ].join('');
+
+      buildGroups(pages, document.getElementById('page-groups'));
+      buildGroups(apis, document.getElementById('api-groups'));
+
+      statusEl.style.display = 'none';
+      contentEl.style.display = '';
+    })
+    .catch(function (err) {
+      var statusEl = document.getElementById('status-msg');
+      statusEl.textContent = 'Failed to load routes: ' + err.message;
+      statusEl.className = 'error';
+    });
+})();
+</script>
+</body>
+</html>

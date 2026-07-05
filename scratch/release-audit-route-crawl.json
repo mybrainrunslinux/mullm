@@ -1,0 +1,1201 @@
+[
+  {
+    "path": "/",
+    "methods": [
+      "GET"
+    ],
+    "status": 302,
+    "bytes": 0,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": ""
+  },
+  {
+    "path": "/.well-known/agent.json",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1069,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/.well-known/ai-plugin.json",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 497,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/.well-known/security.txt",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 181,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/plain; charset=utf-8"
+  },
+  {
+    "path": "/api/3d-assets",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1504,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/3d/providers",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 929,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/agents",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 56,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/apks",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 21,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/attribution",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 131,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/backends",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 15,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/bench/archive",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 208,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/bench/humaneval-lock",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 63,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/bench/last",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 77,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/budget",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 295,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/civitai/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 149,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/classifier/retrain/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 317,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/classifier/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 484,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/comfyui/asset-pack",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1214,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/comfyui/models",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 941,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/comfyui/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 850,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/comfyui/status-legacy",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 144,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/comfyui/view",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 104,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/coverage",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 19073,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/dashboard",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 6008,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/dataviz3d/samples",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 818,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/dataviz3d/styles",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 748,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/dialogue/formats",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 293,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/dialogue/list",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 12,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/game-list",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1438,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/geocode",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 83,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/gpu/advisor",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 316,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/i18n.js",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1235,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/javascript"
+  },
+  {
+    "path": "/api/image/backends",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 426,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/image/list",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 13,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/jobs",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 11,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/joplin/notebooks",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 57,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/joplin/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 61,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/languages",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1613,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/local-models/profiles",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 6016,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/market/report",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 111,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/modules/manifest",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 2828,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/mupatch/latest",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 54,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/obsidian/index-status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 50,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/obsidian/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 342,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/pages",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1139,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/pages/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1299,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/performance",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 4637,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/performance/slow/state",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 28,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/physics/engines",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1037,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/physics/presets",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 3026,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/plugins",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 2381,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/popular-queries",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 35,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/privacy/export",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 11797,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/zip"
+  },
+  {
+    "path": "/api/privacy/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 346,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/provider-catalog",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 5103,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/provider-policy",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 212,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/providers/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 63,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/queries/active",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 68,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/refiner/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 587,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/resource-policy",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 374,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/review/holdout",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 171,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/review/holdout/datasets",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 100,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/review/holdout/export-training",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 15,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/csv; charset=utf-8"
+  },
+  {
+    "path": "/api/review/holdout/stats",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 121,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/review/items",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 32,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/review/next",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 42,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/review/stats",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 44,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/routes",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 29478,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/routing/replay",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 9946,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/sandbox/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 140,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/scene/storage",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1458,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/setup/api-policy",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 231,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/setup/backend-profiles",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 2216,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/setup/detect",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 328,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/setup/modules",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 364,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/setup/secrets",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 571,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/setup/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 4780,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/setup/toggles",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 739,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/steam/formats",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1198,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/system",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 771,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/terrain/examples",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1243,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/terrain/presets",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 908,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/test-runs",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 2,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/translate/packs",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 321,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/translate/pairs",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 2041,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/tts/backends",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 616,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/urls",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 22770,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/video/backends",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 108,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/vram/status",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 357,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/api/world/providers",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 782,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/apks-page",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 36719,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/cache/scan",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 47,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/docs/oauth2-redirect",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 3012,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/health",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 232,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/manifest.json",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 184,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/market",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 55863,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/mcp/tools",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1129,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  },
+  {
+    "path": "/research",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 73931,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/routes",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 41645,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/setup",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 148770,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/space",
+    "methods": [
+      "GET"
+    ],
+    "status": 307,
+    "bytes": 0,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": ""
+  },
+  {
+    "path": "/steam",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 47100,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/sw.js",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 57,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/javascript"
+  },
+  {
+    "path": "/terrain-standalone",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 82745,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/tests",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 12346,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/toc",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 41645,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/translate",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 34399,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/urls",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 41645,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/v1/models",
+    "methods": [
+      "GET"
+    ],
+    "status": 200,
+    "bytes": 1186,
+    "placeholder_flag": false,
+    "bad_status": false,
+    "content_type": "application/json"
+  }
+]

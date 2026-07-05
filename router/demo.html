@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mu|LLM — Demo</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;--bg4:#243044;
+  --border:#1e2d3d;--border2:#2a3a4d;
+  --green:#22c55e;--teal:#14b8a6;--blue:#3b82f6;--amber:#f59e0b;
+  --coral:#ef6c4c;--purple:#a78bfa;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,sans-serif;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:hidden}
+.logo{font-weight:700;font-size:14px;display:flex;align-items:center;gap:0;text-decoration:none;border:none!important;padding:0!important}
+.logo-mu{color:var(--amber);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{display:flex;gap:8px;padding:16px 24px;font-size:11px;font-family:var(--mono);align-items:center}
+.nav a{color:var(--text3);text-decoration:none;padding:4px 12px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s}
+.nav a:hover,.nav a.active{color:var(--teal);border-color:var(--teal)}
+
+/* Hero */
+.hero{text-align:center;padding:60px 24px 40px;position:relative}
+.hero h1{font-size:48px;font-weight:700;letter-spacing:-1px;margin-bottom:8px}
+.hero h1 .mu{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+.hero h1 .pipe{color:var(--text3);opacity:0.5}
+.hero h1 .llm{color:var(--teal)}
+.hero .subtitle{font-size:16px;color:var(--text2);margin-bottom:24px}
+.hero .tagline{font-family:var(--mono);font-size:12px;color:var(--text3);letter-spacing:2px}
+
+/* Sections */
+.section{max-width:1000px;margin:0 auto;padding:40px 24px}
+.section-title{font-family:var(--mono);font-size:11px;color:var(--teal);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px}
+.section h2{font-size:28px;font-weight:600;margin-bottom:8px}
+.section .desc{color:var(--text2);margin-bottom:24px;line-height:1.6}
+
+/* Demo panels */
+.demo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;transition:all 0.3s;cursor:default}
+.panel:hover{border-color:var(--teal);transform:translateY(-2px);box-shadow:0 8px 32px rgba(20,184,166,0.1)}
+.panel-icon{font-size:28px;margin-bottom:12px}
+.panel h3{font-size:16px;font-weight:600;margin-bottom:6px}
+.panel p{font-size:13px;color:var(--text2);line-height:1.5}
+.panel .stat{font-family:var(--mono);font-size:24px;font-weight:700;margin-top:12px}
+.panel .stat.green{color:var(--green)}
+.panel .stat.teal{color:var(--teal)}
+.panel .stat.amber{color:var(--amber)}
+
+/* Animated chat demo */
+.chat-demo{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:600px;margin:0 auto}
+.chat-demo-header{padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text3)}
+.chat-demo-body{padding:16px;min-height:200px;max-height:400px;overflow-y:auto}
+.demo-msg{margin-bottom:12px;animation:fadeSlideIn 0.4s ease-out}
+.demo-msg.user{text-align:right}
+.demo-msg .bubble{display:inline-block;max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5}
+.demo-msg.user .bubble{background:var(--bg4);color:var(--text)}
+.demo-msg.bot .bubble{background:var(--bg3);border:1px solid var(--border2)}
+.demo-msg .tier{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px}
+.demo-msg .tier .pill{padding:1px 6px;border-radius:3px;font-weight:700;margin-right:4px}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Live stats */
+.live-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:24px 0}
+@media(max-width:600px){.live-stats{grid-template-columns:repeat(2,1fr)}}
+.live-stat{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+.live-stat .label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.live-stat .value{font-family:var(--mono);font-size:22px;font-weight:700}
+
+/* Routing animation */
+.route-demo{display:flex;align-items:center;justify-content:center;gap:16px;padding:32px;flex-wrap:wrap}
+.route-step{text-align:center;padding:12px 20px;border-radius:8px;font-family:var(--mono);font-size:11px;transition:all 0.5s;border:2px solid var(--border)}
+.route-step.active{transform:scale(1.1)}
+.route-step.cache{border-color:var(--green);color:var(--green);box-shadow:0 0 20px rgba(34,197,94,0.2)}
+.route-step.local{border-color:var(--teal);color:var(--teal);box-shadow:0 0 20px rgba(20,184,166,0.2)}
+.route-step.cloud{border-color:var(--amber);color:var(--amber);box-shadow:0 0 20px rgba(245,158,11,0.2)}
+.route-arrow{color:var(--text3);font-size:20px;transition:color 0.3s}
+.route-arrow.active{color:var(--teal)}
+
+/* CTA */
+.cta{text-align:center;padding:60px 24px}
+.cta a{display:inline-block;padding:14px 32px;background:var(--teal);color:#000;font-weight:600;font-size:15px;border-radius:8px;text-decoration:none;transition:all 0.2s}
+.cta a:hover{background:var(--green);transform:translateY(-2px);box-shadow:0 8px 24px rgba(20,184,166,0.3)}
+.cta .links{margin-top:16px;font-size:13px}
+.cta .links a{background:none;color:var(--text3);padding:8px 16px;border:1px solid var(--border);margin:0 4px}
+.cta .links a:hover{color:var(--teal);border-color:var(--teal)}
+
+/* TTS narrator */
+#narratorBtn{position:fixed;bottom:24px;right:24px;width:48px;height:48px;border-radius:50%;background:var(--bg2);border:2px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s;z-index:100}
+#narratorBtn:hover{border-color:var(--blue);color:var(--blue)}
+#narratorBtn.speaking{border-color:var(--blue);color:#fff;background:var(--blue);animation:pulse-narrator 1s ease-in-out infinite}
+@keyframes pulse-narrator{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,0.4)}50%{box-shadow:0 0 0 8px rgba(59,130,246,0)}}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="/" class="logo"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot"></a>
+  <a href="/chat">Chat</a>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/performance">Performance</a>
+  <a href="/demo" class="active">Demo</a>
+  <a href="/games">Games</a>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <h1><span class="mu">m&mu;</span><span class="pipe">|</span><span class="llm">LLM</span></h1>
+  <div class="subtitle">Local-first AI router. Microscopic costs.</div>
+  <div class="tagline">CLASSIFY &rarr; ROUTE &rarr; CHEAPEST CAPABLE MODEL</div>
+  <div id="liveIndicator" style="display:none;margin-top:12px;font-family:var(--mono);font-size:11px;padding:4px 16px;border-radius:20px;border:1px solid var(--green);color:var(--green);display:inline-block">&#9679; LIVE MODE — queries hit real server</div>
+</div>
+
+<!-- Live Stats (fetched from server) -->
+<div class="section">
+  <div class="section-title">LIVE STATS</div>
+  <div class="live-stats">
+    <div class="live-stat"><div class="label">Queries</div><div class="value" id="demoQueries" style="color:var(--text)">—</div></div>
+    <div class="live-stat"><div class="label">Savings</div><div class="value" id="demoSavings" style="color:var(--green)">—</div></div>
+    <div class="live-stat"><div class="label">Cache Rate</div><div class="value" id="demoCacheRate" style="color:var(--teal)">—</div></div>
+    <div class="live-stat"><div class="label">Local Rate</div><div class="value" id="demoLocalRate" style="color:var(--teal)">—</div></div>
+  </div>
+</div>
+
+<!-- How Routing Works -->
+<div class="section">
+  <div class="section-title">HOW ROUTING WORKS</div>
+  <h2>Every query takes the cheapest path</h2>
+  <div class="desc">muLLM classifies your intent, estimates complexity, and routes to the cheapest model that can handle it. Simple queries? Free from cache or your local GPU. Complex? Cloud, but only when truly needed.</div>
+  <div class="route-demo" id="routeDemo">
+    <div class="route-step" id="rs-cache">CACHE<br><span style="font-size:9px;color:var(--text3)">free, instant</span></div>
+    <div class="route-arrow">&rarr;</div>
+    <div class="route-step" id="rs-local">LOCAL GPU<br><span style="font-size:9px;color:var(--text3)">free, your RTX</span></div>
+    <div class="route-arrow">&rarr;</div>
+    <div class="route-step" id="rs-cloud">CLOUD<br><span style="font-size:9px;color:var(--text3)">paid, powerful</span></div>
+  </div>
+</div>
+
+<!-- Feature Panels -->
+<div class="section">
+  <div class="section-title">FEATURES</div>
+  <div class="demo-grid">
+    <div class="panel" onclick="narrate('Cache first. muLLM checks its vector cache before calling any model. Repeated or similar questions are answered instantly for free.')">
+      <div class="panel-icon">&#9889;</div>
+      <h3>Vector Cache</h3>
+      <p>ChromaDB-backed semantic cache. Similar questions hit cache instantly. Saves money on repeated queries.</p>
+      <div class="stat green" id="demoCacheDocs">—</div>
+      <div style="font-size:10px;color:var(--text3)">cached responses</div>
+    </div>
+    <div class="panel" onclick="narrate('Local models run free on your GPU. muLLM uses a 9 billion parameter model on your RTX 5090 for most queries. Zero cost, full privacy.')">
+      <div class="panel-icon">&#128187;</div>
+      <h3>Local-First</h3>
+      <p>qwen3.5:9b on your RTX 5090. Handles 80%+ of queries for free. No data leaves your machine.</p>
+      <div class="stat teal" id="demoLocalPct">—</div>
+      <div style="font-size:10px;color:var(--text3)">queries handled locally</div>
+    </div>
+    <div class="panel" onclick="narrate('Cloud only when needed. When a query is genuinely complex, muLLM escalates to Anthropic, OpenAI, or Google. You control the budget.')">
+      <div class="panel-icon">&#9729;</div>
+      <h3>Smart Escalation</h3>
+      <p>Complex queries auto-escalate to cloud (Anthropic, OpenAI, Google). 12 models configured, auto-picks cheapest.</p>
+      <div class="stat amber" id="demoCostHr">—</div>
+      <div style="font-size:10px;color:var(--text3)">cost per hour</div>
+    </div>
+    <div class="panel" onclick="narrate('Split routing decomposes multi-part prompts and runs each part in parallel on the cheapest capable model. One prompt, multiple models, one response.')">
+      <div class="panel-icon">&#128256;</div>
+      <h3>Split Routing</h3>
+      <p>Multi-part prompts decomposed and routed in parallel. Each sub-task gets the cheapest capable model.</p>
+    </div>
+    <div class="panel" onclick="narrate('Voice input and output. Speak your query, hear the response. Uses Web Speech API, entirely on-device, zero cost.')">
+      <div class="panel-icon">&#127908;</div>
+      <h3>Voice I/O</h3>
+      <p>Mic input + speaker output. On-device speech recognition and synthesis. Works offline, PWA compatible.</p>
+    </div>
+    <div class="panel" onclick="narrate('Self-updating orchestrator. muLLM can read its own code, plan changes, generate patches, and apply them. It updated its own version string for 3 cents.')">
+      <div class="panel-icon">&#9881;</div>
+      <h3>Self-Orchestration</h3>
+      <p>muLLM can update itself. The orchestrator reads task files, generates patches, and applies them via code-gen mode.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Interactive Chat Demo -->
+<div class="section">
+  <div class="section-title">TRY IT</div>
+  <h2>See routing in action</h2>
+  <div class="desc">Click a sample query to see how muLLM routes it. Watch the routing animation above.</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+    <button class="demo-query" onclick="demoQuery('What is 2+2?','cache')" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;font-family:var(--sans);font-size:12px;transition:all 0.2s">What is 2+2?</button>
+    <button class="demo-query" onclick="demoQuery('Write a Python palindrome checker','local')" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;font-family:var(--sans);font-size:12px;transition:all 0.2s">Write a palindrome checker</button>
+    <button class="demo-query" onclick="demoQuery('Design a distributed rate limiter','cloud')" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;font-family:var(--sans);font-size:12px;transition:all 0.2s">Design a distributed rate limiter</button>
+  </div>
+  <div class="chat-demo">
+    <div class="chat-demo-header">mu|LLM Chat &mdash; Demo Mode</div>
+    <div class="chat-demo-body" id="demoChatBody"></div>
+  </div>
+</div>
+
+<!-- Cost Comparison -->
+<div class="section">
+  <div class="section-title">COST COMPARISON</div>
+  <h2>Real savings, real numbers</h2>
+  <div class="desc">These are actual savings from this muLLM instance, not estimates.</div>
+  <div class="demo-grid" id="costComparison">
+    <div class="panel" title="Sonnet 4: $3.00/M input, $15.00/M output, ~4K avg output tokens per query"><h3>vs Claude Sonnet</h3><div class="stat green" id="vsSonnet">—</div><div style="font-size:10px;color:var(--text3)">saved</div></div>
+    <div class="panel" title="Opus 4 Extended: $15.00/M input, $75.00/M output, ~12K avg output tokens per query"><h3>vs Claude Opus Extended</h3><div class="stat green" id="vsOpus">—</div><div style="font-size:10px;color:var(--text3)">saved</div></div>
+    <div class="panel"><h3>vs Blended Average</h3><div class="stat green" id="vsBlend">—</div><div style="font-size:10px;color:var(--text3)">saved</div></div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta">
+  <a href="/chat">Start Chatting &rarr;</a>
+  <div class="links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/performance">Performance</a>
+  </div>
+</div>
+
+<!-- TTS Narrator Button -->
+<button id="narratorBtn" onclick="toggleNarrator()" title="Toggle demo narration">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+</button>
+
+<script>
+const API = location.origin;
+const synth = window.speechSynthesis;
+let narratorOn = false;
+
+// ── Fetch live stats ──
+async function loadStats() {
+  try {
+    const [dash, perf] = await Promise.all([
+      fetch(API + '/api/dashboard?bench=blend').then(r=>r.json()),
+      fetch(API + '/api/performance').then(r=>r.json()),
+    ]);
+    document.getElementById('demoQueries').textContent = dash.total_queries.toLocaleString();
+    document.getElementById('demoSavings').textContent = '$' + dash.savings.toFixed(2);
+    document.getElementById('demoCacheRate').textContent = dash.cache_hit_rate + '%';
+    document.getElementById('demoLocalRate').textContent = dash.local_rate + '%';
+    document.getElementById('demoCacheDocs').textContent = dash.cache_docs.toLocaleString();
+    document.getElementById('demoLocalPct').textContent = dash.local_rate + '%';
+    document.getElementById('demoCostHr').textContent = '$' + perf.cost_per_hour.toFixed(4);
+
+    // Cost comparisons
+    const [sonnet, opus, blend] = await Promise.all([
+      fetch(API + '/api/dashboard?bench=sonnet').then(r=>r.json()),
+      fetch(API + '/api/dashboard?bench=opus_ext').then(r=>r.json()),
+      fetch(API + '/api/dashboard?bench=blend').then(r=>r.json()),
+    ]);
+    document.getElementById('vsSonnet').textContent = '$' + sonnet.savings.toFixed(2) + ' (' + sonnet.savings_pct + '%)';
+    document.getElementById('vsOpus').textContent = '$' + opus.savings.toFixed(2) + ' (' + opus.savings_pct + '%)';
+    document.getElementById('vsBlend').textContent = '$' + blend.savings.toFixed(2) + ' (' + blend.savings_pct + '%)';
+  } catch(e) {
+    console.warn('Stats fetch failed:', e);
+  }
+}
+loadStats();
+setInterval(loadStats, 10000);
+
+// ── Routing animation ──
+function animateRoute(tier) {
+  ['cache','local','cloud'].forEach(s => {
+    document.getElementById('rs-' + s).classList.remove('active', s);
+  });
+  document.querySelectorAll('.route-arrow').forEach(a => a.classList.remove('active'));
+
+  const steps = tier === 'cache' ? ['cache'] : tier === 'local' ? ['cache','local'] : ['cache','local','cloud'];
+  steps.forEach((s, i) => {
+    setTimeout(() => {
+      const el = document.getElementById('rs-' + s);
+      el.classList.add('active', s);
+      if (i > 0) {
+        document.querySelectorAll('.route-arrow')[i-1]?.classList.add('active');
+      }
+    }, i * 400);
+  });
+}
+
+// ── Chat demo ──
+const chatBody = document.getElementById('demoChatBody');
+const demoResponses = {
+  cache: {q: 'What is 2+2?', a: '4', tier: 'cache', cost: '$0.00', ms: '3ms'},
+  local: {q: 'Write a Python palindrome checker', a: 'def is_palindrome(s):\n    s = s.lower().replace(" ", "")\n    return s == s[::-1]', tier: 'local', cost: '$0.00', ms: '1.2s'},
+  cloud: {q: 'Design a distributed rate limiter', a: 'A distributed rate limiter requires: (1) Token bucket per client stored in Redis, (2) Sliding window counter for burst detection, (3) Consistent hashing for shard distribution...', tier: 'cloud_cheap', cost: '$0.008', ms: '3.4s'},
+};
+const tierColors = {cache:'#22c55e',local:'#14b8a6',cloud_cheap:'#f59e0b',cloud_full:'#ef6c4c'};
+
+const liveMode = new URLSearchParams(location.search).get('live') === 'true';
+if (liveMode) document.getElementById('liveIndicator').style.display = 'inline-block';
+
+async function demoQuery(q, tier) {
+  chatBody.innerHTML += `<div class="demo-msg user"><div class="bubble">${q}</div></div>`;
+  chatBody.scrollTop = chatBody.scrollHeight;
+
+  if (liveMode) {
+    // ── Live mode: hit real server ──
+    chatBody.innerHTML += `<div class="demo-msg bot" id="demo-loading"><div class="bubble" style="color:var(--text3)">Routing...</div></div>`;
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    try {
+      const start = performance.now();
+      const r = await fetch(API + '/query', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({content: q, source: 'web'}),
+      });
+      const data = await r.json();
+      const elapsed = Math.round(performance.now() - start);
+      const realTier = data.tier_used || 'local';
+      animateRoute(realTier.includes('cloud') ? 'cloud' : realTier === 'cache' ? 'cache' : 'local');
+
+      const tc = tierColors[realTier] || '#94a3b8';
+      const cost = data.cost === 0 ? '$0.00' : '$' + data.cost.toFixed(4);
+      const resp = (data.response || '').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+
+      document.getElementById('demo-loading')?.remove();
+      chatBody.innerHTML += `<div class="demo-msg bot"><div class="bubble">${resp}</div><div class="tier"><span class="pill" style="background:${tc};color:#000">${realTier}</span> ${cost} ${elapsed}ms</div></div>`;
+      chatBody.scrollTop = chatBody.scrollHeight;
+
+      if (narratorOn) {
+        narrate(`Live response from ${realTier.replace('_',' ')}. Cost: ${cost}. Took ${elapsed} milliseconds.`);
+      }
+    } catch(e) {
+      document.getElementById('demo-loading')?.remove();
+      chatBody.innerHTML += `<div class="demo-msg bot"><div class="bubble" style="color:var(--coral)">Error: ${e.message}</div></div>`;
+    }
+  } else {
+    // ── Canned mode: simulated responses ──
+    animateRoute(tier);
+    const d = demoResponses[tier];
+    setTimeout(() => {
+      const tc = tierColors[d.tier] || '#94a3b8';
+      chatBody.innerHTML += `<div class="demo-msg bot"><div class="bubble">${d.a.replace(/\n/g,'<br>')}</div><div class="tier"><span class="pill" style="background:${tc};color:#000">${d.tier}</span> ${d.cost} ${d.ms}</div></div>`;
+      chatBody.scrollTop = chatBody.scrollHeight;
+      if (narratorOn) {
+        narrate(`This query was routed to ${d.tier.replace('_',' ')}. Cost: ${d.cost}. Latency: ${d.ms}.`);
+      }
+    }, tier === 'cache' ? 200 : tier === 'local' ? 800 : 1500);
+  }
+}
+
+// ── TTS Narrator ──
+function narrate(text) {
+  if (!synth || !narratorOn) return;
+  synth.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 1.0;
+  utt.pitch = 1.0;
+  // Pick an English voice
+  const voices = synth.getVoices().filter(v => v.lang.startsWith('en'));
+  if (voices.length) utt.voice = voices.find(v => /google/i.test(v.name)) || voices[0];
+  synth.speak(utt);
+}
+window.narrate = narrate;
+
+function toggleNarrator() {
+  narratorOn = !narratorOn;
+  const btn = document.getElementById('narratorBtn');
+  btn.classList.toggle('speaking', narratorOn);
+  if (narratorOn) {
+    narrate('Welcome to the muLLM demo. Click any feature panel or sample query to hear about it. muLLM routes every query to the cheapest capable model. Most queries are free.');
+  } else {
+    synth.cancel();
+  }
+}
+
+// Load voices
+if (synth) synth.addEventListener('voiceschanged', () => {});
+</script>
+</body>
+</html>

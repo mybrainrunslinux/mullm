@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axe Throw Lab</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0d0a07; color: #c8b89a; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; height: 100vh; }
+canvas#main { display: block; width: 100vw; height: 100vh; position: fixed; inset: 0; }
+
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+
+/* Power bar */
+#power-wrap {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  text-align: center;
+}
+#power-label { font-size: 11px; color: #886644; letter-spacing: 0.1em; margin-bottom: 4px; }
+#power-bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+#power-fill { height: 100%; width: 0%; background: #cc6622; border-radius: 4px; transition: width 0.05s linear, background 0.1s; }
+
+/* Score */
+#score-wrap {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  text-align: right;
+}
+#score-label { font-size: 10px; color: #664422; letter-spacing: 0.12em; }
+#score-val { font-size: 28px; font-weight: 900; color: #ffcc88; }
+#round-info { font-size: 11px; color: #886644; margin-top: 2px; }
+
+/* Last throw */
+#last-throw {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -70px);
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffcc66;
+  text-shadow: 0 0 20px #ff8800;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+/* Bottom controls */
+#controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(8,5,2,0.9);
+  border-top: 1px solid rgba(200,150,80,0.15);
+  padding: 8px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  z-index: 10;
+}
+.ctrl-label { font-size: 10px; color: #664422; letter-spacing: 0.08em; }
+.sep { width: 1px; height: 24px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+.btn {
+  cursor: pointer;
+  border: 1px solid rgba(200,150,80,0.2);
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.04);
+  color: #aa8866;
+  transition: all 0.1s;
+}
+.btn:hover { background: rgba(200,150,80,0.12); color: #ffcc88; }
+.btn.active { background: rgba(200,100,20,0.2); border-color: #cc6622; color: #ffcc88; }
+select {
+  background: #0d0a07;
+  color: #aa8866;
+  border: 1px solid rgba(200,150,80,0.2);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Lab panel */
+#lab-panel {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(8,5,2,0.92);
+  border: 1px solid rgba(200,150,80,0.2);
+  border-radius: 12px;
+  padding: 16px;
+  width: 220px;
+  z-index: 15;
+  font-size: 12px;
+  display: none;
+}
+#lab-panel h3 { color: #cc9944; font-size: 13px; margin-bottom: 12px; letter-spacing: 0.05em; }
+.lab-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; gap: 6px; }
+.lab-row label { color: #886644; flex-shrink: 0; }
+.lab-row input[type=range] { width: 80px; accent-color: #cc8833; }
+.lab-val { color: #ffcc88; font-weight: 700; min-width: 36px; text-align: right; }
+
+/* Leaderboard */
+#leaderboard {
+  position: fixed;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(8,5,2,0.88);
+  border: 1px solid rgba(200,150,80,0.15);
+  border-radius: 10px;
+  padding: 14px;
+  width: 170px;
+  font-size: 11px;
+  z-index: 10;
+}
+#leaderboard h4 { color: #cc9944; margin-bottom: 8px; }
+.lb-row { display: flex; justify-content: space-between; color: #886644; margin-bottom: 3px; }
+.lb-row span:last-child { color: #ffcc88; }
+</style>
+</head>
+<body>
+
+<canvas id="main"></canvas>
+
+<div id="hud">
+  <div id="power-wrap">
+    <div id="power-label">POWER — HOLD TO CHARGE</div>
+    <div id="power-bar"><div id="power-fill"></div></div>
+  </div>
+  <div id="score-wrap">
+    <div id="score-label">SCORE</div>
+    <div id="score-val">0</div>
+    <div id="round-info">Round 1 · Throw 1/5</div>
+  </div>
+  <div id="last-throw"></div>
+</div>
+
+<div id="controls">
+  <span class="ctrl-label">AXE</span>
+  <button class="btn active" data-axe="hatchet">Hatchet</button>
+  <button class="btn" data-axe="competition">Competition</button>
+  <button class="btn" data-axe="hawk">Viking Hawk</button>
+  <button class="btn" data-axe="felling">Felling Axe</button>
+  <div class="sep"></div>
+  <span class="ctrl-label">ARM</span>
+  <select id="arm-select">
+    <option value="human">Human Arm</option>
+    <option value="servo">Servo Bot</option>
+    <option value="pneumatic">Pneumatic</option>
+    <option value="hydraulic">Hydraulic</option>
+  </select>
+  <div class="sep"></div>
+  <span class="ctrl-label">ENV</span>
+  <select id="env-select">
+    <option value="indoor">Indoor Range</option>
+    <option value="nordic">Nordic Clearing</option>
+    <option value="space">Space Station</option>
+  </select>
+  <div class="sep"></div>
+  <button class="btn" id="btn-lab">⚗ Lab</button>
+  <button class="btn" id="btn-demo">▶ Demo Arc</button>
+  <button class="btn" id="btn-reset">↺ Reset</button>
+</div>
+
+<div id="lab-panel">
+  <h3>⚗ PHYSICS LAB</h3>
+  <div class="lab-row"><label>Gravity</label><input type="range" id="l-gravity" min="0.1" max="30" step="0.1" value="9.8"><span class="lab-val" id="lv-gravity">9.8</span></div>
+  <div class="lab-row"><label>Drag</label><input type="range" id="l-drag" min="0" max="0.1" step="0.002" value="0.02"><span class="lab-val" id="lv-drag">0.02</span></div>
+  <div class="lab-row"><label>Wind X</label><input type="range" id="l-windx" min="-5" max="5" step="0.1" value="0"><span class="lab-val" id="lv-windx">0</span></div>
+  <div class="lab-row"><label>Wind Y</label><input type="range" id="l-windy" min="-5" max="5" step="0.1" value="0"><span class="lab-val" id="lv-windy">0</span></div>
+  <div class="lab-row"><label>Spin ×</label><input type="range" id="l-spin" min="0.5" max="3" step="0.05" value="1"><span class="lab-val" id="lv-spin">1.0</span></div>
+  <div class="lab-row"><label>Max Power</label><input type="range" id="l-power" min="5" max="40" step="0.5" value="18"><span class="lab-val" id="lv-power">18</span></div>
+  <button class="btn" id="lab-demo" style="width:100%;margin-top:6px;">▶ Demo Arc</button>
+</div>
+
+<div id="leaderboard">
+  <h4>🏆 BEST ROUNDS</h4>
+  <div id="lb-list"><div class="lb-row" style="color:#444;">No scores yet</div></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Axe definitions ────────────────────────────────────────────────
+const AXE_DEFS = {
+  hatchet:     { name: 'Hatchet',      mass: 0.8,  len: 0.4, bladeOff: 0.15, spinBase: 3.5, color: 0x8a7a6a },
+  competition: { name: 'Competition',  mass: 1.4,  len: 0.55,bladeOff: 0.2,  spinBase: 2.8, color: 0x7a8090 },
+  hawk:        { name: 'Viking Hawk',  mass: 1.8,  len: 0.65,bladeOff: 0.22, spinBase: 2.2, color: 0x6a5a48 },
+  felling:     { name: 'Felling Axe',  mass: 2.8,  len: 0.85,bladeOff: 0.28, spinBase: 1.5, color: 0x5a5048 },
+};
+
+// ── Arm definitions ────────────────────────────────────────────────
+const ARM_DEFS = {
+  human:     { jitter: 0.045, powerCurve: (t) => t * t * (3 - 2*t), windupMs: 0,    fatiguePer: 2 },
+  servo:     { jitter: 0.015, powerCurve: (t) => t,                   windupMs: 0,    fatiguePer: 0 },
+  pneumatic: { jitter: 0.09,  powerCurve: (t) => Math.sqrt(t),        windupMs: 300,  fatiguePer: 0 },
+  hydraulic: { jitter: 0.028, powerCurve: (t) => t * t,               windupMs: 200,  fatiguePer: 0 },
+};
+
+// ── Environment presets ────────────────────────────────────────────
+const ENV_DEFS = {
+  indoor:  { gravity: 9.8,  drag: 0.02, windX: 0,   windY: 0,   distances: [3, 6, 9, 12], fog: null,     sky: 0x1a1208 },
+  nordic:  { gravity: 9.8,  drag: 0.025,windX: 0.3,  windY: 0,   distances: [6,10,15],     fog: 0.03,     sky: 0x141a22 },
+  space:   { gravity: 0.3,  drag: 0,    windX: 0,   windY: 0,   distances: [8,15,25],     fog: null,     sky: 0x000508 },
+};
+
+// ── Audio (Web Audio, procedural) ─────────────────────────────────
+let _audioCtx = null;
+function getCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _audioCtx;
+}
+function playWhoosh(power) {
+  const ctx = getCtx(); const t = ctx.currentTime;
+  const bufLen = ctx.sampleRate * 0.22;
+  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) d[i] = (Math.random()*2-1) * (i/bufLen) * Math.exp(-(i/bufLen)*4);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const lpf = ctx.createBiquadFilter(); lpf.type = 'bandpass'; lpf.frequency.value = 800 + power * 400;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.35 * (0.5 + power * 0.5), t);
+  src.connect(lpf); lpf.connect(g); g.connect(ctx.destination); src.start(t);
+}
+function playThunk(bullseye = false) {
+  const ctx = getCtx(); const t = ctx.currentTime;
+  // Low thud
+  const osc = ctx.createOscillator(); osc.frequency.setValueAtTime(120, t); osc.frequency.exponentialRampToValueAtTime(40, t+0.12);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.25);
+  osc.connect(g); g.connect(ctx.destination); osc.start(t); osc.stop(t+0.3);
+  // Crack
+  const bufLen = Math.floor(ctx.sampleRate*0.04);
+  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i=0;i<bufLen;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/bufLen*30);
+  const src = ctx.createBufferSource(); src.buffer=buf;
+  const hpf = ctx.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=3000;
+  const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.5, t);
+  src.connect(hpf); hpf.connect(g2); g2.connect(ctx.destination); src.start(t);
+  if (bullseye) {
+    const tone = ctx.createOscillator(); tone.frequency.setValueAtTime(880, t+0.05);
+    tone.frequency.linearRampToValueAtTime(1320, t+0.3);
+    const gt = ctx.createGain(); gt.gain.setValueAtTime(0.25, t+0.05); gt.gain.exponentialRampToValueAtTime(0.001, t+0.4);
+    tone.connect(gt); gt.connect(ctx.destination); tone.start(t+0.05); tone.stop(t+0.45);
+  }
+}
+function playBounce() {
+  const ctx = getCtx(); const t = ctx.currentTime;
+  const osc = ctx.createOscillator(); osc.type='triangle'; osc.frequency.setValueAtTime(600, t); osc.frequency.exponentialRampToValueAtTime(200, t+0.2);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.25);
+  osc.connect(g); g.connect(ctx.destination); osc.start(t); osc.stop(t+0.3);
+}
+
+// ── Mesh builders ──────────────────────────────────────────────────
+function buildAxeMesh(def) {
+  const g = new THREE.Group();
+  const handleMat = new THREE.MeshStandardMaterial({ color: 0x4a2a0a, roughness: 0.9 });
+  const bladeMat  = new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.7, roughness: 0.3 });
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.025, def.len, 8), handleMat);
+  handle.rotation.z = Math.PI / 2;
+  g.add(handle);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.02), bladeMat);
+  blade.position.x = def.len / 2 + 0.04;
+  g.add(blade);
+  return g;
+}
+
+function buildTargetMesh(scene, distance) {
+  const g = new THREE.Group();
+  const logMat = new THREE.MeshStandardMaterial({ color: 0x3a2410, roughness: 0.95 });
+  const log = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.3, 20), logMat);
+  log.rotation.x = Math.PI / 2;
+  log.rotation.z = Math.PI / 2;
+  g.add(log);
+  // Rings
+  const ringColors = [0xdd2222, 0xffffff, 0x2244aa, 0xffffff, 0xdd2222];
+  const ringRadii  = [0.06, 0.14, 0.22, 0.30, 0.36];
+  ringColors.forEach((color, i) => {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(i===0?0:ringRadii[i-1]+0.002, ringRadii[i], 32),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.8, side: THREE.FrontSide })
+    );
+    ring.position.z = 0.16;
+    g.add(ring);
+  });
+  g.position.set(0, 1.1, -distance);
+  scene.add(g);
+  return g;
+}
+
+// ── Game state ─────────────────────────────────────────────────────
+let renderer, scene, camera, controls;
+let currentAxe = 'hatchet', currentArm = 'human', currentEnv = 'indoor';
+let labParams   = { gravity: 9.8, drag: 0.02, windX: 0, windY: 0, spinMult: 1.0, maxPower: 18 };
+let score = 0, round = 1, throwNum = 0, maxThrows = 5;
+let targetDistance = 6;
+let axeMesh = null, targetMesh = null;
+let arcLine = null;
+let _charging = false, _chargeStart = 0, _chargeTimer = 0;
+let _fatigueCount = 0;
+let _activeProjectile = null;
+
+function init() {
+  const canvas = document.getElementById('main');
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x0d0a07);
+
+  scene  = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.05, 200);
+  camera.position.set(0, 1.6, 2.5);
+  camera.lookAt(0, 1.1, -targetDistance);
+
+  controls = new OrbitControls(camera, canvas);
+  controls.target.set(0, 1.1, -targetDistance);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.minDistance = 0.5;
+  controls.maxDistance = 20;
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0x331a0a, 0.6));
+  const key = new THREE.DirectionalLight(0xffeedd, 1.4);
+  key.position.set(3, 8, 4); key.castShadow = true;
+  key.shadow.mapSize.width = key.shadow.mapSize.height = 1024;
+  scene.add(key);
+
+  // Floor
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(12, 30),
+    new THREE.MeshStandardMaterial({ color: 0x1a100a, roughness: 1.0 })
+  );
+  floor.rotation.x = -Math.PI/2;
+  floor.position.z = -8;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Wall behind target
+  const wall = new THREE.Mesh(
+    new THREE.PlaneGeometry(8, 5),
+    new THREE.MeshStandardMaterial({ color: 0x2a1e14, roughness: 0.95 })
+  );
+  wall.position.set(0, 2.5, -targetDistance - 0.35);
+  wall.receiveShadow = true;
+  scene.add(wall);
+
+  rebuildAxe();
+  rebuildTarget();
+  loadLeaderboard();
+  bindUI();
+  loop();
+}
+
+function rebuildAxe() {
+  if (axeMesh) scene.remove(axeMesh);
+  axeMesh = buildAxeMesh(AXE_DEFS[currentAxe]);
+  axeMesh.position.set(0.3, 1.4, 1.2);
+  axeMesh.castShadow = true;
+  scene.add(axeMesh);
+}
+
+function rebuildTarget() {
+  if (targetMesh) scene.remove(targetMesh);
+  const env = ENV_DEFS[currentEnv];
+  const dist = env.distances[Math.min(round - 1, env.distances.length - 1)];
+  targetDistance = dist;
+  targetMesh = buildTargetMesh(scene, dist);
+  controls.target.set(0, 1.1, -dist);
+  camera.position.set(0, 1.6, 2.5);
+  camera.lookAt(0, 1.1, -dist);
+}
+
+// ── Arc simulation ──────────────────────────────────────────────────
+function simulateArc(power) {
+  const env  = ENV_DEFS[currentEnv];
+  const axe  = AXE_DEFS[currentAxe];
+  const arm  = ARM_DEFS[currentArm];
+  const g    = labParams.gravity;
+  const drag = labParams.drag;
+  const wx   = labParams.windX + (currentEnv === 'nordic' ? 0.3 : 0);
+
+  const spd  = labParams.maxPower * arm.powerCurve(power) * (1 - axe.mass * 0.03);
+  const pts  = [];
+  let x=0.3, y=1.4, z=1.2;
+  let vx=0, vy=0.3*spd*0.1, vz=-spd;
+  for (let t=0; t<4; t+=0.016) {
+    pts.push(new THREE.Vector3(x, y, z));
+    const speed = Math.sqrt(vx*vx+vy*vy+vz*vz)+0.001;
+    vx += (-drag*speed*(vx-wx)) * 0.016;
+    vy += (-g - drag*speed*vy) * 0.016;
+    vz += (-drag*speed*vz) * 0.016;
+    x+=vx*0.016; y+=vy*0.016; z+=vz*0.016;
+    if (y < 0 || z < -targetDistance - 1) break;
+  }
+  return pts;
+}
+
+function showArc(power) {
+  if (arcLine) scene.remove(arcLine);
+  const pts = simulateArc(power);
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  arcLine = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.55 }));
+  scene.add(arcLine);
+  setTimeout(() => { if (arcLine) { scene.remove(arcLine); arcLine = null; } }, 2000);
+}
+
+// ── Throwing ────────────────────────────────────────────────────────
+function startCharge() {
+  if (_activeProjectile) return;
+  _charging = true;
+  _chargeStart = Date.now();
+  getCtx(); // unlock audio
+}
+
+function releaseThrow() {
+  if (!_charging) return;
+  _charging = false;
+  const elapsed = Date.now() - _chargeStart;
+  const arm     = ARM_DEFS[currentArm];
+  const maxMs   = 1200 + arm.windupMs;
+  const power   = arm.powerCurve(Math.min(1, elapsed / maxMs));
+  const axe     = AXE_DEFS[currentAxe];
+
+  // Jitter
+  const jitter = arm.jitter + (_fatigueCount * 0.008);
+  const jx = (Math.random()-0.5) * jitter;
+  const jy = (Math.random()-0.5) * jitter * 0.5;
+
+  if (currentArm === 'human') {
+    _fatigueCount++;
+    if (_fatigueCount > 10) _fatigueCount = 10;
+  }
+
+  playWhoosh(power);
+  document.getElementById('power-fill').style.width = '0%';
+  launchAxe(power, jx, jy);
+}
+
+function launchAxe(power, jx, jy) {
+  const env  = ENV_DEFS[currentEnv];
+  const axe  = AXE_DEFS[currentAxe];
+  const arm  = ARM_DEFS[currentArm];
+  const g    = labParams.gravity;
+  const drag = labParams.drag;
+
+  // Clone axe mesh for projectile
+  const proj = axeMesh.clone();
+  proj.position.set(0.3, 1.4, 1.2);
+  scene.add(proj);
+
+  controls.enabled = false;
+
+  let x = 0.3, y = 1.4, z = 1.2;
+  const spd = labParams.maxPower * arm.powerCurve(power) * (1 - axe.mass * 0.03);
+  let vx = jx * spd, vy = 0.05 * spd + jy * spd * 0.3, vz = -spd;
+  let spin = 0;
+  const spinRate = axe.spinBase * labParams.spinMult;
+
+  _activeProjectile = proj;
+
+  const step = () => {
+    const dt = 0.016;
+    const speed = Math.sqrt(vx*vx+vy*vy+vz*vz) + 0.001;
+    vx += (-drag*speed*vx) * dt;
+    vy += (-g - drag*speed*vy) * dt;
+    vz += (-drag*speed*vz) * dt;
+    x+=vx*dt; y+=vy*dt; z+=vz*dt;
+    spin += spinRate * dt;
+
+    proj.position.set(x, y, z);
+    proj.rotation.set(spin, jx * 2, 0);
+
+    // Check if hit target plane
+    if (z <= -targetDistance) {
+      scene.remove(proj);
+      _activeProjectile = null;
+      controls.enabled = true;
+      assessLanding(spin, x, y);
+      return;
+    }
+    if (y < -1 || z < -targetDistance - 2) {
+      scene.remove(proj);
+      _activeProjectile = null;
+      controls.enabled = true;
+      showResult('Miss!', 0);
+      return;
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function assessLanding(spin, hitX, hitY) {
+  // Blade-forward when rotation mod 2π is within ±30° (π/6)
+  const rot = ((spin % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  const bladeForward = rot < Math.PI / 6 || rot > Math.PI * 2 - Math.PI / 6;
+
+  const dx = hitX;
+  const dy = hitY - 1.1; // target center
+  const dist = Math.sqrt(dx*dx + dy*dy);
+
+  let pts = 0, msg = '';
+  if (bladeForward) {
+    if (dist < 0.06)       { pts = 10; msg = '🎯 BULLSEYE!'; playThunk(true); }
+    else if (dist < 0.14)  { pts = 7;  msg = '⭐ Ring 2!';   playThunk(false); }
+    else if (dist < 0.22)  { pts = 5;  msg = 'Ring 3';       playThunk(false); }
+    else if (dist < 0.30)  { pts = 3;  msg = 'Stick';        playThunk(false); }
+    else                   { pts = 3;  msg = 'Edge stick';   playThunk(false); }
+  } else {
+    pts = 0; msg = 'Bounce!';
+    playBounce();
+  }
+
+  score += pts;
+  showResult(`${msg} +${pts}`, pts);
+  document.getElementById('score-val').textContent = score;
+
+  throwNum++;
+  if (throwNum >= maxThrows) {
+    setTimeout(nextRound, 1800);
+  } else {
+    updateRoundInfo();
+  }
+}
+
+function nextRound() {
+  saveScore(score, round);
+  round++;
+  throwNum = 0;
+  rebuildTarget();
+  updateRoundInfo();
+}
+
+function showResult(msg, pts) {
+  const el = document.getElementById('last-throw');
+  el.textContent = msg;
+  el.style.color = pts >= 10 ? '#ffcc00' : pts >= 7 ? '#ffaa44' : pts > 0 ? '#aabbff' : '#aa4444';
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, 1800);
+}
+
+function updateRoundInfo() {
+  document.getElementById('round-info').textContent = `Round ${round} · Throw ${throwNum+1}/${maxThrows}`;
+}
+
+// ── Leaderboard ──────────────────────────────────────────────────────
+function saveScore(s, r) {
+  const key = 'axe-throw-scores';
+  const arr = JSON.parse(localStorage.getItem(key) || '[]');
+  arr.push({ score: s, rounds: r, date: new Date().toLocaleDateString() });
+  arr.sort((a,b) => b.score - a.score);
+  localStorage.setItem(key, JSON.stringify(arr.slice(0, 8)));
+  loadLeaderboard();
+}
+function loadLeaderboard() {
+  const arr = JSON.parse(localStorage.getItem('axe-throw-scores') || '[]');
+  const el  = document.getElementById('lb-list');
+  if (!arr.length) return;
+  el.innerHTML = arr.slice(0, 6).map((e, i) =>
+    `<div class="lb-row"><span>${i+1}. ${e.date}</span><span>${e.score}</span></div>`
+  ).join('');
+}
+
+// ── UI binding ───────────────────────────────────────────────────────
+function bindUI() {
+  const canvas = renderer.domElement;
+
+  canvas.addEventListener('pointerdown', e => { if (e.button === 0) { e.preventDefault(); startCharge(); } });
+  canvas.addEventListener('pointerup',   e => { if (e.button === 0) releaseThrow(); });
+  window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); startCharge(); } });
+  window.addEventListener('keyup',   e => { if (e.code === 'Space') releaseThrow(); });
+
+  document.querySelectorAll('[data-axe]').forEach(b => {
+    b.onclick = () => {
+      currentAxe = b.dataset.axe;
+      document.querySelectorAll('[data-axe]').forEach(x => x.classList.toggle('active', x === b));
+      rebuildAxe();
+    };
+  });
+  document.getElementById('arm-select').onchange = e => { currentArm = e.target.value; _fatigueCount = 0; };
+  document.getElementById('env-select').onchange = e => { currentEnv = e.target.value; rebuildTarget(); };
+
+  document.getElementById('btn-lab').onclick    = () => {
+    const p = document.getElementById('lab-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  };
+  document.getElementById('btn-demo').onclick   = () => showArc(0.8);
+  document.getElementById('lab-demo').onclick   = () => showArc(0.8);
+  document.getElementById('btn-reset').onclick  = () => { score=0; round=1; throwNum=0; rebuildTarget(); document.getElementById('score-val').textContent='0'; updateRoundInfo(); };
+
+  // Lab sliders
+  [['l-gravity','lv-gravity','gravity'],['l-drag','lv-drag','drag'],
+   ['l-windx','lv-windx','windX'],['l-windy','lv-windy','windY'],
+   ['l-spin','lv-spin','spinMult'],['l-power','lv-power','maxPower']
+  ].forEach(([id, vid, key]) => {
+    const el = document.getElementById(id);
+    el.oninput = () => {
+      const v = parseFloat(el.value);
+      labParams[key] = v;
+      document.getElementById(vid).textContent = v.toFixed(key==='drag'?3:1);
+    };
+  });
+}
+
+// ── Loop ──────────────────────────────────────────────────────────────
+function loop() {
+  requestAnimationFrame(loop);
+  controls.update();
+
+  // Power bar
+  if (_charging) {
+    const arm = ARM_DEFS[currentArm];
+    const elapsed = Date.now() - _chargeStart - arm.windupMs;
+    const t = Math.max(0, Math.min(1, elapsed / 1200));
+    const p = arm.powerCurve(t);
+    const fill = document.getElementById('power-fill');
+    fill.style.width = (p*100) + '%';
+    fill.style.background = p > 0.8 ? '#ff3322' : p > 0.5 ? '#ff8822' : '#cc6622';
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ── Resize ────────────────────────────────────────────────────────────
+new ResizeObserver(() => {
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+}).observe(document.documentElement);
+
+init();
+</script>
+</body>
+</html>

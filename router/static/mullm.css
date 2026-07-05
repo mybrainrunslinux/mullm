@@ -1,0 +1,253 @@
+/* mullm.css — muLLM shared stylesheet
+ * Provides CSS custom properties, a light reset, and nav/footer styles.
+ * Pages can link this instead of relying on nav.js style injection.
+ * Usage: <link rel="stylesheet" href="/static/mullm.css">
+ */
+
+/* ── Custom properties (design tokens) ─────────────────────────────────── */
+:root {
+  /* Amber accent */
+  --mu-amber:        #F59E0B;
+  --mu-amber-dim:    rgba(245, 158, 11, 0.20);
+  --mu-amber-border: rgba(245, 158, 11, 0.27);
+
+  /* Slate text scale */
+  --mu-slate-100: #f1f5f9;
+  --mu-slate-300: #cbd5e1;
+  --mu-slate-400: #94A3B8;
+  --mu-slate-500: #64748b;
+  --mu-slate-600: #475569;
+  --mu-slate-700: #334155;
+
+  /* Background scale */
+  --mu-bg-900: #0f172a;   /* page / nav background */
+  --mu-bg-800: #1e293b;   /* card / hover background */
+  --mu-bg-700: #1e3a5f;   /* active link background */
+
+  /* Semantic */
+  --mu-link-active:  #60a5fa;
+  --mu-border:       var(--mu-bg-800);
+
+  /* Typography */
+  --mu-font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mu-font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+
+  /* Nav height — use as top offset for fixed/sticky content below nav */
+  --mu-nav-height: 44px;
+}
+
+/* ── Minimal reset ──────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--mu-font);
+  background: var(--mu-bg-900);
+  color: var(--mu-slate-300);
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--mu-amber);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: var(--mu-font);
+  cursor: pointer;
+}
+
+code, pre, kbd, samp {
+  font-family: var(--mu-font-mono);
+}
+
+pre {
+  overflow-x: auto;
+}
+
+img, video, svg {
+  max-width: 100%;
+  display: block;
+}
+
+/* ── Nav ────────────────────────────────────────────────────────────────── */
+#mullm-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--mu-bg-900);
+  border-bottom: 1px solid var(--mu-border);
+  padding: 0 1rem;
+  height: var(--mu-nav-height);
+  font-family: var(--mu-font);
+}
+
+#mullm-nav .mn-brand {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-right: 1.5rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+#mullm-nav .mn-brand .mu  { color: var(--mu-amber); }
+#mullm-nav .mn-brand .llm { color: var(--mu-slate-400); }
+
+#mullm-nav .mn-primary {
+  display: flex;
+  gap: 0.1rem;
+  flex: 1;
+  overflow: hidden;
+}
+
+#mullm-nav .mn-link {
+  color: var(--mu-slate-400);
+  text-decoration: none;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+#mullm-nav .mn-link:hover {
+  background: var(--mu-bg-800);
+  color: var(--mu-slate-100);
+  text-decoration: none;
+}
+
+#mullm-nav .mn-link.active {
+  background: var(--mu-bg-700);
+  color: var(--mu-link-active);
+}
+
+#mullm-nav .mn-more {
+  color: var(--mu-amber);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--mu-amber-border);
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  white-space: nowrap;
+  font-family: var(--mu-font);
+}
+
+#mullm-nav .mn-more:hover {
+  background: var(--mu-amber-dim);
+}
+
+/* ── More modal ─────────────────────────────────────────────────────────── */
+#mn-modal-bg {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.53);
+  z-index: 200;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 48px 1rem 0;
+}
+
+#mn-modal-bg.open {
+  display: flex;
+}
+
+#mn-modal {
+  background: var(--mu-bg-900);
+  border: 1px solid var(--mu-slate-700);
+  border-radius: 10px;
+  padding: 1rem;
+  width: 320px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.67);
+}
+
+#mn-modal h3 {
+  color: var(--mu-slate-400);
+  font-size: 0.75rem;
+  margin: 0 0 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: var(--mu-font);
+}
+
+#mn-modal .mn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+#mn-modal .mn-card {
+  display: block;
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  text-decoration: none;
+  transition: opacity 0.15s;
+  border: 1px solid transparent;
+  font-family: var(--mu-font);
+}
+
+#mn-modal .mn-card:hover {
+  opacity: 0.75;
+  text-decoration: none;
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+#mullm-footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.72rem;
+  color: var(--mu-slate-600);
+  border-top: 1px solid var(--mu-border);
+  margin-top: 3rem;
+  font-family: var(--mu-font);
+}
+
+#mullm-footer a {
+  color: var(--mu-slate-500);
+  text-decoration: none;
+}
+
+#mullm-footer a:hover {
+  color: var(--mu-slate-400);
+}
+
+/* ── Utility classes ────────────────────────────────────────────────────── */
+.mu-card {
+  background: var(--mu-bg-800);
+  border: 1px solid var(--mu-border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.mu-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--mu-amber-dim);
+  color: var(--mu-amber);
+  border: 1px solid var(--mu-amber-border);
+}
+
+.mu-text-muted  { color: var(--mu-slate-500); }
+.mu-text-subtle { color: var(--mu-slate-400); }
+.mu-text-accent { color: var(--mu-amber); }

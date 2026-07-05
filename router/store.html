@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="! Games — Real games. $5 flat. No ads. No tricks. Built with muLLM local-first AI.">
+<title>! Games — Store</title>
+<style>
+/* ─── Design tokens ─────────────────────────────────────── */
+:root {
+  --gold: #E8C547;
+  --gold-dim: #b89a2e;
+  --gold-glow: rgba(232,197,71,0.25);
+  --bg: #0b0c10;
+  --bg-card: rgba(255,255,255,0.04);
+  --bg-card-hover: rgba(255,255,255,0.08);
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(232,197,71,0.4);
+  --text: #e8e8f0;
+  --text-dim: #888899;
+  --text-muted: #555566;
+  --radius: 12px;
+  --radius-lg: 20px;
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-hover: 0 8px 40px rgba(232,197,71,0.15);
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Art gradient palette — maps to art-* tokens from games.html */
+  --art-neon: linear-gradient(135deg, #0d0d2b 0%, #1a0a3d 40%, #0d1a3d 100%);
+  --art-signal: linear-gradient(135deg, #0a1628 0%, #0d2240 50%, #071820 100%);
+  --art-organic: linear-gradient(135deg, #0a1a0d 0%, #142b12 50%, #0d2010 100%);
+  --art-steam: linear-gradient(135deg, #1a1208 0%, #2b1f0a 50%, #1a1208 100%);
+  --art-gauntlet: linear-gradient(135deg, #1a0a0a 0%, #2b0d0d 50%, #1a0808 100%);
+
+  /* Premium art for featured ! games */
+  --art-busker: linear-gradient(135deg, #1a0d28 0%, #2b1a0a 40%, #100d20 100%);
+  --art-dink: linear-gradient(135deg, #071a28 0%, #0a2b1a 50%, #051520 100%);
+  --art-flock: linear-gradient(135deg, #080d20 0%, #0a1428 60%, #050d18 100%);
+  --art-jacks: linear-gradient(135deg, #0d1a08 0%, #1a2b0a 50%, #0a1808 100%);
+  --art-rampart: linear-gradient(135deg, #1a0d00 0%, #2b1500 50%, #150a00 100%);
+}
+
+/* ─── Reset & base ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* ─── Skip link (a11y) ──────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--gold);
+  color: #000;
+  font-weight: 700;
+  border-radius: 4px;
+  z-index: 100;
+  transition: top 0.2s;
+}
+.skip-link:focus { top: 1rem; }
+
+/* ─── Navigation ────────────────────────────────────────── */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: rgba(11,12,16,0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+}
+
+.brand-bang {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: var(--gold);
+  color: #000;
+  font-weight: 900;
+  font-size: 1.2rem;
+  border-radius: 6px;
+  letter-spacing: 0;
+  line-height: 1;
+  box-shadow: 0 0 16px var(--gold-glow);
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  list-style: none;
+}
+
+.nav-links a {
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.nav-links a:hover, .nav-links a:focus { color: var(--text); }
+.nav-links a:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 4px; }
+
+/* ─── Hero ──────────────────────────────────────────────── */
+.hero {
+  padding: clamp(4rem, 8vw, 7rem) 1.5rem clamp(3rem, 6vw, 5rem);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(232,197,71,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(60,40,120,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero-bang {
+  font-size: clamp(3rem, 8vw, 5rem);
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 60px var(--gold-glow), 0 0 20px rgba(232,197,71,0.4);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.hero-games-text {
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.hero-tagline {
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  color: var(--text-dim);
+  max-width: 36ch;
+  margin: 0 auto 2.5rem;
+  font-weight: 400;
+}
+
+.hero-tagline strong {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.hero-pills {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 3rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ─── Featured carousel ─────────────────────────────────── */
+.featured-section {
+  padding: 0 1.5rem 3rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 1rem;
+}
+
+.carousel-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+.carousel-track {
+  display: flex;
+  transition: transform 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel-track { transition: none; }
+}
+
+.carousel-slide {
+  flex: 0 0 100%;
+  min-width: 100%;
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-height: clamp(200px, 30vw, 360px);
+  display: flex;
+  align-items: flex-end;
+  border: 1px solid var(--border);
+}
+
+.slide-bg {
+  position: absolute;
+  inset: 0;
+  transition: transform 8s ease-out;
+}
+
+.carousel-slide:hover .slide-bg {
+  transform: scale(1.03);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel-slide:hover .slide-bg { transform: none; }
+}
+
+.slide-content {
+  position: relative;
+  z-index: 1;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  background: linear-gradient(0deg, rgba(11,12,16,0.92) 0%, transparent 100%);
+  width: 100%;
+}
+
+.slide-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.slide-name {
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-bottom: 0.5rem;
+}
+
+.slide-desc {
+  font-size: 0.9375rem;
+  color: var(--text-dim);
+  max-width: 55ch;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+
+.slide-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.625rem 1.375rem;
+  background: var(--gold);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  min-height: 44px;
+  text-decoration: none;
+}
+.btn-primary:hover { background: #f0d060; box-shadow: 0 4px 20px var(--gold-glow); }
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+.slide-price {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.slide-tags {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.tag {
+  padding: 0.2rem 0.6rem;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  border: none;
+  cursor: pointer;
+  transition: width 0.3s, background 0.3s;
+  padding: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  background: none;
+}
+
+.dot::after {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--text-muted);
+  transition: width 0.3s, background 0.3s;
+}
+
+.dot.active::after {
+  width: 20px;
+  background: var(--gold);
+}
+
+.dot:focus-visible { outline: 2px solid var(--gold); border-radius: 4px; }
+
+/* ─── Filter bar ─────────────────────────────────────────── */
+.filter-section {
+  padding: 0 1.5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-btn {
+  padding: 0.4375rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 44px;
+  white-space: nowrap;
+  font-family: var(--font);
+}
+
+.filter-btn:hover {
+  border-color: rgba(232,197,71,0.3);
+  color: var(--text);
+}
+
+.filter-btn.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #000;
+  font-weight: 700;
+}
+
+.filter-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ─── Game grid ──────────────────────────────────────────── */
+.grid-section {
+  padding: 0 1.5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 1rem;
+}
+
+.game-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  min-height: 200px;
+}
+
+.game-card:hover, .game-card:focus-visible {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.game-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card { transform: none !important; transition: border-color 0.2s, box-shadow 0.2s; }
+}
+
+.card-art {
+  height: 120px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+}
+
+.card-art-bg {
+  position: absolute;
+  inset: 0;
+}
+
+.card-icon {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+  transition: transform 0.2s;
+  user-select: none;
+  pointer-events: none;
+}
+
+.game-card:hover .card-icon { transform: scale(1.1); }
+@media (prefers-reduced-motion: reduce) {
+  .game-card:hover .card-icon { transform: none; }
+}
+
+.card-body {
+  padding: 0.875rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.card-name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  line-height: 1.2;
+}
+
+.card-desc {
+  font-size: 0.775rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.card-tags {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.card-tag {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0.15rem 0.4rem;
+  background: rgba(255,255,255,0.04);
+  border-radius: 3px;
+}
+
+.card-price {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--gold);
+  white-space: nowrap;
+  margin-left: 0.5rem;
+}
+
+.card-price.free {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Premium badge on card */
+.card-premium-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 2;
+  padding: 0.2rem 0.5rem;
+  background: var(--gold);
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* ─── Premium featured section ───────────────────────────── */
+.premium-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 1.25rem;
+}
+
+.premium-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.premium-card:hover, .premium-card:focus-visible {
+  border-color: var(--border-hover);
+  box-shadow: 0 12px 50px rgba(232,197,71,0.18);
+  transform: translateY(-3px);
+}
+
+.premium-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-card { transform: none !important; }
+}
+
+.premium-art {
+  height: 160px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+}
+
+.premium-art-bg {
+  position: absolute;
+  inset: 0;
+  transition: transform 6s ease-out;
+}
+
+.premium-card:hover .premium-art-bg { transform: scale(1.05); }
+@media (prefers-reduced-motion: reduce) {
+  .premium-card:hover .premium-art-bg { transform: none; }
+}
+
+.premium-icon {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
+  transition: transform 0.2s;
+}
+
+.premium-card:hover .premium-icon { transform: scale(1.08) translateY(-2px); }
+@media (prefers-reduced-motion: reduce) {
+  .premium-card:hover .premium-icon { transform: none; }
+}
+
+.premium-body {
+  padding: 1.25rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.premium-name {
+  font-weight: 800;
+  font-size: 1.125rem;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.premium-desc {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.premium-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  gap: 0.75rem;
+}
+
+.premium-tags {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.premium-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(232,197,71,0.7);
+  padding: 0.2rem 0.5rem;
+  background: rgba(232,197,71,0.08);
+  border: 1px solid rgba(232,197,71,0.15);
+  border-radius: 4px;
+}
+
+.premium-price {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.badge-new {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  background: rgba(11,12,16,0.85);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+/* ─── Section headers ─────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+}
+
+.section-title {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.section-count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ─── Divider ──────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--border);
+  max-width: 1200px;
+  margin: 0 auto 3rem;
+}
+
+/* ─── "No results" state ───────────────────────────────────── */
+.no-results {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* ─── Footer ───────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.footer-inner {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.footer-tagline {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+  line-height: 1.6;
+}
+
+.footer-links {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  list-style: none;
+}
+
+.footer-links a {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  transition: color 0.2s;
+}
+
+.footer-links a:hover { color: var(--gold); }
+.footer-links a:focus-visible { outline: 2px solid var(--gold); border-radius: 3px; }
+
+/* ─── Responsive tweaks ────────────────────────────────────── */
+@media (max-width: 640px) {
+  nav { padding: 0.625rem 1rem; }
+  .nav-links { gap: 1rem; }
+  .hero { padding: 3rem 1rem 2.5rem; }
+  .featured-section, .filter-section, .grid-section { padding-left: 1rem; padding-right: 1rem; }
+  .premium-grid { grid-template-columns: 1fr; }
+  footer { padding: 2rem 1rem; }
+}
+
+@media (max-width: 480px) {
+  .nav-links li:not(:last-child) { display: none; }
+}
+
+/* ─── Scroll reveal ────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+</style>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<nav aria-label="Site navigation">
+  <div class="nav-brand" aria-label="! Games home">
+    <span class="brand-bang" aria-hidden="true">!</span>
+    <span>Games</span>
+  </div>
+  <ul class="nav-links" role="list">
+    <li><a href="/store" aria-current="page">Store</a></li>
+    <li><a href="/dashboard">Dashboard</a></li>
+    <li><a href="/games">Dev</a></li>
+  </ul>
+</nav>
+
+<main id="main">
+
+  <!-- ── Hero ─────────────────────────────────────────────── -->
+  <section class="hero" aria-label="Hero">
+    <div class="hero-logo">
+      <span class="hero-bang" aria-hidden="true">!</span>
+      <span class="hero-games-text">Games</span>
+    </div>
+    <p class="hero-tagline">
+      <strong>Real games. $5 flat. No ads. No tricks.</strong><br>
+      Built game-by-game with muLLM, a local-first AI router.
+    </p>
+    <div class="hero-pills" role="list" aria-label="Store highlights">
+      <span class="pill" role="listitem">🎮 40+ games</span>
+      <span class="pill" role="listitem">💰 6 premium titles at $5</span>
+      <span class="pill" role="listitem">🆓 Everything else free</span>
+      <span class="pill" role="listitem">📱 Mobile-first</span>
+      <span class="pill" role="listitem">🔒 No account needed</span>
+    </div>
+  </section>
+
+  <!-- ── Featured carousel ─────────────────────────────────── -->
+  <section class="featured-section reveal" aria-label="Featured games" aria-roledescription="carousel">
+    <div class="section-label" aria-hidden="true">Featured</div>
+    <div class="carousel-wrapper">
+      <div class="carousel-track" id="carouselTrack" aria-live="polite" aria-atomic="true">
+        <!-- Slides injected by JS -->
+      </div>
+    </div>
+    <div class="carousel-dots" id="carouselDots" role="tablist" aria-label="Carousel navigation"></div>
+  </section>
+
+  <!-- ── Premium games ─────────────────────────────────────── -->
+  <section class="grid-section reveal" aria-label="Premium games" style="margin-top:1rem;">
+    <div class="section-header">
+      <h2 class="section-title">Premium Titles</h2>
+      <span class="section-count">$5 each</span>
+    </div>
+    <div class="premium-grid" id="premiumGrid" role="list">
+      <!-- Cards injected by JS -->
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── Filter + more games ───────────────────────────────── -->
+  <section class="filter-section reveal" aria-label="Filter games">
+    <div class="filter-bar" role="group" aria-label="Filter by genre">
+      <!-- Buttons injected by JS -->
+    </div>
+  </section>
+
+  <section class="grid-section" aria-label="Game library" aria-live="polite">
+    <div class="section-header">
+      <h2 class="section-title">Free Library</h2>
+      <span class="section-count" id="gameCount"></span>
+    </div>
+    <div class="game-grid" id="gameGrid" role="list">
+      <!-- Cards injected by JS -->
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="brand-bang" aria-hidden="true">!</span>
+      <span>Games</span>
+    </div>
+    <p class="footer-tagline">
+      All games built with muLLM — local-first AI.<br>
+      Every game is played in-browser. No installs. No tracking.
+    </p>
+    <ul class="footer-links" role="list">
+      <li><a href="/games">Dev browser</a></li>
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/play/signal-chain">Signal Chain</a></li>
+      <li><a href="/site">About muLLM</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+'use strict';
+
+/* ─── Premium ! brand games ──────────────────────────────── */
+const PREMIUM_GAMES = [
+  {
+    id: 'busker',
+    name: 'Busk!',
+    icon: '🥁',
+    genres: ['Rhythm', 'Career'],
+    desc: 'Street drummer to one-man Rube Goldberg symphony. Tap the beat, earn coins, upgrade your kit across 8 world cities. DW-tuned Web Audio synthesis.',
+    art: 'linear-gradient(135deg, #1a0d28 0%, #2b1a0a 40%, #100d20 100%)',
+    url: '/play/busker',
+    price: '$5',
+    isNew: true
+  },
+  {
+    id: 'dink-iso',
+    name: 'Dink!',
+    icon: '🏓',
+    genres: ['Sports', 'Arcade'],
+    desc: 'Isometric pickleball. Kitchen rule enforced — dink soft shots vs drives. First to 11, win by 2. Synthesized pock sound.',
+    art: 'linear-gradient(135deg, #071a28 0%, #0a2b1a 50%, #051520 100%)',
+    url: '/play/dink-iso',
+    price: '$5',
+    isNew: true
+  },
+  {
+    id: 'dink-3d',
+    name: 'Dink! 3D',
+    icon: '🎾',
+    genres: ['Sports', '3D'],
+    desc: 'Full 3D pickleball from behind the paddle. Kitchen zone turns red when you step in. Dink vs drive vs lob. Gyroscope VR-ready.',
+    art: 'linear-gradient(135deg, #071a28 0%, #0a2b1a 50%, #051520 100%)',
+    url: '/play/dink-3d',
+    price: '$5',
+    isNew: true
+  },
+  {
+    id: 'flock',
+    name: 'Flock!',
+    icon: '🐦',
+    genres: ['Arcade', '3D', 'Endless'],
+    desc: 'Guide a V-formation bird flock through obstacles. Speed = V narrows. Dive to thread tight gaps. Gyro tilt steering. Three environments.',
+    art: 'linear-gradient(135deg, #080d20 0%, #0a1428 60%, #050d18 100%)',
+    url: '/play/flock',
+    price: '$5',
+    isNew: true
+  },
+  {
+    id: 'jacks',
+    name: 'Jacks!',
+    icon: '✳️',
+    genres: ['Casual', 'Skill'],
+    desc: 'Classic jacks on a procedural hardwood floor. Bounce the ball, scoop before second bounce. Onesies through tensies. Solo or vs CPU.',
+    art: 'linear-gradient(135deg, #0d1a08 0%, #1a2b0a 50%, #0a1808 100%)',
+    url: '/play/jacks',
+    price: '$5',
+    isNew: true
+  },
+  {
+    id: 'rampartillery',
+    name: 'Rampartillery',
+    icon: '⚔️',
+    genres: ['Puzzle', 'Physics'],
+    desc: '400 siege puzzle levels across 4 weapons — ballista, catapult, trebuchet, onager. Break chain anchors to drop the drawbridge. Chain reactions, fire puzzles.',
+    art: 'linear-gradient(135deg, #1a0d00 0%, #2b1500 50%, #150a00 100%)',
+    artImage: '/code/ready/rampartillery-capsule.svg',
+    url: '/rampartillery',
+    price: '$5',
+    isNew: true
+  }
+];
+
+/* ─── Art gradient map ───────────────────────────────────── */
+const ART_GRADIENTS = {
+  'art-neon':    'linear-gradient(135deg, #0d0d2b 0%, #1a0a3d 40%, #0d1a3d 100%)',
+  'art-signal':  'linear-gradient(135deg, #0a1628 0%, #0d2240 50%, #071820 100%)',
+  'art-organic': 'linear-gradient(135deg, #0a1a0d 0%, #142b12 50%, #0d2010 100%)',
+  'art-steam':   'linear-gradient(135deg, #1a1208 0%, #2b1f0a 50%, #1a1208 100%)',
+  'art-gauntlet':'linear-gradient(135deg, #1a0a0a 0%, #2b0d0d 50%, #1a0808 100%)',
+  'art-dunice':  'linear-gradient(135deg, #1a1408 0%, #2b2208 50%, #1a1806 100%)',
+  'art-hex':     'linear-gradient(135deg, #08141a 0%, #0d2030 50%, #080c18 100%)',
+  'art-ski':     'linear-gradient(135deg, #0a1a28 0%, #e8f0f8 50%, #0a1a28 100%)',
+  'art-rune':    'linear-gradient(135deg, #1a0828 0%, #2b0d3d 50%, #1a0828 100%)',
+  'art-quail':   'linear-gradient(135deg, #0d1a08 0%, #1a2b12 50%, #0a1808 100%)',
+};
+
+/* ─── Curated free games ─────────────────────────────────── */
+// ~40 high-quality picks from the full library
+const FREE_GAMES = [
+  // Puzzle
+  { id: 'signal-chain',  name: 'Signal Chain',       icon: '📡', art: 'art-signal',  genres: ['Puzzle'],           desc: 'Route signals through a circuit grid. Solve increasingly complex logic puzzles.' },
+  { id: 'gravity-golf',  name: 'Gravity Golf',        icon: '⛳', art: 'art-signal',  genres: ['Puzzle', 'Physics'],desc: '18-hole space golf. Gravity wells bend the ball. Trajectory prediction, par scoring.' },
+  { id: 'gravity-maze',  name: 'Gravity Flip Maze',   icon: '🔄', art: 'art-hex',    genres: ['Puzzle'],           desc: '20 levels of gravity-flipping. Portals, ice tiles, keys and locks. Star ratings + undo.' },
+  { id: 'path-tracing',  name: 'Path Tracing',        icon: '🔲', art: 'art-signal',  genres: ['Puzzle', 'Logic'],  desc: 'Trace a path visiting every cell exactly once. 50+ levels with teleports and locked gates.' },
+  { id: 'neon-tether',   name: 'Neon Tether',         icon: '🔗', art: 'art-signal',  genres: ['Puzzle', 'Physics'],desc: 'Connect floating neon nodes to a core. Energy drains, connections decay. Combo system.' },
+  { id: 'hex-collapse',  name: 'Hex Collapse',         icon: '⬡', art: 'art-hex',    genres: ['Puzzle'],           desc: 'Match and collapse clusters of hexagonal tiles before the board fills up.' },
+  { id: 'redaction',     name: 'Redaction',            icon: '█', art: 'art-signal',  genres: ['Word', 'Puzzle'],   desc: 'Classified documents with blacked-out words. Deduce from context. 32 puzzles.' },
+  // Action
+  { id: 'crokinole2',    name: 'Crokinole 2',         icon: '🎯', art: 'art-signal',  genres: ['Action', 'Skill'],  desc: 'Precision disc-flicking on a circular board. Knock opponents off, score the 20-hole.' },
+  { id: 'pool2',         name: 'Pool 2',              icon: '🎱', art: 'art-neon',    genres: ['Action', 'Sports'], desc: '8-ball billiards with realistic physics. Line up shots and clear the table.' },
+  { id: 'neon-drift',    name: 'Neon Drift',          icon: '🏎️', art: 'art-neon',    genres: ['Racing', 'Action'], desc: 'Top-down neon drift racer. Powerslide through glowing circuits, chain drifts for multiplier.' },
+  { id: 'snake-3d',      name: 'Snake 3D',            icon: '🐍', art: 'art-neon',    genres: ['Action'],           desc: 'Classic snake on a 3D rotating cube. Neon snake wraps cube faces. Gets faster as you grow.' },
+  { id: 'rhythm-router', name: 'Rhythm Router',       icon: '🎵', art: 'art-signal',  genres: ['Music', 'Action'],  desc: 'Route query-beats to the right tier in time with the music. Miss = expensive cloud.' },
+  // Strategy
+  { id: 'cache-td',      name: 'Cache TD',            icon: '🏰', art: 'art-gauntlet',genres: ['Strategy'],         desc: 'Tower defense — intercept queries before they reach the cloud. Local model turrets.' },
+  { id: 'ai-gauntlet',   name: 'AI Gauntlet',         icon: '⚔', art: 'art-gauntlet', genres: ['Strategy'],         desc: 'Roguelike strategy: send waves of AI units through procedurally generated gauntlets.' },
+  { id: 'dunice',        name: 'Dunice',              icon: '🏜', art: 'art-dunice',   genres: ['Strategy'],         desc: 'Desert resource management. Control spice production, expand territory, hold off rivals.' },
+  { id: 'hex-conquest',  name: 'Hex Conquest',        icon: '⬡', art: 'art-neon',    genres: ['Strategy'],         desc: 'Turn-based hex conquest. Deploy armies, capture territory, manage supply lines.' },
+  { id: 'control-center',name: 'Control Center',      icon: '🛸', art: 'art-signal',  genres: ['Simulation', 'Strategy'], desc: 'Mission control sim. Monitor 6 systems, diagnose failures, prevent cascades.' },
+  // Cards
+  { id: 'cribbage',      name: 'Cribbage',            icon: '🎴', art: 'art-signal',  genres: ['Cards', 'Strategy'],desc: 'Full cribbage with pegging board. 15s, pairs, runs, flushes, nobs. 121-point track.' },
+  { id: 'rune-deckbuilder',name:'Rune Deckbuilder',   icon: '🔮', art: 'art-rune',    genres: ['Cards', 'Strategy'],desc: 'Draft rune cards, build synergies, and battle through procedurally generated encounters.' },
+  { id: 'poker-3d',      name: 'Poker 3D',            icon: '🃏', art: 'art-neon',    genres: ['Cards', '3D'],      desc: "Texas Hold'em at a 3D table. Chip stacks, pot odds, AI opponents with personality." },
+  { id: 'casino-royale', name: 'Casino Royale',       icon: '🎰', art: 'art-signal',  genres: ['Cards'],            desc: 'Multi-game casino: blackjack, roulette, slots. Chip economy and animated wheel.' },
+  // Music
+  { id: 'glass-harp',    name: 'Glass Harp',          icon: '🍷', art: 'art-signal',  genres: ['Music'],            desc: 'Drag your finger around wine glass rims to play ethereal tones. Adjust water for pitch.' },
+  { id: 'theremin',      name: 'Theremin',            icon: '👻', art: 'art-signal',  genres: ['Music'],            desc: 'Classic theremin — mouse X controls pitch, Y controls volume. Waveform visualizer.' },
+  { id: 'beat-blocks',   name: 'Beat Blocks',         icon: '🎧', art: 'art-neon',    genres: ['Music', 'Puzzle'],  desc: 'Arrange beat blocks on a step sequencer to match target rhythms. Kick, snare, hi-hat.' },
+  { id: 'war-drums',     name: 'War Drums',           icon: '🥁', art: 'art-gauntlet',genres: ['Music', 'Action'],  desc: 'Taiko-style percussion with rhythm game mode. Multiple drum types, combo scoring.' },
+  // Exploration / Adventure
+  { id: 'deep-sea-dive', name: 'Deep Sea Dive',       icon: '🤿', art: 'art-neon',    genres: ['Exploration'],      desc: 'Dive into the abyss. Manage oxygen, navigate bioluminescent creatures, recover treasure.' },
+  { id: 'crystal-caverns',name:'Crystal Caverns',     icon: '💎', art: 'art-neon',    genres: ['Exploration'],      desc: 'Explore glittering underground caverns. Mine crystals, find ancient relics.' },
+  { id: 'firefly-forest',name: 'Firefly Forest',      icon: '🌟', art: 'art-organic', genres: ['Exploration'],      desc: 'Wander a procedural forest at dusk. Guide fireflies home, discover hidden glades.' },
+  { id: 'safari-explorer',name:'Safari Explorer',     icon: '🦁', art: 'art-neon',    genres: ['Adventure', '3D'],  desc: 'Drive a jeep photographing wildlife. 5 species, day/night cycle, collection journal.' },
+  { id: 'tardigrade-explorer',name:'Tardigrade Explorer',icon:'🌌',art:'art-neon',    genres: ['Adventure', '3D'],  desc: 'Guide a tardigrade through crystal caves, mushroom forest, and lava plains. ThreeJS 3D.' },
+  // Simulation
+  { id: 'quail-farm',    name: 'Quail Farm',          icon: '🐦', art: 'art-quail',   genres: ['Simulation'],       desc: 'Tend your quail farm across the seasons. Cozy management with charming pixel art.' },
+  { id: 'tardigrade',    name: 'Tardigrade Survival', icon: '🐻', art: 'art-quail',   genres: ['Simulation'],       desc: 'Survive extreme environments as a tardigrade colony. Cryptobiosis, multi-biome, real biology.' },
+  { id: 'eco-sim',       name: 'Eco Sim',             icon: '🌿', art: 'art-neon',    genres: ['Simulation'],       desc: 'Balance a living ecosystem. Introduce species, manage climate, watch food chains emerge.' },
+  { id: 'clockwork-factory',name:'Clockwork Factory', icon: '⚙️', art: 'art-neon',    genres: ['Simulation', 'Tycoon'], desc: 'Chain gears, belts, and hoppers to automate widget manufacturing. Optimize throughput.' },
+  // 3D highlights
+  { id: 'reapers-toll',  name: "Reaper's Toll",       icon: '💀', art: 'art-neon',    genres: ['Action', '3D'],     desc: 'Wave survival — command the void scythe against skeleton warriors and crystal wolves.' },
+  { id: 'chess-battle',  name: 'Battle Chess 3D',     icon: '♟️', art: 'art-neon',    genres: ['Strategy', '3D'],   desc: '3D chess with animated battle sequences when pieces capture. Full chess AI, multi-difficulty.' },
+  { id: 'billiards-3d',  name: 'Billiards 3D',        icon: '🎱', art: 'art-neon',    genres: ['Sports', '3D'],     desc: 'Full 3D billiards table. Orbit the camera, chalk your cue. Realistic cushion roll.' },
+  { id: 'sky-islands-drift',name:'Sky Islands Drift',icon:'🏝️', art:'art-organic',    genres: ['Exploration', '3D'],desc: 'Pilot a clockwork drone across floating sky islands. Dodge dragon whelps, collect orbs.' },
+  // Physics / Skill
+  { id: 'gravity-jump',  name: 'Gravity Jump',        icon: '🌌', art: 'art-neon',    genres: ['Physics', 'Action'],desc: 'Flip gravity to jump between floor and ceiling. Navigate corridors, collect stars.' },
+  { id: 'rope-physics',  name: 'Rope Physics',        icon: '🪢', art: 'art-neon',    genres: ['Physics', 'Puzzle'],desc: 'Realistic rope simulation sandbox. Tie knots, hang weights, cut ropes at the right moment.' },
+  // Word
+  { id: 'crossword-blitz',name:'Crossword Blitz',    icon: '📝', art: 'art-signal',  genres: ['Word', 'Puzzle'],   desc: 'Speed crossword — 5×5 grid, 30-second timer per clue. Procedurally generated puzzles.' },
+  { id: 'falling-words', name: 'Falling Words',       icon: '🔤', art: 'art-signal',  genres: ['Word', 'Puzzle'],   desc: 'Letters descend Tetris-style — click to form words before they stack up. Chain bonus.' },
+  { id: 'trivia',        name: 'Trivia',              icon: '🧠', art: 'art-signal',  genres: ['Word'],             desc: '500+ questions across 6 categories. Timer, streak bonuses, lifelines, progressive difficulty.' },
+  // Creative
+  { id: 'pixel-painter', name: 'Pixel Painter',       icon: '🎨', art: 'art-signal',  genres: ['Creative'],         desc: '32×32 pixel art studio. Draw + challenge modes. Layers, undo/redo, animation frames.' },
+  { id: 'aurora-painter',name: 'Aurora Painter 3D',  icon: '🌌', art: 'art-neon',    genres: ['Creative', '3D'],   desc: 'Paint northern lights across a 3D sky. Gesture-based aurora creation with particle effects.' },
+];
+
+/* ─── Genre taxonomy (derived from real data) ──────────────── */
+const GENRES = ['All', 'Puzzle', 'Action', 'Strategy', 'Cards', 'Music', 'Exploration', '3D', 'Sports', 'Simulation', 'Creative', 'Word'];
+
+/* ─── Carousel (3 featured slides from PREMIUM_GAMES) ──────── */
+const CAROUSEL_ITEMS = [PREMIUM_GAMES[0], PREMIUM_GAMES[3], PREMIUM_GAMES[5]]; // Busk!, Flock!, Rampartillery
+let currentSlide = 0;
+let carouselTimer = null;
+const CAROUSEL_INTERVAL = 5000;
+
+function buildCarousel() {
+  const track = document.getElementById('carouselTrack');
+  const dots = document.getElementById('carouselDots');
+
+  CAROUSEL_ITEMS.forEach((g, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'carousel-slide';
+    slide.setAttribute('role', 'tabpanel');
+    slide.setAttribute('aria-label', `${g.name} — featured game ${i+1} of ${CAROUSEL_ITEMS.length}`);
+    slide.setAttribute('aria-hidden', i !== 0 ? 'true' : 'false');
+    slide.innerHTML = `
+      <div class="slide-bg" style="background:${g.art}"></div>
+      <div class="slide-content">
+        <span class="slide-icon" aria-hidden="true">${g.icon}</span>
+        <div class="slide-tags">${g.genres.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+        <div class="slide-name">${g.name}</div>
+        <p class="slide-desc">${g.desc}</p>
+        <div class="slide-actions">
+          <a href="${g.url}" class="btn-primary" target="_blank" rel="noopener"
+             aria-label="Play ${g.name}">Play now</a>
+          <span class="slide-price">${g.price}</span>
+        </div>
+      </div>`;
+    track.appendChild(slide);
+
+    const dot = document.createElement('button');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('role', 'tab');
+    dot.setAttribute('aria-label', `Go to slide ${i+1}: ${g.name}`);
+    dot.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+    dot.addEventListener('click', () => { goToSlide(i); resetTimer(); });
+    dots.appendChild(dot);
+  });
+}
+
+function goToSlide(idx) {
+  const track = document.getElementById('carouselTrack');
+  const dots = document.getElementById('carouselDots');
+  const slides = track.querySelectorAll('.carousel-slide');
+  const dotEls = dots.querySelectorAll('.dot');
+
+  slides[currentSlide].setAttribute('aria-hidden', 'true');
+  dotEls[currentSlide].classList.remove('active');
+  dotEls[currentSlide].setAttribute('aria-selected', 'false');
+
+  currentSlide = (idx + CAROUSEL_ITEMS.length) % CAROUSEL_ITEMS.length;
+  track.style.transform = `translateX(-${currentSlide * 100}%)`;
+
+  slides[currentSlide].setAttribute('aria-hidden', 'false');
+  dotEls[currentSlide].classList.add('active');
+  dotEls[currentSlide].setAttribute('aria-selected', 'true');
+}
+
+function startTimer() {
+  const motionOK = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!motionOK) return;
+  carouselTimer = setInterval(() => goToSlide(currentSlide + 1), CAROUSEL_INTERVAL);
+}
+
+function resetTimer() {
+  clearInterval(carouselTimer);
+  startTimer();
+}
+
+// Pause on hover / focus
+const carouselWrapper = document.querySelector('.carousel-wrapper');
+if (carouselWrapper) {
+  carouselWrapper.addEventListener('mouseenter', () => clearInterval(carouselTimer));
+  carouselWrapper.addEventListener('focusin',    () => clearInterval(carouselTimer));
+  carouselWrapper.addEventListener('mouseleave', startTimer);
+  carouselWrapper.addEventListener('focusout',   startTimer);
+}
+
+/* ─── Premium cards ─────────────────────────────────────── */
+function buildPremiumGrid() {
+  const grid = document.getElementById('premiumGrid');
+  PREMIUM_GAMES.forEach(g => {
+    const card = document.createElement('a');
+    card.className = 'premium-card';
+    card.href = g.url;
+    card.target = '_blank';
+    card.rel = 'noopener';
+    card.setAttribute('role', 'listitem');
+    card.setAttribute('aria-label', `${g.name} — ${g.genres.join(', ')} — ${g.price}`);
+
+    const bg = resolveArt(g.art);
+    const artBgStyle = g.artImage
+      ? `background:${bg};background-image:url(${g.artImage});background-size:cover;background-position:center`
+      : `background:${bg}`;
+
+    card.innerHTML = `
+      ${g.isNew ? '<span class="badge-new" aria-label="New game">New</span>' : ''}
+      <div class="premium-art">
+        <div class="premium-art-bg" style="${artBgStyle}"></div>
+        <span class="premium-icon" aria-hidden="true">${g.artImage ? '' : g.icon}</span>
+      </div>
+      <div class="premium-body">
+        <div class="premium-name">${g.name}</div>
+        <p class="premium-desc">${g.desc}</p>
+        <div class="premium-footer">
+          <div class="premium-tags">${g.genres.slice(0,3).map(t => `<span class="premium-tag">${t}</span>`).join('')}</div>
+          <span class="premium-price" aria-label="Price: ${g.price}">${g.price}</span>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+/* ─── Free game grid ─────────────────────────────────────── */
+let activeFilter = 'All';
+
+function resolveArt(art) {
+  // Premium games pass a literal gradient string; free games pass an 'art-*' key
+  if (art.startsWith('linear-gradient') || art.startsWith('radial-gradient')) return art;
+  return ART_GRADIENTS[art] || ART_GRADIENTS['art-neon'];
+}
+
+function buildFilterBar() {
+  const bar = document.querySelector('.filter-bar');
+  GENRES.forEach(genre => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (genre === 'All' ? ' active' : '');
+    btn.textContent = genre;
+    btn.setAttribute('aria-pressed', genre === 'All' ? 'true' : 'false');
+    btn.addEventListener('click', () => setFilter(genre, btn));
+    bar.appendChild(btn);
+  });
+}
+
+function setFilter(genre, clickedBtn) {
+  activeFilter = genre;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-pressed', 'false');
+  });
+  clickedBtn.classList.add('active');
+  clickedBtn.setAttribute('aria-pressed', 'true');
+  renderGameGrid();
+}
+
+function renderGameGrid() {
+  const grid = document.getElementById('gameGrid');
+  const countEl = document.getElementById('gameCount');
+  grid.innerHTML = '';
+
+  const filtered = activeFilter === 'All'
+    ? FREE_GAMES
+    : FREE_GAMES.filter(g => g.genres.some(gen => gen === activeFilter));
+
+  countEl.textContent = `${filtered.length} game${filtered.length !== 1 ? 's' : ''}`;
+
+  if (filtered.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'no-results';
+    empty.textContent = 'No games in this category yet — check back soon.';
+    grid.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach(g => {
+    const card = document.createElement('a');
+    card.className = 'game-card';
+    card.href = `/play/${g.id}`;
+    card.target = '_blank';
+    card.rel = 'noopener';
+    card.setAttribute('role', 'listitem');
+    card.setAttribute('aria-label', `${g.name} — ${g.genres.join(', ')} — Free`);
+
+    const bg = resolveArt(g.art);
+    card.innerHTML = `
+      <div class="card-art">
+        <div class="card-art-bg" style="background:${bg}"></div>
+        <span class="card-icon" aria-hidden="true">${g.icon}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-name">${g.name}</div>
+        <p class="card-desc">${g.desc}</p>
+        <div class="card-footer">
+          <div class="card-tags">${g.genres.slice(0,2).map(t => `<span class="card-tag">${t}</span>`).join('')}</div>
+          <span class="card-price free" aria-label="Free">Free</span>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+/* ─── Scroll reveal ─────────────────────────────────────── */
+function setupReveal() {
+  const motionOK = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!motionOK) return;
+
+  const els = document.querySelectorAll('.reveal');
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.05 });
+
+  els.forEach(el => obs.observe(el));
+}
+
+/* ─── Init ────────────────────────────────────────────────── */
+buildCarousel();
+buildPremiumGrid();
+buildFilterBar();
+renderGameGrid();
+startTimer();
+setupReveal();
+</script>
+
+</body>
+</html>

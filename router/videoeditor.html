@@ -1,0 +1,1842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Editor — muLLM</title>
+<style>
+/* ── Design tokens ── */
+:root {
+  --bg:      #080c14;
+  --bg2:     #0f1520;
+  --bg3:     #161e2e;
+  --bg4:     #1e2940;
+  --text:    #e2e8f0;
+  --text2:   #94a3b8;
+  --text3:   #64748b;
+  --gold:    #d4af37;
+  --gold2:   #f0c857;
+  --gold-dim:#8a6f20;
+  --teal:    #14b8a6;
+  --amber:   #f59e0b;
+  --green:   #22c55e;
+  --blue:    #3b82f6;
+  --coral:   #ef6c4c;
+  --red:     #ef4444;
+  --border:  #1e2d3d;
+  --border2: #2a3a4e;
+  --radius:  8px;
+  --radius-lg: 14px;
+  --sidebar-w: 260px;
+  --gen-w:   320px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ── Nav ── */
+.nav {
+  height: 48px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  z-index: 100;
+  position: relative;
+}
+
+.logo {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.logo-mu { color: var(--gold); }
+.logo-pipe { color: var(--text3); margin: 0 1px; }
+.logo-llm { color: var(--text); }
+
+.nav-links {
+  display: flex;
+  gap: 4px;
+  margin-left: 16px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-links::-webkit-scrollbar { display: none; }
+
+.nav-links a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+}
+.nav-links a:hover { color: var(--gold); border-color: var(--border2); }
+.nav-links a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.nav-links a.active { color: var(--gold); font-weight: 600; border-color: var(--gold-dim); }
+
+.nav-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+#totalDuration {
+  font-size: 0.75rem;
+  color: var(--text2);
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#totalDuration.over { color: var(--red); border-color: var(--red); }
+
+/* ── App shell ── */
+.app {
+  display: flex;
+  height: calc(100vh - 48px);
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.22s ease, transform 0.22s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  border-right-color: transparent;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.sidebar-header h2 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.sidebar-header-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.icon-btn {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.icon-btn:hover { color: var(--gold); border-color: var(--gold-dim); background: var(--bg3); }
+.icon-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.icon-btn.active { color: var(--gold); border-color: var(--gold); background: var(--bg3); }
+
+.sidebar-gallery {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+
+.sidebar-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.gallery-item {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 52px;
+  position: relative;
+}
+.gallery-item:hover { border-color: var(--gold-dim); background: var(--bg4); }
+.gallery-item:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.gallery-thumb {
+  width: 64px;
+  height: 36px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gallery-thumb video,
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.gallery-thumb-icon {
+  font-size: 1.2rem;
+  color: var(--text3);
+}
+
+.gallery-item-info {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+.gallery-item-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gallery-item-meta {
+  font-size: 0.68rem;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.gallery-item-add {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--gold-dim);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  cursor: pointer;
+  line-height: 1;
+}
+.gallery-item:hover .gallery-item-add { background: var(--gold); color: var(--bg); }
+
+/* Hover video preview tooltip */
+.video-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  display: none;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  overflow: hidden;
+  width: 160px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.video-tooltip video {
+  width: 100%;
+  display: block;
+}
+
+/* Sidebar toggle pill */
+.sidebar-toggle {
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--text2);
+  z-index: 10;
+  transition: color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.sidebar-toggle:hover { color: var(--gold); border-color: var(--gold-dim); }
+.sidebar-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ── Center: timeline ── */
+.center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.timeline-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+
+.timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.timeline-header h2 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.timeline-hint {
+  font-size: 0.7rem;
+  color: var(--text3);
+}
+
+/* Timeline strip */
+.timeline-strip {
+  display: flex;
+  gap: 8px;
+  min-height: 110px;
+  background: var(--bg2);
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+
+.timeline-strip.drag-over {
+  border-color: var(--gold-dim);
+  background: var(--bg3);
+}
+
+.timeline-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text3);
+  font-size: 0.82rem;
+  pointer-events: none;
+}
+.timeline-empty-icon { font-size: 2rem; opacity: 0.4; }
+
+/* Clip card */
+.clip-card {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 0;
+  flex-shrink: 0;
+  width: 120px;
+  cursor: grab;
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
+  position: relative;
+  outline: none;
+}
+.clip-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.clip-card:hover { border-color: var(--gold-dim); }
+.clip-card.dragging { opacity: 0.4; cursor: grabbing; }
+.clip-card.drag-target { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(212,175,55,0.3); }
+
+.clip-thumb {
+  width: 100%;
+  height: 68px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  overflow: hidden;
+  background: var(--bg4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.clip-thumb video,
+.clip-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.clip-thumb-icon { font-size: 1.5rem; color: var(--text3); }
+
+.clip-info {
+  padding: 6px 8px;
+}
+.clip-name {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.clip-duration {
+  font-size: 0.65rem;
+  color: var(--text3);
+  margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.clip-controls {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.clip-card:hover .clip-controls,
+.clip-card:focus-within .clip-controls { opacity: 1; }
+
+.clip-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  transition: background 0.12s;
+}
+.clip-btn-remove { background: rgba(239,68,68,0.8); color: #fff; }
+.clip-btn-remove:hover { background: var(--red); }
+.clip-btn-upscale { background: rgba(212,175,55,0.7); color: var(--bg); }
+.clip-btn-upscale:hover { background: var(--gold); }
+.clip-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+/* Clip order badge */
+.clip-order {
+  position: absolute;
+  bottom: 28px;
+  left: 4px;
+  background: rgba(8,12,20,0.8);
+  color: var(--text3);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Export bar ── */
+.export-bar {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.export-bar label {
+  font-size: 0.72rem;
+  color: var(--text2);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.select-sm {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+  cursor: pointer;
+  min-height: 36px;
+}
+.select-sm:focus { border-color: var(--gold-dim); }
+.select-sm option { background: var(--bg3); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  min-height: 36px;
+  white-space: nowrap;
+}
+.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-gold {
+  background: var(--gold);
+  color: var(--bg);
+  border-color: var(--gold);
+}
+.btn-gold:hover:not(:disabled) { background: var(--gold2); border-color: var(--gold2); }
+
+.btn-outline {
+  background: transparent;
+  border-color: var(--border2);
+  color: var(--text2);
+}
+.btn-outline:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--gold); }
+
+.btn-teal {
+  background: rgba(20,184,166,0.15);
+  border-color: var(--teal);
+  color: var(--teal);
+}
+.btn-teal:hover:not(:disabled) { background: rgba(20,184,166,0.25); }
+
+.export-status {
+  font-size: 0.78rem;
+  color: var(--text2);
+  margin-left: auto;
+}
+.export-status.success { color: var(--green); }
+.export-status.error { color: var(--red); }
+.export-status.working { color: var(--amber); }
+
+/* ── Right: Generation panel ── */
+.gen-panel {
+  width: var(--gen-w);
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gen-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  min-height: 32px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tab-btn:hover { color: var(--gold); background: var(--bg3); }
+.tab-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.tab-btn.active { color: var(--gold); background: var(--bg3); }
+
+.gen-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: contents; }
+
+/* Form elements */
+.field { display: flex; flex-direction: column; gap: 5px; }
+
+.field-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+textarea.gen-input,
+input.gen-input,
+select.gen-select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 9px 11px;
+  outline: none;
+  transition: border-color 0.15s;
+  resize: vertical;
+}
+textarea.gen-input { min-height: 90px; }
+textarea.gen-input:focus,
+input.gen-input:focus,
+select.gen-select:focus { border-color: var(--gold-dim); }
+select.gen-select option { background: var(--bg3); }
+
+.duration-group {
+  display: flex;
+  gap: 6px;
+}
+
+.duration-btn {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 7px 4px;
+  transition: all 0.15s;
+  text-align: center;
+  min-height: 36px;
+}
+.duration-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+.duration-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.duration-btn.active { border-color: var(--gold); color: var(--gold); background: var(--bg4); }
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text2);
+  min-height: 36px;
+  padding: 4px 0;
+}
+.checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gold);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.gen-btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Job status in gen panel */
+.job-status {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  display: none;
+  gap: 8px;
+  flex-direction: column;
+}
+.job-status.visible { display: flex; }
+
+.job-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.job-label { color: var(--text2); }
+.job-value { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border2);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.progress-fill.indeterminate {
+  width: 33%;
+  animation: indeterminate 1.4s ease-in-out infinite;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.queued { background: var(--text3); }
+.status-dot.running { background: var(--amber); }
+.status-dot.done { background: var(--green); }
+.status-dot.error { background: var(--red); }
+
+/* Provider badges */
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.provider-badge.soon {
+  background: rgba(100,116,139,0.2);
+  color: var(--text3);
+  border: 1px solid var(--border2);
+}
+.provider-badge.live {
+  background: rgba(20,184,166,0.15);
+  color: var(--teal);
+  border: 1px solid rgba(20,184,166,0.3);
+}
+
+/* Section divider */
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+/* Notification toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 0.82rem;
+  color: var(--text);
+  z-index: 9999;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+.toast.success { border-color: var(--green); }
+.toast.error { border-color: var(--red); }
+.toast.info { border-color: var(--gold-dim); }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  .progress-fill.indeterminate { animation: none; width: 60%; }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  :root { --gen-w: 100%; --sidebar-w: 220px; }
+
+  .app { flex-direction: column; height: auto; overflow: auto; }
+  .center { height: auto; overflow: visible; }
+  .timeline-area { overflow: visible; }
+  .gen-panel {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    min-height: 400px;
+  }
+  .sidebar {
+    width: 100%;
+    max-height: 220px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar.collapsed { max-height: 0; width: 100%; }
+  .app { overflow: auto; height: auto; }
+  html, body { overflow: auto; height: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- Top nav -->
+<nav class="nav" role="navigation" aria-label="Site navigation">
+  <a href="/" class="logo" aria-label="muLLM home">
+    <span class="logo-mu">μ</span><span class="logo-pipe">|</span><span class="logo-llm">LLM</span>
+  </a>
+  <nav class="nav-links">
+    <a href="/chat">Chat</a>
+    <a href="/image">Image</a>
+    <a href="/videoeditor" class="active" aria-current="page">Video</a>
+    <a href="/studio">Studio</a>
+    <a href="/dashboard">Dashboard</a>
+  </nav>
+  <div class="nav-right">
+    <span id="totalDuration" title="Total staged duration (max 10 minutes)">0:00 / 10:00</span>
+  </div>
+</nav>
+
+<!-- App shell -->
+<div class="app">
+
+  <!-- ── Left: Gallery sidebar ── -->
+  <aside class="sidebar" id="sidebar" aria-label="Video gallery">
+    <div class="sidebar-header">
+      <h2>Gallery</h2>
+      <div class="sidebar-header-actions">
+        <button class="icon-btn" id="lockBtn" title="Lock sidebar open" aria-pressed="false" aria-label="Lock sidebar open">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="refreshGalleryBtn" title="Refresh gallery" aria-label="Refresh video gallery">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="sidebar-gallery" id="galleryList" role="list" aria-label="Saved videos">
+      <div class="sidebar-empty" id="galleryEmpty">Loading videos…</div>
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle gallery" aria-expanded="true" aria-controls="sidebar" aria-label="Toggle gallery sidebar">◀</button>
+  </aside>
+
+  <!-- ── Center: Timeline ── -->
+  <main class="center" role="main">
+    <div class="timeline-area">
+      <div class="timeline-header">
+        <h2>Timeline</h2>
+        <span class="timeline-hint">Drag to reorder · Delete key to remove · Arrow keys to shift</span>
+      </div>
+
+      <!-- Clip strip -->
+      <div class="timeline-strip" id="timelineStrip"
+           role="list" aria-label="Timeline clips"
+           tabindex="0"
+           aria-dropeffect="move">
+        <div class="timeline-empty" id="timelineEmpty" aria-hidden="true">
+          <span class="timeline-empty-icon">🎬</span>
+          <span>Add clips from the gallery or generate new ones</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export bar -->
+    <div class="export-bar" role="toolbar" aria-label="Export controls">
+      <label for="qualitySelect">Quality</label>
+      <select class="select-sm" id="qualitySelect" aria-label="Export quality preset">
+        <option value="18">High quality (x264 CRF 18)</option>
+        <option value="28">Smaller file (x264 CRF 28)</option>
+      </select>
+
+      <label for="formatSelect">Format</label>
+      <select class="select-sm" id="formatSelect" aria-label="Export format">
+        <option value="mp4">MP4</option>
+        <option value="webm">WebM</option>
+      </select>
+
+      <button class="btn btn-gold" id="exportBtn" aria-label="Export and stitch clips">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export
+      </button>
+
+      <span class="export-status" id="exportStatus" role="status" aria-live="polite"></span>
+    </div>
+  </main>
+
+  <!-- ── Right: Generation panel ── -->
+  <section class="gen-panel" aria-label="Generate new video">
+    <div class="gen-header">
+      <div class="tabs" role="tablist" aria-label="Generation type">
+        <button class="tab-btn active" id="tabLocal" role="tab" aria-selected="true" aria-controls="panelLocal">Local</button>
+        <button class="tab-btn" id="tabCloud" role="tab" aria-selected="false" aria-controls="panelCloud">Cloud</button>
+      </div>
+    </div>
+
+    <div class="gen-body">
+
+      <!-- Local tab -->
+      <div class="tab-panel active" id="panelLocal" role="tabpanel" aria-labelledby="tabLocal">
+
+        <div class="field">
+          <label class="field-label" for="localPrompt">Prompt</label>
+          <textarea class="gen-input" id="localPrompt" placeholder="A rocket launching into a starry sky…" rows="4" aria-required="true"></textarea>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="localModel">Model</label>
+          <select class="gen-select" id="localModel" aria-label="Local generation model">
+            <option value="t2v" selected>WAN2.2 T2V 14B — Text to Video</option>
+            <option value="i2v">WAN2.2 I2V 14B — Image to Video</option>
+          </select>
+        </div>
+
+        <div class="field" id="i2vOptionsRow" style="display:none">
+          <label class="checkbox-row">
+            <input type="checkbox" id="useLastFrame" aria-label="Use final frame of last staged clip as image input">
+            Use last frame of staged clip as image seed
+          </label>
+        </div>
+
+        <div class="field">
+          <span class="field-label" id="durationLabel">Duration</span>
+          <div class="duration-group" role="group" aria-labelledby="durationLabel">
+            <button class="duration-btn active" data-dur="4" aria-pressed="true">4s</button>
+            <button class="duration-btn" data-dur="8" aria-pressed="false">8s</button>
+            <button class="duration-btn" data-dur="16" aria-pressed="false">16s</button>
+          </div>
+        </div>
+
+        <div class="gen-btn-row">
+          <button class="btn btn-gold" id="generateLocalBtn" style="flex:1" aria-label="Generate video locally">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Generate
+          </button>
+        </div>
+
+        <!-- Job progress -->
+        <div class="job-status" id="localJobStatus" role="status" aria-live="polite" aria-label="Generation job status">
+          <div class="job-status-row">
+            <span class="job-label">Status</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="status-dot queued" id="localStatusDot"></span>
+              <span class="job-value" id="localStatusText">Queued</span>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill indeterminate" id="localProgressFill"></div>
+          </div>
+          <div class="job-status-row">
+            <span class="job-label">Elapsed</span>
+            <span class="job-value" id="localElapsed">0s</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Cloud tab -->
+      <div class="tab-panel" id="panelCloud" role="tabpanel" aria-labelledby="tabCloud">
+
+        <div class="field">
+          <label class="field-label" for="cloudPrompt">Prompt</label>
+          <textarea class="gen-input" id="cloudPrompt" placeholder="An aerial view of a city at night…" rows="4" aria-required="true"></textarea>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="cloudProvider">Provider</label>
+          <select class="gen-select" id="cloudProvider" aria-label="Cloud provider">
+            <option value="kling">Kling 3.1</option>
+            <option value="seedance">Seedance 2</option>
+            <option value="veo">Veo 3 (requires key)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <span class="field-label" id="cloudDurationLabel">Duration</span>
+          <div class="duration-group" role="group" aria-labelledby="cloudDurationLabel">
+            <button class="duration-btn active" data-cloud-dur="4" aria-pressed="true">4s</button>
+            <button class="duration-btn" data-cloud-dur="8" aria-pressed="false">8s</button>
+            <button class="duration-btn" data-cloud-dur="16" aria-pressed="false">16s</button>
+          </div>
+        </div>
+
+        <div style="padding:6px 0">
+          <span class="provider-badge live">Live: Kling · Seedance</span>
+          &nbsp;
+          <span class="provider-badge soon">Veo 3: provider gated</span>
+        </div>
+
+        <div class="gen-btn-row">
+          <button class="btn btn-teal" id="generateCloudBtn" style="flex:1" aria-label="Generate video via cloud provider">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+            </svg>
+            Generate via Cloud
+          </button>
+        </div>
+
+        <!-- Cloud job progress -->
+        <div class="job-status" id="cloudJobStatus" role="status" aria-live="polite" aria-label="Cloud generation job status">
+          <div class="job-status-row">
+            <span class="job-label">Status</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="status-dot queued" id="cloudStatusDot"></span>
+              <span class="job-value" id="cloudStatusText">Queued</span>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill indeterminate" id="cloudProgressFill"></div>
+          </div>
+          <div class="job-status-row">
+            <span class="job-label">Elapsed</span>
+            <span class="job-value" id="cloudElapsed">0s</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- /gen-body -->
+  </section>
+
+</div><!-- /app -->
+
+<!-- Hover video preview tooltip -->
+<div class="video-tooltip" id="videoTooltip" aria-hidden="true">
+  <video id="tooltipVideo" muted autoplay loop playsinline></video>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+<script>
+'use strict';
+
+const API = window.location.origin;
+
+// ── State ───────────────────────────────────────────────────────────────────
+const state = {
+  clips: [],          // {id, filename, url, thumbnailUrl, duration, prompt}
+  gallery: [],        // same shape
+  sidebarLocked: false,
+  sidebarOpen: true,
+  localDuration: 4,
+  cloudDuration: 4,
+  dragSrc: null,
+  localJobId: null,
+  localPollTimer: null,
+  cloudJobId: null,
+  cloudPollTimer: null,
+};
+
+const MAX_DURATION_S = 600; // 10 minutes
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const sidebar = $('sidebar');
+const sidebarToggle = $('sidebarToggle');
+const lockBtn = $('lockBtn');
+const galleryList = $('galleryList');
+const galleryEmpty = $('galleryEmpty');
+const timelineStrip = $('timelineStrip');
+const timelineEmpty = $('timelineEmpty');
+const totalDurationEl = $('totalDuration');
+const exportBtn = $('exportBtn');
+const exportStatus = $('exportStatus');
+const qualitySelect = $('qualitySelect');
+const formatSelect = $('formatSelect');
+const localModel = $('localModel');
+const i2vOptionsRow = $('i2vOptionsRow');
+const toast = $('toast');
+const videoTooltip = $('videoTooltip');
+const tooltipVideo = $('tooltipVideo');
+
+// ── Utility ──────────────────────────────────────────────────────────────────
+function fmtSeconds(s) {
+  if (typeof s !== 'number' || isNaN(s)) return '?:??';
+  const m = Math.floor(s / 60);
+  const sec = Math.round(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+let toastTimer = null;
+function showToast(msg, type = 'info', ms = 3200) {
+  toast.textContent = msg;
+  toast.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.className = 'toast'; }, ms);
+}
+
+function totalStagedSeconds() {
+  return state.clips.reduce((acc, c) => acc + (c.duration || 0), 0);
+}
+
+function updateDurationDisplay() {
+  const total = totalStagedSeconds();
+  const over = total > MAX_DURATION_S;
+  totalDurationEl.textContent = `${fmtSeconds(total)} / 10:00`;
+  totalDurationEl.classList.toggle('over', over);
+  exportBtn.disabled = state.clips.length === 0 || over;
+}
+
+// ── Sidebar toggle ────────────────────────────────────────────────────────────
+function setSidebarOpen(open) {
+  state.sidebarOpen = open;
+  sidebar.classList.toggle('collapsed', !open);
+  sidebarToggle.textContent = open ? '◀' : '▶';
+  sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  sidebarToggle.title = open ? 'Close gallery' : 'Open gallery';
+}
+
+sidebarToggle.addEventListener('click', () => {
+  if (state.sidebarLocked) return;
+  setSidebarOpen(!state.sidebarOpen);
+});
+
+lockBtn.addEventListener('click', () => {
+  state.sidebarLocked = !state.sidebarLocked;
+  lockBtn.classList.toggle('active', state.sidebarLocked);
+  lockBtn.setAttribute('aria-pressed', state.sidebarLocked ? 'true' : 'false');
+  lockBtn.title = state.sidebarLocked ? 'Unlock sidebar' : 'Lock sidebar open';
+  if (state.sidebarLocked) setSidebarOpen(true);
+});
+
+// ── Gallery ───────────────────────────────────────────────────────────────────
+async function loadGallery() {
+  galleryEmpty.textContent = 'Loading…';
+  try {
+    const r = await fetch(`${API}/api/video/list`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    state.gallery = (data.videos || []).map(normalizeVideo);
+    renderGallery();
+  } catch (err) {
+    galleryEmpty.textContent = 'Could not load gallery. Is the server running?';
+    console.error('[videoeditor] gallery load failed:', err);
+  }
+}
+
+function normalizeVideo(v) {
+  return {
+    id: v.job_id || v.filename || v.url,
+    filename: v.filename || v.url.split('/').pop(),
+    url: v.url.startsWith('http') ? v.url : `${API}${v.url}`,
+    thumbnailUrl: v.thumbnail_url ? (v.thumbnail_url.startsWith('http') ? v.thumbnail_url : `${API}${v.thumbnail_url}`) : null,
+    duration: v.duration_seconds || v.duration || null,
+    prompt: v.prompt || '',
+    createdAt: v.created_at || '',
+  };
+}
+
+function renderGallery() {
+  // Clear existing items (not the empty placeholder)
+  const existing = galleryList.querySelectorAll('.gallery-item');
+  existing.forEach(el => el.remove());
+
+  if (state.gallery.length === 0) {
+    galleryEmpty.style.display = '';
+    galleryEmpty.textContent = 'No videos yet. Generate one!';
+    return;
+  }
+  galleryEmpty.style.display = 'none';
+
+  state.gallery.forEach(video => {
+    const item = buildGalleryItem(video);
+    galleryList.appendChild(item);
+  });
+}
+
+function buildGalleryItem(video) {
+  const item = document.createElement('div');
+  item.className = 'gallery-item';
+  item.setAttribute('role', 'listitem');
+  item.setAttribute('tabindex', '0');
+  item.setAttribute('aria-label', `${video.filename} — click to add to timeline`);
+  item.dataset.id = video.id;
+
+  const thumbEl = document.createElement('div');
+  thumbEl.className = 'gallery-thumb';
+  if (video.thumbnailUrl) {
+    const img = document.createElement('img');
+    img.src = video.thumbnailUrl;
+    img.alt = '';
+    img.loading = 'lazy';
+    thumbEl.appendChild(img);
+  } else {
+    thumbEl.innerHTML = '<span class="gallery-thumb-icon" aria-hidden="true">🎬</span>';
+  }
+
+  const info = document.createElement('div');
+  info.className = 'gallery-item-info';
+  const name = document.createElement('div');
+  name.className = 'gallery-item-name';
+  name.textContent = video.filename;
+  const meta = document.createElement('div');
+  meta.className = 'gallery-item-meta';
+  meta.textContent = video.duration ? fmtSeconds(video.duration) : (video.prompt ? video.prompt.slice(0, 30) : '');
+  info.appendChild(name);
+  info.appendChild(meta);
+
+  const addBtn = document.createElement('div');
+  addBtn.className = 'gallery-item-add';
+  addBtn.setAttribute('aria-hidden', 'true');
+  addBtn.textContent = '+';
+
+  item.appendChild(thumbEl);
+  item.appendChild(info);
+  item.appendChild(addBtn);
+
+  // Hover: show video preview tooltip
+  item.addEventListener('mouseenter', (e) => showVideoTooltip(video.url, e));
+  item.addEventListener('mousemove', (e) => moveVideoTooltip(e));
+  item.addEventListener('mouseleave', hideVideoTooltip);
+
+  // Click / keyboard: add to timeline
+  item.addEventListener('click', () => addClipToTimeline(video));
+  item.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      addClipToTimeline(video);
+    }
+  });
+
+  return item;
+}
+
+// ── Video tooltip ─────────────────────────────────────────────────────────────
+let tooltipHideTimer = null;
+function showVideoTooltip(url, e) {
+  clearTimeout(tooltipHideTimer);
+  tooltipVideo.src = url;
+  tooltipVideo.load();
+  tooltipVideo.play().catch(() => {});
+  videoTooltip.style.display = 'block';
+  moveVideoTooltip(e);
+}
+function moveVideoTooltip(e) {
+  const x = Math.min(e.clientX + 12, window.innerWidth - 172);
+  const y = Math.min(e.clientY + 12, window.innerHeight - 90);
+  videoTooltip.style.left = x + 'px';
+  videoTooltip.style.top = y + 'px';
+}
+function hideVideoTooltip() {
+  tooltipHideTimer = setTimeout(() => {
+    videoTooltip.style.display = 'none';
+    tooltipVideo.pause();
+    tooltipVideo.src = '';
+  }, 100);
+}
+
+// ── Timeline ──────────────────────────────────────────────────────────────────
+function addClipToTimeline(video) {
+  if (state.clips.length >= 50) {
+    showToast('Timeline full (50 clips max)', 'error');
+    return;
+  }
+  const existing = totalStagedSeconds();
+  const clipDur = video.duration || 4;
+  if (existing + clipDur > MAX_DURATION_S) {
+    showToast('Adding this clip would exceed 10 minutes total', 'error');
+    return;
+  }
+  const clip = { ...video, _uid: Date.now() + Math.random() };
+  state.clips.push(clip);
+  renderTimeline();
+  updateDurationDisplay();
+  showToast(`Added: ${video.filename}`, 'success', 1800);
+}
+
+function removeClip(uid) {
+  state.clips = state.clips.filter(c => c._uid !== uid);
+  renderTimeline();
+  updateDurationDisplay();
+}
+
+function moveClip(fromIdx, toIdx) {
+  if (fromIdx === toIdx) return;
+  const [item] = state.clips.splice(fromIdx, 1);
+  state.clips.splice(toIdx, 0, item);
+  renderTimeline();
+}
+
+function renderTimeline() {
+  // Remove existing clip cards
+  const existing = timelineStrip.querySelectorAll('.clip-card');
+  existing.forEach(el => el.remove());
+
+  const isEmpty = state.clips.length === 0;
+  timelineEmpty.style.display = isEmpty ? '' : 'none';
+  timelineEmpty.setAttribute('aria-hidden', isEmpty ? 'false' : 'true');
+
+  state.clips.forEach((clip, idx) => {
+    const card = buildClipCard(clip, idx);
+    timelineStrip.appendChild(card);
+  });
+}
+
+function buildClipCard(clip, idx) {
+  const card = document.createElement('div');
+  card.className = 'clip-card';
+  card.setAttribute('role', 'listitem');
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('draggable', 'true');
+  card.setAttribute('aria-label', `Clip ${idx + 1}: ${clip.filename}. Press Delete to remove, Arrow keys to reorder.`);
+  card.dataset.uid = clip._uid;
+  card.dataset.idx = idx;
+
+  const thumb = document.createElement('div');
+  thumb.className = 'clip-thumb';
+  if (clip.thumbnailUrl) {
+    const img = document.createElement('img');
+    img.src = clip.thumbnailUrl;
+    img.alt = '';
+    img.loading = 'lazy';
+    thumb.appendChild(img);
+  } else {
+    thumb.innerHTML = '<span class="clip-thumb-icon" aria-hidden="true">🎬</span>';
+  }
+
+  const order = document.createElement('div');
+  order.className = 'clip-order';
+  order.textContent = `#${idx + 1}`;
+  order.setAttribute('aria-hidden', 'true');
+
+  const info = document.createElement('div');
+  info.className = 'clip-info';
+  const name = document.createElement('div');
+  name.className = 'clip-name';
+  name.textContent = clip.filename;
+  const dur = document.createElement('div');
+  dur.className = 'clip-duration';
+  dur.textContent = clip.duration ? fmtSeconds(clip.duration) : 'unknown duration';
+  info.appendChild(name);
+  info.appendChild(dur);
+
+  const controls = document.createElement('div');
+  controls.className = 'clip-controls';
+
+  const upscaleBtn = document.createElement('button');
+  upscaleBtn.className = 'clip-btn clip-btn-upscale';
+  upscaleBtn.title = 'Upscale clip';
+  upscaleBtn.setAttribute('aria-label', `Upscale clip ${idx + 1}`);
+  upscaleBtn.innerHTML = '&#8679;';
+  upscaleBtn.addEventListener('click', (e) => { e.stopPropagation(); upscaleClip(clip); });
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'clip-btn clip-btn-remove';
+  removeBtn.title = 'Remove clip';
+  removeBtn.setAttribute('aria-label', `Remove clip ${idx + 1} from timeline`);
+  removeBtn.innerHTML = '&times;';
+  removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeClip(clip._uid); });
+
+  controls.appendChild(upscaleBtn);
+  controls.appendChild(removeBtn);
+
+  card.appendChild(thumb);
+  card.appendChild(order);
+  card.appendChild(info);
+  card.appendChild(controls);
+
+  // Keyboard navigation
+  card.addEventListener('keydown', (e) => {
+    const curIdx = state.clips.findIndex(c => c._uid === clip._uid);
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      removeClip(clip._uid);
+      // Focus next available clip or strip
+      const cards = timelineStrip.querySelectorAll('.clip-card');
+      if (cards[Math.min(curIdx, cards.length - 1)]) {
+        cards[Math.min(curIdx, cards.length - 1)].focus();
+      } else {
+        timelineStrip.focus();
+      }
+    } else if (e.key === 'ArrowLeft' && curIdx > 0) {
+      e.preventDefault();
+      moveClip(curIdx, curIdx - 1);
+      requestAnimationFrame(() => {
+        const cards = timelineStrip.querySelectorAll('.clip-card');
+        if (cards[curIdx - 1]) cards[curIdx - 1].focus();
+      });
+    } else if (e.key === 'ArrowRight' && curIdx < state.clips.length - 1) {
+      e.preventDefault();
+      moveClip(curIdx, curIdx + 1);
+      requestAnimationFrame(() => {
+        const cards = timelineStrip.querySelectorAll('.clip-card');
+        if (cards[curIdx + 1]) cards[curIdx + 1].focus();
+      });
+    }
+  });
+
+  // Drag-and-drop
+  card.addEventListener('dragstart', (e) => {
+    state.dragSrc = idx;
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(idx));
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    timelineStrip.querySelectorAll('.clip-card').forEach(c => c.classList.remove('drag-target'));
+  });
+  card.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    timelineStrip.querySelectorAll('.clip-card').forEach(c => c.classList.remove('drag-target'));
+    card.classList.add('drag-target');
+  });
+  card.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+    const to = parseInt(card.dataset.idx, 10);
+    if (!isNaN(from) && !isNaN(to)) moveClip(from, to);
+    card.classList.remove('drag-target');
+    state.dragSrc = null;
+  });
+
+  return card;
+}
+
+// Timeline strip drag-over highlight
+timelineStrip.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  timelineStrip.classList.add('drag-over');
+});
+timelineStrip.addEventListener('dragleave', () => timelineStrip.classList.remove('drag-over'));
+timelineStrip.addEventListener('drop', () => timelineStrip.classList.remove('drag-over'));
+
+// ── Export ────────────────────────────────────────────────────────────────────
+exportBtn.addEventListener('click', async () => {
+  if (state.clips.length === 0) return;
+  const total = totalStagedSeconds();
+  if (total > MAX_DURATION_S) {
+    showToast('Total duration exceeds 10 minutes — remove clips', 'error');
+    return;
+  }
+
+  exportBtn.disabled = true;
+  exportStatus.textContent = 'Stitching…';
+  exportStatus.className = 'export-status working';
+
+  const body = {
+    clips: state.clips.map(c => ({ url: c.url, filename: c.filename })),
+    quality: qualitySelect.value,
+    format: formatSelect.value,
+  };
+
+  try {
+    const r = await fetch(`${API}/api/video/stitch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (r.status === 404) {
+      exportStatus.textContent = 'Stitch requires adapter';
+      exportStatus.className = 'export-status error';
+      showToast('Stitch endpoint requires the video adapter', 'error');
+      return;
+    }
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+      throw new Error(err.error || `HTTP ${r.status}`);
+    }
+
+    const data = await r.json();
+    if (data.url || data.output_url) {
+      const downloadUrl = data.url || data.output_url;
+      const abs = downloadUrl.startsWith('http') ? downloadUrl : `${API}${downloadUrl}`;
+      exportStatus.innerHTML = `<a href="${abs}" download style="color:var(--green);font-weight:600;">Download ready ↓</a>`;
+      exportStatus.className = 'export-status success';
+      showToast('Export ready — click Download', 'success', 5000);
+    } else if (data.job_id) {
+      exportStatus.textContent = 'Processing…';
+      pollStitch(data.job_id);
+    } else {
+      throw new Error('No download URL in response');
+    }
+  } catch (err) {
+    exportStatus.textContent = `Error: ${err.message}`;
+    exportStatus.className = 'export-status error';
+    showToast(`Export failed: ${err.message}`, 'error');
+  } finally {
+    exportBtn.disabled = state.clips.length === 0;
+  }
+});
+
+async function pollStitch(jobId) {
+  let attempts = 0;
+  const tick = async () => {
+    try {
+      const r = await fetch(`${API}/api/video/${jobId}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      if (data.status === 'done' && data.output_url) {
+        const abs = data.output_url.startsWith('http') ? data.output_url : `${API}${data.output_url}`;
+        exportStatus.innerHTML = `<a href="${abs}" download style="color:var(--green);font-weight:600;">Download ready ↓</a>`;
+        exportStatus.className = 'export-status success';
+        showToast('Stitch complete!', 'success', 4000);
+      } else if (data.status === 'error') {
+        exportStatus.textContent = `Stitch failed: ${data.error || 'unknown'}`;
+        exportStatus.className = 'export-status error';
+      } else {
+        if (++attempts < 120) setTimeout(tick, 3000);
+        else { exportStatus.textContent = 'Timed out'; exportStatus.className = 'export-status error'; }
+      }
+    } catch (err) {
+      exportStatus.textContent = `Poll error: ${err.message}`;
+      exportStatus.className = 'export-status error';
+    }
+  };
+  tick();
+}
+
+// ── Upscale ───────────────────────────────────────────────────────────────────
+async function upscaleClip(clip) {
+  showToast(`Upscaling ${clip.filename}…`, 'info', 10000);
+  try {
+    const r = await fetch(`${API}/api/video/upscale`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: clip.url, resolution: '4k' }),
+    });
+    if (r.status === 404) { showToast('Upscale requires adapter', 'error'); return; }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (data.job_id) {
+      showToast('Upscale queued — will appear in gallery when done', 'success', 4000);
+      pollUntilDone(data.job_id, () => loadGallery());
+    } else {
+      showToast('Upscale submitted', 'success', 2000);
+    }
+  } catch (err) {
+    showToast(`Upscale error: ${err.message}`, 'error');
+  }
+}
+
+async function pollUntilDone(jobId, onDone) {
+  let attempts = 0;
+  const tick = async () => {
+    try {
+      const r = await fetch(`${API}/api/video/${jobId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.status === 'done') { onDone(data); }
+      else if (data.status !== 'error' && ++attempts < 120) setTimeout(tick, 3000);
+    } catch (_) {}
+  };
+  tick();
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+$('tabLocal').addEventListener('click', () => switchTab('local'));
+$('tabCloud').addEventListener('click', () => switchTab('cloud'));
+
+function switchTab(which) {
+  $('tabLocal').classList.toggle('active', which === 'local');
+  $('tabCloud').classList.toggle('active', which === 'cloud');
+  $('tabLocal').setAttribute('aria-selected', which === 'local' ? 'true' : 'false');
+  $('tabCloud').setAttribute('aria-selected', which === 'cloud' ? 'true' : 'false');
+  $('panelLocal').classList.toggle('active', which === 'local');
+  $('panelCloud').classList.toggle('active', which === 'cloud');
+}
+
+// ── Model mode (T2V / I2V) ────────────────────────────────────────────────────
+localModel.addEventListener('change', () => {
+  i2vOptionsRow.style.display = localModel.value === 'i2v' ? '' : 'none';
+});
+
+// ── Duration buttons ──────────────────────────────────────────────────────────
+document.querySelectorAll('[data-dur]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-dur]').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
+    state.localDuration = parseInt(btn.dataset.dur, 10);
+  });
+});
+
+document.querySelectorAll('[data-cloud-dur]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-cloud-dur]').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
+    state.cloudDuration = parseInt(btn.getAttribute('data-cloud-dur'), 10);
+  });
+});
+
+// ── Local generation ──────────────────────────────────────────────────────────
+$('generateLocalBtn').addEventListener('click', async () => {
+  const prompt = $('localPrompt').value.trim();
+  if (!prompt) { showToast('Enter a prompt first', 'error'); $('localPrompt').focus(); return; }
+
+  const btn = $('generateLocalBtn');
+  btn.disabled = true;
+
+  const body = {
+    prompt,
+    duration: state.localDuration,
+    duration_seconds: state.localDuration,
+    mode: localModel.value,
+    resolution: '720p',
+  };
+  if (localModel.value === 'i2v' && $('useLastFrame').checked) {
+    body.use_last_frame = true;
+    if (state.clips.length > 0) {
+      body.source_url = state.clips[state.clips.length - 1].url;
+    }
+  }
+
+  showJobStatus('local', 'queued', 0);
+
+  try {
+    const r = await fetch(`${API}/api/video`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+      throw new Error(err.error || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    if (!data.job_id) throw new Error('No job_id in response');
+
+    state.localJobId = data.job_id;
+    showJobStatus('local', 'running', 0);
+    startPolling('local', data.job_id);
+    showToast('Generation started!', 'success', 2000);
+  } catch (err) {
+    showJobStatus('local', 'error', 0, err.message);
+    showToast(`Generation failed: ${err.message}`, 'error');
+    btn.disabled = false;
+  }
+});
+
+// ── Cloud generation ──────────────────────────────────────────────────────────
+$('generateCloudBtn').addEventListener('click', async () => {
+  const prompt = $('cloudPrompt').value.trim();
+  if (!prompt) { showToast('Enter a prompt first', 'error'); $('cloudPrompt').focus(); return; }
+
+  const provider = $('cloudProvider').value;
+  if (provider === 'veo') {
+    showToast('Veo 3 requires provider setup — try Kling or Seedance', 'info');
+    return;
+  }
+
+  const btn = $('generateCloudBtn');
+  btn.disabled = true;
+
+  const body = {
+    prompt,
+    provider,
+    duration: state.cloudDuration,
+    duration_seconds: state.cloudDuration,
+    mode: 't2v',
+    resolution: '720p',
+  };
+
+  showJobStatus('cloud', 'queued', 0);
+
+  try {
+    const r = await fetch(`${API}/api/video`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (r.status === 404) {
+      showJobStatus('cloud', 'error', 0, 'Cloud requires adapter');
+      showToast('Cloud generation requires adapter', 'error');
+      btn.disabled = false;
+      return;
+    }
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+      throw new Error(err.error || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    if (!data.job_id) throw new Error('No job_id in response');
+
+    state.cloudJobId = data.job_id;
+    showJobStatus('cloud', 'running', 0);
+    startPolling('cloud', data.job_id);
+    showToast('Cloud generation queued!', 'success', 2000);
+  } catch (err) {
+    showJobStatus('cloud', 'error', 0, err.message);
+    showToast(`Cloud generation failed: ${err.message}`, 'error');
+    btn.disabled = false;
+  }
+});
+
+// ── Job polling ───────────────────────────────────────────────────────────────
+function showJobStatus(channel, status, elapsed, errMsg) {
+  const el = $(`${channel}JobStatus`);
+  const dot = $(`${channel}StatusDot`);
+  const text = $(`${channel}StatusText`);
+  const fill = $(`${channel}ProgressFill`);
+  const elapsedEl = $(`${channel}Elapsed`);
+
+  el.classList.add('visible');
+  dot.className = `status-dot ${status}`;
+  text.textContent = errMsg || (status === 'queued' ? 'Queued' : status === 'running' ? 'Generating…' : status === 'done' ? 'Done' : 'Error');
+  elapsedEl.textContent = `${elapsed}s`;
+
+  fill.classList.toggle('indeterminate', status === 'running' || status === 'queued');
+  if (status === 'done') fill.style.width = '100%';
+  if (status === 'error') fill.style.width = '0%';
+}
+
+function startPolling(channel, jobId) {
+  if (state[`${channel}PollTimer`]) clearInterval(state[`${channel}PollTimer`]);
+  const startTime = Date.now();
+
+  const tick = async () => {
+    try {
+      const r = await fetch(`${API}/api/video/${jobId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+
+      if (data.status === 'done') {
+        clearInterval(state[`${channel}PollTimer`]);
+        state[`${channel}PollTimer`] = null;
+        showJobStatus(channel, 'done', elapsed);
+        $(`${channel === 'local' ? 'generateLocalBtn' : 'generateCloudBtn'}`).disabled = false;
+
+        // Refresh gallery and auto-add to timeline
+        await loadGallery();
+        if (data.output_url) {
+          const newClip = state.gallery.find(v => v.url.includes(jobId)) || {
+            id: jobId,
+            filename: data.output_url.split('/').pop(),
+            url: data.output_url.startsWith('http') ? data.output_url : `${API}${data.output_url}`,
+            thumbnailUrl: null,
+            duration: data.duration || state[`${channel}Duration`] || 4,
+            prompt: data.prompt || '',
+          };
+          addClipToTimeline(newClip);
+          showToast('New clip added to timeline!', 'success', 3000);
+        }
+      } else if (data.status === 'error') {
+        clearInterval(state[`${channel}PollTimer`]);
+        state[`${channel}PollTimer`] = null;
+        showJobStatus(channel, 'error', elapsed, data.error || 'Unknown error');
+        $(`${channel === 'local' ? 'generateLocalBtn' : 'generateCloudBtn'}`).disabled = false;
+        showToast(`Generation failed: ${data.error || 'unknown'}`, 'error');
+      } else {
+        showJobStatus(channel, 'running', elapsed);
+      }
+    } catch (err) {
+      console.error('[videoeditor] poll error:', err);
+    }
+  };
+
+  state[`${channel}PollTimer`] = setInterval(tick, 3000);
+  tick();
+}
+
+// ── Gallery refresh button ────────────────────────────────────────────────────
+$('refreshGalleryBtn').addEventListener('click', () => {
+  showToast('Refreshing gallery…', 'info', 1500);
+  loadGallery();
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+updateDurationDisplay();
+renderTimeline();
+loadGallery();
+</script>
+</body>
+</html>

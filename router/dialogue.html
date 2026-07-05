@@ -1,0 +1,2164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>mu|LLM — Dialogue Tree Editor</title>
+  <meta name="description" content="Visual node-based dialogue tree editor for game narrative — built by muLLM." />
+  <meta name="theme-color" content="#0a0a1a" media="(prefers-color-scheme: dark)" />
+  <style>
+    /* ── Reset & Tokens ──────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:       #0a0a1a;
+      --bg2:      #0f0f2a;
+      --bg3:      #141428;
+      --bg4:      #1a1a38;
+      --border:   #1e1e3a;
+      --border2:  #2a2a4a;
+      --teal:     #00bfa5;
+      --teal-dim: #007a6a;
+      --coral:    #ff6b6b;
+      --coral-dim:#9a3030;
+      --amber:    #f59e0b;
+      --purple:   #a78bfa;
+      --green:    #22c55e;
+      --blue:     #3b82f6;
+      --text:     #e2e8f0;
+      --text2:    #94a3b8;
+      --text3:    #5a6a7a;
+      --mono:     "JetBrains Mono", "Fira Code", monospace;
+      --sans:     "Inter", -apple-system, sans-serif;
+
+      /* Node type colors */
+      --node-npc:       #00bfa5;
+      --node-choice:    #a78bfa;
+      --node-condition: #f59e0b;
+      --node-action:    #3b82f6;
+      --node-end:       #ff6b6b;
+
+      color-scheme: dark;
+    }
+    [data-theme="light"] {
+      --bg:      #f0f4ff;
+      --bg2:     #e8edf8;
+      --bg3:     #dce3f0;
+      --bg4:     #d0d8ed;
+      --border:  #c5cfe0;
+      --border2: #aab8ce;
+      --teal:    #007a6a;
+      --teal-dim:#004d42;
+      --coral:   #c0392b;
+      --text:    #0f1730;
+      --text2:   #3a4a5e;
+      --text3:   #6a7a8e;
+      color-scheme: light;
+    }
+
+    /* ── Accessibility ── */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--teal); color: #000;
+      padding: 8px 16px; z-index: 10000;
+      font-weight: 600; border-radius: 0 0 8px 0;
+      transition: top 0.2s; font-family: var(--mono); font-size: 13px;
+    }
+    .skip-link:focus { top: 0; }
+    *:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+    /* ── Layout ── */
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); height: 100vh;
+      overflow: hidden; display: flex; flex-direction: column;
+    }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* ── Topbar ── */
+    #topbar {
+      background: rgba(10, 10, 26, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 12px; display: flex;
+      align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 13px;
+      height: 42px; flex-shrink: 0; z-index: 200;
+      flex-wrap: nowrap; overflow: hidden;
+    }
+    .logo {
+      font-weight: 700; font-size: 14px;
+      color: var(--teal); text-decoration: none;
+      text-shadow: 0 0 12px rgba(0,191,165,0.4);
+      display: flex; align-items: center; gap: 0;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .logo-mu {
+      color: var(--amber);
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 18px; font-style: italic; line-height: 14px;
+    }
+    .logo-pipe { color: var(--text3); font-size: 20px; line-height: 14px; opacity: 0.5; }
+    .topbar-title {
+      color: var(--text2); font-size: 12px; letter-spacing: 1px;
+      text-transform: uppercase; flex-shrink: 0;
+    }
+    .topbar-spacer { flex: 1; }
+
+    /* ── Toolbar buttons ── */
+    .tb-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--bg3); color: var(--text2);
+      font-size: 12px; font-family: var(--mono); white-space: nowrap;
+      transition: all 0.15s; min-height: 30px;
+    }
+    .tb-btn:hover { border-color: var(--teal); color: var(--teal); }
+    .tb-btn.active { background: var(--teal); border-color: var(--teal); color: #000; font-weight: 700; }
+    .tb-btn.danger:hover { border-color: var(--coral); color: var(--coral); }
+    .tb-btn svg { flex-shrink: 0; }
+    .tb-sep {
+      width: 1px; height: 22px; background: var(--border);
+      flex-shrink: 0;
+    }
+
+    /* ── Tree name input ── */
+    #tree-name-input {
+      background: transparent; border: none; border-bottom: 1px solid var(--border2);
+      color: var(--text); font-family: var(--mono); font-size: 13px;
+      padding: 2px 6px; width: 180px; min-width: 80px;
+    }
+    #tree-name-input:focus { outline: none; border-bottom-color: var(--teal); }
+
+    /* ── Main editor body ── */
+    #editor-body {
+      flex: 1; display: flex; overflow: hidden;
+    }
+
+    /* ── Left sidebar: Palette ── */
+    #palette {
+      width: 140px; flex-shrink: 0;
+      background: var(--bg2); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow-y: auto; overflow-x: hidden;
+    }
+    .palette-title {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: var(--text3); padding: 10px 12px 6px;
+    }
+    .palette-node {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; cursor: grab; user-select: none;
+      font-size: 12px; border-radius: 0;
+      transition: background 0.12s;
+      min-height: 44px;
+      border-left: 3px solid transparent;
+    }
+    .palette-node:hover { background: var(--bg3); }
+    .palette-node:active { cursor: grabbing; }
+    .palette-node-icon {
+      width: 22px; height: 22px; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; flex-shrink: 0;
+    }
+    .palette-node[data-type="npc"]       { border-left-color: var(--node-npc); }
+    .palette-node[data-type="choice"]    { border-left-color: var(--node-choice); }
+    .palette-node[data-type="condition"] { border-left-color: var(--node-condition); }
+    .palette-node[data-type="action"]    { border-left-color: var(--node-action); }
+    .palette-node[data-type="end"]       { border-left-color: var(--node-end); }
+    .palette-node[data-type="npc"]       .palette-node-icon { background: rgba(0,191,165,0.2); color: var(--node-npc); }
+    .palette-node[data-type="choice"]    .palette-node-icon { background: rgba(167,139,250,0.2); color: var(--node-choice); }
+    .palette-node[data-type="condition"] .palette-node-icon { background: rgba(245,158,11,0.2); color: var(--node-condition); }
+    .palette-node[data-type="action"]    .palette-node-icon { background: rgba(59,130,246,0.2); color: var(--node-action); }
+    .palette-node[data-type="end"]       .palette-node-icon { background: rgba(255,107,107,0.2); color: var(--node-end); }
+    .palette-node-label { color: var(--text2); font-size: 11px; line-height: 1.3; }
+
+    /* ── Canvas area ── */
+    #canvas-wrap {
+      flex: 1; position: relative; overflow: hidden;
+      background:
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0 / 24px 24px,
+        var(--bg);
+      cursor: default;
+    }
+    #canvas-wrap.panning { cursor: grabbing; }
+    #canvas-wrap.connecting { cursor: crosshair; }
+    #canvas-svg {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; overflow: visible;
+    }
+    #canvas-nodes {
+      position: absolute; top: 0; left: 0;
+      transform-origin: 0 0;
+      /* JS applies: transform: translate(panX, panY) scale(zoom) */
+    }
+
+    /* ── Dialogue node cards ── */
+    .d-node {
+      position: absolute; width: 200px;
+      background: var(--bg2); border: 2px solid var(--border2);
+      border-radius: 10px; font-size: 12px;
+      cursor: default; user-select: none;
+      transition: box-shadow 0.15s, border-color 0.15s;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .d-node:hover { border-color: var(--border2); box-shadow: 0 6px 24px rgba(0,0,0,0.6); }
+    .d-node.selected { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(0,191,165,0.3), 0 6px 24px rgba(0,0,0,0.6); }
+    .d-node.start-node { box-shadow: 0 0 0 3px rgba(0,191,165,0.4), 0 6px 24px rgba(0,0,0,0.6); }
+    .d-node.visited-node { opacity: 0.6; }
+    .d-node.current-node { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,158,11,0.4); }
+
+    .d-node-header {
+      padding: 7px 10px 5px;
+      border-radius: 8px 8px 0 0;
+      display: flex; align-items: center; gap: 6px;
+      cursor: move;
+    }
+    .d-node[data-type="npc"]       .d-node-header { background: rgba(0,191,165,0.15); border-bottom: 1px solid rgba(0,191,165,0.2); }
+    .d-node[data-type="choice"]    .d-node-header { background: rgba(167,139,250,0.15); border-bottom: 1px solid rgba(167,139,250,0.2); }
+    .d-node[data-type="condition"] .d-node-header { background: rgba(245,158,11,0.15); border-bottom: 1px solid rgba(245,158,11,0.2); }
+    .d-node[data-type="action"]    .d-node-header { background: rgba(59,130,246,0.15); border-bottom: 1px solid rgba(59,130,246,0.2); }
+    .d-node[data-type="end"]       .d-node-header { background: rgba(255,107,107,0.15); border-bottom: 1px solid rgba(255,107,107,0.2); }
+
+    .d-node-type-icon { font-size: 13px; flex-shrink: 0; }
+    .d-node-type-label {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 1px; text-transform: uppercase;
+      font-weight: 600; flex: 1;
+    }
+    .d-node[data-type="npc"]       .d-node-type-label { color: var(--node-npc); }
+    .d-node[data-type="choice"]    .d-node-type-label { color: var(--node-choice); }
+    .d-node[data-type="condition"] .d-node-type-label { color: var(--node-condition); }
+    .d-node[data-type="action"]    .d-node-type-label { color: var(--node-action); }
+    .d-node[data-type="end"]       .d-node-type-label { color: var(--node-end); }
+
+    .d-node-id {
+      font-family: var(--mono); font-size: 9px;
+      color: var(--text3); flex-shrink: 0;
+    }
+
+    .d-node-body { padding: 8px 10px; }
+    .d-node-speaker {
+      font-weight: 700; color: var(--teal);
+      font-size: 11px; margin-bottom: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .d-node-text {
+      color: var(--text2); font-size: 11px; line-height: 1.4;
+      max-height: 52px; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    }
+    .d-node-options { padding: 0 10px 8px; }
+    .d-node-option {
+      display: flex; align-items: center; gap: 4px;
+      padding: 3px 0; font-size: 10px; color: var(--text2);
+      border-top: 1px solid var(--border); margin-top: 3px;
+    }
+    .d-node-option-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--node-choice); flex-shrink: 0;
+    }
+    .d-node-option-label {
+      flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .d-node-action-text {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--node-action); padding: 4px 10px 8px;
+    }
+
+    /* ── Connection ports ── */
+    .port {
+      position: absolute;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--bg3); border: 2px solid var(--border2);
+      cursor: crosshair; transition: all 0.12s;
+      z-index: 5;
+    }
+    .port:hover, .port.highlighted {
+      border-color: var(--teal); background: var(--teal);
+      box-shadow: 0 0 8px rgba(0,191,165,0.6);
+      transform: scale(1.3);
+    }
+    .port-in  { top: 50%; left: -7px; transform: translateY(-50%); }
+    .port-out { top: 50%; right: -7px; transform: translateY(-50%); }
+    .port-out-opt {
+      right: -7px;
+      /* top is set by JS per option */
+    }
+
+    /* ── SVG connections ── */
+    .conn-path {
+      fill: none; stroke: var(--border2); stroke-width: 2;
+      stroke-dasharray: none; pointer-events: stroke;
+      transition: stroke 0.15s;
+    }
+    .conn-path:hover { stroke: var(--teal); stroke-width: 3; cursor: pointer; }
+    .conn-path.teal  { stroke: var(--teal); }
+    .conn-path.purple { stroke: var(--purple); }
+    .conn-path.amber  { stroke: var(--amber); }
+    .conn-temp {
+      fill: none; stroke: var(--teal); stroke-width: 2;
+      stroke-dasharray: 6 4; pointer-events: none;
+    }
+
+    /* ── Right sidebar: Properties ── */
+    #props-panel {
+      width: 260px; flex-shrink: 0;
+      background: var(--bg2); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .props-header {
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: var(--text3); display: flex; align-items: center; gap: 6px;
+    }
+    .props-scroll {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 10px;
+    }
+    .props-section {
+      margin-bottom: 16px;
+    }
+    .props-label {
+      font-size: 10px; font-family: var(--mono);
+      letter-spacing: 1px; text-transform: uppercase;
+      color: var(--text3); margin-bottom: 5px; display: block;
+    }
+    .props-input {
+      width: 100%; padding: 6px 9px;
+      background: var(--bg3); border: 1px solid var(--border2);
+      color: var(--text); border-radius: 6px; font-size: 12px;
+      font-family: var(--sans); resize: none;
+      transition: border-color 0.15s;
+    }
+    .props-input:focus { outline: none; border-color: var(--teal); }
+    .props-input::placeholder { color: var(--text3); }
+    textarea.props-input { min-height: 80px; line-height: 1.5; }
+
+    .props-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+
+    /* Options list */
+    .option-item {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 7px 8px; margin-bottom: 6px;
+    }
+    .option-row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+    .option-label { font-size: 10px; color: var(--text3); min-width: 36px; }
+    .option-input {
+      flex: 1; padding: 4px 7px;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); border-radius: 4px; font-size: 11px;
+      font-family: var(--sans);
+    }
+    .option-input:focus { outline: none; border-color: var(--teal); }
+    .option-del {
+      background: none; border: none; color: var(--coral);
+      font-size: 14px; padding: 2px 4px; line-height: 1;
+      opacity: 0.6; transition: opacity 0.15s;
+    }
+    .option-del:hover { opacity: 1; }
+
+    .add-btn {
+      display: flex; align-items: center; gap: 5px;
+      width: 100%; padding: 6px 8px; border-radius: 6px;
+      background: transparent; border: 1px dashed var(--border2);
+      color: var(--text3); font-size: 11px;
+      transition: all 0.15s; margin-top: 4px;
+    }
+    .add-btn:hover { border-color: var(--teal); color: var(--teal); }
+
+    /* Tree-level props */
+    .tree-props-section {
+      border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;
+    }
+
+    /* ── Status bar ── */
+    #statusbar {
+      height: 24px; background: var(--bg3); border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 16px;
+      padding: 0 12px; font-family: var(--mono); font-size: 10px;
+      color: var(--text3); flex-shrink: 0;
+    }
+    .status-item { display: flex; align-items: center; gap: 4px; }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+    }
+
+    /* ── Export dropdown ── */
+    .dropdown { position: relative; display: inline-flex; }
+    .dropdown-menu {
+      display: none; position: absolute; top: calc(100% + 4px); left: 0;
+      background: var(--bg2); border: 1px solid var(--border2);
+      border-radius: 8px; min-width: 180px; z-index: 1000;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5); padding: 4px;
+    }
+    .dropdown.open .dropdown-menu { display: block; }
+    .dropdown-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: 5px; font-size: 12px;
+      color: var(--text2); cursor: pointer; transition: all 0.12s;
+      font-family: var(--mono); white-space: nowrap;
+    }
+    .dropdown-item:hover { background: var(--bg3); color: var(--text); }
+    .dropdown-item-icon { font-size: 14px; }
+
+    /* ── Modal overlay ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 500;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg2); border: 1px solid var(--border2);
+      border-radius: 14px; padding: 24px; width: 480px; max-width: 94vw;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+      animation: modalIn 0.18s ease-out;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal-title {
+      font-size: 16px; font-weight: 700; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .modal-actions {
+      display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--teal), #00796b);
+      color: #000; font-weight: 700; font-size: 13px;
+      padding: 8px 20px; border: none; border-radius: 8px;
+      transition: transform 0.15s, box-shadow 0.15s;
+      min-height: 36px;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,191,165,0.35); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-secondary {
+      background: var(--bg3); color: var(--text); font-size: 13px;
+      padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+      transition: all 0.15s; min-height: 36px;
+    }
+    .btn-secondary:hover { border-color: var(--teal); color: var(--teal); }
+
+    /* ── Test mode overlay ── */
+    #test-overlay {
+      display: none; position: absolute; inset: 0;
+      background: rgba(0,0,0,0.82); z-index: 300;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    #test-overlay.active { display: flex; }
+    .test-panel {
+      width: 440px; max-width: 90vw;
+      background: var(--bg2); border: 1px solid var(--border2);
+      border-radius: 14px; overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.8);
+    }
+    .test-header {
+      background: var(--bg3); padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .test-title {
+      font-family: var(--mono); font-size: 11px;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: var(--teal);
+    }
+    .test-close {
+      background: none; border: none; color: var(--text3);
+      font-size: 18px; padding: 2px 6px; transition: color 0.15s;
+    }
+    .test-close:hover { color: var(--coral); }
+    .test-body { padding: 20px; }
+    .test-speaker {
+      font-family: var(--mono); font-size: 11px;
+      color: var(--teal); margin-bottom: 8px;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .test-text {
+      font-size: 15px; line-height: 1.6; color: var(--text);
+      min-height: 60px; margin-bottom: 18px;
+    }
+    .test-choices { display: flex; flex-direction: column; gap: 8px; }
+    .test-choice-btn {
+      text-align: left; padding: 10px 14px;
+      background: var(--bg3); border: 1px solid var(--border2);
+      color: var(--text); border-radius: 8px; font-size: 13px;
+      transition: all 0.15s;
+    }
+    .test-choice-btn:hover:not(:disabled) {
+      border-color: var(--purple); color: var(--purple);
+      background: rgba(167,139,250,0.08);
+    }
+    .test-choice-btn:disabled {
+      opacity: 0.4; cursor: not-allowed;
+      text-decoration: line-through;
+    }
+    .test-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--border);
+      font-family: var(--mono); font-size: 10px; color: var(--text3);
+    }
+    .test-node-id { color: var(--text3); }
+    .test-end-msg {
+      text-align: center; padding: 20px;
+      color: var(--text3); font-style: italic;
+    }
+
+    /* ── Open tree dropdown ── */
+    #open-menu {
+      display: none; position: absolute; top: calc(100% + 4px); left: 0;
+      background: var(--bg2); border: 1px solid var(--border2);
+      border-radius: 8px; min-width: 220px; z-index: 1000;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5); padding: 4px;
+      max-height: 280px; overflow-y: auto;
+    }
+    #open-menu.open { display: block; }
+    #open-wrap { position: relative; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+      background: var(--bg2); border: 1px solid var(--border2);
+      color: var(--text); font-family: var(--mono); font-size: 12px;
+      padding: 8px 20px; border-radius: 100px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      z-index: 9999; opacity: 0; transition: opacity 0.2s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; }
+    #toast.success { border-color: var(--teal); color: var(--teal); }
+    #toast.error   { border-color: var(--coral); color: var(--coral); }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid var(--border2); border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+    }
+
+    /* ── Mobile responsive ── */
+    @media (max-width: 700px) {
+      #palette { display: none; }
+      #props-panel { width: 200px; }
+      #tree-name-input { width: 100px; }
+    }
+    @media (max-width: 500px) {
+      #props-panel { display: none; }
+    }
+  </style>
+</head>
+<body>
+<a href="#canvas-wrap" class="skip-link">Skip to canvas</a>
+
+<!-- Topbar -->
+<div id="topbar" role="banner">
+  <a href="/" class="logo" aria-label="muLLM home">
+    <span class="logo-mu">m&#956;</span><span class="logo-pipe">&#x2502;</span><span class="logo-llm">LLM</span>
+  </a>
+  <span class="topbar-title">Dialogue</span>
+  <div class="tb-sep" role="separator"></div>
+
+  <!-- Tree name -->
+  <input type="text" id="tree-name-input" value="New Tree"
+    aria-label="Tree name" placeholder="Tree name" autocomplete="off" spellcheck="false" />
+
+  <div class="tb-sep" role="separator"></div>
+
+  <!-- File ops -->
+  <button class="tb-btn" id="btn-new" title="New tree (Ctrl+N)" aria-label="New tree">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    New
+  </button>
+
+  <div id="open-wrap" style="position:relative">
+    <button class="tb-btn" id="btn-open" aria-label="Open saved tree" aria-haspopup="true" aria-expanded="false">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      Open ▾
+    </button>
+    <div id="open-menu" role="menu" aria-label="Saved trees">
+      <div style="padding:8px 10px;color:var(--text3);font-size:11px;font-family:var(--mono)">Loading…</div>
+    </div>
+  </div>
+
+  <button class="tb-btn" id="btn-save" title="Save (Ctrl+S)" aria-label="Save tree">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    Save
+  </button>
+
+  <div class="tb-sep" role="separator"></div>
+
+  <!-- Export -->
+  <div class="dropdown" id="export-dropdown">
+    <button class="tb-btn" id="btn-export" aria-label="Export tree" aria-haspopup="true" aria-expanded="false">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export ▾
+    </button>
+    <div class="dropdown-menu" id="export-menu" role="menu">
+      <div class="dropdown-item" data-fmt="mullm_native" role="menuitem" tabindex="0">
+        <span class="dropdown-item-icon">📦</span> muLLM JSON
+      </div>
+      <div class="dropdown-item" data-fmt="ink" role="menuitem" tabindex="0">
+        <span class="dropdown-item-icon">✒️</span> Ink (.ink)
+      </div>
+      <div class="dropdown-item" data-fmt="yarn" role="menuitem" tabindex="0">
+        <span class="dropdown-item-icon">🧶</span> YarnSpinner
+      </div>
+      <div class="dropdown-item" data-fmt="renpy" role="menuitem" tabindex="0">
+        <span class="dropdown-item-icon">🎬</span> Ren'Py (.rpy)
+      </div>
+      <div class="dropdown-item" data-fmt="csv" role="menuitem" tabindex="0">
+        <span class="dropdown-item-icon">📊</span> CSV
+      </div>
+    </div>
+  </div>
+
+  <div class="tb-sep" role="separator"></div>
+
+  <!-- AI Generate -->
+  <button class="tb-btn" id="btn-generate" aria-label="AI-generate dialogue tree">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    AI Generate
+  </button>
+
+  <div class="tb-sep" role="separator"></div>
+
+  <!-- Play/Test -->
+  <button class="tb-btn" id="btn-test" aria-label="Test dialogue tree">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    Test
+  </button>
+
+  <div class="topbar-spacer"></div>
+
+  <!-- Nav links -->
+  <a href="/gamesystems" class="tb-btn" style="text-decoration:none">Systems</a>
+  <a href="/chat" class="tb-btn" style="text-decoration:none">Chat</a>
+
+  <!-- Theme toggle -->
+  <button class="tb-btn" id="theme-toggle" title="Toggle theme" aria-label="Toggle dark/light theme">
+    <svg id="theme-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
+</div>
+
+<!-- Editor Body -->
+<main id="editor-body" role="main">
+
+  <!-- Left: Node Palette -->
+  <nav id="palette" aria-label="Node types">
+    <div class="palette-title">Nodes</div>
+
+    <div class="palette-node" data-type="npc" draggable="true" aria-label="NPC dialogue node" tabindex="0"
+         title="Drag to canvas to add an NPC speech node">
+      <div class="palette-node-icon">💬</div>
+      <div class="palette-node-label">NPC<br>Dialogue</div>
+    </div>
+
+    <div class="palette-node" data-type="choice" draggable="true" aria-label="Player choice node" tabindex="0"
+         title="Branch: player chooses a response">
+      <div class="palette-node-icon">⟩⟩</div>
+      <div class="palette-node-label">Player<br>Choice</div>
+    </div>
+
+    <div class="palette-node" data-type="condition" draggable="true" aria-label="Condition node" tabindex="0"
+         title="Check a variable or flag">
+      <div class="palette-node-icon">◆</div>
+      <div class="palette-node-label">Condition</div>
+    </div>
+
+    <div class="palette-node" data-type="action" draggable="true" aria-label="Action node" tabindex="0"
+         title="Trigger a game event or script">
+      <div class="palette-node-icon">⚙</div>
+      <div class="palette-node-label">Action</div>
+    </div>
+
+    <div class="palette-node" data-type="end" draggable="true" aria-label="End conversation node" tabindex="0"
+         title="End of conversation">
+      <div class="palette-node-icon">●</div>
+      <div class="palette-node-label">End</div>
+    </div>
+
+    <div class="palette-title" style="margin-top:10px">View</div>
+    <div class="palette-node" id="btn-fit" style="cursor:pointer;border-left-color:var(--text3)">
+      <div class="palette-node-icon" style="background:rgba(255,255,255,0.06);color:var(--text2)">⊞</div>
+      <div class="palette-node-label">Fit All</div>
+    </div>
+    <div class="palette-node" id="btn-center" style="cursor:pointer;border-left-color:var(--text3)">
+      <div class="palette-node-icon" style="background:rgba(255,255,255,0.06);color:var(--text2)">⊙</div>
+      <div class="palette-node-label">Center</div>
+    </div>
+  </nav>
+
+  <!-- Center: Canvas -->
+  <div id="canvas-wrap" role="application" aria-label="Dialogue tree canvas"
+       tabindex="0"
+       aria-describedby="canvas-desc">
+    <div id="canvas-desc" class="sr-only" style="position:absolute;left:-9999px">
+      Dialogue node canvas. Use middle-click or Space+drag to pan. Scroll to zoom.
+      Click a node to select and edit. Press Delete to remove selected node.
+      Ctrl+S to save. Ctrl+Z to undo.
+    </div>
+
+    <!-- SVG layer for connections -->
+    <svg id="canvas-svg" aria-hidden="true">
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="var(--border2)" />
+        </marker>
+        <marker id="arrow-teal" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="var(--teal)" />
+        </marker>
+      </defs>
+      <g id="connections-group"></g>
+      <path id="conn-temp-path" class="conn-temp" style="display:none" d="" />
+    </svg>
+
+    <!-- Nodes layer -->
+    <div id="canvas-nodes"></div>
+
+    <!-- Test mode overlay -->
+    <div id="test-overlay" role="dialog" aria-modal="true" aria-label="Dialogue test mode">
+      <div class="test-panel">
+        <div class="test-header">
+          <span class="test-title">Test Mode</span>
+          <button class="test-close" id="btn-test-close" aria-label="Exit test mode">✕</button>
+        </div>
+        <div class="test-body">
+          <div class="test-speaker" id="test-speaker"></div>
+          <div class="test-text" id="test-text"></div>
+          <div class="test-choices" id="test-choices"></div>
+          <div class="test-end-msg" id="test-end" style="display:none">
+            — End of conversation —
+          </div>
+        </div>
+        <div class="test-footer">
+          <span class="test-node-id" id="test-node-id"></span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-secondary" id="btn-test-restart" style="padding:4px 10px;font-size:11px">Restart</button>
+            <button class="btn-secondary" id="btn-test-close2" style="padding:4px 10px;font-size:11px">Exit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Properties -->
+  <aside id="props-panel" aria-label="Node properties">
+    <div class="props-header">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Properties
+    </div>
+    <div class="props-scroll" id="props-content">
+      <div style="color:var(--text3);font-size:12px;padding:20px 0;text-align:center">
+        Select a node to edit its properties
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- Status bar -->
+<div id="statusbar" role="status" aria-live="polite">
+  <span class="status-item"><span class="status-dot"></span><span id="status-nodes">0 nodes</span></span>
+  <span class="status-item"><span id="status-conns">0 connections</span></span>
+  <span class="status-item"><span id="status-zoom">100%</span></span>
+  <span class="status-item" style="flex:1;justify-content:flex-end;color:var(--text3)" id="status-msg">Ready</span>
+</div>
+
+<!-- AI Generate Modal -->
+<div class="modal-overlay" id="generate-modal" role="dialog" aria-modal="true" aria-labelledby="gen-title">
+  <div class="modal">
+    <div class="modal-title" id="gen-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      AI Generate Dialogue
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="gen-desc">Describe the conversation</label>
+      <textarea class="props-input" id="gen-desc" rows="4"
+        placeholder="e.g. A merchant who is suspicious of the player and has a quest to recover stolen goods. Include a skill check option."
+        aria-describedby="gen-hint"></textarea>
+      <div id="gen-hint" style="font-size:11px;color:var(--text3);margin-top:4px">
+        The local muLLM model will generate a complete dialogue tree from this description.
+      </div>
+    </div>
+    <div class="props-row">
+      <div>
+        <label class="props-label" for="gen-nodes">Target nodes</label>
+        <input type="number" class="props-input" id="gen-nodes" value="6" min="3" max="20" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="gen-cancel">Cancel</button>
+      <button class="btn-primary" id="gen-submit">
+        <span id="gen-btn-text">Generate</span>
+        <span id="gen-spinner" class="spinner" style="display:none"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" role="alert" aria-live="assertive"></div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════════
+   muLLM Dialogue Tree Editor — Vanilla JS, no dependencies
+   ═══════════════════════════════════════════════════════════════════ */
+
+// ── State ────────────────────────────────────────────────────────────
+const state = {
+  tree: newTree(),
+  selectedId: null,
+  panX: 60, panY: 60,
+  zoom: 1.0,
+  connectingFrom: null,   // {nodeId, portType, optionIndex}
+  mouseWorld: {x:0, y:0},
+  undoStack: [],
+  dirty: false,
+};
+
+// ── DOM refs ─────────────────────────────────────────────────────────
+const canvasWrap   = document.getElementById('canvas-wrap');
+const canvasNodes  = document.getElementById('canvas-nodes');
+const canvasSvg    = document.getElementById('canvas-svg');
+const connsGroup   = document.getElementById('connections-group');
+const tempPath     = document.getElementById('conn-temp-path');
+const propsContent = document.getElementById('props-content');
+const statusNodes  = document.getElementById('status-nodes');
+const statusConns  = document.getElementById('status-conns');
+const statusZoom   = document.getElementById('status-zoom');
+const statusMsg    = document.getElementById('status-msg');
+const nameInput    = document.getElementById('tree-name-input');
+const openMenu     = document.getElementById('open-menu');
+
+// ── Utilities ─────────────────────────────────────────────────────────
+function uid() {
+  return 'n' + Math.random().toString(36).slice(2,9);
+}
+
+function newTree() {
+  return {
+    id: crypto.randomUUID ? crypto.randomUUID() : uid(),
+    name: 'New Tree',
+    nodes: [],
+    start_node: null,
+    variables: {},
+    metadata: { game: '', scene: '', tags: [] },
+  };
+}
+
+function cloneTree(t) {
+  return JSON.parse(JSON.stringify(t));
+}
+
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = ''; }, 2600);
+}
+
+function setStatus(msg) {
+  statusMsg.textContent = msg;
+}
+
+function updateStatusBar() {
+  const nodes = state.tree.nodes.length;
+  const conns = countConnections();
+  statusNodes.textContent = nodes + ' node' + (nodes !== 1 ? 's' : '');
+  statusConns.textContent = conns + ' connection' + (conns !== 1 ? 's' : '');
+  statusZoom.textContent = Math.round(state.zoom * 100) + '%';
+}
+
+function countConnections() {
+  let c = 0;
+  for (const n of state.tree.nodes) {
+    if (n.next) c++;
+    if (n.options) for (const o of n.options) if (o.next) c++;
+  }
+  return c;
+}
+
+// ── Node type config ─────────────────────────────────────────────────
+const NODE_TYPES = {
+  npc:       { icon: '💬', label: 'NPC',       color: '--node-npc'       },
+  choice:    { icon: '⟩⟩', label: 'Choice',    color: '--node-choice'    },
+  condition: { icon: '◆',  label: 'Condition', color: '--node-condition' },
+  action:    { icon: '⚙',  label: 'Action',    color: '--node-action'    },
+  end:       { icon: '●',  label: 'End',        color: '--node-end'       },
+};
+
+// ── Default node data ─────────────────────────────────────────────────
+function defaultNode(type, x, y) {
+  const id = uid();
+  const base = { id, type, x, y };
+  switch (type) {
+    case 'npc':
+      return { ...base, speaker: 'NPC', text: 'Hello, traveller.', portrait: null, next: null };
+    case 'choice':
+      return { ...base, text: null, options: [
+        { label: 'Option A', next: null, condition: null },
+        { label: 'Option B', next: null, condition: null },
+      ]};
+    case 'condition':
+      return { ...base, variable: 'flag', operator: '==', value: 'true', next: null };
+    case 'action':
+      return { ...base, action: 'set_flag("met_guard", true)', next: null };
+    case 'end':
+      return { ...base };
+    default:
+      return base;
+  }
+}
+
+// ── Canvas transform ──────────────────────────────────────────────────
+function applyTransform() {
+  canvasNodes.style.transform =
+    `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+  statusZoom.textContent = Math.round(state.zoom * 100) + '%';
+  renderConnections();
+}
+
+// World coords → screen coords
+function worldToScreen(wx, wy) {
+  return {
+    x: wx * state.zoom + state.panX,
+    y: wy * state.zoom + state.panY,
+  };
+}
+
+// Screen coords → world coords
+function screenToWorld(sx, sy) {
+  return {
+    x: (sx - state.panX) / state.zoom,
+    y: (sy - state.panY) / state.zoom,
+  };
+}
+
+// ── Undo ─────────────────────────────────────────────────────────────
+function pushUndo() {
+  state.undoStack.push(cloneTree(state.tree));
+  if (state.undoStack.length > 60) state.undoStack.shift();
+  state.dirty = true;
+}
+
+function undo() {
+  if (!state.undoStack.length) return;
+  state.tree = state.undoStack.pop();
+  renderAll();
+  setStatus('Undo');
+}
+
+// ── Render full tree ──────────────────────────────────────────────────
+function renderAll() {
+  renderNodes();
+  renderConnections();
+  updateStatusBar();
+  nameInput.value = state.tree.name;
+  if (state.selectedId && !state.tree.nodes.find(n => n.id === state.selectedId)) {
+    state.selectedId = null;
+  }
+  renderProps();
+}
+
+// ── Render all nodes ──────────────────────────────────────────────────
+function renderNodes() {
+  // Remove nodes no longer in tree
+  const existingEls = canvasNodes.querySelectorAll('.d-node');
+  const ids = new Set(state.tree.nodes.map(n => n.id));
+  existingEls.forEach(el => {
+    if (!ids.has(el.dataset.id)) el.remove();
+  });
+
+  for (const node of state.tree.nodes) {
+    let el = canvasNodes.querySelector(`.d-node[data-id="${node.id}"]`);
+    if (!el) {
+      el = buildNodeEl(node);
+      canvasNodes.appendChild(el);
+    } else {
+      updateNodeEl(el, node);
+    }
+    positionNodeEl(el, node);
+  }
+}
+
+// Build a brand-new node DOM element
+function buildNodeEl(node) {
+  const el = document.createElement('div');
+  el.className = 'd-node';
+  el.dataset.id = node.id;
+  el.setAttribute('data-type', node.type);
+  el.setAttribute('role', 'button');
+  el.setAttribute('tabindex', '0');
+  el.setAttribute('aria-label', `${NODE_TYPES[node.type]?.label || node.type} node: ${node.text || node.speaker || node.id}`);
+
+  updateNodeEl(el, node);
+  setupNodeDrag(el, node.id);
+
+  return el;
+}
+
+// Update node DOM content (keeps existing el)
+function updateNodeEl(el, node) {
+  const cfg = NODE_TYPES[node.type] || { icon: '?', label: node.type, color: '--text3' };
+  const isStart = state.tree.start_node === node.id;
+  el.setAttribute('data-type', node.type);
+  el.className = 'd-node' +
+    (state.selectedId === node.id ? ' selected' : '') +
+    (isStart ? ' start-node' : '');
+
+  let html = `
+    <div class="d-node-header" aria-grabbed="false">
+      <span class="d-node-type-icon" aria-hidden="true">${cfg.icon}</span>
+      <span class="d-node-type-label">${cfg.label}</span>
+      ${isStart ? '<span title="Start node" style="color:var(--teal);font-size:9px;font-family:var(--mono)">[START]</span>' : ''}
+      <span class="d-node-id">${node.id}</span>
+    </div>`;
+
+  if (node.type === 'npc') {
+    html += `<div class="d-node-body">`;
+    if (node.speaker) html += `<div class="d-node-speaker">${esc(node.speaker)}</div>`;
+    if (node.text)    html += `<div class="d-node-text">${esc(node.text)}</div>`;
+    html += `</div>`;
+    // Input port (left) + output port (right)
+    html += `<div class="port port-in" data-node="${node.id}" data-port="in" title="Input" aria-label="Input port"></div>`;
+    html += `<div class="port port-out" data-node="${node.id}" data-port="out" title="Output" aria-label="Output port"></div>`;
+  } else if (node.type === 'choice') {
+    html += `<div class="d-node-options">`;
+    const opts = node.options || [];
+    for (let i = 0; i < opts.length; i++) {
+      const opt = opts[i];
+      html += `<div class="d-node-option">
+        <span class="d-node-option-dot" aria-hidden="true"></span>
+        <span class="d-node-option-label">${esc(opt.label)}</span>
+      </div>`;
+    }
+    html += `</div>`;
+    html += `<div class="port port-in" data-node="${node.id}" data-port="in" title="Input" aria-label="Input port"></div>`;
+    // One output port per option — positioned after render
+    for (let i = 0; i < (node.options || []).length; i++) {
+      html += `<div class="port port-out-opt" data-node="${node.id}" data-port="out_opt" data-opt="${i}" title="Option ${i} output" aria-label="Choice option ${i} output port" style="right:-7px;top:0"></div>`;
+    }
+  } else if (node.type === 'condition') {
+    html += `<div class="d-node-body" style="font-family:var(--mono);font-size:10px;color:var(--node-condition)">
+      if ${esc(node.variable || 'var')} ${esc(node.operator || '==')} ${esc(String(node.value ?? ''))}
+    </div>`;
+    html += `<div class="port port-in" data-node="${node.id}" data-port="in"></div>`;
+    html += `<div class="port port-out" data-node="${node.id}" data-port="out"></div>`;
+  } else if (node.type === 'action') {
+    html += `<div class="d-node-action-text">${esc(node.action || '...')}</div>`;
+    html += `<div class="port port-in" data-node="${node.id}" data-port="in"></div>`;
+    html += `<div class="port port-out" data-node="${node.id}" data-port="out"></div>`;
+  } else if (node.type === 'end') {
+    html += `<div class="d-node-body" style="color:var(--node-end);font-size:11px;text-align:center;padding:6px">END</div>`;
+    html += `<div class="port port-in" data-node="${node.id}" data-port="in"></div>`;
+  }
+
+  el.innerHTML = html;
+
+  // Position choice option ports after HTML is set
+  if (node.type === 'choice') {
+    positionChoicePorts(el, node);
+  }
+
+  // Port interaction
+  el.querySelectorAll('.port').forEach(p => setupPortInteraction(p));
+
+  // Click to select
+  el.addEventListener('mousedown', (e) => {
+    if (e.target.classList.contains('port')) return;
+    selectNode(node.id);
+    e.stopPropagation();
+  });
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { selectNode(node.id); e.preventDefault(); }
+    if (e.key === 'Delete') { deleteSelected(); e.preventDefault(); }
+  });
+}
+
+function positionChoicePorts(el, node) {
+  const opts = node.options || [];
+  const optEls = el.querySelectorAll('.d-node-option');
+  const portEls = el.querySelectorAll('.port-out-opt');
+  portEls.forEach((port, i) => {
+    const optEl = optEls[i];
+    if (optEl) {
+      // get offset relative to node header bottom
+      const headerH = el.querySelector('.d-node-header')?.offsetHeight || 30;
+      const topOffset = optEl.offsetTop + optEl.offsetHeight / 2;
+      port.style.top = topOffset + 'px';
+    }
+  });
+}
+
+function positionNodeEl(el, node) {
+  el.style.left = (node.x ?? 100) + 'px';
+  el.style.top  = (node.y ?? 100) + 'px';
+}
+
+// ── Drag nodes ────────────────────────────────────────────────────────
+function setupNodeDrag(el, nodeId) {
+  let dragging = false;
+  let ox = 0, oy = 0;
+  let startX = 0, startY = 0;
+
+  const header = el.querySelector('.d-node-header');
+  const handle = header || el;
+
+  handle.addEventListener('mousedown', (e) => {
+    if (e.target.classList.contains('port')) return;
+    if (e.button !== 0) return;
+    dragging = true;
+    const node = state.tree.nodes.find(n => n.id === nodeId);
+    const world = screenToWorld(e.clientX - canvasWrap.getBoundingClientRect().left,
+                                 e.clientY - canvasWrap.getBoundingClientRect().top);
+    ox = world.x - (node.x ?? 0);
+    oy = world.y - (node.y ?? 0);
+    startX = node.x; startY = node.y;
+    el.style.zIndex = 10;
+    e.preventDefault();
+    selectNode(nodeId);
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const rect = canvasWrap.getBoundingClientRect();
+    const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const node = state.tree.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    node.x = world.x - ox;
+    node.y = world.y - oy;
+    el.style.left = node.x + 'px';
+    el.style.top  = node.y + 'px';
+    renderConnections();
+  });
+
+  window.addEventListener('mouseup', (e) => {
+    if (!dragging) return;
+    dragging = false;
+    el.style.zIndex = '';
+    const node = state.tree.nodes.find(n => n.id === nodeId);
+    if (node && (node.x !== startX || node.y !== startY)) {
+      // only push undo if moved
+      pushUndo();
+    }
+  });
+}
+
+// ── Port interaction (connecting nodes) ───────────────────────────────
+function setupPortInteraction(portEl) {
+  portEl.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const nodeId = portEl.dataset.node;
+    const portType = portEl.dataset.port;
+    const optIndex = portEl.dataset.opt !== undefined ? parseInt(portEl.dataset.opt) : null;
+
+    if (portType === 'in') {
+      // Complete a connection to this input port
+      if (state.connectingFrom) {
+        completeConnection(nodeId, portType, optIndex);
+      }
+      return;
+    }
+
+    // Start connection from output port
+    state.connectingFrom = { nodeId, portType, optIndex };
+    canvasWrap.classList.add('connecting');
+    tempPath.style.display = '';
+    setStatus('Connecting… click an input port to complete');
+  });
+
+  portEl.addEventListener('mouseup', (e) => {
+    e.stopPropagation();
+    if (state.connectingFrom && portEl.dataset.port === 'in') {
+      completeConnection(portEl.dataset.node, 'in', null);
+    }
+  });
+}
+
+function completeConnection(toNodeId, toPort, toOptIndex) {
+  if (!state.connectingFrom) return;
+  const { nodeId: fromId, portType, optIndex } = state.connectingFrom;
+
+  if (fromId === toNodeId) {
+    cancelConnecting();
+    return;
+  }
+
+  pushUndo();
+  const fromNode = state.tree.nodes.find(n => n.id === fromId);
+  if (!fromNode) { cancelConnecting(); return; }
+
+  if (portType === 'out') {
+    fromNode.next = toNodeId;
+  } else if (portType === 'out_opt' && optIndex !== null) {
+    if (fromNode.options && fromNode.options[optIndex]) {
+      fromNode.options[optIndex].next = toNodeId;
+    }
+  }
+
+  cancelConnecting();
+  renderAll();
+  setStatus(`Connected ${fromId} → ${toNodeId}`);
+}
+
+function cancelConnecting() {
+  state.connectingFrom = null;
+  canvasWrap.classList.remove('connecting');
+  tempPath.style.display = 'none';
+}
+
+// ── Render connections (SVG) ──────────────────────────────────────────
+function renderConnections() {
+  connsGroup.innerHTML = '';
+  const nodeMap = {};
+  state.tree.nodes.forEach(n => nodeMap[n.id] = n);
+
+  for (const node of state.tree.nodes) {
+    if (node.next && nodeMap[node.next]) {
+      drawCurve(node, null, nodeMap[node.next], 'teal');
+    }
+    if (node.options) {
+      node.options.forEach((opt, i) => {
+        if (opt.next && nodeMap[opt.next]) {
+          drawCurve(node, i, nodeMap[opt.next], 'purple');
+        }
+      });
+    }
+  }
+}
+
+function getPortScreenPos(node, portType, optIndex) {
+  const el = canvasNodes.querySelector(`.d-node[data-id="${node.id}"]`);
+  if (!el) return null;
+
+  const rect = canvasWrap.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+
+  if (portType === 'out') {
+    return {
+      x: elRect.right - rect.left,
+      y: elRect.top + elRect.height / 2 - rect.top,
+    };
+  } else if (portType === 'out_opt' && optIndex !== null) {
+    const port = el.querySelector(`.port-out-opt[data-opt="${optIndex}"]`);
+    if (port) {
+      const pr = port.getBoundingClientRect();
+      return { x: pr.left + pr.width / 2 - rect.left, y: pr.top + pr.height / 2 - rect.top };
+    }
+    return {
+      x: elRect.right - rect.left,
+      y: elRect.top + elRect.height * (optIndex + 1) / ((node.options?.length || 1) + 1) - rect.top,
+    };
+  } else { // 'in'
+    return {
+      x: elRect.left - rect.left,
+      y: elRect.top + elRect.height / 2 - rect.top,
+    };
+  }
+}
+
+function drawCurve(fromNode, optIndex, toNode, colorClass) {
+  const portType = optIndex !== null ? 'out_opt' : 'out';
+  const from = getPortScreenPos(fromNode, portType, optIndex);
+  const to   = getPortScreenPos(toNode, 'in', null);
+  if (!from || !to) return;
+
+  const dx = Math.abs(to.x - from.x) * 0.5;
+  const d = `M${from.x},${from.y} C${from.x + dx},${from.y} ${to.x - dx},${to.y} ${to.x},${to.y}`;
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', d);
+  path.setAttribute('class', `conn-path ${colorClass}`);
+  path.setAttribute('marker-end', `url(#arrow-${colorClass === 'teal' ? 'teal' : 'teal'})`);
+  path.setAttribute('data-from', fromNode.id);
+  path.setAttribute('data-to', toNode.id);
+  if (optIndex !== null) path.setAttribute('data-opt', optIndex);
+
+  // Click to delete connection
+  path.addEventListener('click', (e) => {
+    if (confirm(`Delete connection from ${fromNode.id} → ${toNode.id}?`)) {
+      pushUndo();
+      if (optIndex !== null) {
+        fromNode.options[optIndex].next = null;
+      } else {
+        fromNode.next = null;
+      }
+      renderAll();
+    }
+  });
+
+  connsGroup.appendChild(path);
+}
+
+// ── Canvas pan & zoom ─────────────────────────────────────────────────
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+let panOrigX  = 0, panOrigY  = 0;
+let spaceDown = false;
+
+canvasWrap.addEventListener('mousedown', (e) => {
+  if (e.button === 1 || (e.button === 0 && spaceDown)) {
+    isPanning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panOrigX  = state.panX; panOrigY  = state.panY;
+    canvasWrap.classList.add('panning');
+    e.preventDefault();
+    return;
+  }
+  if (e.button === 0) {
+    // Click on empty canvas
+    if (e.target === canvasWrap || e.target === canvasNodes) {
+      selectNode(null);
+      if (state.connectingFrom) cancelConnecting();
+    }
+  }
+});
+
+window.addEventListener('mousemove', (e) => {
+  // Update world cursor
+  const rect = canvasWrap.getBoundingClientRect();
+  state.mouseWorld = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+
+  if (isPanning) {
+    const dx = e.clientX - panStartX;
+    const dy = e.clientY - panStartY;
+    state.panX = panOrigX + dx;
+    state.panY = panOrigY + dy;
+    applyTransform();
+    return;
+  }
+
+  // Temp connection rubber-band
+  if (state.connectingFrom) {
+    const fromNode = state.tree.nodes.find(n => n.id === state.connectingFrom.nodeId);
+    if (!fromNode) return;
+    const portType = state.connectingFrom.portType;
+    const optIdx   = state.connectingFrom.optIndex;
+    const from = getPortScreenPos(fromNode, portType, optIdx);
+    if (from) {
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const dx = Math.abs(mx - from.x) * 0.5;
+      tempPath.setAttribute('d',
+        `M${from.x},${from.y} C${from.x + dx},${from.y} ${mx - dx},${my} ${mx},${my}`);
+    }
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (isPanning) {
+    isPanning = false;
+    canvasWrap.classList.remove('panning');
+  }
+});
+
+canvasWrap.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = canvasWrap.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const newZoom = Math.min(2.5, Math.max(0.2, state.zoom * delta));
+  // Zoom toward cursor
+  state.panX = mx - (mx - state.panX) * (newZoom / state.zoom);
+  state.panY = my - (my - state.panY) * (newZoom / state.zoom);
+  state.zoom = newZoom;
+  applyTransform();
+}, { passive: false });
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) {
+    spaceDown = true; e.preventDefault();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveTree(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); newTreeAction(); }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) {
+      deleteSelected(); e.preventDefault();
+    }
+  }
+  if (e.key === 'Escape') { cancelConnecting(); }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') spaceDown = false;
+});
+
+// ── Drop new nodes from palette ───────────────────────────────────────
+document.querySelectorAll('.palette-node[draggable]').forEach(pn => {
+  pn.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', pn.dataset.type);
+  });
+  // Keyboard: Enter/Space to add at center
+  pn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const rect = canvasWrap.getBoundingClientRect();
+      const cx = rect.width / 2, cy = rect.height / 2;
+      const w = screenToWorld(cx, cy);
+      addNode(pn.dataset.type, w.x - 100, w.y - 50);
+    }
+  });
+});
+
+canvasWrap.addEventListener('dragover', (e) => e.preventDefault());
+canvasWrap.addEventListener('drop', (e) => {
+  e.preventDefault();
+  const type = e.dataTransfer.getData('text/plain');
+  if (!NODE_TYPES[type]) return;
+  const rect = canvasWrap.getBoundingClientRect();
+  const w = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+  addNode(type, w.x - 100, w.y - 40);
+});
+
+function addNode(type, x, y) {
+  pushUndo();
+  const node = defaultNode(type, x, y);
+  state.tree.nodes.push(node);
+  if (!state.tree.start_node) state.tree.start_node = node.id;
+  renderAll();
+  selectNode(node.id);
+  setStatus(`Added ${type} node ${node.id}`);
+}
+
+// ── Select & delete ───────────────────────────────────────────────────
+function selectNode(id) {
+  state.selectedId = id;
+  // Update visual selection
+  canvasNodes.querySelectorAll('.d-node').forEach(el => {
+    const n = state.tree.nodes.find(n => n.id === el.dataset.id);
+    if (!n) return;
+    updateNodeEl(el, n);
+  });
+  renderProps();
+}
+
+function deleteSelected() {
+  if (!state.selectedId) return;
+  pushUndo();
+  const id = state.selectedId;
+  state.tree.nodes = state.tree.nodes.filter(n => n.id !== id);
+  // Clean up connections pointing to deleted node
+  state.tree.nodes.forEach(n => {
+    if (n.next === id) n.next = null;
+    if (n.options) n.options.forEach(o => { if (o.next === id) o.next = null; });
+  });
+  if (state.tree.start_node === id) {
+    state.tree.start_node = state.tree.nodes[0]?.id || null;
+  }
+  state.selectedId = null;
+  renderAll();
+  setStatus(`Deleted node ${id}`);
+}
+
+// ── Properties panel ──────────────────────────────────────────────────
+function renderProps() {
+  const node = state.tree.nodes.find(n => n.id === state.selectedId);
+  if (!node) {
+    renderTreeProps();
+    return;
+  }
+
+  let html = '';
+
+  // Node ID + type + set-as-start button
+  html += `<div class="props-section">
+    <span class="props-label">Node ID</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <code style="color:var(--teal);font-size:12px;font-family:var(--mono)">${esc(node.id)}</code>
+      <button class="add-btn" style="margin:0;padding:3px 8px;flex:0;white-space:nowrap;font-size:10px"
+        onclick="setStartNode('${esc(node.id)}')"
+        ${state.tree.start_node === node.id ? 'disabled style="opacity:0.5"' : ''}>
+        ${state.tree.start_node === node.id ? 'Start ✓' : 'Set as start'}
+      </button>
+    </div>
+  </div>`;
+
+  if (node.type === 'npc') {
+    html += `<div class="props-section">
+      <label class="props-label" for="p-speaker">Speaker</label>
+      <input class="props-input" id="p-speaker" type="text" value="${esc(node.speaker || '')}"
+        placeholder="NPC name" oninput="updateNode('${node.id}','speaker',this.value)" />
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="p-portrait">Portrait (URL/path)</label>
+      <input class="props-input" id="p-portrait" type="text" value="${esc(node.portrait || '')}"
+        placeholder="portrait.png" oninput="updateNode('${node.id}','portrait',this.value||null)" />
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="p-text">Dialogue text</label>
+      <textarea class="props-input" id="p-text" rows="4"
+        oninput="updateNode('${node.id}','text',this.value)">${esc(node.text || '')}</textarea>
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="p-next">Next node ID</label>
+      <input class="props-input" id="p-next" type="text" value="${esc(node.next || '')}"
+        placeholder="node id or blank" oninput="updateNode('${node.id}','next',this.value||null)" />
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">Or drag from output port to connect</div>
+    </div>`;
+  }
+
+  else if (node.type === 'choice') {
+    html += `<div class="props-section">
+      <span class="props-label">Options</span>`;
+    (node.options || []).forEach((opt, i) => {
+      html += `<div class="option-item">
+        <div class="option-row">
+          <span class="option-label">Label</span>
+          <input class="option-input" type="text" value="${esc(opt.label)}"
+            oninput="updateOption('${node.id}',${i},'label',this.value)" />
+          <button class="option-del" onclick="deleteOption('${node.id}',${i})" aria-label="Delete option ${i}">✕</button>
+        </div>
+        <div class="option-row">
+          <span class="option-label">Next</span>
+          <input class="option-input" type="text" value="${esc(opt.next || '')}"
+            placeholder="node id" oninput="updateOption('${node.id}',${i},'next',this.value||null)" />
+        </div>
+        <div class="option-row">
+          <span class="option-label">Cond.</span>
+          <input class="option-input" type="text" value="${esc(opt.condition ? JSON.stringify(opt.condition) : '')}"
+            placeholder='{"skill":"persuasion","min":12}' title="JSON condition object"
+            oninput="updateOptionCond('${node.id}',${i},this.value)" />
+        </div>
+      </div>`;
+    });
+    html += `<button class="add-btn" onclick="addOption('${node.id}')">+ Add option</button>
+    </div>`;
+  }
+
+  else if (node.type === 'condition') {
+    html += `<div class="props-section">
+      <div class="props-row">
+        <div>
+          <label class="props-label" for="p-var">Variable</label>
+          <input class="props-input" id="p-var" type="text" value="${esc(node.variable || '')}"
+            placeholder="flag_name" oninput="updateNode('${node.id}','variable',this.value)" />
+        </div>
+        <div>
+          <label class="props-label" for="p-op">Operator</label>
+          <select class="props-input" id="p-op" onchange="updateNode('${node.id}','operator',this.value)">
+            ${['==','!=','>','>=','<','<='].map(op =>
+              `<option ${node.operator===op?'selected':''}>${op}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <label class="props-label" for="p-val">Value</label>
+        <input class="props-input" id="p-val" type="text" value="${esc(String(node.value ?? ''))}"
+          oninput="updateNode('${node.id}','value',this.value)" />
+      </div>
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="p-next-c">Next node</label>
+      <input class="props-input" id="p-next-c" type="text" value="${esc(node.next || '')}"
+        placeholder="node id" oninput="updateNode('${node.id}','next',this.value||null)" />
+    </div>`;
+  }
+
+  else if (node.type === 'action') {
+    html += `<div class="props-section">
+      <label class="props-label" for="p-action">Action script</label>
+      <textarea class="props-input" id="p-action" rows="3"
+        placeholder='set_flag("met_guard", true)'
+        oninput="updateNode('${node.id}','action',this.value)">${esc(node.action || '')}</textarea>
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="p-next-a">Next node</label>
+      <input class="props-input" id="p-next-a" type="text" value="${esc(node.next || '')}"
+        placeholder="node id" oninput="updateNode('${node.id}','next',this.value||null)" />
+    </div>`;
+  }
+
+  else if (node.type === 'end') {
+    html += `<div class="props-section" style="color:var(--text3);font-size:12px">
+      This node ends the conversation.
+    </div>`;
+  }
+
+  // Delete node button
+  html += `<div class="tree-props-section">
+    <button class="add-btn" style="border-color:rgba(255,107,107,0.4);color:var(--coral)"
+      onclick="deleteSelected()">✕ Delete this node</button>
+  </div>`;
+
+  propsContent.innerHTML = html;
+}
+
+function renderTreeProps() {
+  propsContent.innerHTML = `
+    <div class="props-section">
+      <label class="props-label" for="tree-name-p">Tree name</label>
+      <input class="props-input" id="tree-name-p" type="text" value="${esc(state.tree.name)}"
+        oninput="updateTreeMeta('name',this.value)" />
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="tree-game">Game</label>
+      <input class="props-input" id="tree-game" type="text" value="${esc(state.tree.metadata.game)}"
+        oninput="updateTreeMeta('game',this.value)" />
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="tree-scene">Scene</label>
+      <input class="props-input" id="tree-scene" type="text" value="${esc(state.tree.metadata.scene)}"
+        oninput="updateTreeMeta('scene',this.value)" />
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="tree-tags">Tags (comma-separated)</label>
+      <input class="props-input" id="tree-tags" type="text"
+        value="${esc((state.tree.metadata.tags||[]).join(', '))}"
+        oninput="updateTreeMeta('tags',this.value)" />
+    </div>
+    <div class="props-section">
+      <label class="props-label" for="tree-start">Start node</label>
+      <select class="props-input" id="tree-start" onchange="updateTreeMeta('start_node',this.value)">
+        <option value="">— none —</option>
+        ${state.tree.nodes.map(n =>
+          `<option value="${n.id}" ${state.tree.start_node===n.id?'selected':''}>${n.id} (${n.type})</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div class="tree-props-section" style="color:var(--text3);font-size:11px;padding-top:10px">
+      ${state.tree.nodes.length} nodes · ${countConnections()} connections
+    </div>`;
+}
+
+// ── Node update helpers ───────────────────────────────────────────────
+window.updateNode = function(id, key, value) {
+  const node = state.tree.nodes.find(n => n.id === id);
+  if (!node) return;
+  node[key] = value;
+  state.dirty = true;
+  // Partial re-render of the card
+  const el = canvasNodes.querySelector(`.d-node[data-id="${id}"]`);
+  if (el) { updateNodeEl(el, node); positionNodeEl(el, node); }
+  renderConnections();
+  if (key === 'speaker' || key === 'text') updateStatusBar();
+};
+
+window.updateOption = function(nodeId, idx, key, value) {
+  const node = state.tree.nodes.find(n => n.id === nodeId);
+  if (!node || !node.options) return;
+  node.options[idx][key] = value;
+  state.dirty = true;
+  const el = canvasNodes.querySelector(`.d-node[data-id="${nodeId}"]`);
+  if (el) { updateNodeEl(el, node); positionNodeEl(el, node); }
+  renderConnections();
+};
+
+window.updateOptionCond = function(nodeId, idx, jsonStr) {
+  const node = state.tree.nodes.find(n => n.id === nodeId);
+  if (!node || !node.options) return;
+  try {
+    node.options[idx].condition = jsonStr.trim() ? JSON.parse(jsonStr) : null;
+  } catch { /* ignore invalid JSON while typing */ }
+  state.dirty = true;
+};
+
+window.addOption = function(nodeId) {
+  pushUndo();
+  const node = state.tree.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  if (!node.options) node.options = [];
+  node.options.push({ label: 'New option', next: null, condition: null });
+  renderAll();
+  renderProps();
+};
+
+window.deleteOption = function(nodeId, idx) {
+  pushUndo();
+  const node = state.tree.nodes.find(n => n.id === nodeId);
+  if (!node || !node.options) return;
+  node.options.splice(idx, 1);
+  renderAll();
+  renderProps();
+};
+
+window.setStartNode = function(id) {
+  pushUndo();
+  state.tree.start_node = id;
+  renderAll();
+  renderProps();
+  setStatus(`Start node set to ${id}`);
+};
+
+window.updateTreeMeta = function(key, value) {
+  if (key === 'name') {
+    state.tree.name = value;
+    nameInput.value = value;
+  } else if (key === 'start_node') {
+    state.tree.start_node = value || null;
+    renderAll();
+    renderProps();
+  } else if (key === 'tags') {
+    state.tree.metadata.tags = value.split(',').map(t => t.trim()).filter(Boolean);
+  } else {
+    state.tree.metadata[key] = value;
+  }
+  state.dirty = true;
+};
+
+// ── Escape HTML ───────────────────────────────────────────────────────
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Save & Load ───────────────────────────────────────────────────────
+async function saveTree() {
+  state.tree.name = nameInput.value.trim() || 'New Tree';
+  try {
+    const resp = await fetch('/api/dialogue/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tree: state.tree }),
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    state.dirty = false;
+    toast('Saved: ' + state.tree.name, 'success');
+    setStatus('Saved');
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'error');
+  }
+}
+
+async function loadTree(name) {
+  try {
+    const resp = await fetch(`/api/dialogue/load/${encodeURIComponent(name)}`);
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+    state.tree = data;
+    state.tree.nodes = state.tree.nodes || [];
+    state.tree.metadata = state.tree.metadata || { game: '', scene: '', tags: [] };
+    state.selectedId = null;
+    state.undoStack = [];
+    state.dirty = false;
+    renderAll();
+    fitAll();
+    toast('Loaded: ' + data.name, 'success');
+  } catch (e) {
+    toast('Load failed: ' + e.message, 'error');
+  }
+}
+
+async function loadTreeList() {
+  try {
+    const resp = await fetch('/api/dialogue/list');
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+    return data.trees || [];
+  } catch {
+    return [];
+  }
+}
+
+// ── New tree ──────────────────────────────────────────────────────────
+function newTreeAction() {
+  if (state.dirty && state.tree.nodes.length > 0) {
+    if (!confirm('Discard unsaved changes and start a new tree?')) return;
+  }
+  state.tree = newTree();
+  state.selectedId = null;
+  state.undoStack = [];
+  state.dirty = false;
+  state.panX = 60; state.panY = 60; state.zoom = 1;
+  applyTransform();
+  renderAll();
+  setStatus('New tree');
+}
+
+// ── Fit all nodes in view ─────────────────────────────────────────────
+function fitAll() {
+  if (!state.tree.nodes.length) return;
+  const padding = 60;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  state.tree.nodes.forEach(n => {
+    minX = Math.min(minX, n.x ?? 0);
+    minY = Math.min(minY, n.y ?? 0);
+    maxX = Math.max(maxX, (n.x ?? 0) + 210);
+    maxY = Math.max(maxY, (n.y ?? 0) + 120);
+  });
+  const cw = canvasWrap.clientWidth  - padding * 2;
+  const ch = canvasWrap.clientHeight - padding * 2;
+  const zx = cw / (maxX - minX);
+  const zy = ch / (maxY - minY);
+  state.zoom = Math.min(1.2, Math.max(0.3, Math.min(zx, zy)));
+  state.panX = padding - minX * state.zoom;
+  state.panY = padding - minY * state.zoom;
+  applyTransform();
+}
+
+document.getElementById('btn-fit').addEventListener('click', fitAll);
+document.getElementById('btn-center').addEventListener('click', () => {
+  state.panX = 60; state.panY = 60; state.zoom = 1;
+  applyTransform();
+});
+
+// ── Open menu ─────────────────────────────────────────────────────────
+const btnOpen = document.getElementById('btn-open');
+btnOpen.addEventListener('click', async () => {
+  const isOpen = openMenu.classList.toggle('open');
+  btnOpen.setAttribute('aria-expanded', isOpen);
+  if (isOpen) {
+    openMenu.innerHTML = '<div style="padding:8px 10px;color:var(--text3);font-size:11px;font-family:var(--mono)">Loading…</div>';
+    const trees = await loadTreeList();
+    if (!trees.length) {
+      openMenu.innerHTML = '<div style="padding:8px 10px;color:var(--text3);font-size:11px">No saved trees</div>';
+      return;
+    }
+    openMenu.innerHTML = trees.map(t => `
+      <div class="dropdown-item" role="menuitem" tabindex="0"
+        data-name="${esc(t.name)}" onclick="loadTree('${esc(t.name)}');closeOpenMenu()">
+        <span style="color:var(--teal)">⟩</span>
+        <span>${esc(t.tree_name || t.name)}</span>
+        <span style="margin-left:auto;color:var(--text3);font-size:10px">${t.node_count}n</span>
+      </div>`).join('');
+  }
+});
+
+window.closeOpenMenu = function() {
+  openMenu.classList.remove('open');
+  btnOpen.setAttribute('aria-expanded', 'false');
+};
+
+// Close on outside click
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('open-wrap').contains(e.target)) {
+    closeOpenMenu();
+  }
+});
+
+// ── Export ────────────────────────────────────────────────────────────
+const exportDropdown = document.getElementById('export-dropdown');
+document.getElementById('btn-export').addEventListener('click', (e) => {
+  const isOpen = exportDropdown.classList.toggle('open');
+  e.currentTarget.setAttribute('aria-expanded', isOpen);
+  e.stopPropagation();
+});
+
+document.querySelectorAll('#export-menu .dropdown-item').forEach(item => {
+  const activate = async () => {
+    exportDropdown.classList.remove('open');
+    const fmt = item.dataset.fmt;
+    await exportTree(fmt);
+  };
+  item.addEventListener('click', activate);
+  item.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
+});
+
+document.addEventListener('click', (e) => {
+  if (!exportDropdown.contains(e.target)) exportDropdown.classList.remove('open');
+});
+
+async function exportTree(fmt) {
+  try {
+    const resp = await fetch('/api/dialogue/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tree: state.tree, format: fmt }),
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const fnMatch = cd.match(/filename="?([^"]+)"?/);
+    const filename = fnMatch ? fnMatch[1] : `${state.tree.name}.${fmt}`;
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Exported: ' + filename, 'success');
+  } catch (e) {
+    toast('Export failed: ' + e.message, 'error');
+  }
+}
+
+// ── Toolbar button wiring ─────────────────────────────────────────────
+document.getElementById('btn-new').addEventListener('click', newTreeAction);
+document.getElementById('btn-save').addEventListener('click', saveTree);
+
+nameInput.addEventListener('input', () => {
+  state.tree.name = nameInput.value.trim() || 'New Tree';
+  state.dirty = true;
+});
+
+// ── AI Generate ───────────────────────────────────────────────────────
+const generateModal = document.getElementById('generate-modal');
+document.getElementById('btn-generate').addEventListener('click', () => {
+  generateModal.classList.add('open');
+  document.getElementById('gen-desc').focus();
+});
+document.getElementById('gen-cancel').addEventListener('click', () => {
+  generateModal.classList.remove('open');
+});
+generateModal.addEventListener('click', (e) => {
+  if (e.target === generateModal) generateModal.classList.remove('open');
+});
+
+document.getElementById('gen-submit').addEventListener('click', async () => {
+  const desc = document.getElementById('gen-desc').value.trim();
+  if (!desc) { toast('Enter a description first', 'error'); return; }
+  const num = parseInt(document.getElementById('gen-nodes').value) || 6;
+
+  const btn = document.getElementById('gen-submit');
+  const txt = document.getElementById('gen-btn-text');
+  const spinner = document.getElementById('gen-spinner');
+  btn.disabled = true;
+  txt.textContent = 'Generating…';
+  spinner.style.display = '';
+
+  try {
+    const resp = await fetch('/api/dialogue/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: desc, num_nodes: num }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new Error(err.detail || resp.statusText);
+    }
+    const tree = await resp.json();
+    tree.nodes = tree.nodes || [];
+    tree.metadata = tree.metadata || { game: '', scene: '', tags: [] };
+
+    // Layout nodes in a cascade
+    layoutGeneratedTree(tree);
+
+    state.tree = tree;
+    state.selectedId = null;
+    state.undoStack = [];
+    state.dirty = true;
+    generateModal.classList.remove('open');
+    renderAll();
+    fitAll();
+    toast('Generated: ' + tree.name, 'success');
+  } catch (e) {
+    toast('Generate failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    txt.textContent = 'Generate';
+    spinner.style.display = 'none';
+  }
+});
+
+function layoutGeneratedTree(tree) {
+  // Auto-layout: BFS from start node, assign grid positions
+  const nodeMap = {};
+  tree.nodes.forEach(n => nodeMap[n.id] = n);
+  const visited = new Set();
+  const queue = [{ id: tree.start_node || tree.nodes[0]?.id, col: 0, row: 0 }];
+  const colCount = {};
+
+  while (queue.length) {
+    const { id, col, row } = queue.shift();
+    if (!id || visited.has(id)) continue;
+    visited.add(id);
+    const node = nodeMap[id];
+    if (!node) continue;
+
+    colCount[col] = (colCount[col] || 0);
+    node.x = col * 260 + 60;
+    node.y = colCount[col] * 160 + 60;
+    colCount[col]++;
+
+    const next = [];
+    if (node.next) next.push(node.next);
+    if (node.options) node.options.forEach(o => { if (o.next) next.push(o.next); });
+    next.forEach(nid => {
+      if (!visited.has(nid)) queue.push({ id: nid, col: col + 1, row: 0 });
+    });
+  }
+
+  // Position any orphan nodes
+  let orphanY = 60;
+  tree.nodes.forEach(n => {
+    if (!visited.has(n.id)) {
+      n.x = 60; n.y = orphanY; orphanY += 160;
+    }
+  });
+}
+
+// ── Test mode ─────────────────────────────────────────────────────────
+const testOverlay = document.getElementById('test-overlay');
+let testState = { current: null, visited: new Set() };
+
+document.getElementById('btn-test').addEventListener('click', startTest);
+document.getElementById('btn-test-close').addEventListener('click', endTest);
+document.getElementById('btn-test-close2').addEventListener('click', endTest);
+document.getElementById('btn-test-restart').addEventListener('click', startTest);
+
+function startTest() {
+  if (!state.tree.start_node) {
+    toast('Set a start node first', 'error');
+    return;
+  }
+  testState.current = state.tree.start_node;
+  testState.visited = new Set();
+  testOverlay.classList.add('active');
+  showTestNode(testState.current);
+}
+
+function endTest() {
+  testOverlay.classList.remove('active');
+  testState.visited.clear();
+  // Remove visited highlights
+  canvasNodes.querySelectorAll('.d-node').forEach(el => {
+    el.classList.remove('visited-node', 'current-node');
+  });
+}
+
+function showTestNode(nodeId) {
+  const node = state.tree.nodes.find(n => n.id === nodeId);
+  const speaker = document.getElementById('test-speaker');
+  const text    = document.getElementById('test-text');
+  const choices = document.getElementById('test-choices');
+  const endMsg  = document.getElementById('test-end');
+  const nodeIdEl = document.getElementById('test-node-id');
+
+  // Mark visited
+  testState.visited.add(nodeId);
+  canvasNodes.querySelectorAll('.d-node').forEach(el => {
+    el.classList.toggle('visited-node', testState.visited.has(el.dataset.id) && el.dataset.id !== nodeId);
+    el.classList.toggle('current-node', el.dataset.id === nodeId);
+  });
+
+  if (!node) {
+    speaker.textContent = '';
+    text.textContent = 'Node not found: ' + nodeId;
+    choices.innerHTML = '';
+    endMsg.style.display = 'none';
+    nodeIdEl.textContent = nodeId;
+    return;
+  }
+
+  nodeIdEl.textContent = nodeId + ' · ' + node.type;
+  endMsg.style.display = 'none';
+  choices.innerHTML = '';
+
+  if (node.type === 'npc') {
+    speaker.textContent = node.speaker || '';
+    text.textContent = node.text || '';
+    if (node.next) {
+      const btn = mkTestBtn('Next >', () => showTestNode(node.next));
+      choices.appendChild(btn);
+    } else {
+      endMsg.style.display = '';
+    }
+  } else if (node.type === 'choice') {
+    speaker.textContent = '';
+    text.textContent = 'Choose a response:';
+    (node.options || []).forEach(opt => {
+      const unavailable = opt.condition && !checkCondition(opt.condition);
+      const btn = mkTestBtn(opt.label, () => {
+        if (opt.next) showTestNode(opt.next);
+        else { text.textContent = '(no next node)'; choices.innerHTML = ''; endMsg.style.display = ''; }
+      });
+      btn.disabled = unavailable;
+      if (unavailable) btn.title = 'Condition not met: ' + JSON.stringify(opt.condition);
+      choices.appendChild(btn);
+    });
+  } else if (node.type === 'condition') {
+    speaker.textContent = 'Condition';
+    const met = checkCondition({ variable: node.variable, operator: node.operator, value: node.value });
+    text.textContent = `${node.variable} ${node.operator} ${node.value}: ${met ? 'TRUE' : 'FALSE'}`;
+    if (node.next) {
+      choices.appendChild(mkTestBtn('Continue >', () => showTestNode(node.next)));
+    } else {
+      endMsg.style.display = '';
+    }
+  } else if (node.type === 'action') {
+    speaker.textContent = 'Action';
+    text.textContent = node.action || '(no action)';
+    if (node.next) {
+      choices.appendChild(mkTestBtn('Continue >', () => showTestNode(node.next)));
+    } else {
+      endMsg.style.display = '';
+    }
+  } else if (node.type === 'end') {
+    speaker.textContent = '';
+    text.textContent = '';
+    endMsg.style.display = '';
+  }
+}
+
+function mkTestBtn(label, cb) {
+  const btn = document.createElement('button');
+  btn.className = 'test-choice-btn';
+  btn.textContent = label;
+  btn.addEventListener('click', cb);
+  return btn;
+}
+
+function checkCondition(cond) {
+  if (!cond) return true;
+  // In test mode we can't evaluate real game state, so just check if min skill is satisfied
+  if (cond.skill && cond.min != null) return false; // show as unavailable since we have no skill value
+  return true;
+}
+
+// ── Theme toggle ─────────────────────────────────────────────────────
+const themeToggle = document.getElementById('theme-toggle');
+themeToggle.addEventListener('click', () => {
+  const isDark = !document.documentElement.dataset.theme;
+  document.documentElement.dataset.theme = isDark ? 'light' : '';
+  localStorage.setItem('mullm-theme', isDark ? 'light' : 'dark');
+});
+const savedTheme = localStorage.getItem('mullm-theme');
+if (savedTheme === 'light') document.documentElement.dataset.theme = 'light';
+
+// ── Sample tree for first load ─────────────────────────────────────────
+function loadSampleTree() {
+  state.tree = {
+    id: crypto.randomUUID ? crypto.randomUUID() : uid(),
+    name: 'Guard Encounter',
+    nodes: [
+      { id: 'n1', type: 'npc', speaker: 'Guard', text: 'Halt! Who goes there?', portrait: null, next: 'choice_1', x: 60, y: 120 },
+      { id: 'choice_1', type: 'choice', text: null, options: [
+        { label: "I'm a merchant.", next: 'n2', condition: null },
+        { label: 'None of your business.', next: 'n3', condition: null },
+        { label: '[Persuasion 12] Stand aside.', next: 'n4', condition: { skill: 'persuasion', min: 12 } },
+      ], x: 320, y: 80 },
+      { id: 'n2', type: 'npc', speaker: 'Guard', text: 'Merchants are welcome. Carry on.', portrait: null, next: 'end_1', x: 620, y: 40 },
+      { id: 'n3', type: 'npc', speaker: 'Guard', text: 'Watch your tongue, stranger.', portrait: null, next: 'end_1', x: 620, y: 160 },
+      { id: 'n4', type: 'npc', speaker: 'Guard', text: '…Very well. Move along.', portrait: null, next: 'end_1', x: 620, y: 280 },
+      { id: 'end_1', type: 'end', x: 900, y: 160 },
+    ],
+    start_node: 'n1',
+    variables: {},
+    metadata: { game: '', scene: 'Town Gate', tags: ['tutorial'] },
+  };
+  renderAll();
+  fitAll();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+loadSampleTree();
+applyTransform();
+
+// Reload connections after any resize
+const resizeObserver = new ResizeObserver(() => renderConnections());
+resizeObserver.observe(canvasWrap);
+</script>
+</body>
+</html>

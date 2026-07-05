@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>muLLM Data 3D</title>
+<style>
+  :root{color-scheme:dark;--bg:#071018;--panel:#0c1723;--panel2:#101f2e;--line:#20384b;--text:#e4edf5;--muted:#8ca2b6;--teal:#22d3ee;--green:#22c55e;--amber:#f59e0b;--red:#ef4444}
+  *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+  body{display:grid;grid-template-columns:minmax(330px,420px) 1fr;overflow:hidden}
+  aside{border-right:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#08131d);padding:16px;overflow:auto}
+  main{position:relative;min-width:0}
+  canvas{display:block;width:100%;height:100%}
+  a{color:var(--teal);text-decoration:none}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:12px}.nav a{border:1px solid var(--line);border-radius:6px;padding:5px 8px;color:var(--muted)}.nav .active{color:var(--teal);border-color:var(--teal)}
+  h1{font-size:21px;margin:8px 0 6px;letter-spacing:0}p{color:var(--muted);line-height:1.45;font-size:13px;margin:0 0 12px}
+  label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px}
+  textarea,input,select{width:100%;background:#06101a;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font:13px ui-monospace,SFMono-Regular,Consolas,monospace}
+  textarea{height:190px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 11px;cursor:pointer;font-weight:650}button.primary{background:var(--teal);color:#001018;border-color:var(--teal)}button:hover{border-color:var(--teal)}
+  .status{margin-top:12px;border:1px solid var(--line);border-radius:8px;background:#07121c;padding:10px;font:12px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--muted);white-space:pre-wrap}
+  .hud{position:absolute;left:16px;top:16px;max-width:380px;background:rgba(5,12,20,.78);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:10px;padding:12px;pointer-events:none}
+  .hud strong{color:var(--teal)}.hud div{font-size:12px;color:var(--muted);margin-top:4px}.tip{position:absolute;right:16px;bottom:16px;max-width:360px;background:rgba(5,12,20,.86);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--muted);font-size:12px}
+  .pill{display:inline-block;margin:3px 4px 0 0;padding:3px 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px}
+  @media(max-width:900px){body{grid-template-columns:1fr;grid-template-rows:auto 1fr}aside{max-height:48vh;border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<aside>
+  <nav class="nav"><a href="/chat">Chat</a><a href="/dashboard">Dashboard</a><a href="/research">Research</a><a href="/dataviz" class="active">DataViz</a><a href="/setup">Setup</a></nav>
+  <h1>Data 3D</h1>
+  <p>Local-first 3D visualization for CSV, JSON, and GeoJSON. Preview data in-browser, then export a standalone HTML file for demos, screen shares, or internal review.</p>
+  <div>
+    <span class="pill">point cloud</span><span class="pill">bars</span><span class="pill">globe points</span><span class="pill">lines</span><span class="pill">network</span><span class="pill">heat columns</span><span class="pill">surface</span><span class="pill">timeline</span>
+  </div>
+  <label for="title">Title</label>
+  <input id="title" value="Enterprise Routing Data">
+  <div class="row">
+    <div><label for="sourceType">Source</label><select id="sourceType"><option value="json">JSON</option><option value="csv">CSV</option><option value="geojson">GeoJSON</option></select></div>
+    <div><label for="style">Style</label><select id="style"></select></div>
+  </div>
+  <label for="content">Data</label>
+  <textarea id="content" spellcheck="false"></textarea>
+  <div class="row">
+    <div><label for="mapX">X / lon</label><input id="mapX" placeholder="auto"></div>
+    <div><label for="mapY">Y / lat</label><input id="mapY" placeholder="auto"></div>
+    <div><label for="mapZ">Z / height</label><input id="mapZ" placeholder="auto"></div>
+    <div><label for="mapSize">Size</label><input id="mapSize" placeholder="auto"></div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="previewBtn">Preview</button>
+    <button id="sampleBtn">Load Sample</button>
+    <button id="exportBtn">Export HTML</button>
+  </div>
+  <div class="status" id="status">Ready. Data stays in this browser/server session unless you export it.</div>
+</aside>
+<main>
+  <div class="hud"><strong id="hudTitle">Data 3D</strong><div id="hudMeta">No scene loaded.</div></div>
+  <div class="tip" id="tip">Drag to orbit. Wheel to zoom. Hover picking is next; this version keeps raw row previews in the schema payload.</div>
+  <canvas id="view"></canvas>
+</main>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const $ = id => document.getElementById(id);
+const styles = ['point_cloud','bars_3d','globe_points','lines_3d','network','heat_columns','surface_grid','timeline_arc'];
+for (const id of styles) $('style').append(new Option(id.replaceAll('_',' '), id));
+
+let scene, camera, renderer, controls, root;
+function init(){
+  const canvas = $('view');
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x061018);
+  camera = new THREE.PerspectiveCamera(55, 1, .1, 1000);
+  camera.position.set(10,7,13);
+  renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  scene.add(new THREE.AmbientLight(0xffffff,.75));
+  const sun = new THREE.DirectionalLight(0xffffff,1.25); sun.position.set(5,8,3); scene.add(sun);
+  root = new THREE.Group(); scene.add(root);
+  resize(); addEventListener('resize', resize); tick();
+}
+function resize(){const r=$('view').getBoundingClientRect(); camera.aspect=Math.max(1,r.width)/Math.max(1,r.height); camera.updateProjectionMatrix(); renderer.setSize(Math.max(1,r.width),Math.max(1,r.height),false)}
+function clear(){while(root.children.length) root.remove(root.children[0])}
+function mat(color){return new THREE.MeshStandardMaterial({color,roughness:.45,metalness:.12})}
+function renderScene(data){
+  clear();
+  root.add(new THREE.GridHelper(16,16,0x28445c,0x142330));
+  const points = data.points || [];
+  const baseMat = mat(0x22d3ee), hotMat = mat(0xf59e0b), coolMat = mat(0x22c55e);
+  if (data.style === 'globe_points') {
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(4,48,24), new THREE.MeshStandardMaterial({color:0x123047,roughness:.8,transparent:true,opacity:.72}));
+    root.add(globe);
+    for (const p of points) {
+      const lat = THREE.MathUtils.degToRad(p.lat || 0), lon = THREE.MathUtils.degToRad(p.lon || 0);
+      const r = 4.08, x = r * Math.cos(lat) * Math.sin(lon), y = r * Math.sin(lat), z = r * Math.cos(lat) * Math.cos(lon);
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(Math.max(.06,p.size),16,10), hotMat);
+      mesh.position.set(x,y,z); root.add(mesh);
+    }
+  } else {
+    points.forEach((p, i) => {
+      const h = Math.max(.12, p.size * 9);
+      const geo = data.style === 'bars_3d' || data.style === 'heat_columns' ? new THREE.BoxGeometry(.28,h,.28) : new THREE.SphereGeometry(Math.max(.05,p.size),16,10);
+      const mesh = new THREE.Mesh(geo, i % 3 === 0 ? hotMat : (i % 3 === 1 ? coolMat : baseMat));
+      mesh.position.set(p.x, geo.type === 'BoxGeometry' ? h/2 : p.y, p.z);
+      root.add(mesh);
+    });
+    if (data.style === 'lines_3d' || data.style === 'timeline_arc') {
+      const linePoints = points.map(p => new THREE.Vector3(p.x,p.y,p.z));
+      root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(linePoints), new THREE.LineBasicMaterial({color:0x7dd3fc})));
+    }
+  }
+  $('hudTitle').textContent = $('title').value || 'Data 3D';
+  $('hudMeta').textContent = `${points.length} rows · ${data.style} · ${data.schema.numeric.length} numeric columns`;
+}
+async function preview(){
+  $('status').textContent = 'Parsing and transforming...';
+  const body = payload();
+  const res = await fetch('/api/dataviz3d/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.detail || 'preview failed');
+  renderScene(data);
+  $('status').textContent = `Loaded ${data.points.length} points\nMappings: ${JSON.stringify(data.mappings, null, 2)}`;
+}
+function payload(){return {title:$('title').value, source_type:$('sourceType').value, style:$('style').value, content:$('content').value, mappings:{x:$('mapX').value,y:$('mapY').value,z:$('mapZ').value,size:$('mapSize').value}}}
+async function sample(){
+  const data = await (await fetch('/api/dataviz3d/samples')).json();
+  const s = data.samples.cities_json;
+  $('sourceType').value = s.source_type; $('style').value = s.style; $('content').value = s.content; await preview();
+}
+async function exportHtml(){
+  $('status').textContent = 'Building standalone HTML...';
+  const res = await fetch('/api/dataviz3d/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.detail || 'export failed');
+  const url = URL.createObjectURL(new Blob([data.html], {type:'text/html'}));
+  const a = document.createElement('a'); a.href = url; a.download = data.filename; a.click(); URL.revokeObjectURL(url);
+  $('status').textContent = `Exported ${data.filename}. The data is embedded in the file; treat it like the source dataset.`;
+}
+$('previewBtn').onclick = () => preview().catch(e => $('status').textContent = 'Error: ' + e.message);
+$('sampleBtn').onclick = () => sample().catch(e => $('status').textContent = 'Error: ' + e.message);
+$('exportBtn').onclick = () => exportHtml().catch(e => $('status').textContent = 'Error: ' + e.message);
+function tick(){requestAnimationFrame(tick); root.rotation.y += .0015; controls.update(); renderer.render(scene,camera)}
+init(); sample();
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+# Heavy directories — skip from Claude Code context/indexing
+.venv/
+__pycache__/
+node_modules/
+.git/
+
+# Env
+.env
+.env.local
+.env.dev
+.env.production
+.env*
+
+# Python compiled / cache
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+router/__pycache__/
+cache/__pycache__/
+config/__pycache__/
+
+# Media — binary, no useful code content
+*.webm
+*.mp4
+*.avi
+*.mov
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.webp
+*.bmp
+*.tiff
+*.avif
+
+# 3D assets — binary, read on demand
+*.glb
+*.gltf
+*.obj
+*.mtl
+*.fbx
+*.stl
+*.ply
+assets/3d/
+
+# Screenshots and recordings
+screenshots/
+videos/
+recordings/
+
+# Cache runtime data — changes every request, not useful
+cache/data/
+*.sqlite3
+*.bin
+*.pkl
+*.pickle
+
+# Scoring / session logs — large append-only files
+sessions.jsonl
+cache/data/scoring_log.jsonl
+*.jsonl
+
+# Playwright artifacts
+test-results/
+playwright-report/
+blob-report/
+*.zip
+
+# Build artifacts
+dist/
+build/
+.next/
+out/
+
+# Large game HTML files (250+ files, 1000+ lines each) — read on demand
+code/ready/
+
+# Certs
+certs/
+*.pem
+*.crt
+*.key
+*.p12
+
+# Logs
+*.log
+nohup.out
+/tmp/
+
+# Bench / profile snapshots
+bench-*.txt
+bench-after.txt
+bench-before.txt
+*.prof
+*.perf
+
+# Design docs — read on demand
+code/ready/DESIGN-*.md
+
+# RigNet model checkpoints — large binary weights
+rig/
+/home/peter/rig/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Assets that aren't code
+assets/images/
+assets/audio/

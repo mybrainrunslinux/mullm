@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>muLLM Forest 3D</title>
+<style>
+  :root{color-scheme:dark;--bg:#07100d;--panel:rgba(7,16,13,.78);--line:rgba(34,197,94,.26);--text:#e7f5eb;--muted:#91a99a;--green:#22c55e;--teal:#14b8a6;--amber:#f59e0b;--blue:#60a5fa;--purple:#a78bfa}
+  *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#06100b;color:var(--text);font-family:Inter,system-ui,sans-serif}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .overlay{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(4,10,8,.86);backdrop-filter:blur(12px)}
+  .card{width:min(480px,calc(100vw - 32px));background:linear-gradient(140deg,#0d1c16,#101c27);border:1px solid var(--line);border-radius:14px;padding:24px;box-shadow:0 30px 90px rgba(0,0,0,.55)}
+  h1{margin:0 0 8px;font-size:22px;letter-spacing:0}p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.5}.buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  button,a.btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 12px;font-weight:750;cursor:pointer;text-decoration:none}button.primary{background:var(--green);color:#041008;border-color:var(--green)}
+  .hud{position:fixed;left:16px;top:16px;z-index:5;display:grid;gap:8px;pointer-events:none}.tile{min-width:136px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;backdrop-filter:blur(8px)}.tile .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.tile .value{font-size:18px;color:var(--green);font-weight:800}.tile .sub{font-size:11px;color:var(--muted)}
+  .status{position:fixed;right:16px;top:16px;z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 11px;font-size:12px;color:var(--muted)}
+  .legend{position:fixed;left:16px;bottom:16px;z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);backdrop-filter:blur(8px)}.legend div{display:flex;align-items:center;gap:8px;margin:4px 0}.dot{width:9px;height:9px;border-radius:50%}
+  .controls{position:fixed;right:16px;bottom:16px;z-index:5;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  @media(max-width:720px){.hud{grid-template-columns:repeat(2,minmax(0,1fr));right:16px}.tile{min-width:0}.legend{display:none}.controls{left:16px}.status{top:auto;bottom:72px}}
+</style>
+</head>
+<body>
+<canvas id="forest"></canvas>
+<div class="overlay" id="gate" role="dialog" aria-label="Enable 3D forest visualization">
+  <div class="card">
+    <h1>Forest 3D Routing View</h1>
+    <p>A live/simulated Three.js visualization of muLLM routing. Queries move as glowing packets through classifier, cache, local, cloud, tools, and output stages.</p>
+    <p>GPU estimate: 80-150 MB VRAM. Use Reduced if local inference is active.</p>
+    <div class="buttons"><button onclick="start(true)">Reduced</button><button class="primary" onclick="start(false)">Enable</button><a class="btn" href="/dashboard">Dashboard</a></div>
+  </div>
+</div>
+<div class="hud">
+  <div class="tile"><div class="label">Queries</div><div class="value" id="q">--</div><div class="sub">scoring log</div></div>
+  <div class="tile"><div class="label">Saved</div><div class="value" id="saved">--</div><div class="sub">estimated</div></div>
+  <div class="tile"><div class="label">Local</div><div class="value" id="local">--</div><div class="sub">local/cache/groundtruth</div></div>
+  <div class="tile"><div class="label">Cloud</div><div class="value" id="cloud">--</div><div class="sub">paid tiers</div></div>
+</div>
+<div class="status" id="status">SIMULATED</div>
+<div class="legend"><div><span class="dot" style="background:var(--green)"></span>Groundtruth/cache</div><div><span class="dot" style="background:var(--teal)"></span>Local model</div><div><span class="dot" style="background:var(--amber)"></span>Cloud</div><div><span class="dot" style="background:var(--blue)"></span>Agents/tools</div></div>
+<div class="controls"><button id="busy">Simulate Busy</button><button id="night">Night</button><button onclick="location.href='/dataviz3d'">Data 3D</button></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+let scene,camera,renderer,controls,root,clock,reduced=false,busy=false,night=false,lastSpawn=0,packets=[];
+const stages=[
+  ['CLASSIFY',0,0,0x22c55e],['CACHE',-5,-3,0x22c55e],['LOCAL',-3,-7,0x14b8a6],['CLOUD',5,-7,0xf59e0b],['TOOLS',7,1,0x60a5fa],['A2A',-6,4,0xa78bfa],['OUTPUT',0,7,0xe7f5eb]
+];
+window.start = r => { reduced=r; document.getElementById('gate').style.display='none'; init(); };
+function init(){clock=new THREE.Clock();scene=new THREE.Scene();scene.background=new THREE.Color(0x07100d);scene.fog=new THREE.FogExp2(0x07100d,.035);camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.1,300);camera.position.set(9,8,13);renderer=new THREE.WebGLRenderer({canvas:document.getElementById('forest'),antialias:!reduced,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,reduced?1:2));renderer.setSize(innerWidth,innerHeight);controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;root=new THREE.Group();scene.add(root);scene.add(new THREE.AmbientLight(0xbbe8c4,.7));const sun=new THREE.DirectionalLight(0xfff3d0,1.5);sun.position.set(7,10,4);scene.add(sun);buildForest();resize();addEventListener('resize',resize);setInterval(loadStats,3500);loadStats();tick();}
+function buildForest(){root.add(new THREE.GridHelper(22,22,0x244235,0x14241c));for(const [name,x,z,color] of stages){const g=new THREE.Group();g.position.set(x,0,z);const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.16,.24,2.2,8),new THREE.MeshStandardMaterial({color:0x69451f,roughness:.9}));trunk.position.y=1.1;g.add(trunk);for(let i=0;i<3;i++){const leaf=new THREE.Mesh(new THREE.ConeGeometry(1.1-i*.18,1.5,8),new THREE.MeshStandardMaterial({color:new THREE.Color(color).lerp(new THREE.Color(0x14351d),.55),roughness:.8}));leaf.position.y=2.2+i*.55;g.add(leaf)}const orb=new THREE.Mesh(new THREE.SphereGeometry(.18,16,10),new THREE.MeshBasicMaterial({color}));orb.position.y=.25;g.add(orb);g.userData={name,x,z,color};root.add(g);label(name,x,4.7,z);}}
+function label(text,x,y,z){const c=document.createElement('canvas');c.width=220;c.height=54;const ctx=c.getContext('2d');ctx.fillStyle='rgba(4,12,8,.72)';ctx.roundRect(0,0,220,54,8);ctx.fill();ctx.fillStyle='#e7f5eb';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.fillText(text,110,32);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true}));s.position.set(x,y,z);s.scale.set(2.3,.56,1);root.add(s);}
+function spawn(type='local'){const colors={cache:0x22c55e,local:0x14b8a6,cloud:0xf59e0b,tools:0x60a5fa};const m=new THREE.Mesh(new THREE.SphereGeometry(.13,16,10),new THREE.MeshBasicMaterial({color:colors[type]||colors.local}));const path=type==='cloud'?[0,3,6]:type==='cache'?[0,1,6]:type==='tools'?[0,2,4,5,6]:[0,2,6];root.add(m);packets.push({m,path,t:0,type});}
+function interp(a,b,t){return new THREE.Vector3(a[1],.7+Math.sin(t*Math.PI)*1.4,a[2]).lerp(new THREE.Vector3(b[1],.7+Math.sin(t*Math.PI)*1.4,b[2]),t)}
+async function loadStats(){try{const r=await fetch('/api/dashboard');if(!r.ok)throw new Error();const d=await r.json();const tiers=d.tier_stats||{};const total=Object.values(tiers).reduce((a,b)=>a+(b.count||0),0);const paid=(tiers.cloud_cheap?.count||0)+(tiers.cloud_full?.count||0)+(tiers.cloud_power?.count||0);document.getElementById('q').textContent=total||0;document.getElementById('cloud').textContent=paid;document.getElementById('local').textContent=Math.max(0,total-paid);document.getElementById('saved').textContent='$'+Number(d.cost_saved_usd||0).toFixed(2);document.getElementById('status').textContent='LIVE';}catch{document.getElementById('status').textContent='SIMULATED';}}
+function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}
+document.getElementById('busy').onclick=()=>busy=!busy;document.getElementById('night').onclick=()=>{night=!night;scene.background.set(night?0x020611:0x07100d);scene.fog.color.set(night?0x020611:0x07100d)}
+function tick(){requestAnimationFrame(tick);const dt=clock.getDelta();lastSpawn+=dt;if(lastSpawn>(busy?.25:1.2)){lastSpawn=0;spawn(['cache','local','cloud','tools'][Math.floor(Math.random()*4)])}for(const p of packets){p.t+=dt*.45;const seg=Math.min(p.path.length-2,Math.floor(p.t));const f=p.t-seg;const a=stages[p.path[seg]],b=stages[p.path[seg+1]];if(!b){root.remove(p.m);p.done=true;continue}p.m.position.copy(interp(a,b,f));p.m.scale.setScalar(1+Math.sin(performance.now()/90)*.16)}packets=packets.filter(p=>!p.done);root.rotation.y+=reduced?0:.0008;controls.update();renderer.render(scene,camera)}
+</script>
+</body>
+</html>

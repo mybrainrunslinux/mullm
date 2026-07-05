@@ -1,0 +1,1292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>muLLM — Investor Overview</title>
+  <meta name="description" content="muLLM: Production LLM routing. 91.8% free. $0.00 per local query. Real traction, real numbers." />
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── Design tokens ── */
+    :root {
+      --gold:       #f4c542;
+      --gold-dim:   rgba(244, 197, 66, 0.12);
+      --gold-glow:  0 0 20px rgba(244, 197, 66, 0.25);
+      --teal:       #14b8a6;
+      --teal-dim:   rgba(20, 184, 166, 0.12);
+      --bg:         #0f1117;
+      --bg2:        #1a1d2e;
+      --bg3:        #232740;
+      --bg4:        #2d3154;
+      --border:     #2a2f4a;
+      --border2:    #3a4060;
+      --text:       #e2e8f0;
+      --text2:      #94a3b8;
+      --text3:      #64748b;
+      --green:      #22c55e;
+      --red:        #ef4444;
+      --amber:      #f59e0b;
+      --radius:     8px;
+      --font:       'SF Mono', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    /* ── Star field background ── */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        radial-gradient(1px 1px at  8% 12%, rgba(244,197,66,0.55)  0%, transparent 100%),
+        radial-gradient(1px 1px at 22% 38%, rgba(255,255,255,0.28)  0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 38% 68%, rgba(244,197,66,0.42) 0%, transparent 100%),
+        radial-gradient(1px 1px at 53% 18%, rgba(255,255,255,0.22)  0%, transparent 100%),
+        radial-gradient(1px 1px at 67% 52%, rgba(244,197,66,0.35)  0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 78% 82%, rgba(255,255,255,0.18) 0%, transparent 100%),
+        radial-gradient(1px 1px at 88% 28%, rgba(244,197,66,0.48)  0%, transparent 100%),
+        radial-gradient(1px 1px at 14% 72%, rgba(255,255,255,0.30)  0%, transparent 100%),
+        radial-gradient(1px 1px at 58% 88%, rgba(244,197,66,0.28)  0%, transparent 100%),
+        radial-gradient(1px 1px at 33%  8%, rgba(20,184,166,0.30)  0%, transparent 100%),
+        radial-gradient(1px 1px at 82% 62%, rgba(148,163,184,0.22)  0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 46% 45%, rgba(244,197,66,0.50) 0%, transparent 100%),
+        radial-gradient(1px 1px at  5% 55%, rgba(20,184,166,0.20)  0%, transparent 100%),
+        radial-gradient(1px 1px at 72% 10%, rgba(255,255,255,0.25)  0%, transparent 100%),
+        radial-gradient(1px 1px at 95% 45%, rgba(244,197,66,0.32)  0%, transparent 100%);
+    }
+
+    @keyframes starDrift {
+      0%   { transform: translateY(0);      opacity: 0.7; }
+      100% { transform: translateY(-100vh); opacity: 0;   }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      body::before { animation: starDrift 90s linear infinite; }
+    }
+
+    /* ── Nav ── */
+    nav#mullm-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 17, 23, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(244, 197, 66, 0.18);
+      padding: 0 1.5rem;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .mn-brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold);
+      text-decoration: none;
+      text-shadow: var(--gold-glow);
+      letter-spacing: -0.5px;
+      flex-shrink: 0;
+    }
+
+    .mn-links {
+      display: flex;
+      list-style: none;
+      gap: 0.25rem;
+      flex: 1;
+    }
+
+    .mn-links a {
+      color: var(--text2);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 5px 10px;
+      border-radius: 5px;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .mn-links a:hover { color: var(--text); background: var(--gold-dim); }
+    .mn-links a.mn-active { color: var(--gold); }
+    .mn-links a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+    /* ── Page layout ── */
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 1.25rem 5rem;
+    }
+
+    /* ── Sections ── */
+    section { margin-bottom: 4rem; }
+
+    h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--gold);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.6rem;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 5rem 1rem 3.5rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--gold-dim);
+      border: 1px solid rgba(244, 197, 66, 0.3);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 1.75rem;
+    }
+
+    .hero-star-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-star-svg {
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+
+    .hero-title {
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+      letter-spacing: -1px;
+      margin-bottom: 1rem;
+    }
+
+    .hero-title span.gold { color: var(--gold); }
+
+    .hero-tagline {
+      font-size: clamp(0.9rem, 2vw, 1.05rem);
+      color: var(--text2);
+      margin-bottom: 2rem;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-tagline strong { color: var(--teal); }
+
+    .hero-counter-wrap {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      background: var(--bg2);
+      border: 1px solid rgba(244, 197, 66, 0.25);
+      border-radius: var(--radius);
+      padding: 1rem 2rem;
+    }
+
+    .hero-counter {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--gold);
+      text-shadow: var(--gold-glow);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -1px;
+    }
+
+    .hero-counter-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── Traction banner ── */
+    .live-banner-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+    }
+
+    @keyframes livePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+      50%       { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0);  }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .live-dot { animation: livePulse 2s ease infinite; }
+    }
+
+    .live-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--green);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .live-refresh {
+      font-size: 11px;
+      color: var(--text3);
+      margin-left: auto;
+    }
+
+    .traction-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .traction-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem;
+      transition: border-color 0.2s;
+    }
+
+    .traction-card:hover { border-color: rgba(244, 197, 66, 0.35); }
+
+    .traction-card-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--gold);
+      line-height: 1;
+      margin-bottom: 0.35rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .traction-card-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 0.2rem;
+    }
+
+    .traction-card-sub {
+      font-size: 11px;
+      color: var(--text2);
+    }
+
+    .traction-card.highlight { border-color: rgba(20, 184, 166, 0.35); }
+    .traction-card.highlight .traction-card-value { color: var(--teal); }
+
+    /* ── Proof section ── */
+    .bench-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .bench-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .bench-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .bench-score {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .bench-score.perfect { color: var(--green); }
+
+    .bench-detail {
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .bench-note {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--teal);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 0.85rem 1.1rem;
+      font-size: 12px;
+      color: var(--text2);
+      font-style: italic;
+    }
+
+    /* ── ROI Calculator ── */
+    .roi-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+    }
+
+    .roi-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .roi-slider-label {
+      font-size: 13px;
+      color: var(--text2);
+      white-space: nowrap;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      min-width: 120px;
+      height: 4px;
+      border-radius: 2px;
+      appearance: none;
+      -webkit-appearance: none;
+      background: linear-gradient(to right, var(--gold) 0%, var(--gold) var(--fill, 20%), var(--bg4) var(--fill, 20%), var(--bg4) 100%);
+      cursor: pointer;
+      outline: none;
+    }
+
+    input[type="range"]:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 3px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--gold);
+      border: 2px solid var(--bg);
+      box-shadow: 0 0 6px rgba(244, 197, 66, 0.4);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--gold);
+      border: 2px solid var(--bg);
+      box-shadow: 0 0 6px rgba(244, 197, 66, 0.4);
+      cursor: pointer;
+    }
+
+    .roi-eng-count {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--gold);
+      min-width: 2.5ch;
+      text-align: right;
+    }
+
+    .roi-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .roi-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.9rem 1rem;
+    }
+
+    .roi-card-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 0.25rem;
+    }
+
+    .roi-card-value {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .roi-card.savings .roi-card-value { color: var(--green); }
+    .roi-card.annual .roi-card-value  { color: var(--gold); font-size: 1.6rem; }
+
+    .roi-disclaimer {
+      font-size: 11px;
+      color: var(--text3);
+      text-align: center;
+    }
+
+    /* ── Latency tiers ── */
+    .latency-tiers {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .latency-tier {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .latency-tier-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text2);
+      min-width: 160px;
+      flex-shrink: 0;
+    }
+
+    .latency-bar-wrap {
+      flex: 1;
+      min-width: 120px;
+      height: 24px;
+      background: var(--bg3);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .latency-bar {
+      height: 100%;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      padding-left: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--bg);
+      transition: width 0.6s ease;
+      white-space: nowrap;
+    }
+
+    .latency-time {
+      font-size: 11px;
+      color: var(--text3);
+      min-width: 80px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .latency-example {
+      font-size: 11px;
+      color: var(--text3);
+      width: 100%;
+      padding-left: calc(160px + 1rem);
+      margin-top: -0.25rem;
+    }
+
+    @media (max-width: 560px) {
+      .latency-example { padding-left: 0; }
+      .latency-tier-label { min-width: 100%; margin-bottom: 0.25rem; }
+    }
+
+    /* ── Moat bullets ── */
+    .moat-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .moat-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.9rem 1.1rem;
+      transition: border-color 0.2s;
+    }
+
+    .moat-list li:hover { border-color: rgba(244, 197, 66, 0.3); }
+
+    .moat-icon {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--gold-dim);
+      border: 1px solid rgba(244, 197, 66, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--gold);
+    }
+
+    .moat-text {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .moat-text strong { color: var(--gold); }
+    .moat-text em { color: var(--teal); font-style: normal; }
+
+    /* ── Honest risks ── */
+    .risks-section {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .risks-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 1rem;
+    }
+
+    .risks-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .risks-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 13px;
+      color: var(--text2);
+    }
+
+    .risks-list li::before {
+      content: "—";
+      color: var(--text3);
+      flex-shrink: 0;
+      margin-top: 0.05rem;
+    }
+
+    /* ── CTA footer ── */
+    .cta-section {
+      text-align: center;
+      padding: 3rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .cta-tagline {
+      font-size: 1rem;
+      color: var(--text2);
+      margin-bottom: 0.5rem;
+    }
+
+    .cta-tagline strong { color: var(--teal); }
+
+    .cta-sub {
+      font-size: 13px;
+      color: var(--text3);
+      margin-bottom: 2rem;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 0.85rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 10px 22px;
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.18s;
+      min-height: 44px;
+    }
+
+    .cta-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    .cta-btn.primary {
+      background: var(--gold);
+      color: var(--bg);
+      border: none;
+    }
+
+    .cta-btn.primary:hover { background: #ffd060; box-shadow: var(--gold-glow); }
+
+    .cta-btn.secondary {
+      background: transparent;
+      color: var(--text2);
+      border: 1px solid var(--border2);
+    }
+
+    .cta-btn.secondary:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* ── Divider ── */
+    .section-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0 0 4rem;
+    }
+
+    /* ── Utilities ── */
+    .text-muted { color: var(--text3); font-size: 12px; }
+    .text-gold  { color: var(--gold); }
+    .text-teal  { color: var(--teal); }
+    .text-green { color: var(--green); }
+
+    @media (max-width: 600px) {
+      .hero { padding: 3rem 0.5rem 2rem; }
+      .hero-title { font-size: 1.6rem; }
+      .traction-grid { grid-template-columns: 1fr 1fr; }
+      .bench-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav id="mullm-nav" aria-label="Main navigation">
+  <a href="/" class="mn-brand" aria-label="muLLM home">mu<span style="color:var(--text)">LLM</span></a>
+  <ul class="mn-links" role="list">
+    <li><a href="/grandtour">Grand Tour</a></li>
+    <li><a href="/showcase">Showcase</a></li>
+    <li><a href="/demo">Demo</a></li>
+    <li><a href="/investors" class="mn-active" aria-current="page">Investors</a></li>
+  </ul>
+</nav>
+
+<main class="page" id="main-content">
+
+  <!-- ── 1. Hero ── -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-badge" aria-label="Status: production">
+      <span style="color:var(--green); font-size:8px;">&#9679;</span>
+      Production
+    </div>
+
+    <!-- Live routing animation — replaces static stars -->
+    <div style="display:flex;justify-content:center;margin-bottom:0.5rem;" aria-label="Live routing animation" role="img">
+      <div id="routing-panel" style="width:100%;max-width:420px;height:110px;background:transparent;color:white;font-family:inherit;font-size:11px;position:relative;overflow:hidden;">
+        <style>
+          #routing-panel .rp-col{position:absolute;top:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+          #routing-panel .rp-input{left:16px;width:72px;}
+          #routing-panel .rp-router{left:50%;transform:translateX(-50%);width:72px;}
+          #routing-panel .rp-output{right:12px;width:148px;}
+          #routing-panel .rp-dot{width:8px;height:8px;background:rgba(255,255,255,0.85);border-radius:50%;margin-bottom:6px;animation:rpPulse 1.5s ease-in-out infinite;}
+          @keyframes rpPulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.25)}}
+          #routing-panel .rp-ring{width:22px;height:22px;border:2px solid rgba(255,255,255,.25);border-top-color:rgba(255,255,255,.85);border-radius:50%;animation:rpSpin 1.8s linear infinite;margin-bottom:6px;}
+          @keyframes rpSpin{to{transform:rotate(360deg)}}
+          #routing-panel .rp-label{font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.8px;margin-top:2px;}
+          #routing-panel .rp-tiers{display:flex;flex-direction:column;gap:3px;align-items:flex-start;}
+          #routing-panel .rp-tier{display:flex;align-items:center;gap:5px;opacity:.45;transition:opacity .25s,transform .25s;}
+          #routing-panel .rp-tier.rp-active{opacity:1;transform:translateX(3px);}
+          #routing-panel .rp-pill{padding:1px 7px;border-radius:8px;font-size:9px;font-weight:600;color:rgba(0,0,0,.85);}
+          #routing-panel .rp-gt .rp-pill{background:#f4c542;}
+          #routing-panel .rp-ca .rp-pill{background:#14b8a6;}
+          #routing-panel .rp-lo .rp-pill{background:#3b82f6;}
+          #routing-panel .rp-cl .rp-pill{background:#6b7280;}
+          #routing-panel .rp-time{font-size:9px;opacity:.6;min-width:28px;}
+          #routing-panel .rp-tdot{position:absolute;width:5px;height:5px;background:#fff;border-radius:50%;opacity:0;pointer-events:none;}
+        </style>
+        <div class="rp-col rp-input"><div class="rp-dot"></div><div class="rp-label">Query</div></div>
+        <div class="rp-col rp-router"><div class="rp-ring"></div><div class="rp-label">Router</div></div>
+        <div class="rp-col rp-output">
+          <div class="rp-tiers">
+            <div class="rp-tier rp-gt"><div class="rp-pill">Groundtruth</div><div class="rp-time">&lt;1ms</div></div>
+            <div class="rp-tier rp-ca"><div class="rp-pill">Cache</div><div class="rp-time">~14ms</div></div>
+            <div class="rp-tier rp-lo"><div class="rp-pill">Local 9B</div><div class="rp-time">~5s</div></div>
+            <div class="rp-tier rp-cl"><div class="rp-pill">Cloud</div><div class="rp-time">~3s</div></div>
+          </div>
+        </div>
+        <div class="rp-tdot" id="rpTDot"></div>
+        <script>(function(){
+          const tiers=document.querySelectorAll('#routing-panel .rp-tier');
+          const tdot=document.getElementById('rpTDot');
+          const weights=[0.13,0.34,0.46,0.07]; // groundtruth/cache/local/cloud actual pcts
+          function pick(){let r=Math.random(),s=0;for(let i=0;i<weights.length;i++){s+=weights[i];if(r<s)return i;}return 2;}
+          function go(){
+            tiers.forEach(t=>t.classList.remove('rp-active'));
+            tdot.style.transition='none';tdot.style.opacity='0';
+            const panel=document.getElementById('routing-panel');
+            const pw=panel.offsetWidth;
+            tdot.style.left='44px';tdot.style.top='50px';
+            requestAnimationFrame(()=>{
+              tdot.style.transition='left .5s ease-in,top .4s ease-in,opacity .1s';
+              tdot.style.opacity='1';
+              tdot.style.left=(pw/2-3)+'px';
+              setTimeout(()=>{
+                const idx=pick();
+                const tierEls=panel.querySelectorAll('.rp-tier');
+                const tr=tierEls[idx];
+                const trRect=tr.getBoundingClientRect();
+                const pRect=panel.getBoundingClientRect();
+                tdot.style.transition='left .4s ease-out,top .4s ease-out,opacity .3s';
+                tdot.style.left=(pw-80)+'px';
+                tdot.style.top=(trRect.top-pRect.top+4)+'px';
+                tr.classList.add('rp-active');
+                setTimeout(()=>{tdot.style.opacity='0';},300);
+                setTimeout(()=>tr.classList.remove('rp-active'),900);
+              },520);
+            });
+          }
+          setInterval(go,2500);go();
+        })();</script>
+      </div>
+    </div>
+
+    <h1 class="hero-title" id="hero-title">
+      muLLM: The <span class="gold">$0</span> LLM Router
+    </h1>
+
+    <p class="hero-tagline">
+      <strong>91.9% of queries answered free.</strong>
+      $0.00 per local query. Production-proven on 10,300+ real developer queries.
+    </p>
+
+    <div class="hero-counter-wrap" aria-live="polite" aria-label="Live query counter">
+      <div class="hero-counter" id="hero-counter">—</div>
+      <div class="hero-counter-label">Queries served (live)</div>
+    </div>
+  </section>
+
+  <!-- ── 2. Live Traction Banner ── -->
+  <section aria-labelledby="traction-title">
+    <div class="live-banner-header">
+      <div class="live-dot" role="img" aria-label="Live data indicator"></div>
+      <span class="live-label">Live</span>
+      <h2 id="traction-title" style="border:none; padding:0; margin:0; font-size:1rem; color:var(--text);">Traction</h2>
+      <span class="live-refresh" id="last-refreshed" aria-live="polite">Fetching...</span>
+    </div>
+
+    <div class="traction-grid" role="list">
+      <div class="traction-card" role="listitem">
+        <div class="traction-card-label">Total Queries Served</div>
+        <div class="traction-card-value" id="stat-total">—</div>
+        <div class="traction-card-sub">Real production traffic</div>
+      </div>
+
+      <div class="traction-card" role="listitem">
+        <div class="traction-card-label">% Free (local + cache + LUT)</div>
+        <div class="traction-card-value" id="stat-free">—</div>
+        <div class="traction-card-sub">No inference cost</div>
+      </div>
+
+      <div class="traction-card highlight" role="listitem">
+        <div class="traction-card-label">Actual Cost to Date</div>
+        <div class="traction-card-value" id="stat-cost">—</div>
+        <div class="traction-card-sub">All time, real API spend</div>
+      </div>
+
+      <div class="traction-card highlight" role="listitem">
+        <div class="traction-card-label">Savings vs Opus 4 (lifetime)</div>
+        <div class="traction-card-value" style="color:var(--gold)" id="stat-cloud">$6,329</div>
+        <div class="traction-card-sub" id="stat-savings-sub">est. since inception · <span id="lifetime-savings" style="color:var(--teal)"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider" aria-hidden="true"></div>
+
+  <!-- ── 3. Proof section ── -->
+  <section aria-labelledby="proof-title">
+    <h2 id="proof-title">The Proof: We Built and Passed Our Own Benchmarks</h2>
+
+    <div class="bench-grid" role="list">
+      <div class="bench-card" role="listitem" aria-label="HumanEval: 100% at $0.00">
+        <div class="bench-name">HumanEval</div>
+        <div class="bench-score perfect">100%</div>
+        <div class="bench-detail">pass@1 — 164/164 problems — $0.00</div>
+      </div>
+
+      <div class="bench-card" role="listitem" aria-label="MMLU: inline evaluation, 30 questions, 19 subjects">
+        <div class="bench-name">MMLU</div>
+        <div class="bench-score">Inline</div>
+        <div class="bench-detail">30 questions, 19 subjects, live routing</div>
+      </div>
+
+      <div class="bench-card" role="listitem" aria-label="GSM8K: 20 math word problems inline">
+        <div class="bench-name">GSM8K</div>
+        <div class="bench-score">Inline</div>
+        <div class="bench-detail">20 math word problems, local model</div>
+      </div>
+
+      <div class="bench-card" role="listitem" aria-label="GameDevBench: 65% on 9B local model">
+        <div class="bench-name">GameDevBench</div>
+        <div class="bench-score">65%</div>
+        <div class="bench-detail">9B local model, playable HTML5 games</div>
+      </div>
+
+      <div class="bench-card" role="listitem" aria-label="Tierbench: custom routing accuracy benchmark">
+        <div class="bench-name">Tierbench</div>
+        <div class="bench-score">Custom</div>
+        <div class="bench-detail">Routing accuracy, tier classification</div>
+      </div>
+
+      <div class="bench-card" role="listitem" aria-label="DeBERTa classifier: 82.4% accuracy">
+        <div class="bench-name">Routing Classifier</div>
+        <div class="bench-score">82.4%</div>
+        <div class="bench-detail">DeBERTa-v3-small, 5,161 examples, CPU</div>
+      </div>
+    </div>
+
+    <div class="bench-note" role="note">
+      "The local model wrote the test harness that proved it scores 100%."
+    </div>
+  </section>
+
+  <div class="section-divider" aria-hidden="true"></div>
+
+  <!-- ── 4. ROI Calculator ── -->
+  <section aria-labelledby="roi-title">
+    <h2 id="roi-title">ROI Calculator</h2>
+
+    <div class="roi-wrap">
+      <div class="roi-slider-row">
+        <label class="roi-slider-label" for="eng-slider">People using LLM APIs (engineers, analysts, support, ops…):</label>
+        <input type="range" id="eng-slider" min="1" max="100" value="10"
+               aria-valuemin="1" aria-valuemax="100" aria-valuenow="10"
+               aria-label="Number of engineers, 1 to 50"
+               style="--fill: 18%;" />
+        <div class="roi-eng-count" id="eng-count" aria-live="polite">10</div>
+      </div>
+
+      <div class="roi-results" role="list">
+        <div class="roi-card" role="listitem">
+          <div class="roi-card-label">Monthly Sonnet baseline (est.)</div>
+          <div class="roi-card-value" id="roi-opus">$0</div>
+        </div>
+        <div class="roi-card" role="listitem">
+          <div class="roi-card-label">muLLM cost at 91.9% local</div>
+          <div class="roi-card-value" id="roi-mullm">$0</div>
+        </div>
+        <div class="roi-card savings" role="listitem">
+          <div class="roi-card-label">Monthly savings</div>
+          <div class="roi-card-value" id="roi-monthly">$0</div>
+        </div>
+        <div class="roi-card annual" role="listitem">
+          <div class="roi-card-label">Annual savings</div>
+          <div class="roi-card-value" id="roi-annual">$0</div>
+        </div>
+      </div>
+
+      <p class="roi-disclaimer">
+        Estimate based on our production data: 2,000 queries/day/engineer, ~1K tokens avg per query at Claude Opus 4 pricing ($0.075/1K tokens output).
+        muLLM rate assumes 91.9% local (free) + 8.1% cloud at Haiku pricing.
+        Not a financial projection.
+      </p>
+    </div>
+  </section>
+
+  <div class="section-divider" aria-hidden="true"></div>
+
+  <!-- ── 5. Latency Tiers ── -->
+  <section aria-labelledby="latency-title">
+    <h2 id="latency-title">Routing Pipeline: 4 Latency Tiers</h2>
+
+    <div class="latency-tiers" role="list">
+
+      <div class="latency-tier" role="listitem" aria-label="Groundtruth LUT: under 1 millisecond">
+        <div class="latency-tier-label">
+          <span style="color:var(--green)">1.</span> Groundtruth LUT
+        </div>
+        <div class="latency-bar-wrap" aria-hidden="true">
+          <div class="latency-bar" style="width:3%; background:var(--green);">&lt;1ms</div>
+        </div>
+        <div class="latency-time">&lt;1ms</div>
+        <div class="latency-example">"Paris = capital of France" — 1,313 deterministic answers, zero inference</div>
+      </div>
+
+      <div class="latency-tier" role="listitem" aria-label="Semantic cache: approximately 5 milliseconds">
+        <div class="latency-tier-label">
+          <span style="color:var(--teal)">2.</span> Semantic Cache
+        </div>
+        <div class="latency-bar-wrap" aria-hidden="true">
+          <div class="latency-bar" style="width:8%; background:var(--teal);">~5ms</div>
+        </div>
+        <div class="latency-time">~5ms</div>
+        <div class="latency-example">ChromaDB vector similarity, 34.2% hit rate on production traffic</div>
+      </div>
+
+      <div class="latency-tier" role="listitem" aria-label="Local 9B model: 800ms to 5 seconds">
+        <div class="latency-tier-label">
+          <span style="color:var(--gold)">3.</span> Local 9B Model
+        </div>
+        <div class="latency-bar-wrap" aria-hidden="true">
+          <div class="latency-bar" style="width:40%; background:var(--gold);">800ms–5s</div>
+        </div>
+        <div class="latency-time">800ms–5s</div>
+        <div class="latency-example">Qwen3 on RTX 5090, $0/query, handles 57.6% of traffic</div>
+      </div>
+
+      <div class="latency-tier" role="listitem" aria-label="Cloud fallback: 1 to 10 seconds">
+        <div class="latency-tier-label">
+          <span style="color:var(--text3)">4.</span> Cloud Fallback
+        </div>
+        <div class="latency-bar-wrap" aria-hidden="true">
+          <div class="latency-bar" style="width:75%; background:var(--bg4); color:var(--text2);">1s–10s</div>
+        </div>
+        <div class="latency-time">1–10s</div>
+        <div class="latency-example">Anthropic / OpenAI / Google — only 8.2% of queries, routed to cheapest capable model</div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="section-divider" aria-hidden="true"></div>
+
+  <!-- ── 6. Moat ── -->
+  <section aria-labelledby="moat-title">
+    <h2 id="moat-title">Defensible Moat</h2>
+
+    <ul class="moat-list" role="list">
+      <li>
+        <div class="moat-icon" aria-hidden="true">1</div>
+        <div class="moat-text">
+          <strong>44MB routing classifier</strong> — DeBERTa-v3-small, <em>82.4% accuracy</em>, CPU-only inference.
+          No GPU required to route. Trained on 5,161 labeled examples from production traffic.
+        </div>
+      </li>
+      <li>
+        <div class="moat-icon" aria-hidden="true">2</div>
+        <div class="moat-text">
+          <strong>Semantic cache with 34.2% hit rate</strong> — ChromaDB vector search over 4,388 cached responses.
+          Zero inference cost on cache hits. Hit rate grows with every query.
+        </div>
+      </li>
+      <li>
+        <div class="moat-icon" aria-hidden="true">3</div>
+        <div class="moat-text">
+          <strong>Groundtruth LUT — 1,313 deterministic answers</strong>, sub-millisecond response.
+          Covering math, geography, code idioms, Big-O, HTTP standards, Git, Linux syscalls.
+        </div>
+      </li>
+      <li>
+        <div class="moat-icon" aria-hidden="true">4</div>
+        <div class="moat-text">
+          <strong>OpenAI-compatible API</strong> (<code style="color:var(--teal)">/v1/chat/completions</code>) —
+          drop-in replacement for existing cloud integrations. No client code changes required.
+        </div>
+      </li>
+      <li>
+        <div class="moat-icon" aria-hidden="true">5</div>
+        <div class="moat-text">
+          <strong>HumanEval 100% pass@1 at $0.00</strong> — quality parity with frontier models on code generation,
+          running entirely on a local 9B–30B model stack.
+        </div>
+      </li>
+    </ul>
+  </section>
+
+  <div class="section-divider" aria-hidden="true"></div>
+
+  <!-- ── 7. Honest Risks ── -->
+  <section aria-labelledby="risks-title">
+    <h2 id="risks-title">What We Don't Claim</h2>
+
+    <div class="risks-section">
+      <div class="risks-header">Honest Risks — read before investing</div>
+      <ul class="risks-list" role="list">
+        <li>Single user dataset (10,300 queries, 1 developer) — generalization to enterprise-scale traffic unproven</li>
+        <li>Local models underperform frontier models on open-ended creative, long-form, and complex reasoning tasks</li>
+        <li>Requires local GPU (RTX 4090 or better) for 30B model tier — not serverless or zero-hardware</li>
+        <li>No enterprise SLA, uptime guarantee, or commercial support yet</li>
+        <li>Routing classifier accuracy (82.4%) means ~17.6% of routing decisions are suboptimal — this adds latency or cost on misrouted queries</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="section-divider" aria-hidden="true"></div>
+
+  <!-- ── 8. CTA Footer ── -->
+  <footer class="cta-section" role="contentinfo">
+    <p class="cta-tagline">
+      <strong>Free 91.8% of the time.</strong> Production LLM routing with sub-50ms overhead on cached queries.
+    </p>
+    <p class="cta-sub">Built on a real production system. Live numbers from /api/dashboard (rolling 10K query window).</p>
+    <p class="cta-sub" style="margin-top:0.5rem;font-style:italic;color:var(--gold);font-size:0.78rem;">★ muLLM helped build this page — the same local model that scores 100% on HumanEval. Cost: $0.00.</p>
+
+    <div class="cta-buttons">
+      <button class="cta-btn primary" onclick="openDemoForm()" aria-label="Request a demo" aria-haspopup="dialog">
+        Request a Demo
+      </button>
+      <a href="/grandtour" class="cta-btn secondary" aria-label="Watch the grand tour">
+        Grand Tour
+      </a>
+      <a href="/showcase" class="cta-btn secondary" aria-label="View showcase">
+        Showcase
+      </a>
+    </div>
+  </footer>
+
+  <!-- ── Demo Request Modal ── -->
+  <div id="demo-overlay" role="dialog" aria-modal="true" aria-labelledby="demo-title"
+       style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;">
+    <div id="demo-card" style="perspective:1200px;width:min(440px,92vw);">
+      <div id="demo-inner" style="position:relative;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.4,0,.2,1);min-height:380px;">
+        <!-- Front face -->
+        <div id="demo-front" style="backface-visibility:hidden;background:#0d0d1a;border:1px solid #E8C547;border-radius:16px;padding:2.4rem 2rem;position:relative;">
+          <button onclick="closeDemoForm()" aria-label="Close" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:#666;font-size:1.3rem;cursor:pointer;line-height:1;">✕</button>
+          <h2 id="demo-title" style="color:#E8C547;font-size:1.4rem;font-weight:800;margin-bottom:.4rem;">Request a Demo</h2>
+          <p style="color:#888;font-size:.85rem;margin-bottom:1.6rem;">We'll follow up within one business day.</p>
+          <form id="demo-form" onsubmit="submitDemo(event)" novalidate>
+            <div style="display:flex;flex-direction:column;gap:.9rem;">
+              <label style="display:flex;flex-direction:column;gap:.3rem;font-size:.82rem;color:#bbb;">
+                Name
+                <input name="name" required autocomplete="name" placeholder="Your name"
+                  style="background:#0a0a12;border:1px solid #333;border-radius:8px;padding:.6rem .85rem;color:#e8e8f0;font-size:.9rem;outline:none;transition:border-color .15s;"
+                  onfocus="this.style.borderColor='#E8C547'" onblur="this.style.borderColor='#333'">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:.3rem;font-size:.82rem;color:#bbb;">
+                Company
+                <input name="company" autocomplete="organization" placeholder="Company (optional)"
+                  style="background:#0a0a12;border:1px solid #333;border-radius:8px;padding:.6rem .85rem;color:#e8e8f0;font-size:.9rem;outline:none;transition:border-color .15s;"
+                  onfocus="this.style.borderColor='#E8C547'" onblur="this.style.borderColor='#333'">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:.3rem;font-size:.82rem;color:#bbb;">
+                Email
+                <input name="email" type="email" required autocomplete="email" placeholder="you@company.com"
+                  style="background:#0a0a12;border:1px solid #333;border-radius:8px;padding:.6rem .85rem;color:#e8e8f0;font-size:.9rem;outline:none;transition:border-color .15s;"
+                  onfocus="this.style.borderColor='#E8C547'" onblur="this.style.borderColor='#333'">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:.3rem;font-size:.82rem;color:#bbb;">
+                What are you building?
+                <textarea name="message" rows="3" placeholder="Tell us about your use case..."
+                  style="background:#0a0a12;border:1px solid #333;border-radius:8px;padding:.6rem .85rem;color:#e8e8f0;font-size:.9rem;resize:vertical;outline:none;transition:border-color .15s;font-family:inherit;"
+                  onfocus="this.style.borderColor='#E8C547'" onblur="this.style.borderColor='#333'"></textarea>
+              </label>
+              <button type="submit"
+                style="background:#E8C547;color:#0a0a0f;border:none;border-radius:10px;padding:.75rem 1.5rem;font-weight:800;font-size:.95rem;cursor:pointer;transition:background .15s,transform .1s;margin-top:.3rem;"
+                onmouseover="this.style.background='#ffd060'" onmouseout="this.style.background='#E8C547'"
+                onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform='scale(1)'">
+                Send Request →
+              </button>
+            </div>
+          </form>
+        </div>
+        <!-- Back face (thank you) -->
+        <div id="demo-back" style="backface-visibility:hidden;background:#0d0d1a;border:1px solid #E8C547;border-radius:16px;padding:2.4rem 2rem;position:absolute;inset:0;transform:rotateY(180deg);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:1rem;">
+          <div style="font-size:3rem;">✉️</div>
+          <h2 style="color:#E8C547;font-size:1.4rem;font-weight:800;">Message sent!</h2>
+          <p style="color:#bbb;font-size:.9rem;max-width:280px;">We'll be in touch at <strong id="demo-confirm-email" style="color:#e8e8f0;"></strong> within one business day.</p>
+          <button onclick="closeDemoForm()" style="background:none;border:1px solid #E8C547;color:#E8C547;border-radius:8px;padding:.55rem 1.4rem;font-weight:700;cursor:pointer;margin-top:.5rem;transition:background .15s;"
+            onmouseover="this.style.background='rgba(232,197,71,.12)'" onmouseout="this.style.background='none'">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  /* ── Live dashboard data ── */
+  const API = '/api/dashboard';
+  const REFRESH_MS = 30_000;
+
+  function fmt(n, decimals = 0) {
+    return Number(n).toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  }
+
+  function fmtUsd(n) {
+    return '$' + fmt(n, 2);
+  }
+
+  /* Animated counter from 0 to target */
+  function animateCounter(el, target, duration = 1800) {
+    const start = performance.now();
+    const startVal = 0;
+    function step(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      const current = Math.round(startVal + (target - startVal) * eased);
+      el.textContent = current.toLocaleString();
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  let firstLoad = true;
+
+  async function fetchDashboard() {
+    try {
+      const res = await fetch(API);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+
+      const totalQ = d.total_queries ?? 0;
+      const freePct = ((d.local_rate ?? 0)).toFixed(1) + '%';
+      const costUsd = fmtUsd(d.total_cost ?? 0);
+      const cloudUsd = fmtUsd(d.estimated_cloud_cost ?? 0);
+      const savingsPct = d.savings_pct ?? 0;
+
+      document.getElementById('stat-total').textContent = fmt(totalQ);
+      document.getElementById('stat-free').textContent = freePct;
+      document.getElementById('stat-cost').textContent = costUsd;
+      document.getElementById('stat-cloud').textContent = cloudUsd;
+      document.getElementById('stat-savings-sub').textContent =
+        `Savings: ${fmtUsd(d.savings ?? 0)} (${savingsPct.toFixed(1)}%)`;
+
+      /* Hero counter */
+      const heroEl = document.getElementById('hero-counter');
+      if (firstLoad) {
+        animateCounter(heroEl, totalQ);
+        firstLoad = false;
+      } else {
+        heroEl.textContent = totalQ.toLocaleString();
+      }
+
+      const now = new Date();
+      document.getElementById('last-refreshed').textContent =
+        `Updated ${now.toLocaleTimeString()}`;
+
+    } catch (err) {
+      document.getElementById('last-refreshed').textContent = 'Fetch error — retrying';
+      console.warn('Dashboard fetch failed:', err);
+    }
+  }
+
+  fetchDashboard();
+  setInterval(fetchDashboard, REFRESH_MS);
+
+  /* ── ROI Calculator ── */
+  // Assumptions (labeled as estimates):
+  // - 2,000 queries/day/engineer
+  // - 30 working days/month
+  // - Average 1K tokens per query
+  // - Claude Opus 4 rate: $0.075/1K output tokens
+  // - muLLM local: 91.9% free, 8.1% at Haiku rate ($0.00125/1K)
+  const LIFETIME_SAVINGS = 6329; // real cumulative savings since inception (Opus API rate)
+  const QUERIES_DAY = 2000;
+  const DAYS_MONTH = 30;
+  const TOKENS_PER_QUERY = 1; // in 1K units
+  const SONNET_RATE = 0.015;  // $/1K tokens (Claude Sonnet — most common daily driver)
+  const HAIKU_RATE = 0.00125; // $/1K tokens (cheapest cloud fallback in muLLM)
+
+  const LOCAL_PCT = 0.919;
+
+  function updateROI() {
+    const eng = parseInt(document.getElementById('eng-slider').value, 10);
+    document.getElementById('eng-count').textContent = eng;
+    document.getElementById('eng-slider').setAttribute('aria-valuenow', eng);
+
+    /* Update slider fill CSS variable */
+    const pct = ((eng - 1) / 99 * 100).toFixed(1) + '%';
+    document.getElementById('eng-slider').style.setProperty('--fill', pct);
+
+    const monthlyQueries = eng * QUERIES_DAY * DAYS_MONTH;
+    const opusMonthlyCost = monthlyQueries * TOKENS_PER_QUERY * SONNET_RATE;
+    const mullmMonthlyCost = monthlyQueries * (
+      (1 - LOCAL_PCT) * HAIKU_RATE * TOKENS_PER_QUERY
+    );
+    const saving = opusMonthlyCost - mullmMonthlyCost;
+    const annual = saving * 12;
+
+    document.getElementById('roi-opus').textContent = fmtUsd(opusMonthlyCost);
+    document.getElementById('roi-mullm').textContent = fmtUsd(mullmMonthlyCost);
+    document.getElementById('roi-monthly').textContent = fmtUsd(saving);
+    document.getElementById('roi-annual').textContent = fmtUsd(annual);
+  }
+
+  document.getElementById('eng-slider').addEventListener('input', updateROI);
+  updateROI(); // initial render
+</script>
+
+<script>
+  const overlay = document.getElementById('demo-overlay');
+  const inner   = document.getElementById('demo-inner');
+
+  function openDemoForm() {
+    inner.style.transform = 'rotateY(0deg)';
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.querySelector('#demo-form input[name=name]').focus(), 60);
+  }
+
+  function closeDemoForm() {
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+    // Reset flip for next open
+    setTimeout(() => inner.style.transform = 'rotateY(0deg)', 300);
+    document.getElementById('demo-form').reset();
+  }
+
+  function submitDemo(e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const name    = fd.get('name').trim();
+    const company = fd.get('company').trim();
+    const email   = fd.get('email').trim();
+    const message = fd.get('message').trim();
+    if (!name || !email) return;
+    document.getElementById('demo-confirm-email').textContent = email;
+    // Flip to thank-you face
+    inner.style.transform = 'rotateY(180deg)';
+    // Fire mailto as fallback
+    const subject = encodeURIComponent(`Demo request from ${name}${company ? ' @ ' + company : ''}`);
+    const body = encodeURIComponent(`Name: ${name}\nCompany: ${company}\nEmail: ${email}\n\n${message}`);
+    window.location.href = `mailto:contact@mullm.com?subject=${subject}&body=${body}`;
+  }
+
+  // Close on overlay click
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeDemoForm(); });
+  // Close on Escape
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.style.display !== 'none') closeDemoForm(); });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="0101 Technology LLC — Local-first AI routing. Zero cloud spend for 85% of queries.">
+<title>0101 Technology LLC</title>
+<style>
+/* ── Design Tokens ── */
+:root {
+  --bg:          #061428;
+  --bg2:         #091e3a;
+  --bg3:         #0d2748;
+  --gold:        #c8a040;
+  --gold-bright: #ffc400;
+  --cyan:        #4df9ff;
+  --green:       #00ff41;
+  --teal:        #1a5555;
+  --teal-mid:    #0d3333;
+  --trace:       #0b3b4a;
+  --text:        #cce0f0;
+  --text-dim:    #6a8ea8;
+  --red:         #ff4444;
+  --yellow:      #ffbb00;
+
+  --font-mono:   "Courier New", Courier, monospace;
+  --font-title:  "Arial Black", "Arial Bold", Arial, sans-serif;
+  --font-body:   Helvetica, Arial, sans-serif;
+
+  --radius:      8px;
+  --glow-gold:   0 0 18px rgba(200,160,64,0.55), 0 0 40px rgba(200,160,64,0.2);
+  --glow-cyan:   0 0 14px rgba(77,249,255,0.6);
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ── Matrix Rain Canvas ── */
+#matrix-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.07;
+  pointer-events: none;
+}
+
+/* ── Scroll Fade-up ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  #matrix-canvas { display: none; }
+  .badge-glow { animation: none !important; }
+  .trace-line { animation: none !important; }
+  .digit-cell { animation: none !important; }
+}
+
+/* ── Layout ── */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(6,20,40,0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(200,160,64,0.2);
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.nav-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-wordmark canvas {
+  display: block;
+}
+
+.nav-name {
+  font-family: var(--font-title);
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+nav a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  transition: color 0.2s;
+  font-family: var(--font-mono);
+}
+nav a:hover { color: var(--gold); }
+
+.nav-links { display: flex; gap: 1.5rem; }
+
+/* ── HERO ── */
+#hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 6rem 1.5rem 4rem;
+  position: relative;
+}
+
+/* Badge SVG */
+.badge-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 2.5rem;
+}
+
+.badge-glow {
+  animation: badge-pulse 3s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(200,160,64,0.4)); }
+  50%       { filter: drop-shadow(0 0 32px rgba(200,160,64,0.85)) drop-shadow(0 0 60px rgba(77,249,255,0.3)); }
+}
+
+/* Pixel Wordmark */
+.wordmark-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1.75rem;
+}
+
+#wordmark-canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.wordmark-sub {
+  font-family: var(--font-title);
+  font-size: clamp(0.62rem, 1.5vw, 0.82rem);
+  letter-spacing: 0.42em;
+  color: var(--teal);
+  text-transform: uppercase;
+  font-variant: small-caps;
+  white-space: nowrap;
+}
+
+.hero-tagline {
+  font-size: clamp(1rem, 2.5vw, 1.35rem);
+  color: var(--text);
+  margin-bottom: 0.6rem;
+  font-weight: 300;
+  max-width: 580px;
+}
+
+.hero-tagline strong {
+  color: var(--cyan);
+  font-weight: 700;
+}
+
+.hero-sub {
+  font-family: var(--font-mono);
+  font-size: clamp(0.72rem, 1.5vw, 0.88rem);
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  margin-bottom: 2.5rem;
+}
+
+.cta-row {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.7rem 1.6rem;
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  transition: all 0.22s;
+  cursor: pointer;
+  border: 2px solid transparent;
+  min-height: 44px;
+}
+
+.btn-primary {
+  background: var(--gold);
+  color: var(--bg);
+  border-color: var(--gold);
+}
+.btn-primary:hover {
+  background: var(--gold-bright);
+  box-shadow: var(--glow-gold);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
+.btn-ghost:hover {
+  background: rgba(77,249,255,0.08);
+  box-shadow: var(--glow-cyan);
+}
+
+/* ── SECTIONS ── */
+section {
+  padding: 5rem 0;
+  position: relative;
+  z-index: 1;
+}
+
+section + section {
+  border-top: 1px solid rgba(200,160,64,0.1);
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.25em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.section-title {
+  font-family: var(--font-title);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  color: #fff;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.section-desc {
+  color: var(--text-dim);
+  font-size: 1rem;
+  max-width: 580px;
+  margin-bottom: 3rem;
+}
+
+/* ── WHAT WE BUILD CARDS ── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background: var(--bg2);
+  border: 1px solid rgba(200,160,64,0.18);
+  border-radius: 12px;
+  padding: 1.75rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.25s, transform 0.25s;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(200,160,64,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.card:hover {
+  border-color: rgba(200,160,64,0.5);
+  transform: translateY(-3px);
+}
+
+.card-icon {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  display: block;
+  line-height: 1;
+}
+
+.card-title {
+  font-family: var(--font-title);
+  font-size: 1.1rem;
+  color: var(--gold);
+  margin-bottom: 0.5rem;
+}
+
+.card-body {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  line-height: 1.65;
+}
+
+.card-stat {
+  display: inline-block;
+  margin-top: 1rem;
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+.card-stat span {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-left: 4px;
+}
+
+/* ── PIPELINE DIAGRAM ── */
+.pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.pipe-step {
+  background: var(--bg3);
+  border: 1px solid var(--teal);
+  border-radius: 8px;
+  padding: 0.65rem 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text);
+  text-align: center;
+  min-width: 110px;
+  position: relative;
+  line-height: 1.4;
+}
+
+.pipe-step .tier-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  display: block;
+}
+
+.pipe-step.tier-gt   { border-color: var(--cyan);   color: var(--cyan); }
+.pipe-step.tier-cache { border-color: var(--teal);  color: #2ee8cc; }
+.pipe-step.tier-local { border-color: var(--green);  color: var(--green); }
+.pipe-step.tier-cloud { border-color: var(--gold);   color: var(--gold); }
+
+.pipe-arrow {
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  padding: 0 0.3rem;
+  flex-shrink: 0;
+}
+
+/* ── LIVE DEMO ── */
+#demo {
+  background: var(--bg2);
+}
+
+.demo-box {
+  background: var(--bg);
+  border: 1px solid rgba(200,160,64,0.25);
+  border-radius: 12px;
+  padding: 1.75rem;
+  max-width: 680px;
+}
+
+.demo-box label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.demo-textarea {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid rgba(77,249,255,0.2);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  padding: 0.75rem;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 0.75rem;
+}
+.demo-textarea:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgba(77,249,255,0.12);
+}
+
+.demo-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn-ask {
+  background: var(--gold);
+  color: var(--bg);
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 44px;
+  min-width: 80px;
+}
+.btn-ask:hover:not(:disabled) {
+  background: var(--gold-bright);
+  box-shadow: var(--glow-gold);
+}
+.btn-ask:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.demo-status {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.demo-result {
+  margin-top: 1.25rem;
+  display: none;
+}
+
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+  border: 1px solid;
+}
+
+.tier-badge.local, .tier-badge.local_multi, .tier-badge.vllm {
+  background: rgba(0,255,65,0.1);
+  color: var(--green);
+  border-color: var(--green);
+}
+.tier-badge.cache {
+  background: rgba(13,179,156,0.1);
+  color: #2ee8cc;
+  border-color: #2ee8cc;
+}
+.tier-badge.cloud_cheap {
+  background: rgba(255,187,0,0.1);
+  color: var(--yellow);
+  border-color: var(--yellow);
+}
+.tier-badge.cloud_full {
+  background: rgba(255,68,68,0.1);
+  color: var(--red);
+  border-color: var(--red);
+}
+.tier-badge.error {
+  background: rgba(255,68,68,0.1);
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.latency-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-left: 0.5rem;
+}
+
+.demo-response-text {
+  background: var(--bg3);
+  border: 1px solid rgba(77,249,255,0.12);
+  border-radius: 6px;
+  padding: 1rem;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+/* ── TECH STACK ── */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.pill {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(200,160,64,0.35);
+  color: var(--gold);
+  background: rgba(200,160,64,0.06);
+  transition: all 0.2s;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.pill:hover {
+  background: rgba(200,160,64,0.14);
+  border-color: var(--gold);
+}
+
+/* ── METRICS ROW ── */
+.metrics-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 2.5rem;
+}
+
+.metric-item {
+  flex: 1 1 140px;
+  background: var(--bg2);
+  border: 1px solid rgba(77,249,255,0.15);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+}
+
+.metric-value {
+  font-family: var(--font-title);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  color: var(--cyan);
+  display: block;
+  line-height: 1.1;
+}
+
+.metric-label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.3rem;
+  letter-spacing: 0.05em;
+}
+
+/* ── FOOTER ── */
+footer {
+  background: var(--bg);
+  border-top: 1px solid rgba(200,160,64,0.15);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.footer-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.footer-logo {
+  font-family: var(--font-title);
+  font-size: 0.95rem;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+}
+
+.footer-copy {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.footer-email {
+  color: var(--cyan);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  transition: color 0.2s;
+}
+.footer-email:hover { color: var(--gold); }
+
+/* ── Circuit trace decorations ── */
+.trace-accent {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .nav-links { display: none; }
+  .pipeline { gap: 0.3rem; }
+  .pipe-arrow { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Matrix Rain -->
+<canvas id="matrix-canvas" aria-hidden="true"></canvas>
+
+<!-- Navigation -->
+<nav role="navigation" aria-label="Main navigation">
+  <div class="nav-wordmark">
+    <canvas id="nav-canvas" width="130" height="20" aria-hidden="true"></canvas>
+    <span class="nav-name">Technology LLC</span>
+  </div>
+  <div class="nav-links">
+    <a href="#build">What We Build</a>
+    <a href="#demo">Live Demo</a>
+    <a href="#stack">Tech Stack</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero" aria-label="Hero">
+  <div class="container">
+    <!-- Animated Badge -->
+    <div class="badge-wrap reveal">
+      <svg class="badge-glow" width="160" height="160" viewBox="0 0 160 160" fill="none"
+           xmlns="http://www.w3.org/2000/svg" role="img" aria-label="0101 Technology badge">
+        <defs>
+          <filter id="glow-gold" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="2.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <!-- PCB grid pattern -->
+          <pattern id="pcb-grid" patternUnits="userSpaceOnUse" width="10" height="10">
+            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#0b3b4a" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Octagon background -->
+        <polygon points="56,8 104,8 148,52 148,108 104,152 56,152 12,108 12,52"
+                 fill="#06162a" stroke="#c8a040" stroke-width="2" filter="url(#glow-gold)"/>
+
+        <!-- PCB fill -->
+        <polygon points="56,8 104,8 148,52 148,108 104,152 56,152 12,108 12,52"
+                 fill="url(#pcb-grid)"/>
+
+        <!-- Circuit trace lines: horizontal -->
+        <line x1="20" y1="60" x2="48" y2="60" stroke="#0d5f7a" stroke-width="1.2"/>
+        <line x1="112" y1="60" x2="140" y2="60" stroke="#0d5f7a" stroke-width="1.2"/>
+        <line x1="20" y1="100" x2="48" y2="100" stroke="#0d5f7a" stroke-width="1.2"/>
+        <line x1="112" y1="100" x2="140" y2="100" stroke="#0d5f7a" stroke-width="1.2"/>
+        <!-- vertical -->
+        <line x1="60" y1="16" x2="60" y2="44" stroke="#0d5f7a" stroke-width="1.2"/>
+        <line x1="100" y1="16" x2="100" y2="44" stroke="#0d5f7a" stroke-width="1.2"/>
+        <line x1="60" y1="116" x2="60" y2="144" stroke="#0d5f7a" stroke-width="1.2"/>
+        <line x1="100" y1="116" x2="100" y2="144" stroke="#0d5f7a" stroke-width="1.2"/>
+        <!-- Corner pads -->
+        <circle cx="48" cy="60" r="2.5" fill="#1a8fa0"/>
+        <circle cx="112" cy="60" r="2.5" fill="#1a8fa0"/>
+        <circle cx="48" cy="100" r="2.5" fill="#1a8fa0"/>
+        <circle cx="112" cy="100" r="2.5" fill="#1a8fa0"/>
+        <circle cx="60" cy="44" r="2.5" fill="#1a8fa0"/>
+        <circle cx="100" cy="44" r="2.5" fill="#1a8fa0"/>
+        <circle cx="60" cy="116" r="2.5" fill="#1a8fa0"/>
+        <circle cx="100" cy="116" r="2.5" fill="#1a8fa0"/>
+
+        <!-- Binary column center — vertical strip of 0s and 1s -->
+        <text font-family="Courier New, monospace" font-size="7" fill="#1a5555" text-anchor="middle">
+          <tspan x="80" dy="0" y="40">0</tspan>
+          <tspan x="80" dy="8">1</tspan>
+          <tspan x="80" dy="8">0</tspan>
+          <tspan x="80" dy="8">0</tspan>
+          <tspan x="80" dy="8">1</tspan>
+          <tspan x="80" dy="8">1</tspan>
+          <tspan x="80" dy="8">0</tspan>
+          <tspan x="80" dy="8">1</tspan>
+          <tspan x="80" dy="8">0</tspan>
+          <tspan x="80" dy="8">0</tspan>
+          <tspan x="80" dy="8">1</tspan>
+        </text>
+
+        <!-- Gold border ring (inner) -->
+        <polygon points="56,8 104,8 148,52 148,108 104,152 56,152 12,108 12,52"
+                 fill="none" stroke="#c8a040" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.4"/>
+
+        <!-- Chip center decoration -->
+        <rect x="62" y="56" width="36" height="48" rx="4" fill="#061428" stroke="#c8a040" stroke-width="1.2"/>
+        <rect x="66" y="60" width="28" height="40" rx="2" fill="#040e1d" stroke="#0d5f7a" stroke-width="0.7"/>
+        <!-- Chip pins left -->
+        <line x1="54" y1="65" x2="62" y2="65" stroke="#c8a040" stroke-width="1.2"/>
+        <line x1="54" y1="73" x2="62" y2="73" stroke="#c8a040" stroke-width="1.2"/>
+        <line x1="54" y1="81" x2="62" y2="81" stroke="#c8a040" stroke-width="1.2"/>
+        <line x1="54" y1="89" x2="62" y2="89" stroke="#c8a040" stroke-width="1.2"/>
+        <line x1="54" y1="97" x2="62" y2="97" stroke="#c8a040" stroke-width="1.2"/>
+        <!-- Chip pins right -->
+        <line x1="98" y1="65" x2="106" y2="65" stroke="#c8a040" stroke-width="1.2"/>
+        <line x1="98" y1="73" x2="106" y2="73" stroke="#c8a040" stroke-width="1.2"/>
+        <line x1="98" y1="81" x2="106" y2="81" stroke="#c8a040" stroke-width="1.2"/>
+        <line x1="98" y1="89" x2="106" y2="89" stroke="#c8a040" stroke-width="1.2"/>
+        <line x1="98" y1="97" x2="106" y2="97" stroke="#c8a040" stroke-width="1.2"/>
+        <!-- "CPU" text in chip -->
+        <text x="80" y="83" font-family="Courier New, monospace" font-size="7.5"
+              fill="#4df9ff" text-anchor="middle" font-weight="bold">0101</text>
+      </svg>
+    </div>
+
+    <!-- Pixel Wordmark -->
+    <div class="wordmark-wrap reveal">
+      <canvas id="wordmark-canvas" aria-label="0101" role="img"></canvas>
+      <div class="wordmark-sub">Technology</div>
+    </div>
+
+    <!-- Tagline -->
+    <p class="hero-tagline reveal">
+      Local-first AI routing.<br>
+      <strong>Zero cloud spend</strong> for 85% of queries.
+    </p>
+    <p class="hero-sub reveal">// Route. Cache. Execute. At the speed of light.</p>
+
+    <div class="cta-row reveal">
+      <a href="#demo" class="btn btn-primary">Try Live Demo</a>
+      <a href="#build" class="btn btn-ghost">Explore the Tech</a>
+    </div>
+  </div>
+</section>
+
+<!-- METRICS ROW -->
+<div class="container" style="position:relative;z-index:1;">
+  <div class="metrics-row reveal">
+    <div class="metric-item">
+      <span class="metric-value">23µs</span>
+      <div class="metric-label">Routing Latency</div>
+    </div>
+    <div class="metric-item">
+      <span class="metric-value">85%</span>
+      <div class="metric-label">Free-Tier Queries</div>
+    </div>
+    <div class="metric-item">
+      <span class="metric-value">100%</span>
+      <div class="metric-label">HumanEval pass@1</div>
+    </div>
+    <div class="metric-item">
+      <span class="metric-value">82.4%</span>
+      <div class="metric-label">Routing Accuracy</div>
+    </div>
+  </div>
+</div>
+
+<!-- WHAT WE BUILD -->
+<section id="build">
+  <div class="container">
+    <p class="section-label reveal">What We Build</p>
+    <h2 class="section-title reveal">muLLM — Intelligent Local-First Router</h2>
+    <p class="section-desc reveal">
+      A four-tier routing pipeline that classifies every query and dispatches it to the
+      cheapest capable model. Groundtruth lookups resolve deterministic queries in
+      microseconds. Cloud only when it matters.
+    </p>
+
+    <!-- Pipeline -->
+    <div class="pipeline reveal" role="list" aria-label="Routing pipeline tiers">
+      <div class="pipe-step tier-gt" role="listitem">
+        <span class="tier-label">tier 0</span>
+        Groundtruth<br>~23µs
+      </div>
+      <div class="pipe-arrow" aria-hidden="true">→</div>
+      <div class="pipe-step tier-cache" role="listitem">
+        <span class="tier-label">tier 1</span>
+        Vector Cache<br>~2ms
+      </div>
+      <div class="pipe-arrow" aria-hidden="true">→</div>
+      <div class="pipe-step tier-local" role="listitem">
+        <span class="tier-label">tier 2</span>
+        Local 30B<br>~1–3s
+      </div>
+      <div class="pipe-arrow" aria-hidden="true">→</div>
+      <div class="pipe-step tier-cloud" role="listitem">
+        <span class="tier-label">tier 3</span>
+        Cloud API<br>only 15%
+      </div>
+    </div>
+
+    <!-- Cards -->
+    <div class="cards-grid" style="margin-top:3rem;">
+      <div class="card reveal">
+        <span class="card-icon" aria-hidden="true">⚡</span>
+        <div class="card-title">Speed</div>
+        <p class="card-body">
+          DeBERTa-v3 routing classifier with 44MB footprint runs entirely on CPU.
+          Groundtruth regex resolves deterministic queries before any model wakes up.
+        </p>
+        <div class="card-stat">23<span>µs routing</span></div>
+      </div>
+      <div class="card reveal">
+        <span class="card-icon" aria-hidden="true">💰</span>
+        <div class="card-title">Cost</div>
+        <p class="card-body">
+          85% of queries route to the free local tier. ChromaDB semantic cache avoids
+          redundant calls. Cloud API cost is microscopic — fractions of a cent per session.
+        </p>
+        <div class="card-stat">$0<span>for 85% of queries</span></div>
+      </div>
+      <div class="card reveal">
+        <span class="card-icon" aria-hidden="true">🎯</span>
+        <div class="card-title">Accuracy</div>
+        <p class="card-body">
+          82.4% routing accuracy from DeBERTa fine-tuned on 5,161 labeled examples.
+          100% pass@1 on HumanEval. RouterBench results published openly.
+        </p>
+        <div class="card-stat">82.4%<span>routing accuracy</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LIVE DEMO -->
+<section id="demo">
+  <div class="container">
+    <p class="section-label reveal">Live Demo</p>
+    <h2 class="section-title reveal">Ask muLLM</h2>
+    <p class="section-desc reveal">
+      This widget routes your query through the same pipeline powering production.
+      Watch which tier handles it and how fast.
+    </p>
+
+    <div class="demo-box reveal">
+      <label for="demo-input">QUERY</label>
+      <textarea
+        id="demo-input"
+        class="demo-textarea"
+        placeholder="What is the time complexity of quicksort?"
+        aria-label="Query input"
+        rows="3"
+      ></textarea>
+      <div class="demo-controls">
+        <button id="demo-ask" class="btn-ask" type="button" aria-label="Submit query">Ask</button>
+        <span id="demo-status" class="demo-status" role="status" aria-live="polite"></span>
+      </div>
+      <div id="demo-result" class="demo-result" aria-live="polite">
+        <div id="demo-tier-row" style="display:flex;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;"></div>
+        <div id="demo-response" class="demo-response-text"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="stack">
+  <div class="container">
+    <p class="section-label reveal">Tech Stack</p>
+    <h2 class="section-title reveal">Built on Production-Grade Infrastructure</h2>
+    <p class="section-desc reveal">
+      Every component was chosen for low latency, zero unnecessary dependencies,
+      and the ability to run entirely offline on commodity hardware.
+    </p>
+    <div class="pills reveal" role="list" aria-label="Technology stack">
+      <div class="pill" role="listitem" title="Python async backend, &lt;200ms cold start">FastAPI</div>
+      <div class="pill" role="listitem" title="Semantic vector cache, cosine similarity matching">ChromaDB</div>
+      <div class="pill" role="listitem" title="Local LLM inference: qwen2.5:30b on RTX 5090">Ollama</div>
+      <div class="pill" role="listitem" title="44MB routing classifier, 82.4% accuracy, CPU-only">DeBERTa-v3</div>
+      <div class="pill" role="listitem" title="32GB VRAM, 32-core, 4GHz+ host machine">RTX 5090</div>
+      <div class="pill" role="listitem" title="Client-side chat history, zero server storage">Dexie.js / IndexedDB</div>
+      <div class="pill" role="listitem" title="Playwright TDD, 59+ automated browser tests">Playwright</div>
+      <div class="pill" role="listitem" title="Type-safe frontend with no build step">TypeScript</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">0101 Technology LLC</div>
+    <p class="footer-copy">© 2026 0101 Technology LLC — Local-first AI routing infrastructure.</p>
+    <a href="mailto:mybrainrunslinux@gmail.com" class="footer-email">mybrainrunslinux@gmail.com</a>
+  </div>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// DESIGN NOTE: "0" digits use #4df9ff (cyan), "1" digits use
+// #ffc400 (gold-bright). Hero section spec takes precedence over
+// brand token list which listed #00ff41 for "1".
+// CELL=9px, STEP=11px, DIGIT_W=53px, DGAP=14px between digits.
+// ─────────────────────────────────────────────────────────────
+
+(function() {
+  'use strict';
+
+  // ── Pixel digit definitions ──────────────────────────────────
+  // Each entry is [col, row] within a 5×7 grid
+  const ZERO_PIXELS = [
+    [1,0],[2,0],[3,0],
+    [0,1],[4,1],
+    [0,2],[4,2],
+    [0,3],[4,3],
+    [0,4],[4,4],
+    [0,5],[4,5],
+    [1,6],[2,6],[3,6]
+  ];
+
+  const ONE_PIXELS = [
+    [2,0],
+    [1,1],[2,1],
+    [2,2],
+    [2,3],
+    [2,4],
+    [2,5],
+    [1,6],[2,6],[3,6]
+  ];
+
+  const CELL  = 9;   // px per cell square
+  const STEP  = 11;  // px per grid step (cell + 2px gap)
+  const DGAP  = 14;  // px gap between digits
+  // Digit occupies cols 0-4 → max col=4, so width = 4*STEP + CELL = 53px
+  const DIGIT_W = 4 * STEP + CELL;  // 53
+
+  const C0 = '#4df9ff';  // cyan for "0"
+  const C1 = '#ffc400';  // gold for "1"
+
+  function drawDigit(ctx, pixels, color, offsetX, scale) {
+    ctx.fillStyle = color;
+    const r = Math.max(2, CELL * scale * 0.35);
+    for (const [col, row] of pixels) {
+      const x = offsetX + col * STEP * scale;
+      const y = row * STEP * scale;
+      const s = CELL * scale;
+      // Rounded rectangle
+      ctx.beginPath();
+      ctx.roundRect(x, y, s, s, r);
+      ctx.fill();
+    }
+  }
+
+  function drawWordmark(canvas, scale) {
+    scale = scale || 1;
+    const totalW = Math.ceil((DIGIT_W * 4 + DGAP * 3) * scale);
+    const totalH = Math.ceil((6 * STEP + CELL) * scale);
+    canvas.width  = totalW;
+    canvas.height = totalH;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, totalW, totalH);
+
+    const digits = [
+      { pixels: ZERO_PIXELS, color: C0 },
+      { pixels: ONE_PIXELS,  color: C1 },
+      { pixels: ZERO_PIXELS, color: C0 },
+      { pixels: ONE_PIXELS,  color: C1 },
+    ];
+
+    let x = 0;
+    for (const d of digits) {
+      drawDigit(ctx, d.pixels, d.color, x, scale);
+      x += (DIGIT_W + DGAP) * scale;
+    }
+  }
+
+  // Draw main hero wordmark
+  const wm = document.getElementById('wordmark-canvas');
+  drawWordmark(wm, window.devicePixelRatio > 1 ? 1.5 : 1);
+
+  // Draw nav mini wordmark
+  const nav = document.getElementById('nav-canvas');
+  const navScale = 0.38;
+  const navTotalW = Math.ceil((DIGIT_W * 4 + DGAP * 3) * navScale);
+  const navTotalH = Math.ceil((6 * STEP + CELL) * navScale);
+  nav.width  = navTotalW;
+  nav.height = navTotalH;
+  (function() {
+    const ctx = nav.getContext('2d');
+    const digits = [
+      { pixels: ZERO_PIXELS, color: C0 },
+      { pixels: ONE_PIXELS,  color: C1 },
+      { pixels: ZERO_PIXELS, color: C0 },
+      { pixels: ONE_PIXELS,  color: C1 },
+    ];
+    let x = 0;
+    for (const d of digits) {
+      drawDigit(ctx, d.pixels, d.color, x, navScale);
+      x += (DIGIT_W + DGAP) * navScale;
+    }
+  })();
+
+  // ── Matrix Rain ──────────────────────────────────────────────
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canvas = document.getElementById('matrix-canvas');
+  const mctx   = canvas.getContext('2d');
+  let rafId    = null;
+  let cols     = 0;
+  let drops    = [];
+
+  function resizeMatrix() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    cols  = Math.floor(canvas.width / 14);
+    drops = Array.from({ length: cols }, () => Math.random() * -50);
+  }
+
+  function drawMatrix() {
+    mctx.fillStyle = 'rgba(6,20,40,0.05)';
+    mctx.fillRect(0, 0, canvas.width, canvas.height);
+    mctx.fillStyle = '#4df9ff';
+    mctx.font = '12px "Courier New", monospace';
+    for (let i = 0; i < drops.length; i++) {
+      const ch = Math.random() < 0.5 ? '0' : '1';
+      mctx.fillText(ch, i * 14, drops[i] * 14);
+      if (drops[i] * 14 > canvas.height && Math.random() > 0.975) {
+        drops[i] = 0;
+      }
+      drops[i]++;
+    }
+  }
+
+  function matrixLoop() {
+    drawMatrix();
+    rafId = requestAnimationFrame(matrixLoop);
+  }
+
+  function stopMatrix() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  if (!prefersReduced) {
+    resizeMatrix();
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(resizeMatrix, 150);
+    }, { passive: true });
+
+    // Pause when tab hidden
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { stopMatrix(); }
+      else { if (!rafId) matrixLoop(); }
+    });
+
+    matrixLoop();
+  } else {
+    // Single static frame
+    resizeMatrix();
+    drawMatrix();
+  }
+
+  // ── Scroll Reveal ────────────────────────────────────────────
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    }
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  for (const el of reveals) {
+    observer.observe(el);
+  }
+
+  // ── Live Demo ────────────────────────────────────────────────
+  const askBtn    = document.getElementById('demo-ask');
+  const input     = document.getElementById('demo-input');
+  const status    = document.getElementById('demo-status');
+  const resultBox = document.getElementById('demo-result');
+  const tierRow   = document.getElementById('demo-tier-row');
+  const respText  = document.getElementById('demo-response');
+
+  const TIER_LABELS = {
+    local:       '⬤ LOCAL',
+    local_multi: '⬤ LOCAL MULTI',
+    vllm:        '⬤ vLLM',
+    cache:       '⬤ CACHE',
+    cloud_cheap: '⬤ CLOUD CHEAP',
+    cloud_full:  '⬤ CLOUD FULL',
+  };
+
+  function truncate(str, max) {
+    if (str.length <= max) return str;
+    return str.slice(0, max) + '\n\n[truncated …]';
+  }
+
+  async function handleAsk() {
+    const q = input.value.trim();
+    if (!q) { input.focus(); return; }
+
+    askBtn.disabled = true;
+    status.textContent = 'Routing…';
+    resultBox.style.display = 'none';
+
+    const t0 = performance.now();
+    try {
+      const res = await fetch('/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: q })
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      const elapsed = Math.round(performance.now() - t0);
+
+      // Build tier badge
+      const tier    = (data.tier_used || 'local').toLowerCase();
+      const latency = data.total_latency_ms != null
+        ? `${Math.round(data.total_latency_ms)}ms`
+        : `${elapsed}ms`;
+
+      tierRow.innerHTML = '';
+      const badge = document.createElement('span');
+      badge.className = `tier-badge ${tier}`;
+      badge.setAttribute('role', 'status');
+      badge.setAttribute('aria-label', `Tier: ${tier}`);
+      badge.textContent = TIER_LABELS[tier] || tier.toUpperCase();
+      tierRow.appendChild(badge);
+
+      const latTag = document.createElement('span');
+      latTag.className = 'latency-tag';
+      latTag.textContent = latency;
+      tierRow.appendChild(latTag);
+
+      if (data.cost != null && data.cost > 0) {
+        const costTag = document.createElement('span');
+        costTag.className = 'latency-tag';
+        costTag.textContent = `$${data.cost.toFixed(5)}`;
+        tierRow.appendChild(costTag);
+      }
+
+      respText.textContent = truncate(data.response || '(no response)', 1200);
+      resultBox.style.display = 'block';
+      status.textContent = '';
+    } catch (err) {
+      tierRow.innerHTML = `<span class="tier-badge error" role="alert">OFFLINE</span>`;
+      respText.textContent = `Could not reach /query — is the server running?\n\n${err.message}`;
+      resultBox.style.display = 'block';
+      status.textContent = '';
+    } finally {
+      askBtn.disabled = false;
+    }
+  }
+
+  askBtn.addEventListener('click', handleAsk);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAsk();
+  });
+
+})();
+</script>
+
+</body>
+</html>

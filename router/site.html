@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>muLLM — Local-First LLM Router</title>
+  <meta name="description" content="muLLM routes every query to the cheapest capable model. 97.6% cost reduction in production. 100% HumanEval at $0.00. 23µs routing decisions.">
+  <style>
+    /* ─── Reset ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #080c14;
+      --bg-2:       #0d1220;
+      --bg-3:       #121929;
+      --bg-card:    #0f1822;
+      --gold:       #d4af37;
+      --gold-dim:   #a88c28;
+      --gold-glow:  rgba(212, 175, 55, 0.15);
+      --gold-subtle:rgba(212, 175, 55, 0.08);
+      --blue:       #3b82f6;
+      --blue-dim:   #2563eb;
+      --blue-glow:  rgba(59, 130, 246, 0.15);
+      --blue-subtle:rgba(59, 130, 246, 0.07);
+      --green:      #22d3a0;
+      --green-dim:  rgba(34, 211, 160, 0.12);
+      --text:       #e2e8f0;
+      --text-dim:   #6b7fa3;
+      --text-mid:   #94a3b8;
+      --border:     rgba(212, 175, 55, 0.12);
+      --border-blue:rgba(59, 130, 246, 0.18);
+      --radius:     12px;
+      --ff:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      --mono:       "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--ff);
+      font-size: 16px;
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+
+    /* ─── Typography ──────────────────────────────────────────── */
+    h1, h2, h3, h4 { line-height: 1.2; font-weight: 700; }
+    h1 { font-size: clamp(2.4rem, 5.5vw, 4rem); }
+    h2 { font-size: clamp(1.7rem, 3.5vw, 2.5rem); }
+    h3 { font-size: clamp(1.1rem, 2vw, 1.35rem); }
+
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
+
+    /* ─── Layout ──────────────────────────────────────────────── */
+    .container {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section { padding: 88px 0; }
+
+    /* ─── Scroll animations ───────────────────────────────────── */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-in.visible { opacity: 1; transform: none; }
+    .fade-in.d1 { transition-delay: 0.08s; }
+    .fade-in.d2 { transition-delay: 0.16s; }
+    .fade-in.d3 { transition-delay: 0.24s; }
+    .fade-in.d4 { transition-delay: 0.32s; }
+    .fade-in.d5 { transition-delay: 0.40s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fade-in { opacity: 1; transform: none; transition: none; }
+      * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+    }
+
+    /* ─── Nav ─────────────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 200;
+      background: rgba(8, 12, 20, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-logo .mu { color: var(--blue); }
+    .nav-logo .tag {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 6px;
+      list-style: none;
+      align-items: center;
+    }
+
+    .nav-links a {
+      color: var(--text-mid);
+      font-size: 0.875rem;
+      padding: 8px 14px;
+      border-radius: 7px;
+      transition: color 0.2s, background 0.2s;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); text-decoration: none; }
+
+    .nav-cta {
+      background: var(--gold);
+      color: #000 !important;
+      padding: 9px 20px !important;
+      border-radius: 8px !important;
+      font-weight: 700 !important;
+      font-size: 0.875rem !important;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s !important;
+    }
+    .nav-cta:hover {
+      background: #e8c345 !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(212,175,55,0.3);
+      text-decoration: none !important;
+    }
+
+    /* Mobile hamburger */
+    .nav-toggle {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 10px;
+      min-width: 44px;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+    }
+    .nav-toggle span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: transform 0.25s, opacity 0.25s;
+    }
+    .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+    .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    @media (max-width: 720px) {
+      .nav-toggle { display: flex; }
+      .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0; right: 0;
+        background: rgba(8, 12, 20, 0.97);
+        border-bottom: 1px solid var(--border);
+        flex-direction: column;
+        padding: 12px 0;
+        gap: 0;
+      }
+      .nav-links.open { display: flex; }
+      .nav-links a { padding: 14px 24px !important; width: 100%; border-radius: 0 !important; }
+      .nav-cta { margin: 8px 24px !important; width: auto; border-radius: 8px !important; }
+    }
+
+    /* ─── Hero ────────────────────────────────────────────────── */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212,175,55,0.025) 1px, transparent 1px);
+      background-size: 52px 52px;
+      pointer-events: none;
+    }
+
+    .hero-glow-gold {
+      position: absolute;
+      top: 35%;
+      left: 35%;
+      width: 500px;
+      height: 380px;
+      background: radial-gradient(ellipse, rgba(212,175,55,0.1) 0%, transparent 68%);
+      pointer-events: none;
+    }
+
+    .hero-glow-blue {
+      position: absolute;
+      top: 40%;
+      left: 60%;
+      width: 420px;
+      height: 340px;
+      background: radial-gradient(ellipse, rgba(59,130,246,0.08) 0%, transparent 68%);
+      pointer-events: none;
+    }
+
+    .hero-inner { position: relative; z-index: 1; max-width: 860px; }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(59,130,246,0.1);
+      border: 1px solid var(--border-blue);
+      border-radius: 999px;
+      padding: 7px 18px;
+      font-size: 0.78rem;
+      color: var(--blue);
+      font-family: var(--mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 30px;
+    }
+
+    .dot-pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--blue);
+      flex-shrink: 0;
+      animation: pulse-dot 2.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(59,130,246,0.6); }
+      50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(59,130,246,0); }
+    }
+
+    .hero h1 { color: #fff; margin-bottom: 22px; letter-spacing: -0.03em; }
+    .hero h1 .accent-gold {
+      color: var(--gold);
+      background: linear-gradient(135deg, #d4af37, #f5d870);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero h1 .accent-blue {
+      color: var(--blue);
+      background: linear-gradient(135deg, #3b82f6, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2vw, 1.18rem);
+      color: var(--text-mid);
+      max-width: 580px;
+      margin: 0 auto 38px;
+    }
+
+    /* ─── Animated counter badge ──────────────────────────────── */
+    .hero-stats-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 44px;
+    }
+
+    .stat-pill {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 22px;
+      min-width: 120px;
+    }
+
+    .stat-pill .num {
+      font-family: var(--mono);
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: var(--gold);
+    }
+    .stat-pill .num.blue { color: var(--blue); }
+    .stat-pill .num.green { color: var(--green); }
+
+    .stat-pill .lbl {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.03em;
+      margin-top: 5px;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    /* Routing animation badge */
+    .routing-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 20px;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--text-mid);
+      margin-bottom: 48px;
+      animation: glow-badge 3.5s ease-in-out infinite;
+    }
+
+    @keyframes glow-badge {
+      0%, 100% { box-shadow: 0 0 0 0 var(--gold-glow); }
+      50% { box-shadow: 0 0 18px 2px var(--gold-glow); }
+    }
+
+    .routing-live .node {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+    }
+    .routing-live .node.local { color: var(--green); border: 1px solid rgba(34,211,160,0.2); }
+    .routing-live .node.cache { color: var(--gold); border: 1px solid var(--border); }
+    .routing-live .node.cloud { color: var(--blue); border: 1px solid var(--border-blue); }
+    .routing-live .arrow { color: var(--text-dim); font-size: 0.75rem; }
+
+    /* ─── CTA row ─────────────────────────────────────────────── */
+    .cta-row {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      background: var(--gold);
+      color: #000;
+      padding: 14px 32px;
+      border-radius: 9px;
+      font-weight: 700;
+      font-size: 1rem;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+    }
+    .btn-primary:hover {
+      background: #e8c345;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(212,175,55,0.35);
+      text-decoration: none;
+    }
+    .btn-primary:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      padding: 14px 32px;
+      border-radius: 9px;
+      font-weight: 600;
+      font-size: 1rem;
+      border: 1px solid rgba(255,255,255,0.14);
+      transition: border-color 0.2s, transform 0.15s, background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+    }
+    .btn-secondary:hover {
+      border-color: rgba(255,255,255,0.32);
+      background: rgba(255,255,255,0.04);
+      transform: translateY(-2px);
+      text-decoration: none;
+    }
+    .btn-secondary:focus-visible { outline: 2px solid var(--text-mid); outline-offset: 3px; }
+
+    .btn-blue {
+      background: var(--blue);
+      color: #fff;
+      padding: 14px 32px;
+      border-radius: 9px;
+      font-weight: 700;
+      font-size: 1rem;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+    }
+    .btn-blue:hover {
+      background: var(--blue-dim);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(59,130,246,0.3);
+      text-decoration: none;
+    }
+    .btn-blue:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+    /* ─── Stats strip ─────────────────────────────────────────── */
+    .stats-strip {
+      background: var(--bg-2);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 40px 24px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 32px;
+      text-align: center;
+    }
+
+    .stat-item .big {
+      font-family: var(--mono);
+      font-size: clamp(1.8rem, 3.5vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .stat-item .big.gold { color: var(--gold); }
+    .stat-item .big.blue { color: var(--blue); }
+    .stat-item .big.green { color: var(--green); }
+
+    .stat-item .caption {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 6px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    /* ─── Section headings ────────────────────────────────────── */
+    .section-label {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--blue);
+      border: 1px solid var(--border-blue);
+      background: var(--blue-subtle);
+      border-radius: 4px;
+      padding: 3px 10px;
+      margin-bottom: 16px;
+    }
+    .section-label.gold-label {
+      color: var(--gold);
+      border-color: var(--border);
+      background: var(--gold-subtle);
+    }
+    .section-label.green-label {
+      color: var(--green);
+      border-color: rgba(34,211,160,0.2);
+      background: rgba(34,211,160,0.07);
+    }
+
+    .section-head { text-align: center; margin-bottom: 60px; }
+    .section-head h2 { color: #fff; letter-spacing: -0.025em; margin-bottom: 14px; }
+    .section-head p { color: var(--text-mid); font-size: 1.05rem; max-width: 540px; margin: 0 auto; }
+
+    /* ─── Three-column features ───────────────────────────────── */
+    #how-it-works { background: var(--bg); }
+
+    .feature-cols {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 860px) { .feature-cols { grid-template-columns: 1fr; } }
+
+    .feat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      transition: border-color 0.3s, transform 0.25s, box-shadow 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feat-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--border);
+      transition: background 0.3s;
+    }
+
+    .feat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 48px rgba(0,0,0,0.35);
+    }
+
+    .feat-card.local::before { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+    .feat-card.cache::before { background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+    .feat-card.cloud::before { background: linear-gradient(90deg, transparent, var(--blue), transparent); }
+
+    .feat-card.local:hover { border-color: rgba(34,211,160,0.25); box-shadow: 0 20px 48px rgba(34,211,160,0.06); }
+    .feat-card.cache:hover { border-color: rgba(212,175,55,0.25); box-shadow: 0 20px 48px rgba(212,175,55,0.06); }
+    .feat-card.cloud:hover { border-color: rgba(59,130,246,0.25); box-shadow: 0 20px 48px rgba(59,130,246,0.06); }
+
+    .feat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      margin-bottom: 20px;
+    }
+    .feat-icon.gi { background: var(--green-dim); }
+    .feat-icon.gi svg { color: var(--green); }
+    .feat-icon.gd { background: var(--gold-subtle); }
+    .feat-icon.bl { background: var(--blue-subtle); }
+
+    .feat-card h3 { color: #fff; margin-bottom: 10px; }
+    .feat-card p { color: var(--text-mid); font-size: 0.93rem; line-height: 1.7; margin-bottom: 20px; }
+
+    .feat-stat {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-family: var(--mono);
+    }
+    .feat-stat .n { font-size: 1.5rem; font-weight: 800; }
+    .feat-stat .n.green { color: var(--green); }
+    .feat-stat .n.gold { color: var(--gold); }
+    .feat-stat .n.blue { color: var(--blue); }
+    .feat-stat .u { font-size: 0.8rem; color: var(--text-dim); }
+
+    /* ─── Pipeline diagram ────────────────────────────────────── */
+    #pipeline { background: var(--bg-2); }
+
+    .pipeline-flow {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      flex-wrap: wrap;
+    }
+
+    .pipe-step {
+      flex: 1;
+      min-width: 180px;
+      padding: 28px 22px;
+      border-right: 1px solid var(--border);
+      position: relative;
+    }
+    .pipe-step:last-child { border-right: none; }
+
+    .pipe-step .step-num {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .pipe-step h4 { color: #fff; margin-bottom: 8px; font-size: 1rem; }
+
+    .pipe-step p { font-size: 0.82rem; color: var(--text-dim); line-height: 1.6; }
+
+    .pipe-step .lat {
+      display: inline-block;
+      margin-top: 12px;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 5px;
+    }
+    .pipe-step .lat.t0 { background: rgba(34,211,160,0.1); color: var(--green); }
+    .pipe-step .lat.t1 { background: rgba(212,175,55,0.1); color: var(--gold); }
+    .pipe-step .lat.t2 { background: rgba(59,130,246,0.1); color: var(--blue); }
+    .pipe-step .lat.t3 { background: rgba(59,130,246,0.08); color: #93c5fd; }
+
+    /* ─── Benchmark table ─────────────────────────────────────── */
+    #benchmarks { background: var(--bg); }
+
+    .bench-wrap {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      background: var(--bg-card);
+    }
+
+    thead tr { background: var(--bg-3); }
+
+    th {
+      padding: 14px 18px;
+      text-align: left;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    td.metric-name { font-weight: 600; color: var(--text); }
+    td.val { font-family: var(--mono); font-weight: 700; font-size: 0.95rem; }
+    td.val.gold { color: var(--gold); }
+    td.val.green { color: var(--green); }
+    td.val.blue { color: var(--blue); }
+
+    .badge-chip {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .badge-chip.local { background: var(--green-dim); color: var(--green); }
+    .badge-chip.cache { background: var(--gold-subtle); color: var(--gold); }
+    .badge-chip.routing { background: var(--blue-subtle); color: var(--blue); }
+
+    /* ─── No-GPU section ──────────────────────────────────────── */
+    #no-gpu {
+      background: linear-gradient(135deg, rgba(59,130,246,0.06) 0%, var(--bg-2) 50%, rgba(212,175,55,0.04) 100%);
+      border-top: 1px solid var(--border-blue);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .no-gpu-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    @media (max-width: 768px) { .no-gpu-grid { grid-template-columns: 1fr; gap: 40px; } }
+
+    .no-gpu-left h2 { color: #fff; margin-bottom: 18px; letter-spacing: -0.025em; }
+    .no-gpu-left p { color: var(--text-mid); font-size: 1rem; line-height: 1.75; margin-bottom: 14px; }
+
+    .no-gpu-cards { display: flex; flex-direction: column; gap: 12px; }
+
+    .no-gpu-card {
+      background: var(--bg-3);
+      border: 1px solid var(--border-blue);
+      border-radius: 12px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .no-gpu-card .icon-wrap {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      background: var(--blue-subtle);
+      border: 1px solid var(--border-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--blue);
+      font-size: 1rem;
+    }
+
+    .no-gpu-card h4 { color: #fff; font-size: 0.95rem; margin-bottom: 4px; }
+    .no-gpu-card p { color: var(--text-dim); font-size: 0.82rem; line-height: 1.55; margin: 0; }
+
+    .savings-callout {
+      margin-top: 24px;
+      background: rgba(34,211,160,0.07);
+      border: 1px solid rgba(34,211,160,0.2);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      font-family: var(--mono);
+    }
+    .savings-callout .big-num { font-size: 2rem; font-weight: 800; color: var(--green); line-height: 1; }
+    .savings-callout .desc { font-size: 0.83rem; color: var(--text-dim); }
+
+    /* ─── Pricing teaser ──────────────────────────────────────── */
+    #pricing { background: var(--bg); }
+
+    .pricing-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 52px 44px;
+      max-width: 680px;
+      margin: 0 auto;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pricing-card::after {
+      content: "";
+      position: absolute;
+      bottom: -80px;
+      right: -80px;
+      width: 280px;
+      height: 280px;
+      background: radial-gradient(circle, var(--gold-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .pricing-card h2 { color: #fff; margin-bottom: 14px; letter-spacing: -0.025em; }
+    .pricing-card .sub { color: var(--text-mid); font-size: 1rem; max-width: 480px; margin: 0 auto 36px; }
+
+    .price-equation {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-bottom: 36px;
+      font-family: var(--mono);
+    }
+
+    .price-block {
+      text-align: center;
+    }
+    .price-block .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 4px; }
+    .price-block .value { font-size: 1.6rem; font-weight: 800; }
+    .price-block .value.gold { color: var(--gold); }
+    .price-block .value.green { color: var(--green); }
+    .price-block .value.blue { color: var(--blue); }
+
+    .price-op { color: var(--text-dim); font-size: 1.4rem; font-weight: 300; }
+
+    .pricing-note {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      font-style: italic;
+      line-height: 1.65;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .pricing-note strong { color: var(--gold); font-style: normal; }
+
+    /* ─── Paper / CTA section ─────────────────────────────────── */
+    #cta-bottom {
+      background: var(--bg-2);
+      border-top: 1px solid var(--border);
+    }
+
+    .cta-bottom-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 700px) { .cta-bottom-inner { grid-template-columns: 1fr; } }
+
+    .cta-panel {
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .cta-panel h3 { color: #fff; font-size: 1.25rem; }
+    .cta-panel p { color: var(--text-mid); font-size: 0.9rem; line-height: 1.65; flex: 1; }
+
+    /* ─── Footer ──────────────────────────────────────────────── */
+    footer {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 32px 24px;
+    }
+
+    .footer-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-logo { font-family: var(--mono); color: var(--gold); font-size: 0.95rem; font-weight: 700; }
+    .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+    .footer-links a { color: var(--text-dim); font-size: 0.83rem; transition: color 0.2s; }
+    .footer-links a:hover { color: var(--text); text-decoration: none; }
+    .footer-copy { font-size: 0.78rem; color: var(--text-dim); }
+
+    /* ─── Utilities ───────────────────────────────────────────── */
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Navigation ─────────────────────────────────────────── -->
+<nav role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+    <a href="#hero" class="nav-logo" aria-label="muLLM home">
+      <span class="mu">mu</span>LLM
+      <span class="tag">local-first router</span>
+    </a>
+    <button
+      class="nav-toggle"
+      id="nav-toggle"
+      aria-controls="nav-menu"
+      aria-expanded="false"
+      aria-label="Toggle navigation menu"
+    >
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="nav-menu" role="list">
+      <li><a href="#how-it-works">How it Works</a></li>
+      <li><a href="#benchmarks">Benchmarks</a></li>
+      <li><a href="#no-gpu">No GPU?</a></li>
+      <li><a href="#pricing">Pricing Model</a></li>
+      <li><a href="/bench" aria-label="RouterBench benchmarks">RouterBench</a></li>
+      <li><a href="/chat" class="nav-cta">Try it Live</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ─── Hero ───────────────────────────────────────────────── -->
+<main id="main-content">
+<section id="hero" aria-labelledby="hero-heading">
+  <div class="hero-grid" aria-hidden="true"></div>
+  <div class="hero-glow-gold" aria-hidden="true"></div>
+  <div class="hero-glow-blue" aria-hidden="true"></div>
+  <div class="hero-inner">
+    <div class="hero-eyebrow fade-in" aria-label="Production system status">
+      <span class="dot-pulse" aria-hidden="true"></span>
+      Production system &mdash; real numbers only
+    </div>
+
+    <h1 class="fade-in d1" id="hero-heading">
+      Route to the
+      <span class="accent-gold">cheapest</span> model.<br>
+      Pay for cloud <span class="accent-blue">only when needed</span>.
+    </h1>
+
+    <p class="hero-sub fade-in d2">
+      muLLM classifies every query in microseconds and sends it to local inference,
+      semantic cache, or the cheapest cloud model that can handle it.
+      88% of queries cost nothing.
+    </p>
+
+    <div class="hero-stats-row fade-in d3" aria-label="Key performance statistics">
+      <div class="stat-pill">
+        <span class="num green" id="ctr-cost" aria-label="97.6% cost reduction">0%</span>
+        <span class="lbl">Cost Reduction</span>
+      </div>
+      <div class="stat-pill">
+        <span class="num gold" id="ctr-humaneval" aria-label="100% HumanEval pass rate">0%</span>
+        <span class="lbl">HumanEval</span>
+      </div>
+      <div class="stat-pill">
+        <span class="num blue" id="ctr-lat" aria-label="23 microsecond routing latency">0µs</span>
+        <span class="lbl">Route Decision</span>
+      </div>
+      <div class="stat-pill">
+        <span class="num green" id="ctr-free" aria-label="88% of queries handled free">0%</span>
+        <span class="lbl">Free Queries</span>
+      </div>
+    </div>
+
+    <div class="routing-live fade-in d4" role="img" aria-label="Routing pipeline: query goes to groundtruth first, then cache, then local AI, then cloud">
+      <span class="node local" aria-hidden="true">&#9673; groundtruth</span>
+      <span class="arrow" aria-hidden="true">&#10132;</span>
+      <span class="node cache" aria-hidden="true">&#9726; cache</span>
+      <span class="arrow" aria-hidden="true">&#10132;</span>
+      <span class="node local" aria-hidden="true">&#9673; local 30B</span>
+      <span class="arrow" aria-hidden="true">&#10132;</span>
+      <span class="node cloud" aria-hidden="true">&#9729; cloud</span>
+    </div>
+
+    <div class="cta-row fade-in d5">
+      <a href="/chat" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Try muLLM Live
+      </a>
+      <a href="/bench" class="btn-secondary">
+        View Benchmarks &#8594;
+      </a>
+      <a href="/megabench" class="btn-secondary">
+        MegaBench &#8594;
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Stats strip ────────────────────────────────────────── -->
+<div class="stats-strip" aria-label="Headline metrics">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-item fade-in">
+        <div class="big gold" id="ctr2-cost" aria-label="97.6 percent">0%</div>
+        <div class="caption">Cost Reduction in Production</div>
+      </div>
+      <div class="stat-item fade-in d1">
+        <div class="big green" aria-label="$10.86 actual cost vs $449 estimated">$10.86</div>
+        <div class="caption">Actual vs $449 Estimated</div>
+      </div>
+      <div class="stat-item fade-in d2">
+        <div class="big blue" id="ctr2-multi" aria-label="98.3 percent MultiPL-E">0%</div>
+        <div class="caption">MultiPL-E (6 languages)</div>
+      </div>
+      <div class="stat-item fade-in d3">
+        <div class="big gold" id="ctr2-cache" aria-label="70 percent">0%</div>
+        <div class="caption">Cache Hit Rate (organic)</div>
+      </div>
+      <div class="stat-item fade-in d4">
+        <div class="big green" aria-label="$0.00066 per query">$0.00066</div>
+        <div class="caption">Per-Query GPU Economics</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ─── How it Works ──────────────────────────────────────── -->
+<section id="how-it-works" aria-labelledby="how-heading">
+  <div class="container">
+    <div class="section-head fade-in">
+      <span class="section-label" aria-hidden="true">Architecture</span>
+      <h2 id="how-heading">Three tiers. One goal: $0.</h2>
+      <p>Every query cascades through cost tiers, stopping the moment a tier can answer confidently.</p>
+    </div>
+
+    <div class="feature-cols">
+      <article class="feat-card local fade-in d1" aria-labelledby="feat-local-h">
+        <div class="feat-icon gi" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <h3 id="feat-local-h">Local First</h3>
+        <p>
+          Groundtruth pattern matching answers deterministic questions in under 1ms &mdash;
+          zero AI, zero cost. A local 30B model handles everything else that doesn't need the cloud.
+          No round-trip. No API key consumed.
+        </p>
+        <div class="feat-stat">
+          <span class="n green" aria-label="88 percent">88%</span>
+          <span class="u">of all queries handled free</span>
+        </div>
+      </article>
+
+      <article class="feat-card cache fade-in d2" aria-labelledby="feat-cache-h">
+        <div class="feat-icon gd" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4.03 3-9 3S3 13.66 3 12"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <h3 id="feat-cache-h">Cache Smart</h3>
+        <p>
+          ChromaDB semantic cache finds near-duplicate queries with cosine similarity.
+          70% hit rate on organic usage. The cache learns your usage patterns &mdash;
+          it gets smarter every day without any configuration.
+        </p>
+        <div class="feat-stat">
+          <span class="n gold" aria-label="70 percent">70%</span>
+          <span class="u">hit rate on repeat usage</span>
+        </div>
+      </article>
+
+      <article class="feat-card cloud fade-in d3" aria-labelledby="feat-cloud-h">
+        <div class="feat-icon bl" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 2 21 6 17 10"/><line x1="3" y1="11" x2="21" y2="6"/><polyline points="7 22 3 18 7 14"/><line x1="21" y1="13" x2="3" y2="18"/></svg>
+        </div>
+        <h3 id="feat-cloud-h">Cloud Only When Needed</h3>
+        <p>
+          When local and cache can't answer, the router picks the cheapest cloud model
+          capable of the task &mdash; Gemini Flash for simple reasoning, GPT-4o only for
+          genuinely hard work. No vendor lock-in.
+        </p>
+        <div class="feat-stat">
+          <span class="n blue" aria-label="12 percent">~12%</span>
+          <span class="u">of queries reach cloud</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Pipeline detail ────────────────────────────────────── -->
+<section id="pipeline" aria-labelledby="pipeline-heading">
+  <div class="container">
+    <div class="section-head fade-in">
+      <span class="section-label" aria-hidden="true">Routing Pipeline</span>
+      <h2 id="pipeline-heading">Four decisions. Microseconds each.</h2>
+      <p>Every query passes through a deterministic cascade &mdash; fastest tier first, cloud tier last.</p>
+    </div>
+
+    <div class="pipeline-flow fade-in d1" role="list" aria-label="Four-step routing pipeline">
+      <div class="pipe-step" role="listitem" aria-labelledby="step0-h">
+        <div class="step-num" aria-label="Step 1">01</div>
+        <h4 id="step0-h">Groundtruth</h4>
+        <p>12.7% of all queries. Pattern-matched against a curated fact database &mdash; HTTP codes, git commands, Big-O complexity, math, CUDA setup, POSIX signals.</p>
+        <span class="lat t0" aria-label="Less than 1 millisecond">&lt;1ms</span>
+      </div>
+
+      <div class="pipe-step" role="listitem" aria-labelledby="step1-h">
+        <div class="step-num" aria-label="Step 2">02</div>
+        <h4 id="step1-h">Semantic Cache</h4>
+        <p>ChromaDB vector search against all prior responses. 70% hit rate on organic usage. Threshold: 0.98 cosine similarity.</p>
+        <span class="lat t1" aria-label="About 8 milliseconds">~8ms</span>
+      </div>
+
+      <div class="pipe-step" role="listitem" aria-labelledby="step2-h">
+        <div class="step-num" aria-label="Step 3">03</div>
+        <h4 id="step2-h">Local 30B</h4>
+        <p>Qwen-3.5 9B on RTX 5090. 100% HumanEval pass@1. Handles code, analysis, writing, math &mdash; everything that doesn't require live data.</p>
+        <span class="lat t2" aria-label="200 to 800 milliseconds">200&ndash;800ms</span>
+      </div>
+
+      <div class="pipe-step" role="listitem" aria-labelledby="step3-h">
+        <div class="step-num" aria-label="Step 4">04</div>
+        <h4 id="step3-h">Cloud Router</h4>
+        <p>DeBERTa classifier (82.4% accuracy, 44MB CPU) selects the cheapest model: Gemini Flash 1.5 first, GPT-4o only for complex multi-step tasks.</p>
+        <span class="lat t3" aria-label="800 milliseconds to 4 seconds">800ms&ndash;4s</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Benchmarks ─────────────────────────────────────────── -->
+<section id="benchmarks" aria-labelledby="bench-heading">
+  <div class="container">
+    <div class="section-head fade-in">
+      <span class="section-label gold-label" aria-hidden="true">Benchmarks</span>
+      <h2 id="bench-heading">Real numbers. No asterisks.</h2>
+      <p>Every result is reproducible. Local model, local hardware, real benchmark datasets.</p>
+    </div>
+
+    <div class="bench-wrap fade-in d1">
+      <table>
+        <caption class="sr-only">muLLM benchmark results</caption>
+        <thead>
+          <tr>
+            <th scope="col">Benchmark</th>
+            <th scope="col">Score</th>
+            <th scope="col">Cost</th>
+            <th scope="col">Tier</th>
+            <th scope="col">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="metric-name">HumanEval pass@1</td>
+            <td class="val green">100%</td>
+            <td class="val green">$0.00</td>
+            <td><span class="badge-chip local">local</span></td>
+            <td style="color:var(--text-dim);font-size:0.85rem;">164/164 tasks, Qwen 9B, no cloud</td>
+          </tr>
+          <tr>
+            <td class="metric-name">MultiPL-E (6 languages)</td>
+            <td class="val green">98.3%</td>
+            <td class="val green">$0.00</td>
+            <td><span class="badge-chip local">local</span></td>
+            <td style="color:var(--text-dim);font-size:0.85rem;">JS, Python, Go, Java, Rust, C++</td>
+          </tr>
+          <tr>
+            <td class="metric-name">Router Accuracy</td>
+            <td class="val gold">82.4%</td>
+            <td class="val green">$0.00</td>
+            <td><span class="badge-chip routing">classifier</span></td>
+            <td style="color:var(--text-dim);font-size:0.85rem;">DeBERTa-v3-small, 44MB, CPU-only</td>
+          </tr>
+          <tr>
+            <td class="metric-name">Routing Latency (groundtruth)</td>
+            <td class="val blue">23µs</td>
+            <td class="val green">$0.00</td>
+            <td><span class="badge-chip local">tier 0</span></td>
+            <td style="color:var(--text-dim);font-size:0.85rem;">vs 200&ndash;800ms cloud RTT</td>
+          </tr>
+          <tr>
+            <td class="metric-name">Semantic Cache Hit Rate</td>
+            <td class="val gold">70%</td>
+            <td class="val green">$0.00</td>
+            <td><span class="badge-chip cache">cache</span></td>
+            <td style="color:var(--text-dim);font-size:0.85rem;">Organic usage; 30% on novel queries</td>
+          </tr>
+          <tr>
+            <td class="metric-name">Production Cost Reduction</td>
+            <td class="val gold">97.6%</td>
+            <td class="val green">&mdash;</td>
+            <td><span class="badge-chip routing">observed</span></td>
+            <td style="color:var(--text-dim);font-size:0.85rem;">$10.86 actual vs $449 estimated direct-to-cloud</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="fade-in d2" style="text-align:center;margin-top:28px;font-size:0.875rem;color:var(--text-dim);">
+      Full results &rarr;
+      <a href="/bench">RouterBench</a> &middot;
+      <a href="/megabench">MegaBench</a> &middot;
+      <a href="/accuracy">Accuracy Report</a>
+    </p>
+  </div>
+</section>
+
+<!-- ─── No GPU ─────────────────────────────────────────────── -->
+<section id="no-gpu" aria-labelledby="nogpu-heading">
+  <div class="container">
+    <div class="no-gpu-grid">
+      <div class="no-gpu-left fade-in">
+        <span class="section-label" aria-hidden="true">No GPU Required</span>
+        <h2 id="nogpu-heading">50&ndash;70% savings even on a laptop.</h2>
+        <p>
+          The local AI tier needs a GPU. But two of the four routing tiers are
+          CPU-only, and smart cloud routing saves money on any hardware.
+        </p>
+        <p>
+          Groundtruth answers common questions in under 1ms without touching any model.
+          The semantic cache returns prior answers for free. And when you do reach cloud,
+          muLLM picks Gemini Flash ($0.075/M tokens) over GPT-4o ($5/M) whenever the
+          task allows it.
+        </p>
+        <div class="savings-callout" role="note" aria-label="Estimated savings without a GPU: 50 to 70 percent">
+          <span class="big-num">50&ndash;70%</span>
+          <span class="desc">estimated cloud savings<br>on a GPU-free machine</span>
+        </div>
+      </div>
+
+      <div class="no-gpu-cards fade-in d2">
+        <div class="no-gpu-card" role="article" aria-labelledby="nogpu-t0">
+          <div class="icon-wrap" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div>
+            <h4 id="nogpu-t0">Tier 0: Groundtruth</h4>
+            <p>12.7% of queries answered by regex pattern matching. HTTP status codes, git commands, Big-O notation &mdash; zero AI, &lt;1ms, zero cost. Works on any hardware.</p>
+          </div>
+        </div>
+
+        <div class="no-gpu-card" role="article" aria-labelledby="nogpu-t1">
+          <div class="icon-wrap" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4.03 3-9 3S3 13.66 3 12"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg>
+          </div>
+          <div>
+            <h4 id="nogpu-t1">Tier 1: Semantic Cache</h4>
+            <p>ChromaDB runs on CPU. Every cached query is served free forever. Warm up the cache once, save money on every repeat query permanently.</p>
+          </div>
+        </div>
+
+        <div class="no-gpu-card" role="article" aria-labelledby="nogpu-t2">
+          <div class="icon-wrap" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <div>
+            <h4 id="nogpu-t2">Smart Cloud Routing</h4>
+            <p>When cloud is needed, the DeBERTa classifier picks the cheapest sufficient model. Simple tasks go to Gemini Flash &mdash; 40&ndash;60% cheaper than GPT-4o on those workloads.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Pricing teaser ─────────────────────────────────────── -->
+<section id="pricing" aria-labelledby="pricing-heading">
+  <div class="container">
+    <div class="pricing-card fade-in" aria-labelledby="pricing-heading">
+      <span class="section-label" style="display:inline-block;margin-bottom:16px;" aria-hidden="true">Business Model</span>
+      <h2 id="pricing-heading">Infrastructure for inference arbitrage.</h2>
+      <p class="sub">
+        When 95%+ of queries cost $0.00 to serve locally or from cache, flat-rate pricing
+        creates margins that per-token cloud billing cannot match.
+      </p>
+
+      <div class="price-equation" role="math" aria-label="Pricing equation: charge $0.01 per query minus $0.00066 GPU cost equals $0.009 gross margin">
+        <div class="price-block">
+          <div class="label">Charge</div>
+          <div class="value gold">$0.01</div>
+        </div>
+        <div class="price-op" aria-hidden="true">&minus;</div>
+        <div class="price-block">
+          <div class="label">GPU Cost</div>
+          <div class="value blue">$0.00066</div>
+        </div>
+        <div class="price-op" aria-hidden="true">=</div>
+        <div class="price-block">
+          <div class="label">Gross Margin</div>
+          <div class="value green">$0.009</div>
+        </div>
+        <div class="price-op" aria-hidden="true">&times;</div>
+        <div class="price-block">
+          <div class="label">Scale</div>
+          <div class="value gold">1M</div>
+        </div>
+        <div class="price-op" aria-hidden="true">=</div>
+        <div class="price-block">
+          <div class="label">Revenue</div>
+          <div class="value green">$9K</div>
+        </div>
+      </div>
+
+      <p class="pricing-note">
+        The arbitrage: charge a flat <strong>$0.01/query</strong> while serving 88% of requests
+        at $0.00. The remaining 12% cloud queries cost ~$0.002 each on average.
+        A million daily queries at these economics is sustainable infrastructure,
+        not a loss leader.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CTA bottom ─────────────────────────────────────────── -->
+<section id="cta-bottom" aria-label="Next steps">
+  <div class="container">
+    <div class="cta-bottom-inner">
+      <div class="cta-panel fade-in">
+        <h3>Read the Paper</h3>
+        <p>
+          muLLMRouter introduces the CAA (Cost-Adjusted Accuracy) metric and a
+          human-oracle routing dataset. Explore the full methodology behind the
+          routing classifier and benchmark results.
+        </p>
+        <a href="/bench" class="btn-secondary" style="align-self:flex-start;">
+          View RouterBench &#8594;
+        </a>
+      </div>
+
+      <div class="cta-panel fade-in d2">
+        <h3>Try it Now</h3>
+        <p>
+          muLLM is running live. Send a query and watch the routing decision &mdash;
+          which tier handled it, how long it took, and what it cost.
+          Live routing archaeology available.
+        </p>
+        <a href="/chat" class="btn-primary" style="align-self:flex-start;">
+          Open Chat &#8594;
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ─── Footer ─────────────────────────────────────────────── -->
+<footer role="contentinfo">
+  <div class="footer-inner">
+    <div class="footer-logo" aria-label="muLLM">muLLM</div>
+    <nav class="footer-links" aria-label="Footer navigation">
+      <a href="/chat">Chat</a>
+      <a href="/bench">Benchmarks</a>
+      <a href="/megabench">MegaBench</a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/accuracy">Accuracy</a>
+      <a href="/investors">Investors</a>
+    </nav>
+    <div class="footer-copy">Local-first LLM routing &middot; real numbers only</div>
+  </div>
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ─── Mobile nav ──────────────────────────────────────────── */
+  var toggle = document.getElementById('nav-toggle');
+  var menu   = document.getElementById('nav-menu');
+
+  if (toggle && menu) {
+    toggle.addEventListener('click', function() {
+      var open = menu.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(open));
+    });
+
+    // Close on link click
+    menu.querySelectorAll('a').forEach(function(a) {
+      a.addEventListener('click', function() {
+        menu.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+      if (!toggle.contains(e.target) && !menu.contains(e.target)) {
+        menu.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  /* ─── Intersection observer for fade-ins ─────────────────── */
+  var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!prefersReduced && 'IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    document.querySelectorAll('.fade-in').forEach(function(el) { io.observe(el); });
+  } else {
+    document.querySelectorAll('.fade-in').forEach(function(el) { el.classList.add('visible'); });
+  }
+
+  /* ─── Animated counters ───────────────────────────────────── */
+  var counters = [
+    { id: 'ctr-cost',      target: 97.6, suffix: '%',  decimals: 1 },
+    { id: 'ctr-humaneval', target: 100,  suffix: '%',  decimals: 0 },
+    { id: 'ctr-lat',       target: 23,   suffix: 'µs', decimals: 0 },
+    { id: 'ctr-free',      target: 88,   suffix: '%',  decimals: 0 },
+    { id: 'ctr2-cost',     target: 97.6, suffix: '%',  decimals: 1 },
+    { id: 'ctr2-multi',    target: 98.3, suffix: '%',  decimals: 1 },
+    { id: 'ctr2-cache',    target: 70,   suffix: '%',  decimals: 0 },
+  ];
+
+  function animateCounter(el, target, suffix, decimals) {
+    if (prefersReduced) {
+      el.textContent = target.toFixed(decimals) + suffix;
+      return;
+    }
+    var start   = 0;
+    var duration = 1400;
+    var startTs  = null;
+
+    function step(ts) {
+      if (!startTs) startTs = ts;
+      var prog = Math.min((ts - startTs) / duration, 1);
+      // Ease-out cubic
+      var ease = 1 - Math.pow(1 - prog, 3);
+      var val  = start + (target - start) * ease;
+      el.textContent = val.toFixed(decimals) + suffix;
+      if (prog < 1) requestAnimationFrame(step);
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  if ('IntersectionObserver' in window) {
+    var ctrIO = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (!entry.isIntersecting) return;
+        var el = entry.target;
+        var id = el.id;
+        counters.forEach(function(c) {
+          if (c.id === id) animateCounter(el, c.target, c.suffix, c.decimals);
+        });
+        ctrIO.unobserve(el);
+      });
+    }, { threshold: 0.3 });
+
+    counters.forEach(function(c) {
+      var el = document.getElementById(c.id);
+      if (el) ctrIO.observe(el);
+    });
+  } else {
+    counters.forEach(function(c) {
+      var el = document.getElementById(c.id);
+      if (el) el.textContent = c.target.toFixed(c.decimals) + c.suffix;
+    });
+  }
+
+})();
+</script>
+</body>
+</html>

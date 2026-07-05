@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crop &amp; Edit — muLLM</title>
+<style>
+/* ── Design tokens ── */
+:root {
+  --bg:      #080c14;
+  --bg2:     #0f1520;
+  --bg3:     #161e2e;
+  --bg4:     #1e2940;
+  --border:  #1e2d3d;
+  --border2: #2a3a4e;
+  --text:    #e2e8f0;
+  --text2:   #94a3b8;
+  --text3:   #8294a7;
+  --gold:    #d4af37;
+  --gold2:   #f0c857;
+  --gold-dim: rgba(212,175,55,0.15);
+  --gold-glow: 0 0 16px rgba(212,175,55,0.35);
+  --teal:    #14b8a6;
+  --blue:    #3b82f6;
+  --green:   #22c55e;
+  --amber:   #f59e0b;
+  --coral:   #ef6c4c;
+  --focus-ring: 0 0 0 2px var(--teal);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --bg4: #cbd5e1;
+    --border: #cbd5e1; --border2: #94a3b8;
+    --text: #0f172a; --text2: #475569; --text3: #64748b;
+    --gold: #a07820; --gold2: #b8892a; --gold-dim: rgba(160,120,32,0.12);
+    color-scheme: light;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Nav ── */
+nav {
+  height: 48px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+nav .logo {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gold);
+  text-decoration: none;
+  letter-spacing: -0.5px;
+}
+nav .page-title {
+  font-size: 13px;
+  color: var(--text2);
+}
+nav .spacer { flex: 1; }
+
+/* ── Layout ── */
+.app {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 280px;
+  min-width: 240px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.sidebar-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-section:last-child { border-bottom: none; }
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+
+/* Buttons */
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 10px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  line-height: 1;
+}
+button:hover { background: var(--bg4); border-color: var(--gold); }
+button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+button.active {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: var(--gold2);
+}
+button.active:hover { background: rgba(212,175,55,0.25); }
+
+/* Ratio grid */
+.ratio-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.ratio-grid button { padding: 7px 4px; font-size: 12px; text-align: center; }
+
+/* Social preset buttons */
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.preset-list button {
+  text-align: left;
+  padding: 7px 10px;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.preset-list button .dims {
+  font-size: 10px;
+  color: var(--text3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Zoom row */
+.zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.zoom-row label { font-size: 12px; color: var(--text2); flex-shrink: 0; }
+.zoom-row input[type=range] { flex: 1; }
+.zoom-row .zoom-val {
+  font-size: 12px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+.center-btn { width: 100%; margin-top: 8px; }
+
+/* Sliders */
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--bg4);
+  border-radius: 2px;
+  border: none;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(212,175,55,0.4);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+input[type=range]::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: none;
+  cursor: pointer;
+}
+input[type=range]:focus-visible { box-shadow: var(--focus-ring); }
+
+/* Slider rows */
+.slider-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 36px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.slider-row:last-child { margin-bottom: 0; }
+.slider-row label { font-size: 12px; color: var(--text2); }
+.slider-row .val {
+  font-size: 12px;
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Effect buttons */
+.effect-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.effect-grid button { font-size: 11px; padding: 8px 6px; text-align: center; }
+
+/* Export section */
+.export-section { display: flex; flex-direction: column; gap: 8px; }
+.export-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.export-row label { font-size: 12px; color: var(--text2); min-width: 56px; }
+select {
+  flex: 1;
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+select:focus { outline: none; box-shadow: var(--focus-ring); }
+.size-est {
+  font-size: 11px;
+  color: var(--text3);
+  text-align: right;
+}
+#download-btn {
+  width: 100%;
+  padding: 10px;
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: var(--gold2);
+  font-weight: 600;
+  font-size: 14px;
+  margin-top: 4px;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+#download-btn:hover {
+  background: rgba(212,175,55,0.28);
+  box-shadow: var(--gold-glow);
+}
+#download-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── Preview area ── */
+.preview-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  overflow: hidden;
+  position: relative;
+  padding: 24px;
+}
+
+/* Dropzone */
+#dropzone {
+  width: 100%;
+  max-width: 640px;
+  min-height: 300px;
+  border: 2px dashed var(--border2);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text2);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  padding: 32px;
+}
+#dropzone:hover, #dropzone.drag-over {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+  color: var(--text);
+}
+#dropzone .dz-icon {
+  width: 48px; height: 48px;
+  opacity: 0.5;
+}
+#dropzone .dz-text { font-size: 15px; font-weight: 500; }
+#dropzone .dz-sub { font-size: 12px; color: var(--text3); }
+#dropzone .dz-btn {
+  margin-top: 4px;
+  padding: 8px 20px;
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--gold-dim);
+}
+
+/* Canvas wrap */
+#canvas-wrap {
+  display: none;
+  position: relative;
+  flex: 1;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+#canvas-wrap.visible { display: flex; }
+
+#preview-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  cursor: crosshair;
+  border-radius: 4px;
+}
+
+/* Crop overlay */
+#crop-overlay {
+  position: absolute;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+  cursor: move;
+  pointer-events: all;
+}
+#crop-overlay .handle {
+  position: absolute;
+  width: 10px; height: 10px;
+  background: var(--gold);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+#crop-overlay .handle.tl { top: 0; left: 0; cursor: nw-resize; }
+#crop-overlay .handle.tr { top: 0; right: 0; cursor: ne-resize; transform: translate(50%, -50%); }
+#crop-overlay .handle.bl { bottom: 0; left: 0; cursor: sw-resize; transform: translate(-50%, 50%); }
+#crop-overlay .handle.br { bottom: 0; right: 0; cursor: se-resize; transform: translate(50%, 50%); }
+
+/* Crop dimensions badge */
+#crop-dims {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.7);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  display: none;
+}
+
+/* Mobile responsive */
+@media (max-width: 700px) {
+  .app { flex-direction: column; overflow: auto; }
+  .sidebar { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid var(--border); }
+  .preview-area { min-height: 300px; }
+  nav .page-title { display: none; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/chat" class="logo" aria-label="muLLM home">muLLM</a>
+  <span class="page-title">/ Crop &amp; Edit</span>
+  <span class="spacer"></span>
+</nav>
+
+<main class="app" role="main">
+
+  <!-- Sidebar: tools -->
+  <aside class="sidebar" aria-label="Image editing tools">
+
+    <!-- Crop panel -->
+    <div class="sidebar-section">
+      <div class="section-title">Crop</div>
+
+      <div class="ratio-grid" role="group" aria-label="Aspect ratio presets">
+        <button class="ratio-btn active" data-ratio="free" aria-pressed="true">Free</button>
+        <button class="ratio-btn" data-ratio="1:1" aria-pressed="false">1:1</button>
+        <button class="ratio-btn" data-ratio="4:3" aria-pressed="false">4:3</button>
+        <button class="ratio-btn" data-ratio="16:9" aria-pressed="false">16:9</button>
+        <button class="ratio-btn" data-ratio="9:16" aria-pressed="false">9:16</button>
+        <button class="ratio-btn" data-ratio="2:1" aria-pressed="false">2:1</button>
+      </div>
+
+      <div style="margin-top:10px;">
+        <div class="section-title" style="margin-bottom:8px;">Social media</div>
+        <div class="preset-list" role="group" aria-label="Social media crop presets">
+          <button class="preset-btn" data-w="1080" data-h="1080" aria-label="Instagram 1080x1080">
+            Instagram <span class="dims">1080×1080</span>
+          </button>
+          <button class="preset-btn" data-w="1200" data-h="675" aria-label="Twitter 1200x675">
+            Twitter <span class="dims">1200×675</span>
+          </button>
+          <button class="preset-btn" data-w="1200" data-h="628" aria-label="LinkedIn 1200x628">
+            LinkedIn <span class="dims">1200×628</span>
+          </button>
+          <button class="preset-btn" data-w="1200" data-h="630" aria-label="OG Image 1200x630">
+            OG Image <span class="dims">1200×630</span>
+          </button>
+          <button class="preset-btn" data-w="820" data-h="312" aria-label="Facebook Cover 820x312">
+            Facebook Cover <span class="dims">820×312</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="zoom-row" style="margin-top:10px;">
+        <label for="zoom">Zoom</label>
+        <input type="range" id="zoom" name="zoom" data-slider="zoom"
+               min="0.5" max="3" step="0.05" value="1"
+               aria-label="Zoom level" aria-valuemin="0.5" aria-valuemax="3">
+        <span class="zoom-val" id="zoom-val" aria-live="polite">1.0×</span>
+      </div>
+
+      <button class="center-btn" id="center-btn" aria-label="Auto-center crop selection">
+        Center Crop
+      </button>
+    </div>
+
+    <!-- Effects panel -->
+    <div class="sidebar-section" id="effects-panel">
+      <div class="section-title">Effects</div>
+      <div class="effect-grid" role="group" aria-label="Image effects">
+        <button class="fx-btn" data-fx="mono" aria-pressed="false">Mono</button>
+        <button class="fx-btn" data-fx="vibrant" aria-pressed="false">Vibrant</button>
+        <button class="fx-btn" data-fx="negative" aria-pressed="false">Negative</button>
+        <button class="fx-btn" data-fx="grain" aria-pressed="false">Film Grain</button>
+        <button class="fx-btn" data-fx="polaroid" aria-pressed="false">Polaroid</button>
+        <button class="fx-btn" data-fx="sepia" aria-pressed="false">Sepia</button>
+        <button class="fx-btn" data-fx="vignette" aria-pressed="false">Vignette</button>
+      </div>
+    </div>
+
+    <!-- Retouch sliders -->
+    <div class="sidebar-section">
+      <div class="section-title">Retouch</div>
+      <div class="slider-row">
+        <label for="brightness">Brightness</label>
+        <input type="range" id="brightness" name="brightness" data-slider="brightness"
+               min="-100" max="100" step="1" value="0" aria-label="Brightness">
+        <span class="val" id="brightness-val">0</span>
+      </div>
+      <div class="slider-row">
+        <label for="contrast">Contrast</label>
+        <input type="range" id="contrast" name="contrast" data-slider="contrast"
+               min="-100" max="100" step="1" value="0" aria-label="Contrast">
+        <span class="val" id="contrast-val">0</span>
+      </div>
+      <div class="slider-row">
+        <label for="saturation">Saturation</label>
+        <input type="range" id="saturation" name="saturation" data-slider="saturation"
+               min="-100" max="100" step="1" value="0" aria-label="Saturation">
+        <span class="val" id="saturation-val">0</span>
+      </div>
+    </div>
+
+    <!-- Export panel -->
+    <div class="sidebar-section">
+      <div class="section-title">Export</div>
+      <div class="export-section">
+        <div class="export-row">
+          <label for="format-select">Format</label>
+          <select id="format-select" name="format" aria-label="Export format">
+            <option value="original">Original</option>
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WebP</option>
+          </select>
+        </div>
+        <div class="slider-row" id="quality-row" style="display:none;">
+          <label for="quality">Quality</label>
+          <input type="range" id="quality" name="quality" data-slider="quality"
+                 min="0" max="100" step="1" value="85" aria-label="Export quality">
+          <span class="val" id="quality-val">85</span>
+        </div>
+        <div class="size-est" id="size-est" aria-live="polite"></div>
+        <button id="download-btn" aria-label="Download edited image">
+          Download <span id="dl-ext">.png</span>
+        </button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Preview area -->
+  <section class="preview-area" aria-label="Image preview">
+
+    <!-- Drop zone -->
+    <div id="dropzone" role="button" tabindex="0"
+         aria-label="Drop an image here or click to upload"
+         title="Drag and drop an image, or click Browse to pick a file">
+      <svg class="dz-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <rect x="6" y="6" width="36" height="36" rx="6" stroke="currentColor" stroke-width="2"/>
+        <circle cx="17" cy="18" r="3" stroke="currentColor" stroke-width="2"/>
+        <path d="M6 32l10-10 8 8 6-6 12 12" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+      <span class="dz-text">Drop image here</span>
+      <span class="dz-sub">PNG, JPEG, WebP, SVG, WEBM</span>
+      <button class="dz-btn" id="browse-btn" aria-label="Browse for an image file">Browse</button>
+    </div>
+    <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml,video/webm"
+           style="display:none;" aria-label="Image file input">
+
+    <!-- Canvas + overlay -->
+    <div id="canvas-wrap">
+      <canvas id="preview-canvas" aria-label="Image preview canvas" role="img"></canvas>
+      <div id="crop-overlay" aria-hidden="true">
+        <div class="handle tl" data-handle="tl"></div>
+        <div class="handle tr" data-handle="tr"></div>
+        <div class="handle bl" data-handle="bl"></div>
+        <div class="handle br" data-handle="br"></div>
+      </div>
+      <div id="crop-dims" aria-live="polite"></div>
+    </div>
+
+  </section>
+
+</main>
+
+<script>
+(function() {
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  image: null,         // HTMLImageElement
+  srcW: 0, srcH: 0,   // original image dimensions
+  zoom: 1,
+  effects: new Set(),
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  format: 'original',
+  quality: 85,
+  ratio: 'free',       // current aspect ratio
+  // Crop rect in canvas-display coordinates
+  crop: { x: 0, y: 0, w: 0, h: 0 },
+  canvasW: 0, canvasH: 0,
+  dragging: false,
+  dragHandle: null,
+  dragStart: null,
+  cropStart: null,
+};
+
+// ── Elements ───────────────────────────────────────────────────────────────
+const dropzone    = document.getElementById('dropzone');
+const fileInput   = document.getElementById('file-input');
+const browseBtn   = document.getElementById('browse-btn');
+const canvasWrap  = document.getElementById('canvas-wrap');
+const canvas      = document.getElementById('preview-canvas');
+const ctx         = canvas.getContext('2d');
+const cropOverlay = document.getElementById('crop-overlay');
+const cropDims    = document.getElementById('crop-dims');
+const zoomSlider  = document.getElementById('zoom');
+const zoomVal     = document.getElementById('zoom-val');
+const centerBtn   = document.getElementById('center-btn');
+const fmtSelect   = document.getElementById('format-select');
+const qualityRow  = document.getElementById('quality-row');
+const qualitySlider = document.getElementById('quality');
+const qualityVal  = document.getElementById('quality-val');
+const sizeEst     = document.getElementById('size-est');
+const dlBtn       = document.getElementById('download-btn');
+const dlExt       = document.getElementById('dl-ext');
+
+// ── File upload ────────────────────────────────────────────────────────────
+browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file);
+});
+
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+function loadFile(file) {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    state.image = img;
+    state.srcW = img.naturalWidth;
+    state.srcH = img.naturalHeight;
+    dropzone.style.display = 'none';
+    canvasWrap.classList.add('visible');
+    fitCanvas();
+    centerCrop();
+    render();
+    updateSizeEst();
+  };
+  img.src = url;
+}
+
+// ── Canvas sizing ──────────────────────────────────────────────────────────
+function fitCanvas() {
+  const wrap = canvasWrap;
+  const maxW = wrap.clientWidth  - 16;
+  const maxH = wrap.clientHeight - 16;
+  const z = state.zoom;
+  let w = state.srcW * z;
+  let h = state.srcH * z;
+  const scale = Math.min(maxW / w, maxH / h, 1);
+  w = Math.round(w * scale);
+  h = Math.round(h * scale);
+  canvas.width  = w;
+  canvas.height = h;
+  state.canvasW = w;
+  state.canvasH = h;
+}
+
+// ── Render pipeline ────────────────────────────────────────────────────────
+function render() {
+  if (!state.image) return;
+  fitCanvas();
+  const { canvasW: w, canvasH: h, effects, brightness, contrast, saturation } = state;
+  ctx.clearRect(0, 0, w, h);
+
+  // Build CSS filter string
+  const filters = [];
+  if (effects.has('mono'))     filters.push('grayscale(1)');
+  if (effects.has('vibrant'))  filters.push('saturate(1.5) contrast(1.1)');
+  if (effects.has('negative')) filters.push('invert(1)');
+  if (effects.has('sepia'))    filters.push('sepia(0.85)');
+  // Retouch
+  const br = 1 + brightness / 100;
+  const co = 1 + contrast   / 100;
+  const sa = 1 + saturation / 100;
+  filters.push(`brightness(${br.toFixed(3)})`);
+  filters.push(`contrast(${co.toFixed(3)})`);
+  filters.push(`saturate(${sa.toFixed(3)})`);
+
+  ctx.filter = filters.join(' ');
+  ctx.drawImage(state.image, 0, 0, w, h);
+  ctx.filter = 'none';
+
+  // Film grain overlay
+  if (effects.has('grain')) applyGrain(ctx, w, h);
+
+  // Vignette overlay
+  if (effects.has('vignette')) applyVignette(ctx, w, h);
+
+  positionCropOverlay();
+}
+
+function applyGrain(ctx, w, h) {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+  const intensity = 25;
+  for (let i = 0; i < data.length; i += 4) {
+    const n = (Math.random() - 0.5) * intensity;
+    data[i]     = Math.min(255, Math.max(0, data[i]     + n));
+    data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + n));
+    data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + n));
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function applyVignette(ctx, w, h) {
+  const grad = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.3, w/2, h/2, Math.max(w,h)*0.75);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.65)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+}
+
+// ── Crop overlay positioning ───────────────────────────────────────────────
+function positionCropOverlay() {
+  const { x, y, w, h } = state.crop;
+  const rect = canvas.getBoundingClientRect();
+  const wrapRect = canvasWrap.getBoundingClientRect();
+  const offX = rect.left - wrapRect.left;
+  const offY = rect.top  - wrapRect.top;
+  cropOverlay.style.left   = (offX + x) + 'px';
+  cropOverlay.style.top    = (offY + y) + 'px';
+  cropOverlay.style.width  = w + 'px';
+  cropOverlay.style.height = h + 'px';
+
+  // Update dimensions badge (in source pixels)
+  if (w > 0 && h > 0) {
+    const scaleX = state.srcW / state.canvasW;
+    const scaleY = state.srcH / state.canvasH;
+    const sw = Math.round(w * scaleX);
+    const sh = Math.round(h * scaleY);
+    cropDims.textContent = `${sw} × ${sh}`;
+    cropDims.style.display = 'block';
+  }
+}
+
+function centerCrop() {
+  const { canvasW: w, canvasH: h } = state;
+  const crop = computeCropForRatio(w, h, state.ratio);
+  state.crop = crop;
+}
+
+function computeCropForRatio(cw, ch, ratio) {
+  const pad = 20;
+  let cw2 = cw - pad * 2;
+  let ch2 = ch - pad * 2;
+  if (cw2 <= 0) cw2 = cw;
+  if (ch2 <= 0) ch2 = ch;
+  if (ratio === 'free') {
+    return { x: pad, y: pad, w: cw2, h: ch2 };
+  }
+  const parts = ratio.split(':');
+  const rw = parseFloat(parts[0]);
+  const rh = parseFloat(parts[1]);
+  const targetRatio = rw / rh;
+  let w, h;
+  if (cw2 / ch2 > targetRatio) {
+    h = ch2; w = Math.round(h * targetRatio);
+  } else {
+    w = cw2; h = Math.round(w / targetRatio);
+  }
+  return { x: Math.round((cw - w) / 2), y: Math.round((ch - h) / 2), w, h };
+}
+
+// ── Crop drag ──────────────────────────────────────────────────────────────
+cropOverlay.addEventListener('mousedown', startDrag);
+cropOverlay.addEventListener('touchstart', startDragTouch, { passive: false });
+
+function startDrag(e) {
+  if (e.target.dataset.handle) {
+    state.dragging = true;
+    state.dragHandle = e.target.dataset.handle;
+  } else {
+    state.dragging = true;
+    state.dragHandle = 'move';
+  }
+  state.dragStart = { x: e.clientX, y: e.clientY };
+  state.cropStart = { ...state.crop };
+  e.preventDefault();
+}
+
+function startDragTouch(e) {
+  const t = e.touches[0];
+  if (e.target.dataset.handle) {
+    state.dragging = true;
+    state.dragHandle = e.target.dataset.handle;
+  } else {
+    state.dragging = true;
+    state.dragHandle = 'move';
+  }
+  state.dragStart = { x: t.clientX, y: t.clientY };
+  state.cropStart = { ...state.crop };
+  e.preventDefault();
+}
+
+document.addEventListener('mousemove', onDrag);
+document.addEventListener('touchmove', onDragTouch, { passive: false });
+document.addEventListener('mouseup',   endDrag);
+document.addEventListener('touchend',  endDrag);
+
+function onDrag(e) { if (state.dragging) updateCrop(e.clientX, e.clientY); }
+function onDragTouch(e) {
+  if (!state.dragging) return;
+  e.preventDefault();
+  updateCrop(e.touches[0].clientX, e.touches[0].clientY);
+}
+
+function updateCrop(cx, cy) {
+  const dx = cx - state.dragStart.x;
+  const dy = cy - state.dragStart.y;
+  const { x, y, w, h } = state.cropStart;
+  const { canvasW, canvasH } = state;
+  const minSz = 20;
+  let nx = x, ny = y, nw = w, nh = h;
+
+  const handle = state.dragHandle;
+  if (handle === 'move') {
+    nx = clamp(x + dx, 0, canvasW - w);
+    ny = clamp(y + dy, 0, canvasH - h);
+  } else {
+    if (handle.includes('r')) { nw = clamp(w + dx, minSz, canvasW - x); }
+    if (handle.includes('l')) { const dw = clamp(w - dx, minSz, w + x); nx = x + (w - dw); nw = dw; }
+    if (handle.includes('b')) { nh = clamp(h + dy, minSz, canvasH - y); }
+    if (handle.includes('t')) { const dh = clamp(h - dy, minSz, h + y); ny = y + (h - dh); nh = dh; }
+
+    // Enforce aspect ratio
+    if (state.ratio !== 'free') {
+      const parts = state.ratio.split(':');
+      const ar = parseFloat(parts[0]) / parseFloat(parts[1]);
+      if (handle.includes('r') || handle.includes('l')) {
+        nh = Math.round(nw / ar);
+        if (nh > canvasH - ny) { nh = canvasH - ny; nw = Math.round(nh * ar); }
+      } else {
+        nw = Math.round(nh * ar);
+        if (nw > canvasW - nx) { nw = canvasW - nx; nh = Math.round(nw / ar); }
+      }
+    }
+  }
+
+  state.crop = { x: nx, y: ny, w: nw, h: nh };
+  positionCropOverlay();
+  updateSizeEst();
+}
+
+function endDrag() { state.dragging = false; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ── Aspect ratio buttons ───────────────────────────────────────────────────
+document.querySelectorAll('.ratio-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ratio-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
+    state.ratio = btn.dataset.ratio;
+    if (state.image) { centerCrop(); positionCropOverlay(); }
+  });
+});
+
+// ── Social preset buttons ──────────────────────────────────────────────────
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const pw = parseInt(btn.dataset.w);
+    const ph = parseInt(btn.dataset.h);
+    // Compute ratio string and apply
+    state.ratio = `${pw}:${ph}`;
+    // Deactivate aspect ratio buttons
+    document.querySelectorAll('.ratio-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    if (state.image) { centerCrop(); positionCropOverlay(); }
+  });
+});
+
+// ── Zoom ───────────────────────────────────────────────────────────────────
+zoomSlider.addEventListener('input', () => {
+  state.zoom = parseFloat(zoomSlider.value);
+  zoomVal.textContent = state.zoom.toFixed(1) + '×';
+  if (state.image) { render(); centerCrop(); }
+});
+
+// ── Center button ──────────────────────────────────────────────────────────
+centerBtn.addEventListener('click', () => {
+  if (state.image) { centerCrop(); positionCropOverlay(); }
+});
+
+// ── Effects ────────────────────────────────────────────────────────────────
+document.querySelectorAll('.fx-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const fx = btn.dataset.fx;
+    if (state.effects.has(fx)) {
+      state.effects.delete(fx);
+      btn.classList.remove('active');
+      btn.setAttribute('aria-pressed', 'false');
+    } else {
+      state.effects.add(fx);
+      btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
+    }
+    // Polaroid forces 1:1
+    if (fx === 'polaroid' && state.effects.has('polaroid')) {
+      const sq = document.querySelector('.ratio-btn[data-ratio="1:1"]');
+      if (sq) sq.click();
+    }
+    render();
+  });
+});
+
+// ── Retouch sliders ────────────────────────────────────────────────────────
+['brightness', 'contrast', 'saturation'].forEach(name => {
+  const slider = document.getElementById(name);
+  const valEl  = document.getElementById(name + '-val');
+  slider.addEventListener('input', () => {
+    state[name] = parseInt(slider.value);
+    valEl.textContent = slider.value;
+    if (state.image) render();
+  });
+});
+
+// ── Format / quality ───────────────────────────────────────────────────────
+fmtSelect.addEventListener('change', () => {
+  state.format = fmtSelect.value;
+  const needsQ = state.format === 'jpeg' || state.format === 'webp';
+  qualityRow.style.display = needsQ ? '' : 'none';
+  const extMap = { original: '', png: '.png', jpeg: '.jpg', webp: '.webp' };
+  dlExt.textContent = extMap[state.format] || '';
+  updateSizeEst();
+});
+
+qualitySlider.addEventListener('input', () => {
+  state.quality = parseInt(qualitySlider.value);
+  qualityVal.textContent = qualitySlider.value;
+  updateSizeEst();
+});
+
+function updateSizeEst() {
+  if (!state.image) { sizeEst.textContent = ''; return; }
+  // Estimate: base on crop area and format
+  const { crop, canvasW, canvasH, srcW, srcH, format, quality } = state;
+  const scaleX = srcW / canvasW;
+  const scaleY = srcH / canvasH;
+  const pw = Math.round(crop.w * scaleX);
+  const ph = Math.round(crop.h * scaleY);
+  const pixels = pw * ph;
+  let bytes;
+  if (format === 'png' || format === 'original') {
+    bytes = pixels * 3 * 0.3; // rough PNG compression
+  } else if (format === 'jpeg') {
+    bytes = pixels * 3 * (quality / 100) * 0.1;
+  } else { // webp
+    bytes = pixels * 3 * (quality / 100) * 0.07;
+  }
+  const kb = (bytes / 1024).toFixed(0);
+  sizeEst.textContent = `Estimated: ~${kb} KB (${pw}×${ph}px)`;
+}
+
+// ── Download ───────────────────────────────────────────────────────────────
+dlBtn.addEventListener('click', () => {
+  if (!state.image) return;
+  exportImage();
+});
+
+function exportImage() {
+  const { crop, canvasW, canvasH, srcW, srcH,
+          effects, brightness, contrast, saturation,
+          format, quality } = state;
+
+  // Scale crop rect back to source image coordinates
+  const scaleX = srcW / canvasW;
+  const scaleY = srcH / canvasH;
+  const sx = Math.round(crop.x * scaleX);
+  const sy = Math.round(crop.y * scaleY);
+  const sw = Math.round(crop.w * scaleX);
+  const sh = Math.round(crop.h * scaleY);
+
+  const offscreen = document.createElement('canvas');
+  offscreen.width  = sw;
+  offscreen.height = sh;
+  const oc = offscreen.getContext('2d');
+
+  // Apply filters
+  const filters = [];
+  if (effects.has('mono'))     filters.push('grayscale(1)');
+  if (effects.has('vibrant'))  filters.push('saturate(1.5) contrast(1.1)');
+  if (effects.has('negative')) filters.push('invert(1)');
+  if (effects.has('sepia'))    filters.push('sepia(0.85)');
+  const br = 1 + brightness / 100;
+  const co = 1 + contrast   / 100;
+  const sa = 1 + saturation / 100;
+  filters.push(`brightness(${br.toFixed(3)}) contrast(${co.toFixed(3)}) saturate(${sa.toFixed(3)})`);
+
+  oc.filter = filters.join(' ');
+  oc.drawImage(state.image, sx, sy, sw, sh, 0, 0, sw, sh);
+  oc.filter = 'none';
+
+  if (effects.has('grain')) applyGrain(oc, sw, sh);
+  if (effects.has('vignette')) applyVignette(oc, sw, sh);
+
+  // Polaroid: add white border
+  if (effects.has('polaroid')) {
+    const border = Math.round(sw * 0.08);
+    const btmBorder = Math.round(sw * 0.18);
+    const pol = document.createElement('canvas');
+    pol.width  = sw + border * 2;
+    pol.height = sh + border + btmBorder;
+    const pc = pol.getContext('2d');
+    pc.fillStyle = '#f8f5f0';
+    pc.fillRect(0, 0, pol.width, pol.height);
+    pc.drawImage(offscreen, border, border);
+    triggerDownload(pol, format, quality);
+    return;
+  }
+
+  triggerDownload(offscreen, format, quality);
+}
+
+function triggerDownload(cvs, format, quality) {
+  const mimeMap = { original: 'image/png', png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
+  const extMap  = { original: 'png',       png: 'png',       jpeg: 'jpg',       webp: 'webp' };
+  const mime = mimeMap[format] || 'image/png';
+  const ext  = extMap[format]  || 'png';
+  const q = (format === 'jpeg' || format === 'webp') ? quality / 100 : undefined;
+  const url = cvs.toDataURL(mime, q);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cropped.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ── Resize observer — re-render when container size changes ───────────────
+const ro = new ResizeObserver(() => {
+  if (state.image) { render(); positionCropOverlay(); }
+});
+ro.observe(canvasWrap);
+
+})();
+</script>
+</body>
+</html>

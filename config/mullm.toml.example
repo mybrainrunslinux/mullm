@@ -1,0 +1,59 @@
+# muLLM Configuration
+# All values can be overridden by environment variables.
+# Project-local mullm.toml overrides ~/.mullm/config.toml
+#
+# Copy this file to mullm.toml (or ~/.mullm/config.toml) and edit as needed.
+
+[core]
+# Who is this for?
+mode = "single_user"        # "single_user" or "team"
+local_first = true          # Always try free tiers before cloud
+port = 6856
+log_query_content = false   # Privacy: don't log query text by default
+
+[core.budget]
+warn_usd     = 7.00         # Warn user at this session spend
+moderate_usd = 10.00        # Start routing to cheaper models
+hard_usd     = 50.00        # Hard stop; reject cloud requests
+
+[inference]
+# Backend priority order (first available wins for Tier 2)
+backends = ["exllamav2", "ollama", "mlx", "llamacpp"]
+
+[inference.ollama]
+base_url      = "http://localhost:11434"
+default_model = "qwen3:9b"
+keepalive     = "30m"
+
+[inference.exllamav2]
+# model_path = ""  # Set to EXL2 model directory to enable
+
+[inference.llamacpp]
+# model_path = ""  # Set to GGUF file path to enable
+
+[inference.mlx]
+# model = ""  # e.g. "mlx-community/Qwen2.5-7B-Instruct-4bit"
+
+[cloud]
+# API keys: leave blank to disable that provider
+# Or set via env vars: ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.
+anthropic_default_model = "claude-haiku-4-5"
+openai_default_model    = "gpt-4o-mini"
+google_default_model    = "gemini-1.5-flash"
+deepseek_default_model  = "deepseek-chat"
+mistral_default_model   = "mistral-small-latest"
+
+[cache]
+similarity_threshold = 0.98
+max_entries          = 50000
+
+[groundtruth]
+# Core categories always enabled
+enabled_categories = [
+    "arithmetic", "datetime", "http_status", "git_commands",
+    "big_o", "unit_conversion", "periodic_table", "ascii",
+    "regex", "ports", "wcag", "weather", "crypto"
+]
+# Optional categories (set to true to enable)
+gaming = false
+ue5    = false

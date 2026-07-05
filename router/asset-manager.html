@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>muLLM — Asset Manager</title>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a1a;--bg2:#0f0f2a;--bg3:#141428;--border:#1e1e3a;--teal:#00bfa5;--coral:#ff6b6b;--amber:#f59e0b;--green:#22c55e;--text:#e2e8f0;--text2:#94a3b8;--text3:#5a6a7a;--mono:"JetBrains Mono","Fira Code",monospace}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,sans-serif;line-height:1.5}
+a{color:var(--teal);text-decoration:none}
+.topbar{background:rgba(10,10,26,0.9);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:13px;position:sticky;top:0;z-index:100;backdrop-filter:blur(8px)}
+.topbar a{color:var(--text2)}.topbar a:hover{color:var(--teal)}
+.logo{color:var(--teal);font-weight:700;font-size:14px;letter-spacing:1px}
+.main{max-width:1400px;margin:0 auto;padding:20px}
+h1{font-size:1.4rem;margin-bottom:8px;color:var(--teal);font-family:var(--mono)}
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-family:var(--mono);font-size:.8rem;color:var(--text2)}
+.stats span{background:var(--bg2);padding:4px 12px;border-radius:6px;border:1px solid var(--border)}
+.stats .warn{color:var(--coral);border-color:var(--coral)}
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.toolbar input{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;font-family:var(--mono);font-size:.8rem;width:220px}
+.toolbar select{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-family:var(--mono);font-size:.8rem}
+.toolbar button{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:.8rem}
+.toolbar button:hover{border-color:var(--teal);color:var(--teal)}
+.toolbar .btn-danger{color:var(--coral)}.toolbar .btn-danger:hover{border-color:var(--coral)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color 0.15s}
+.card:hover{border-color:var(--teal)}
+.card.selected{border-color:var(--amber);box-shadow:0 0 12px rgba(245,158,11,0.2)}
+.card-thumb{height:160px;background:var(--bg3);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.card-thumb img{width:100%;height:100%;object-fit:cover}
+.card-thumb .placeholder{font-size:2.5rem;opacity:0.3}
+.card-badge{position:absolute;top:6px;left:6px;font-family:var(--mono);font-size:.6rem;padding:2px 8px;border-radius:4px;text-transform:uppercase;font-weight:600}
+.badge-meshy{background:rgba(167,139,250,0.2);color:#a78bfa}
+.badge-comfyui{background:rgba(0,191,165,0.2);color:var(--teal)}
+.badge-procedural{background:rgba(94,163,122,0.2);color:var(--green)}
+.card-check{position:absolute;top:6px;right:6px;width:22px;height:22px;border:2px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.8rem}
+.card-check.checked{background:var(--teal);border-color:var(--teal);color:#000}
+.card-info{padding:10px 12px}
+.card-name{font-family:var(--mono);font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{font-family:var(--mono);font-size:.68rem;color:var(--text3);margin-top:3px}
+.card-prompt{font-size:.7rem;color:var(--text2);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-vision{font-size:.65rem;color:var(--amber);margin-top:2px;font-style:italic}
+.card-actions{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border)}
+.card-actions button{flex:1;padding:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:5px;cursor:pointer;font-size:.7rem;font-family:var(--mono)}
+.card-actions button:hover{color:var(--text);border-color:var(--teal)}
+.card-actions .del{color:var(--coral);border-color:rgba(255,107,107,0.3)}.card-actions .del:hover{background:rgba(255,107,107,0.15);border-color:var(--coral)}
+.toolbar .btn-danger{color:var(--coral);border-color:rgba(255,107,107,0.3)}.toolbar .btn-danger:hover{background:rgba(255,107,107,0.15);border-color:var(--coral)}
+.empty{text-align:center;padding:60px;color:var(--text3);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="logo">muLLM</span>
+  <a href="/chat">Chat</a>
+  <a href="/3d">3D</a>
+  <a href="/swords">Dojo</a>
+  <a href="/games">Games</a>
+  <a href="/assets" style="color:var(--teal)">Assets</a>
+  <a href="/dashboard">Dashboard</a>
+</div>
+<div class="main">
+  <h1>3D Asset Manager</h1>
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Search assets..." oninput="render()">
+    <select id="sourceFilter" onchange="render()">
+      <option value="all">All Sources</option>
+      <option value="meshy">Meshy</option>
+      <option value="comfyui">ComfyUI</option>
+      <option value="procedural">Procedural</option>
+    </select>
+    <select id="sortBy" onchange="render()">
+      <option value="newest">Newest First</option>
+      <option value="oldest">Oldest First</option>
+      <option value="largest">Largest First</option>
+      <option value="smallest">Smallest First</option>
+      <option value="name">Name A-Z</option>
+    </select>
+    <button onclick="selectAll()">Select All</button>
+    <button onclick="selectNone()">Select None</button>
+    <button class="btn-danger" onclick="deleteSelected()">Delete Selected</button>
+    <span id="selCount" style="font-family:var(--mono);font-size:.75rem;color:var(--amber)"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// Expose to window for onclick handlers
+window.THREE = THREE;
+window._OrbitControls = OrbitControls;
+window._GLTFLoader = GLTFLoader;
+</script>
+<script>
+let assets = [];
+let selected = new Set();
+
+async function load() {
+  try {
+    const r = await fetch('/api/3d-assets');
+    const d = await r.json();
+    assets = d.assets || [];
+    render();
+  } catch(e) { document.getElementById('grid').innerHTML = '<div class="empty">Failed to load assets</div>'; }
+}
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const src = document.getElementById('sourceFilter').value;
+  const sort = document.getElementById('sortBy').value;
+
+  let filtered = assets.filter(a => {
+    if (src !== 'all' && a.source !== src) return false;
+    if (q && !a.name.toLowerCase().includes(q) && !(a.prompt||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  if (sort === 'newest') filtered.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  if (sort === 'oldest') filtered.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+  if (sort === 'largest') filtered.sort((a,b) => (b.size_kb||0) - (a.size_kb||0));
+  if (sort === 'smallest') filtered.sort((a,b) => (a.size_kb||0) - (b.size_kb||0));
+  if (sort === 'name') filtered.sort((a,b) => a.name.localeCompare(b.name));
+
+  // Stats
+  const totalMB = (assets.reduce((s,a) => s + (a.size_kb||0), 0) / 1024).toFixed(0);
+  const meshyCount = assets.filter(a => a.source === 'meshy').length;
+  const comfyCount = assets.filter(a => a.source === 'comfyui').length;
+  const bigAssets = assets.filter(a => (a.size_kb||0) > 30000).length;
+  document.getElementById('stats').innerHTML = `
+    <span>${assets.length} assets</span>
+    <span>${totalMB} MB total</span>
+    <span>Meshy: ${meshyCount}</span>
+    <span>ComfyUI: ${comfyCount}</span>
+    ${bigAssets > 0 ? `<span class="warn">${bigAssets} over 30MB</span>` : ''}
+    <span>${filtered.length} shown</span>
+  `;
+
+  document.getElementById('selCount').textContent = selected.size > 0 ? `${selected.size} selected` : '';
+
+  const grid = document.getElementById('grid');
+  if (!filtered.length) { grid.innerHTML = '<div class="empty">No assets match</div>'; return; }
+
+  grid.innerHTML = filtered.map(a => {
+    const sizeMB = ((a.size_kb||0)/1024).toFixed(1);
+    const src = a.source || 'unknown';
+    const badgeCls = src === 'meshy' ? 'badge-meshy' : src === 'comfyui' ? 'badge-comfyui' : 'badge-procedural';
+    const checked = selected.has(a.name);
+    const thumb = a.thumbnail ? `<img src="${a.thumbnail}" alt="${a.name}" loading="lazy">` : `<div class="placeholder">&#x1F4E6;</div>`;
+    const vision = a.vision_check ? `<div class="card-vision">${a.vision_check.slice(0,80)}</div>` : '';
+    const sizeWarn = (a.size_kb||0) > 30000 ? ' style="color:var(--coral)"' : '';
+    return `<div class="card ${checked?'selected':''}" id="card-${a.name}">
+      <div class="card-thumb">
+        ${thumb}
+        <span class="card-badge ${badgeCls}">${src}</span>
+        <div class="card-check ${checked?'checked':''}" onclick="toggleSelect('${a.name}')">${checked?'&#x2713;':''}</div>
+      </div>
+      <div class="card-info">
+        <div class="card-name" title="${a.name}">${a.name}</div>
+        <div class="card-meta"${sizeWarn}>${sizeMB} MB &bull; ${a.pipeline||src} &bull; ${a.date||''}</div>
+        ${a.prompt ? `<div class="card-prompt" title="${a.prompt}">${a.prompt}</div>` : ''}
+        ${vision}
+      </div>
+      <div class="card-actions">
+        <button onclick="viewAsset('${a.name}','${a.url}')">View</button>
+        <button onclick="window.open('/swords?weapon=${a.name}','_blank')">Dojo</button>
+        <button onclick="downloadAsset('${a.url}','${a.name}.glb')">GLB</button>
+        <button class="del" onclick="deleteOne('${a.name}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSelect(name) {
+  if (selected.has(name)) selected.delete(name); else selected.add(name);
+  render();
+}
+function selectAll() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const src = document.getElementById('sourceFilter').value;
+  assets.forEach(a => {
+    if (src !== 'all' && a.source !== src) return;
+    if (q && !a.name.toLowerCase().includes(q)) return;
+    selected.add(a.name);
+  });
+  render();
+}
+function selectNone() { selected.clear(); render(); }
+
+// Inline GLB viewer modal
+function viewAsset(name, url) {
+  let modal = document.getElementById('viewModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'viewModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,10,26,0.95);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(8px)';
+    modal.innerHTML = `
+      <div style="color:var(--teal);font-family:var(--mono);font-size:1.1rem;margin-bottom:10px" id="viewTitle"></div>
+      <div id="viewContainer" style="width:80vw;height:70vh;max-width:900px;border-radius:12px;overflow:hidden;border:1px solid #1e1e3a"></div>
+      <div style="margin-top:12px;display:flex;gap:10px">
+        <button onclick="closeViewer()" style="padding:8px 20px;background:#141428;border:1px solid #1e1e3a;color:#e2e8f0;border-radius:8px;cursor:pointer;font-family:monospace">Close (Esc)</button>
+        <button onclick="window.open('/swords?weapon='+document.getElementById('viewTitle').dataset.name,'_blank')" style="padding:8px 20px;background:#141428;border:1px solid #00bfa5;color:#00bfa5;border-radius:8px;cursor:pointer;font-family:monospace">Try in Dojo</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+  }
+  document.getElementById('viewTitle').textContent = name;
+  document.getElementById('viewTitle').dataset.name = name;
+  modal.style.display = 'flex';
+
+  const container = document.getElementById('viewContainer');
+  container.innerHTML = '';
+
+  // Use pre-loaded Three.js from importmap module
+  const _THREE = window.THREE;
+  const OrbitControls = window._OrbitControls;
+  const GLTFLoader = window._GLTFLoader;
+  if (!_THREE) { container.innerHTML = '<div style="color:#ff6b6b;padding:40px;text-align:center">Three.js loading...</div>'; return; }
+  {
+        const THREE = _THREE;
+        const w = container.offsetWidth, h = container.offsetHeight;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050510);
+        scene.add(new THREE.GridHelper(8, 16, 0x1e1e3a, 0x1e1e3a));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dl = new THREE.DirectionalLight(0xffffff, 1.2);
+        dl.position.set(4, 6, 4);
+        scene.add(dl);
+        scene.add(new THREE.DirectionalLight(0xffe8d0, 0.4).position.set(-4, 2, -3) && new THREE.DirectionalLight(0xffe8d0, 0.4));
+
+        const camera = new THREE.PerspectiveCamera(45, w/h, 0.01, 100);
+        camera.position.set(2.5, 1.8, 2.5);
+        const renderer = new THREE.WebGLRenderer({antialias:true});
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(w, h);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.4;
+        container.appendChild(renderer.domElement);
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 1.2;
+
+        new GLTFLoader().load(url, gltf => {
+          const model = gltf.scene;
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3()).length();
+          const center = box.getCenter(new THREE.Vector3());
+          model.position.sub(center);
+          model.scale.setScalar(2 / size);
+          scene.add(model);
+          controls.target.set(0, 0, 0);
+        });
+
+        function loop() {
+          if (!document.getElementById('viewModal') || document.getElementById('viewModal').style.display === 'none') {
+            renderer.dispose();
+            return;
+          }
+          requestAnimationFrame(loop);
+          controls.update();
+          renderer.render(scene, camera);
+        }
+        loop();
+        window._viewerCleanup = () => { renderer.dispose(); };
+  }
+}
+
+function closeViewer() {
+  const modal = document.getElementById('viewModal');
+  if (modal) modal.style.display = 'none';
+  if (window._viewerCleanup) window._viewerCleanup();
+}
+
+async function deleteOne(name) {
+  if (!confirm(`Delete ${name}? (backed up as .bak)`)) return;
+  await fetch(`/api/3d-assets/${name}`, {method:'DELETE'});
+  assets = assets.filter(a => a.name !== name);
+  selected.delete(name);
+  render();
+}
+
+async function deleteSelected() {
+  if (!selected.size) return;
+  if (!confirm(`Delete ${selected.size} assets? (backed up as .bak)`)) return;
+  for (const name of [...selected]) {
+    await fetch(`/api/3d-assets/${name}`, {method:'DELETE'});
+    assets = assets.filter(a => a.name !== name);
+  }
+  selected.clear();
+  render();
+}
+
+function downloadAsset(url, filename) {
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+}
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tardigrade Survival</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a1628;--panel:#0d1f3a;--border:#2a5a8a;--text:#c8def0;--accent:#40c8f0;
+  --hp:#40d080;--warn:#f0a040;--danger:#f04040;--calm:#6080c0;
+  --moss:#3a7a3a;--ice:#80c8f0;--vent:#f06020;--orbit:#2020a0;--volcano:#c02020;
+}
+body{background:var(--bg);font-family:'Segoe UI',system-ui,sans-serif;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;color:var(--text);overflow-x:hidden}
+#game-root{display:flex;gap:10px;padding:10px;max-width:1100px;width:100%;flex-wrap:wrap}
+canvas{border:2px solid var(--border);border-radius:8px;cursor:crosshair;image-rendering:pixelated;background:#0a1220;touch-action:none}
+#panel{width:260px;display:flex;flex-direction:column;gap:6px;font-size:12px;flex-shrink:0}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px}
+.card h3{color:var(--accent);font-size:13px;margin-bottom:4px;border-bottom:1px solid #1a3a5a;padding-bottom:3px}
+.bar-wrap{height:10px;background:#0a0f1a;border-radius:5px;margin:2px 0;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:5px;transition:width .3s}
+.bar-label{position:absolute;top:0;left:4px;font-size:8px;line-height:10px;color:#fff;text-shadow:0 0 2px #000}
+.stat{display:flex;justify-content:space-between;padding:1px 0}
+.stat span:last-child{color:var(--accent);font-weight:bold}
+button.act{width:100%;padding:5px 8px;margin:2px 0;background:#1a3050;color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;text-align:left;transition:all .15s}
+button.act:hover:not(:disabled){background:#2a4a70;transform:scale(1.02)}
+button.act:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.act:disabled{opacity:.35;cursor:default}
+button.act .key{float:right;background:#0a1a30;padding:0 4px;border-radius:3px;font-size:10px;color:var(--accent)}
+#log{background:#050d18;border:1px solid #1a2a40;border-radius:6px;padding:6px;font-size:10px;max-height:140px;overflow-y:auto;line-height:1.4}
+#log .entry{padding:1px 0;border-bottom:1px solid #0a1a28}
+#log .crisis{color:var(--danger)}
+#log .good{color:var(--hp)}
+#log .info{color:var(--calm)}
+#log .fact{color:#c0a0f0;font-style:italic}
+#biome-bar{display:flex;gap:3px;flex-wrap:wrap}
+#biome-bar button{flex:1;min-width:50px;padding:4px 2px;font-size:9px;background:#0a1a30;color:var(--text);border:1px solid #1a3050;border-radius:3px;cursor:pointer}
+#biome-bar button:hover:not(:disabled){background:#1a3a60}
+#biome-bar button:disabled{opacity:.35;cursor:default}
+#biome-bar button.active{border-color:var(--accent);background:#1a3a5a;color:var(--accent)}
+#biome-bar button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#species-bar{display:flex;gap:3px;flex-wrap:wrap}
+#species-bar button{flex:1;min-width:70px;padding:3px;font-size:9px;background:#0a1a30;color:var(--text);border:1px solid #1a3050;border-radius:3px;cursor:pointer}
+#species-bar button:hover:not(:disabled){background:#1a3a60}
+#species-bar button:disabled{opacity:.35;cursor:default}
+#species-bar button.active{border-color:var(--accent);background:#1a3a5a}
+#species-bar button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#discovery{background:#0d0a20;border:1px solid #3020a0;border-radius:6px;padding:6px;font-size:10px;max-height:120px;overflow-y:auto}
+#discovery h3{color:#a080f0}
+#hud-top{position:absolute;top:4px;left:4px;right:4px;display:flex;gap:6px;pointer-events:none}
+.hud-pill{background:rgba(10,20,40,.85);border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:10px;white-space:nowrap}
+#modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;justify-content:center;align-items:center}
+#modal.show{display:flex}
+#modal-box{background:var(--panel);border:2px solid var(--accent);border-radius:12px;padding:24px;max-width:400px;width:90%;text-align:center}
+#modal-box h2{color:var(--accent);margin-bottom:8px}
+#modal-box p{font-size:13px;line-height:1.5;margin-bottom:12px}
+#modal-box button{padding:8px 24px;background:#1a4060;color:var(--text);border:1px solid var(--accent);border-radius:6px;cursor:pointer;font-size:13px}
+#modal-box button:hover{background:#2a5a80}
+#modal-box button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(10,30,60,.95);border:1px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--accent);pointer-events:none;opacity:0;transition:opacity .3s;z-index:90}
+#toast.show{opacity:1}
+/* High contrast mode */
+body.hc{--bg:#000;--panel:#111;--border:#fff;--text:#fff;--accent:#0ff;--hp:#0f0;--warn:#ff0;--danger:#f00}
+body.hc canvas{border-color:#fff}
+body.hc .card{border-color:#fff}
+/* Accessibility toggle bar */
+#a11y-bar{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+#a11y-bar button{padding:3px 6px;font-size:9px;background:#0a1020;border:1px solid #1a2040;border-radius:3px;color:var(--text);cursor:pointer}
+#a11y-bar button:hover{background:#1a3050}
+#a11y-bar button.on{border-color:var(--accent);color:var(--accent)}
+#a11y-bar button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* Screen reader only */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+@media(max-width:700px){
+  #game-root{flex-direction:column;align-items:center}
+  #panel{width:100%;max-width:500px}
+  canvas{width:100%;height:auto}
+}
+</style>
+</head>
+<body>
+<div id="game-root">
+  <div style="position:relative">
+    <canvas id="c" width="600" height="500" role="img" aria-label="Tardigrade survival game world. Use keyboard or touch to play."></canvas>
+  </div>
+  <div id="panel" role="complementary" aria-label="Game controls and status">
+    <div class="card">
+      <h3>Colony Status</h3>
+      <div class="stat"><span>Biome</span><span id="sBiome">Moss Forest</span></div>
+      <div class="stat"><span>Colony Size</span><span id="sColony">1</span></div>
+      <div class="stat"><span>Time Survived</span><span id="sTime">0:00</span></div>
+      <div class="stat"><span>Crises Survived</span><span id="sCrises">0</span></div>
+      <div class="stat"><span>Species Found</span><span id="sSpecies">1/3</span></div>
+    </div>
+    <div class="card">
+      <h3>Vital Signs</h3>
+      <div><span style="font-size:10px">Hydration</span>
+        <div class="bar-wrap"><div class="bar-fill" id="bHydra" style="width:80%;background:var(--accent)"></div><span class="bar-label" id="lHydra">80%</span></div></div>
+      <div><span style="font-size:10px">Temperature</span>
+        <div class="bar-wrap"><div class="bar-fill" id="bTemp" style="width:50%;background:var(--hp)"></div><span class="bar-label" id="lTemp">22C</span></div></div>
+      <div><span style="font-size:10px">Radiation</span>
+        <div class="bar-wrap"><div class="bar-fill" id="bRad" style="width:10%;background:var(--warn)"></div><span class="bar-label" id="lRad">10%</span></div></div>
+      <div><span style="font-size:10px">Food (Algae)</span>
+        <div class="bar-wrap"><div class="bar-fill" id="bFood" style="width:60%;background:var(--moss)"></div><span class="bar-label" id="lFood">60%</span></div></div>
+      <div><span style="font-size:10px">Colony HP</span>
+        <div class="bar-wrap"><div class="bar-fill" id="bHP" style="width:100%;background:#40d080"></div><span class="bar-label" id="lHP">100%</span></div></div>
+    </div>
+    <div class="card">
+      <h3>Actions</h3>
+      <button class="act" id="aEat" title="Forage for algae and moss [E]">Forage for food<span class="key">E</span></button>
+      <button class="act" id="aDrink" title="Seek water to rehydrate [D]">Seek water<span class="key">D</span></button>
+      <button class="act" id="aTun" title="Enter cryptobiosis tun state to survive extremes [T]">Enter Tun State<span class="key">T</span></button>
+      <button class="act" id="aWake" title="Wake from tun state [W]" disabled>Wake Up<span class="key">W</span></button>
+      <button class="act" id="aRepro" title="Reproduce to grow colony — costs food and hydration [R]">Reproduce<span class="key">R</span></button>
+      <button class="act" id="aMove" title="Move to a new area within biome [M]">Explore Area<span class="key">M</span></button>
+    </div>
+    <div class="card">
+      <h3>Biomes</h3>
+      <div id="biome-bar">
+        <button class="active" data-biome="0" title="Moss Forest — tutorial biome">Moss</button>
+        <button disabled data-biome="1" title="Deep Sea Vent — unlock at colony 5">Vent</button>
+        <button disabled data-biome="2" title="Antarctic Ice — unlock at colony 10">Ice</button>
+        <button disabled data-biome="3" title="Low-Earth Orbit — unlock at colony 15">Orbit</button>
+        <button disabled data-biome="4" title="Volcano — unlock at colony 20">Volcano</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Species</h3>
+      <div id="species-bar">
+        <button class="active" data-sp="0" title="Hypsibius — the generalist water bear">Hypsibius</button>
+        <button disabled data-sp="1" title="Milnesium — radiation specialist, unlock in Orbit">Milnesium</button>
+        <button disabled data-sp="2" title="Ramazzottius — desiccation master, unlock in Vent">Ramazzottius</button>
+      </div>
+    </div>
+    <div class="card" id="discovery">
+      <h3>Discovery Log</h3>
+      <div id="disc-list"></div>
+    </div>
+    <div id="a11y-bar" role="toolbar" aria-label="Accessibility options">
+      <button id="aHC" title="Toggle high contrast mode [H]">High Contrast</button>
+      <button id="aPause" title="Pause the game [P/Space]">Pause</button>
+      <button id="aSpeed" title="Toggle speed: 1x/2x [+]">Speed: 1x</button>
+      <button id="aSave" title="Save game to browser storage">Save</button>
+      <button id="aHelp" title="Show controls and help [?]">Help</button>
+    </div>
+    <div id="log" role="log" aria-label="Event log" aria-live="polite"></div>
+  </div>
+</div>
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div id="modal-box"><h2 id="modal-title"></h2><p id="modal-body"></p><button id="modal-btn">OK</button></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div class="sr-only" id="sr-announce" aria-live="assertive"></div>
+<script>
+// ========== TARDIGRADE SURVIVAL ==========
+// A biology-driven survival game about Earth's most resilient micro-animal.
+'use strict';
+
+const C = document.getElementById('c');
+const X = C.getContext('2d');
+const $ = id => document.getElementById(id);
+
+// ---- Constants ----
+const W = 600, H = 500;
+const TILE = 20;
+const COLS = W / TILE, ROWS = H / TILE;
+
+// ---- Biome definitions ----
+const BIOMES = [
+  { name:'Moss Forest', bg:'#1a3a1a', color:'#3a7a3a', threats:{desiccation:.002,cold:.001,radiation:0,pressure:0,heat:0},
+    foodRate:.02, waterRate:.015, desc:'Lush and safe. Learn the basics here.', unlock:0 },
+  { name:'Deep Sea Vent', bg:'#1a0a0a', color:'#f06020', threats:{desiccation:0,cold:0,radiation:.003,pressure:.01,heat:.015},
+    foodRate:.008, waterRate:.03, desc:'Scalding water, crushing pressure, but plenty of minerals.', unlock:5 },
+  { name:'Antarctic Ice', bg:'#0a2040', color:'#80c8f0', threats:{desiccation:.005,cold:.02,radiation:.002,pressure:0,heat:0},
+    foodRate:.005, waterRate:.005, desc:'Frozen wasteland. Desiccation and cold are your enemies.', unlock:10 },
+  { name:'Low-Earth Orbit', bg:'#08081a', color:'#4040c0', threats:{desiccation:.015,cold:.01,radiation:.025,pressure:0,heat:.005},
+    foodRate:.002, waterRate:.001, desc:'Vacuum of space. Radiation is extreme. Water is almost nonexistent.', unlock:15 },
+  { name:'Volcano', bg:'#2a0a00', color:'#c02020', threats:{desiccation:.01,cold:0,radiation:.005,pressure:.005,heat:.03},
+    foodRate:.004, waterRate:.002, desc:'Extreme heat. Only the toughest survive here.', unlock:20 },
+];
+
+// ---- Species definitions ----
+const SPECIES = [
+  { name:'Hypsibius', color:'#60b0e0', desc:'Cold specialist. +50% cold resistance.',
+    resist:{cold:.5,radiation:0,desiccation:0,heat:0,pressure:0}, unlock:'start' },
+  { name:'Milnesium', color:'#e0a040', desc:'Radiation tank. +60% radiation resistance.',
+    resist:{cold:0,radiation:.6,desiccation:0,heat:.2,pressure:0}, unlock:'orbit' },
+  { name:'Ramazzottius', color:'#d07050', desc:'Desiccation master. +60% desiccation resistance, +30% heat.',
+    resist:{cold:0,radiation:0,desiccation:.6,heat:.3,pressure:0}, unlock:'vent' },
+];
+
+// ---- Tardigrade facts ----
+const FACTS = [
+  "Tardigrades can survive temperatures from -272C to 150C.",
+  "In cryptobiosis, a tardigrade's metabolism drops to 0.01% of normal.",
+  "Tardigrades have survived 10 days in the vacuum of outer space.",
+  "There are over 1,300 known species of tardigrade.",
+  "Tardigrades were first described by Johann August Ephraim Goeze in 1773.",
+  "The name 'tardigrade' means 'slow stepper' in Latin.",
+  "Tardigrades can withstand 1,000x more radiation than most animals.",
+  "A tardigrade in tun state can survive for decades without water.",
+  "Tardigrades have been found on every continent, including Antarctica.",
+  "They eat by piercing plant cells or small invertebrates with their stylets.",
+  "Tardigrades molt their cuticle as they grow, like insects.",
+  "Some tardigrades produce a protein (Dsup) that shields DNA from radiation.",
+  "Tardigrades survived the mass extinction that killed the dinosaurs.",
+  "They can withstand pressures 6x greater than the deepest ocean trench.",
+  "Baby tardigrades are born with the same number of cells as adults.",
+  "Tardigrades are also called 'water bears' or 'moss piglets'.",
+  "A tardigrade's brain has about 200 neurons.",
+  "They have 8 legs, each ending in 4-8 claws.",
+  "The largest tardigrades are about 1.5mm — visible to the naked eye.",
+  "Tardigrades can repair their own DNA after massive radiation damage.",
+];
+
+// ---- Crisis events ----
+const CRISES = [
+  { name:'Solar Flare', stat:'radiation', amount:.4, msg:'A massive solar flare bathes the area in radiation!', biomes:[3,4] },
+  { name:'Drought', stat:'hydration', amount:-.35, msg:'Water sources are drying up rapidly!', biomes:[0,2,4] },
+  { name:'Temperature Spike', stat:'temperature', amount:30, msg:'Sudden temperature spike! Extreme heat!', biomes:[0,1,4] },
+  { name:'Deep Freeze', stat:'temperature', amount:-40, msg:'Flash freeze! Temperature plummeting!', biomes:[0,2,3] },
+  { name:'Pressure Wave', stat:'pressure', amount:.3, msg:'Tectonic pressure wave detected!', biomes:[1,4] },
+  { name:'Meteor Shower', stat:'radiation', amount:.5, msg:'Micro-meteorites and radiation incoming!', biomes:[3] },
+  { name:'Volcanic Eruption', stat:'temperature', amount:50, msg:'The volcano erupts! Lava everywhere!', biomes:[4] },
+  { name:'UV Burst', stat:'radiation', amount:.3, msg:'Intense UV radiation penetrates the area!', biomes:[0,2] },
+];
+
+// ---- Game State ----
+let G = newGame();
+
+function newGame() {
+  return {
+    biome: 0,
+    species: 0,
+    colony: 1,
+    maxColony: 1,
+    hydration: 80,
+    temperature: 22,
+    radiation: 10,
+    food: 60,
+    hp: 100,
+    inTun: false,
+    tunTimer: 0,
+    timeSurvived: 0,
+    crisesSurvived: 0,
+    speciesUnlocked: [true, false, false],
+    biomesUnlocked: [true, false, false, false, false],
+    discoveries: [],
+    discoverySet: new Set(),
+    paused: false,
+    speed: 1,
+    crisisActive: null,
+    crisisTimer: 0,
+    nextCrisis: 300 + Math.random() * 200,
+    // World entities
+    tardis: [], // array of {x,y,sp,state:'walk'|'tun'|'eat'|'drink',animT,targetX,targetY}
+    foodNodes: [],
+    waterNodes: [],
+    particles: [],
+    areaX: 0, areaY: 0,
+    // Scoring
+    totalColony: 1,
+    biomesVisited: new Set([0]),
+    // Animation
+    frame: 0,
+    shakeT: 0,
+    // Game over
+    dead: false,
+  };
+}
+
+function initWorld() {
+  G.tardis = [];
+  G.foodNodes = [];
+  G.waterNodes = [];
+  G.particles = [];
+  // Place starting tardigrade
+  for (let i = 0; i < G.colony; i++) {
+    G.tardis.push(makeTardi(W/2 + (Math.random()-0.5)*100, H/2 + (Math.random()-0.5)*100, G.species));
+  }
+  // Generate food and water nodes
+  regenerateNodes();
+}
+
+function regenerateNodes() {
+  const b = BIOMES[G.biome];
+  G.foodNodes = [];
+  G.waterNodes = [];
+  const fc = 5 + Math.floor(b.foodRate * 300);
+  const wc = 4 + Math.floor(b.waterRate * 200);
+  for (let i = 0; i < fc; i++) {
+    G.foodNodes.push({x: 30 + Math.random()*(W-60), y: 30 + Math.random()*(H-60), size: 3 + Math.random()*4, eaten: false, regrow: 0});
+  }
+  for (let i = 0; i < wc; i++) {
+    G.waterNodes.push({x: 30 + Math.random()*(W-60), y: 30 + Math.random()*(H-60), size: 4 + Math.random()*5, used: false, refill: 0});
+  }
+}
+
+function makeTardi(x, y, sp) {
+  return {x, y, sp, state:'walk', animT:Math.random()*100, targetX:x, targetY:y, walkT:0};
+}
+
+// ---- Rendering ----
+function render() {
+  const b = BIOMES[G.biome];
+  // Shake
+  let sx = 0, sy = 0;
+  if (G.shakeT > 0) {
+    sx = (Math.random()-0.5) * G.shakeT * 3;
+    sy = (Math.random()-0.5) * G.shakeT * 3;
+  }
+  X.save();
+  X.translate(sx, sy);
+
+  // Background
+  X.fillStyle = b.bg;
+  X.fillRect(0, 0, W, H);
+
+  // Environment particles
+  drawEnvParticles(b);
+
+  // Grid overlay (microscope feel)
+  X.strokeStyle = 'rgba(100,160,200,0.04)';
+  X.lineWidth = 0.5;
+  for (let gx = 0; gx < W; gx += TILE) { X.beginPath(); X.moveTo(gx,0); X.lineTo(gx,H); X.stroke(); }
+  for (let gy = 0; gy < H; gy += TILE) { X.beginPath(); X.moveTo(0,gy); X.lineTo(W,gy); X.stroke(); }
+
+  // Microscope vignette
+  const vg = X.createRadialGradient(W/2,H/2,100,W/2,H/2,350);
+  vg.addColorStop(0,'rgba(0,0,0,0)');
+  vg.addColorStop(1,'rgba(0,0,0,0.5)');
+  X.fillStyle = vg;
+  X.fillRect(0,0,W,H);
+
+  // Circular microscope border
+  X.save();
+  X.strokeStyle = 'rgba(100,160,200,0.15)';
+  X.lineWidth = 2;
+  X.beginPath();
+  X.arc(W/2, H/2, 230, 0, Math.PI*2);
+  X.stroke();
+  X.restore();
+
+  // Food nodes
+  for (const f of G.foodNodes) {
+    if (f.eaten) continue;
+    drawFoodNode(f, b);
+  }
+
+  // Water nodes
+  for (const w of G.waterNodes) {
+    if (w.used) continue;
+    drawWaterNode(w, b);
+  }
+
+  // Tardigrades
+  for (const t of G.tardis) {
+    drawTardigrade(t);
+  }
+
+  // Particles
+  for (const p of G.particles) {
+    X.globalAlpha = p.life;
+    X.fillStyle = p.color;
+    X.beginPath();
+    X.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    X.fill();
+  }
+  X.globalAlpha = 1;
+
+  // Crisis overlay
+  if (G.crisisActive) {
+    const cr = G.crisisActive;
+    let oc = 'rgba(255,60,20,';
+    if (cr.stat === 'temperature' && cr.amount < 0) oc = 'rgba(80,160,255,';
+    if (cr.stat === 'radiation') oc = 'rgba(200,200,0,';
+    X.fillStyle = oc + (0.05 + Math.sin(G.frame*0.1)*0.03) + ')';
+    X.fillRect(0,0,W,H);
+  }
+
+  // Tun state overlay
+  if (G.inTun) {
+    X.fillStyle = 'rgba(60,40,20,0.25)';
+    X.fillRect(0,0,W,H);
+    X.fillStyle = '#c0a060';
+    X.font = 'bold 16px monospace';
+    X.textAlign = 'center';
+    X.fillText('CRYPTOBIOSIS — Recovering...', W/2, 30);
+    X.font = '11px monospace';
+    X.fillText('Press [W] to wake up when conditions improve', W/2, 50);
+    X.textAlign = 'left';
+  }
+
+  // Paused
+  if (G.paused && !G.dead) {
+    X.fillStyle = 'rgba(0,0,0,0.5)';
+    X.fillRect(0,0,W,H);
+    X.fillStyle = '#40c8f0';
+    X.font = 'bold 20px monospace';
+    X.textAlign = 'center';
+    X.fillText('PAUSED', W/2, H/2);
+    X.font = '12px monospace';
+    X.fillText('Press [P] or [Space] to resume', W/2, H/2+24);
+    X.textAlign = 'left';
+  }
+
+  // Dead
+  if (G.dead) {
+    X.fillStyle = 'rgba(0,0,0,0.7)';
+    X.fillRect(0,0,W,H);
+    X.fillStyle = '#f04040';
+    X.font = 'bold 22px monospace';
+    X.textAlign = 'center';
+    X.fillText('COLONY LOST', W/2, H/2-30);
+    X.fillStyle = '#c8def0';
+    X.font = '13px monospace';
+    X.fillText(`Survived: ${fmtTime(G.timeSurvived)} | Max Colony: ${G.maxColony}`, W/2, H/2);
+    X.fillText(`Crises Survived: ${G.crisesSurvived} | Biomes: ${G.biomesVisited.size}/5`, W/2, H/2+20);
+    X.fillText(`Species: ${G.speciesUnlocked.filter(Boolean).length}/3 | Discoveries: ${G.discoveries.length}/${FACTS.length}`, W/2, H/2+40);
+    X.fillStyle = '#40c8f0';
+    X.fillText('Press [Enter] to start a new colony', W/2, H/2+70);
+    X.textAlign = 'left';
+  }
+
+  // HUD overlay
+  if (!G.dead && !G.paused) {
+    X.fillStyle = 'rgba(10,22,40,0.7)';
+    X.fillRect(4, H-22, 220, 18);
+    X.fillStyle = '#608090';
+    X.font = '10px monospace';
+    X.fillText(`Colony: ${G.colony} | ${BIOMES[G.biome].name} | ${fmtTime(G.timeSurvived)}`, 8, H-9);
+  }
+
+  X.restore();
+}
+
+function drawFoodNode(f, b) {
+  // Algae/moss clump
+  const pulse = 1 + Math.sin(G.frame*0.03 + f.x)*0.15;
+  X.fillStyle = G.biome === 1 ? '#c06020' : G.biome === 4 ? '#a04010' : '#40a040';
+  X.beginPath();
+  X.arc(f.x, f.y, f.size * pulse, 0, Math.PI*2);
+  X.fill();
+  X.fillStyle = G.biome === 1 ? '#e08040' : G.biome === 4 ? '#c06020' : '#60c060';
+  X.beginPath();
+  X.arc(f.x-1, f.y-1, f.size*0.5*pulse, 0, Math.PI*2);
+  X.fill();
+}
+
+function drawWaterNode(w, b) {
+  const pulse = 1 + Math.sin(G.frame*0.05 + w.y)*0.2;
+  X.fillStyle = G.biome === 2 ? '#a0d8ff' : G.biome === 3 ? '#4060a0' : '#2080c0';
+  X.globalAlpha = 0.7;
+  X.beginPath();
+  X.arc(w.x, w.y, w.size*pulse, 0, Math.PI*2);
+  X.fill();
+  X.globalAlpha = 1;
+  // Sparkle
+  X.fillStyle = '#c0e8ff';
+  X.beginPath();
+  X.arc(w.x+2, w.y-2, 1.5, 0, Math.PI*2);
+  X.fill();
+}
+
+function drawTardigrade(t) {
+  const sp = SPECIES[t.sp];
+  const s = G.inTun ? 0 : 1; // animation scale
+  const baseX = t.x, baseY = t.y;
+  const wobble = Math.sin(t.animT * 0.15) * 2 * s;
+
+  X.save();
+  X.translate(baseX, baseY);
+
+  if (G.inTun) {
+    // Tun state: curled ball
+    X.fillStyle = sp.color;
+    X.globalAlpha = 0.6 + Math.sin(G.frame*0.05)*0.1;
+    X.beginPath();
+    X.arc(0, 0, 7, 0, Math.PI*2);
+    X.fill();
+    X.globalAlpha = 1;
+    X.strokeStyle = 'rgba(255,255,255,0.3)';
+    X.lineWidth = 0.5;
+    X.beginPath();
+    X.arc(0, 0, 7, 0, Math.PI*2);
+    X.stroke();
+    // "zzz" indicator
+    X.fillStyle = '#a0c0e0';
+    X.font = '8px monospace';
+    const zOff = Math.sin(G.frame*0.08)*3;
+    X.fillText('z', 8, -4+zOff);
+    X.fillText('z', 12, -8+zOff*0.7);
+  } else {
+    // Active tardigrade
+    const dir = t.targetX > t.x ? 1 : -1;
+    X.scale(dir, 1);
+
+    // Body (plump oval)
+    X.fillStyle = sp.color;
+    X.beginPath();
+    X.ellipse(0, wobble, 10, 6, 0, 0, Math.PI*2);
+    X.fill();
+
+    // Darker stripe
+    X.fillStyle = shadeColor(sp.color, -30);
+    X.beginPath();
+    X.ellipse(0, wobble+1, 8, 3, 0, 0, Math.PI*2);
+    X.fill();
+
+    // Head
+    X.fillStyle = sp.color;
+    X.beginPath();
+    X.ellipse(10, wobble-1, 5, 4, 0.2, 0, Math.PI*2);
+    X.fill();
+
+    // Eyes (2 dots)
+    X.fillStyle = '#fff';
+    X.beginPath();
+    X.arc(12, wobble-3, 1.5, 0, Math.PI*2);
+    X.fill();
+    X.fillStyle = '#111';
+    X.beginPath();
+    X.arc(12.5, wobble-3, 0.8, 0, Math.PI*2);
+    X.fill();
+
+    // Legs (4 pairs with walk animation)
+    X.strokeStyle = shadeColor(sp.color, -20);
+    X.lineWidth = 1.2;
+    for (let i = 0; i < 4; i++) {
+      const lx = -6 + i*4;
+      const phase = t.animT*0.2 + i*0.8;
+      const ly1 = wobble + 5 + Math.sin(phase)*2*s;
+      const ly2 = wobble + 5 + Math.cos(phase)*2*s;
+      X.beginPath(); X.moveTo(lx, wobble+3); X.lineTo(lx-2, ly1+2); X.stroke();
+      X.beginPath(); X.moveTo(lx, wobble+3); X.lineTo(lx+2, ly2+2); X.stroke();
+      // Tiny claws
+      X.fillStyle = shadeColor(sp.color, -40);
+      X.beginPath(); X.arc(lx-2, ly1+2, 0.8, 0, Math.PI*2); X.fill();
+      X.beginPath(); X.arc(lx+2, ly2+2, 0.8, 0, Math.PI*2); X.fill();
+    }
+
+    // Eating animation
+    if (t.state === 'eat') {
+      X.fillStyle = '#60c060';
+      const ep = Math.sin(t.animT*0.5)*2;
+      X.beginPath();
+      X.arc(14, wobble-1+ep, 2, 0, Math.PI*2);
+      X.fill();
+    }
+
+    // Drinking animation
+    if (t.state === 'drink') {
+      X.fillStyle = '#60a0e0';
+      const dp = Math.sin(t.animT*0.5)*2;
+      X.beginPath();
+      X.arc(14, wobble+dp, 1.5, 0, Math.PI*2);
+      X.fill();
+    }
+  }
+
+  X.restore();
+}
+
+function drawEnvParticles(b) {
+  // Biome-specific ambient particles
+  const f = G.frame;
+  if (G.biome === 0) {
+    // Moss: floating spores
+    X.fillStyle = 'rgba(120,200,80,0.2)';
+    for (let i = 0; i < 15; i++) {
+      const px = ((i*73 + f*0.3) % W);
+      const py = ((i*47 + f*0.2 + Math.sin(f*0.02+i)*20) % H);
+      X.beginPath(); X.arc(px,py,1.5,0,Math.PI*2); X.fill();
+    }
+  } else if (G.biome === 1) {
+    // Vent: rising bubbles
+    X.fillStyle = 'rgba(255,120,40,0.3)';
+    for (let i = 0; i < 20; i++) {
+      const px = (i*61) % W;
+      const py = H - ((i*39 + f*0.8) % H);
+      const sz = 1 + (i%3);
+      X.beginPath(); X.arc(px,py,sz,0,Math.PI*2); X.fill();
+    }
+  } else if (G.biome === 2) {
+    // Ice: falling crystals
+    X.fillStyle = 'rgba(180,220,255,0.25)';
+    for (let i = 0; i < 25; i++) {
+      const px = (i*83 + f*0.1) % W;
+      const py = (i*57 + f*0.5) % H;
+      X.save();
+      X.translate(px,py);
+      X.rotate(f*0.01+i);
+      X.fillRect(-1.5,-1.5,3,3);
+      X.restore();
+    }
+  } else if (G.biome === 3) {
+    // Orbit: stars and radiation sparkles
+    X.fillStyle = 'rgba(200,200,255,0.4)';
+    for (let i = 0; i < 40; i++) {
+      const px = (i*97) % W;
+      const py = (i*71) % H;
+      const bright = (Math.sin(f*0.05+i*2)>0.5) ? 1 : 0.3;
+      X.globalAlpha = bright * 0.5;
+      X.beginPath(); X.arc(px,py,0.8,0,Math.PI*2); X.fill();
+    }
+    X.globalAlpha = 1;
+  } else if (G.biome === 4) {
+    // Volcano: ember sparks
+    X.fillStyle = 'rgba(255,80,0,0.4)';
+    for (let i = 0; i < 20; i++) {
+      const px = (i*67 + Math.sin(f*0.03+i)*30) % W;
+      const py = H - ((i*41 + f*1.2) % H);
+      const sz = 1 + Math.random();
+      X.beginPath(); X.arc(px,py,sz,0,Math.PI*2); X.fill();
+    }
+  }
+}
+
+function shadeColor(hex, amt) {
+  let r = parseInt(hex.slice(1,3),16)+amt;
+  let g = parseInt(hex.slice(3,5),16)+amt;
+  let b = parseInt(hex.slice(5,7),16)+amt;
+  r = Math.max(0,Math.min(255,r));
+  g = Math.max(0,Math.min(255,g));
+  b = Math.max(0,Math.min(255,b));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ---- Game Logic ----
+function update(dt) {
+  if (G.paused || G.dead) return;
+  const spd = G.speed;
+  G.frame++;
+  G.timeSurvived += dt * spd;
+  if (G.shakeT > 0) G.shakeT -= dt * 3;
+
+  const b = BIOMES[G.biome];
+  const sp = SPECIES[G.species];
+
+  // --- Environment pressure ---
+  if (!G.inTun) {
+    // Apply threats (reduced by species resistance)
+    for (const [threat, rate] of Object.entries(b.threats)) {
+      const resist = sp.resist[threat] || 0;
+      const effectiveRate = rate * (1 - resist) * spd;
+      if (threat === 'desiccation') G.hydration -= effectiveRate * 60 * dt;
+      if (threat === 'cold') G.temperature -= effectiveRate * 200 * dt;
+      if (threat === 'heat') G.temperature += effectiveRate * 200 * dt;
+      if (threat === 'radiation') G.radiation += effectiveRate * 60 * dt;
+      if (threat === 'pressure') G.hp -= effectiveRate * 30 * dt;
+    }
+    // Natural decay
+    G.hydration -= 0.3 * spd * dt;
+    G.food -= 0.2 * spd * dt;
+    // Temperature drift toward biome baseline
+    const baseTemp = G.biome===0?22 : G.biome===1?80 : G.biome===2?-20 : G.biome===3?-100 : 200;
+    G.temperature += (baseTemp - G.temperature) * 0.001 * spd * dt;
+  } else {
+    // Tun state: slow recovery, near-zero metabolism
+    G.tunTimer += dt * spd;
+    G.hp = Math.min(100, G.hp + 0.5 * spd * dt);
+    G.radiation = Math.max(0, G.radiation - 0.3 * spd * dt);
+    // Very slow hydration loss
+    G.hydration -= 0.01 * spd * dt;
+    // Temperature stabilizes
+    G.temperature += (10 - G.temperature) * 0.005 * spd * dt;
+  }
+
+  // --- Clamp values ---
+  G.hydration = clamp(G.hydration, 0, 100);
+  G.food = clamp(G.food, 0, 100);
+  G.radiation = clamp(G.radiation, 0, 100);
+  G.hp = clamp(G.hp, 0, 100);
+  G.temperature = clamp(G.temperature, -273, 500);
+
+  // --- Damage from extreme stats ---
+  if (!G.inTun) {
+    if (G.hydration <= 0) G.hp -= 2 * spd * dt;
+    if (G.food <= 0) G.hp -= 1 * spd * dt;
+    if (G.radiation >= 80) G.hp -= 3 * spd * dt;
+    if (G.temperature < -50 || G.temperature > 120) G.hp -= 4 * spd * dt;
+    if (G.temperature < -150 || G.temperature > 300) G.hp -= 10 * spd * dt;
+  }
+
+  // --- Crisis system ---
+  G.nextCrisis -= dt * spd;
+  if (G.nextCrisis <= 0 && !G.crisisActive) {
+    triggerCrisis();
+  }
+  if (G.crisisActive) {
+    G.crisisTimer -= dt * spd;
+    // Apply crisis effects
+    const cr = G.crisisActive;
+    if (!G.inTun) {
+      if (cr.stat === 'radiation') G.radiation += cr.amount * 0.3 * spd * dt;
+      if (cr.stat === 'hydration') G.hydration += cr.amount * 0.5 * spd * dt;
+      if (cr.stat === 'temperature') G.temperature += (cr.amount > 0 ? 1 : -1) * 5 * spd * dt;
+      if (cr.stat === 'pressure') G.hp -= cr.amount * 10 * spd * dt;
+    }
+    if (G.crisisTimer <= 0) {
+      G.crisesSurvived++;
+      addLog('Survived: ' + G.crisisActive.name + '!', 'good');
+      G.crisisActive = null;
+      G.nextCrisis = 180 + Math.random() * 240 - G.biome * 30;
+    }
+  }
+
+  // --- Tardigrade AI movement ---
+  for (const t of G.tardis) {
+    t.animT += dt * (G.inTun ? 0.5 : 4);
+    if (!G.inTun) {
+      // Wander toward target
+      const dx = t.targetX - t.x;
+      const dy = t.targetY - t.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist > 2) {
+        const speed = 20 * spd;
+        t.x += (dx/dist) * speed * dt;
+        t.y += (dy/dist) * speed * dt;
+      } else {
+        t.walkT -= dt * spd;
+        if (t.walkT <= 0) {
+          t.targetX = clamp(t.x + (Math.random()-0.5)*120, 20, W-20);
+          t.targetY = clamp(t.y + (Math.random()-0.5)*120, 20, H-20);
+          t.walkT = 2 + Math.random() * 3;
+          t.state = 'walk';
+        }
+      }
+    }
+  }
+
+  // --- Food/water node regeneration ---
+  for (const f of G.foodNodes) {
+    if (f.eaten) {
+      f.regrow -= dt * spd;
+      if (f.regrow <= 0) f.eaten = false;
+    }
+  }
+  for (const w of G.waterNodes) {
+    if (w.used) {
+      w.refill -= dt * spd;
+      if (w.refill <= 0) w.used = false;
+    }
+  }
+
+  // --- Particles ---
+  for (let i = G.particles.length - 1; i >= 0; i--) {
+    const p = G.particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt * 1.5;
+    if (p.life <= 0) G.particles.splice(i, 1);
+  }
+
+  // --- Check unlocks ---
+  checkUnlocks();
+
+  // --- Colony death ---
+  if (G.hp <= 0) {
+    G.hp = 0;
+    if (G.colony > 1) {
+      // Lose one tardigrade
+      G.colony--;
+      G.tardis.pop();
+      G.hp = 30;
+      addLog('A tardigrade was lost! Colony: ' + G.colony, 'crisis');
+      screenShake(4);
+    } else {
+      G.dead = true;
+      addLog('The last tardigrade has perished.', 'crisis');
+      screenShake(8);
+      announce('Colony lost. Press Enter to restart.');
+    }
+  }
+
+  // --- Update UI ---
+  updateUI();
+}
+
+function triggerCrisis() {
+  const eligible = CRISES.filter(c => c.biomes.includes(G.biome));
+  if (eligible.length === 0) {
+    G.nextCrisis = 120;
+    return;
+  }
+  const cr = eligible[Math.floor(Math.random() * eligible.length)];
+  G.crisisActive = cr;
+  G.crisisTimer = 10 + Math.random() * 8;
+  addLog('CRISIS: ' + cr.msg, 'crisis');
+  screenShake(6);
+  announce('Crisis: ' + cr.name + '! ' + cr.msg);
+  // Spawn danger particles
+  for (let i = 0; i < 20; i++) {
+    G.particles.push({
+      x: Math.random()*W, y: Math.random()*H,
+      vx: (Math.random()-0.5)*40, vy: (Math.random()-0.5)*40,
+      size: 2+Math.random()*3, color: cr.stat==='radiation' ? '#ffff40' : cr.stat==='temperature' ? (cr.amount>0?'#ff6020':'#80c8ff') : '#f04040',
+      life: 1
+    });
+  }
+}
+
+function checkUnlocks() {
+  // Species unlocks
+  if (!G.speciesUnlocked[1] && G.biomesVisited.has(3)) {
+    G.speciesUnlocked[1] = true;
+    addLog('NEW SPECIES: Milnesium unlocked! Radiation specialist.', 'good');
+    addDiscovery('Milnesium tardigrades produce Dsup protein that shields DNA from radiation damage.');
+    announce('New species unlocked: Milnesium, the radiation specialist.');
+    updateSpeciesButtons();
+  }
+  if (!G.speciesUnlocked[2] && G.biomesVisited.has(1)) {
+    G.speciesUnlocked[2] = true;
+    addLog('NEW SPECIES: Ramazzottius unlocked! Desiccation master.', 'good');
+    addDiscovery('Ramazzottius varieornatus can lose 97% of its body water and survive.');
+    announce('New species unlocked: Ramazzottius, the desiccation master.');
+    updateSpeciesButtons();
+  }
+
+  // Biome unlocks
+  for (let i = 1; i < BIOMES.length; i++) {
+    if (!G.biomesUnlocked[i] && G.maxColony >= BIOMES[i].unlock) {
+      G.biomesUnlocked[i] = true;
+      addLog('BIOME UNLOCKED: ' + BIOMES[i].name + '!', 'good');
+      announce('Biome unlocked: ' + BIOMES[i].name);
+      updateBiomeButtons();
+    }
+  }
+
+  // Random fact discoveries based on time
+  if (G.discoveries.length < FACTS.length) {
+    const discoveryInterval = 45; // every 45 seconds of game time
+    const expected = Math.floor(G.timeSurvived / discoveryInterval);
+    while (G.discoveries.length < expected && G.discoveries.length < FACTS.length) {
+      const remaining = FACTS.filter(f => !G.discoverySet.has(f));
+      if (remaining.length === 0) break;
+      const fact = remaining[Math.floor(Math.random() * remaining.length)];
+      addDiscovery(fact);
+    }
+  }
+}
+
+// ---- Actions ----
+function doEat() {
+  if (G.inTun || G.dead || G.paused) return;
+  // Find nearest uneaten food
+  let best = null, bestDist = Infinity;
+  for (const f of G.foodNodes) {
+    if (f.eaten) continue;
+    const d = dist(G.tardis[0], f);
+    if (d < bestDist) { bestDist = d; best = f; }
+  }
+  if (best) {
+    // Move lead tardigrade to food
+    G.tardis[0].targetX = best.x;
+    G.tardis[0].targetY = best.y;
+    G.tardis[0].state = 'eat';
+    best.eaten = true;
+    best.regrow = 8 + Math.random()*5;
+    G.food = Math.min(100, G.food + 12);
+    addLog('Foraging... +12 food', 'good');
+    spawnParticles(best.x, best.y, '#60c060', 5);
+    toast('Eating algae... +12 food');
+  } else {
+    addLog('No food nearby! Explore to find more.', 'info');
+    toast('No food available — try exploring.');
+  }
+}
+
+function doDrink() {
+  if (G.inTun || G.dead || G.paused) return;
+  let best = null, bestDist = Infinity;
+  for (const w of G.waterNodes) {
+    if (w.used) continue;
+    const d = dist(G.tardis[0], w);
+    if (d < bestDist) { bestDist = d; best = w; }
+  }
+  if (best) {
+    G.tardis[0].targetX = best.x;
+    G.tardis[0].targetY = best.y;
+    G.tardis[0].state = 'drink';
+    best.used = true;
+    best.refill = 6 + Math.random()*4;
+    G.hydration = Math.min(100, G.hydration + 15);
+    addLog('Drinking... +15 hydration', 'good');
+    spawnParticles(best.x, best.y, '#60a0e0', 5);
+    toast('Rehydrating... +15 hydration');
+  } else {
+    addLog('No water nearby! Explore to find more.', 'info');
+    toast('No water available — try exploring.');
+  }
+}
+
+function doTun() {
+  if (G.inTun || G.dead || G.paused) return;
+  G.inTun = true;
+  G.tunTimer = 0;
+  addLog('Entering cryptobiosis (tun state)... metabolism near zero.', 'info');
+  announce('Entered cryptobiosis. You cannot eat or move, but you are nearly indestructible.');
+  toast('Entering tun state...');
+  $('aTun').disabled = true;
+  $('aWake').disabled = false;
+  $('aEat').disabled = true;
+  $('aDrink').disabled = true;
+  $('aRepro').disabled = true;
+  $('aMove').disabled = true;
+  // Curl all tardigrades
+  for (const t of G.tardis) t.state = 'tun';
+}
+
+function doWake() {
+  if (!G.inTun || G.dead || G.paused) return;
+  G.inTun = false;
+  addLog('Waking from cryptobiosis! Time in tun: ' + G.tunTimer.toFixed(0) + 's', 'good');
+  announce('Woke from cryptobiosis after ' + G.tunTimer.toFixed(0) + ' seconds.');
+  toast('Waking up...');
+  $('aTun').disabled = false;
+  $('aWake').disabled = true;
+  $('aEat').disabled = false;
+  $('aDrink').disabled = false;
+  $('aRepro').disabled = false;
+  $('aMove').disabled = false;
+  for (const t of G.tardis) t.state = 'walk';
+}
+
+function doReproduce() {
+  if (G.inTun || G.dead || G.paused) return;
+  if (G.food < 30 || G.hydration < 20) {
+    addLog('Need 30+ food and 20+ hydration to reproduce.', 'info');
+    toast('Not enough resources to reproduce.');
+    return;
+  }
+  G.food -= 30;
+  G.hydration -= 20;
+  G.colony++;
+  if (G.colony > G.maxColony) G.maxColony = G.colony;
+  G.totalColony++;
+  const parent = G.tardis[0];
+  G.tardis.push(makeTardi(parent.x + (Math.random()-0.5)*30, parent.y + (Math.random()-0.5)*30, G.species));
+  addLog('A new tardigrade is born! Colony: ' + G.colony, 'good');
+  spawnParticles(parent.x, parent.y, SPECIES[G.species].color, 10);
+  announce('New tardigrade born. Colony size: ' + G.colony);
+  toast('New water bear born!');
+  checkUnlocks();
+}
+
+function doExplore() {
+  if (G.inTun || G.dead || G.paused) return;
+  G.areaX += Math.floor(Math.random()*3)-1;
+  G.areaY += Math.floor(Math.random()*3)-1;
+  regenerateNodes();
+  // Move tardigrades to center
+  for (const t of G.tardis) {
+    t.targetX = W/2 + (Math.random()-0.5)*80;
+    t.targetY = H/2 + (Math.random()-0.5)*80;
+  }
+  addLog('Exploring new area...', 'info');
+  toast('Moving to new area...');
+}
+
+function changeBiome(idx) {
+  if (!G.biomesUnlocked[idx] || G.dead || G.paused) return;
+  if (G.inTun) doWake();
+  G.biome = idx;
+  G.biomesVisited.add(idx);
+  regenerateNodes();
+  // Scatter tardigrades
+  for (const t of G.tardis) {
+    t.x = W/2 + (Math.random()-0.5)*80;
+    t.y = H/2 + (Math.random()-0.5)*80;
+    t.targetX = t.x;
+    t.targetY = t.y;
+  }
+  addLog('Traveled to: ' + BIOMES[idx].name, 'info');
+  announce('Now in ' + BIOMES[idx].name + '. ' + BIOMES[idx].desc);
+  toast(BIOMES[idx].name + ': ' + BIOMES[idx].desc);
+  updateBiomeButtons();
+  checkUnlocks();
+}
+
+function changeSpecies(idx) {
+  if (!G.speciesUnlocked[idx] || G.dead || G.paused) return;
+  G.species = idx;
+  for (const t of G.tardis) t.sp = idx;
+  addLog('Species switched to: ' + SPECIES[idx].name, 'info');
+  announce('Now playing as ' + SPECIES[idx].name + '. ' + SPECIES[idx].desc);
+  updateSpeciesButtons();
+}
+
+// ---- UI updates ----
+function updateUI() {
+  $('sBiome').textContent = BIOMES[G.biome].name;
+  $('sColony').textContent = G.colony;
+  $('sTime').textContent = fmtTime(G.timeSurvived);
+  $('sCrises').textContent = G.crisesSurvived;
+  $('sSpecies').textContent = G.speciesUnlocked.filter(Boolean).length + '/3';
+
+  setBar('bHydra','lHydra', G.hydration, '%', G.hydration<25?'var(--danger)':G.hydration<50?'var(--warn)':'var(--accent)');
+  setBar('bFood','lFood', G.food, '%', G.food<25?'var(--danger)':G.food<50?'var(--warn)':'var(--moss)');
+  setBar('bRad','lRad', G.radiation, '%', G.radiation>60?'var(--danger)':G.radiation>30?'var(--warn)':'var(--warn)');
+  setBar('bHP','lHP', G.hp, '%', G.hp<25?'var(--danger)':G.hp<50?'var(--warn)':'var(--hp)');
+
+  // Temperature bar is special: map range to 0-100 visual
+  const tNorm = clamp((G.temperature + 273) / (500+273) * 100, 0, 100);
+  $('bTemp').style.width = tNorm + '%';
+  $('bTemp').style.background = G.temperature < -50 ? 'var(--ice)' : G.temperature > 100 ? 'var(--danger)' : 'var(--hp)';
+  $('lTemp').textContent = G.temperature.toFixed(0) + 'C';
+}
+
+function setBar(barId, labelId, val, suffix, color) {
+  $(barId).style.width = clamp(val,0,100) + '%';
+  $(barId).style.background = color;
+  $(labelId).textContent = Math.round(val) + suffix;
+}
+
+function updateBiomeButtons() {
+  document.querySelectorAll('#biome-bar button').forEach(btn => {
+    const i = +btn.dataset.biome;
+    btn.disabled = !G.biomesUnlocked[i];
+    btn.classList.toggle('active', i === G.biome);
+  });
+}
+
+function updateSpeciesButtons() {
+  document.querySelectorAll('#species-bar button').forEach(btn => {
+    const i = +btn.dataset.sp;
+    btn.disabled = !G.speciesUnlocked[i];
+    btn.classList.toggle('active', i === G.species);
+  });
+}
+
+// ---- Helpers ----
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function dist(a, b) { return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2); }
+function fmtTime(s) { const m=Math.floor(s/60); return m+':'+(Math.floor(s%60)+'').padStart(2,'0'); }
+
+function screenShake(amt) { G.shakeT = amt; }
+
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    G.particles.push({
+      x, y, vx:(Math.random()-0.5)*60, vy:(Math.random()-0.5)*60,
+      size:1+Math.random()*2, color, life:1
+    });
+  }
+}
+
+function addLog(msg, cls) {
+  const el = $('log');
+  const d = document.createElement('div');
+  d.className = 'entry ' + (cls||'');
+  d.textContent = msg;
+  el.prepend(d);
+  // Trim log
+  while (el.children.length > 50) el.removeChild(el.lastChild);
+}
+
+function addDiscovery(fact) {
+  if (G.discoverySet.has(fact)) return;
+  G.discoverySet.add(fact);
+  G.discoveries.push(fact);
+  const el = $('disc-list');
+  const d = document.createElement('div');
+  d.style.cssText = 'padding:2px 0;border-bottom:1px solid #1a1040;font-size:10px;color:#c0a0f0';
+  d.textContent = G.discoveries.length + '. ' + fact;
+  el.prepend(d);
+  addLog('DISCOVERY: ' + fact, 'fact');
+  announce('New discovery: ' + fact);
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._tid);
+  toast._tid = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function announce(msg) {
+  $('sr-announce').textContent = msg;
+}
+
+function showModal(title, body, btnText, cb) {
+  $('modal-title').textContent = title;
+  $('modal-body').textContent = body;
+  $('modal-btn').textContent = btnText || 'OK';
+  $('modal').classList.add('show');
+  $('modal-btn').onclick = () => { $('modal').classList.remove('show'); if(cb)cb(); };
+  $('modal-btn').focus();
+}
+
+// ---- Save/Load ----
+function saveGame() {
+  const data = {
+    biome:G.biome, species:G.species, colony:G.colony, maxColony:G.maxColony,
+    hydration:G.hydration, temperature:G.temperature, radiation:G.radiation,
+    food:G.food, hp:G.hp, timeSurvived:G.timeSurvived,
+    crisesSurvived:G.crisesSurvived, speciesUnlocked:G.speciesUnlocked,
+    biomesUnlocked:G.biomesUnlocked, discoveries:G.discoveries,
+    totalColony:G.totalColony, biomesVisited:[...G.biomesVisited],
+    speed:G.speed,
+  };
+  try {
+    localStorage.setItem('tardigrade-save', JSON.stringify(data));
+    toast('Game saved!');
+    addLog('Game saved.', 'info');
+  } catch(e) {
+    toast('Save failed.');
+  }
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem('tardigrade-save');
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    G.biome = d.biome||0; G.species = d.species||0;
+    G.colony = d.colony||1; G.maxColony = d.maxColony||1;
+    G.hydration = d.hydration||80; G.temperature = d.temperature||22;
+    G.radiation = d.radiation||10; G.food = d.food||60;
+    G.hp = d.hp||100; G.timeSurvived = d.timeSurvived||0;
+    G.crisesSurvived = d.crisesSurvived||0;
+    G.speciesUnlocked = d.speciesUnlocked||[true,false,false];
+    G.biomesUnlocked = d.biomesUnlocked||[true,false,false,false,false];
+    G.discoveries = d.discoveries||[];
+    G.discoverySet = new Set(G.discoveries);
+    G.totalColony = d.totalColony||1;
+    G.biomesVisited = new Set(d.biomesVisited||[0]);
+    G.speed = d.speed||1;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ---- Input ----
+function setupInput() {
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if ($('modal').classList.contains('show')) {
+      if (e.key === 'Enter' || e.key === ' ') { $('modal-btn').click(); e.preventDefault(); }
+      return;
+    }
+    const k = e.key.toLowerCase();
+    if (G.dead) {
+      if (e.key === 'Enter') { restartGame(); e.preventDefault(); }
+      return;
+    }
+    if (k === 'p' || k === ' ') { togglePause(); e.preventDefault(); }
+    else if (k === 'e') doEat();
+    else if (k === 'd') doDrink();
+    else if (k === 't') doTun();
+    else if (k === 'w') doWake();
+    else if (k === 'r') doReproduce();
+    else if (k === 'm') doExplore();
+    else if (k === 'h') toggleHC();
+    else if (k === '?' || k === '/') showHelp();
+    else if (k === '+' || k === '=') toggleSpeed();
+    else if (k === 's' && e.ctrlKey) { saveGame(); e.preventDefault(); }
+    // Number keys for biome quick-switch
+    else if (k >= '1' && k <= '5') changeBiome(+k - 1);
+  });
+
+  // Button clicks
+  $('aEat').onclick = doEat;
+  $('aDrink').onclick = doDrink;
+  $('aTun').onclick = doTun;
+  $('aWake').onclick = doWake;
+  $('aRepro').onclick = doReproduce;
+  $('aMove').onclick = doExplore;
+
+  // Biome buttons
+  document.querySelectorAll('#biome-bar button').forEach(btn => {
+    btn.onclick = () => changeBiome(+btn.dataset.biome);
+  });
+
+  // Species buttons
+  document.querySelectorAll('#species-bar button').forEach(btn => {
+    btn.onclick = () => changeSpecies(+btn.dataset.sp);
+  });
+
+  // A11y bar
+  $('aHC').onclick = toggleHC;
+  $('aPause').onclick = togglePause;
+  $('aSpeed').onclick = toggleSpeed;
+  $('aSave').onclick = saveGame;
+  $('aHelp').onclick = showHelp;
+
+  // Canvas touch/click — move lead tardigrade toward click
+  C.addEventListener('pointerdown', e => {
+    if (G.inTun || G.dead || G.paused) return;
+    const rect = C.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const scaleY = H / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+    if (G.tardis.length > 0) {
+      G.tardis[0].targetX = mx;
+      G.tardis[0].targetY = my;
+    }
+  });
+}
+
+function togglePause() {
+  G.paused = !G.paused;
+  $('aPause').classList.toggle('on', G.paused);
+  $('aPause').textContent = G.paused ? 'Resume' : 'Pause';
+  announce(G.paused ? 'Game paused.' : 'Game resumed.');
+}
+
+function toggleHC() {
+  document.body.classList.toggle('hc');
+  $('aHC').classList.toggle('on');
+  announce(document.body.classList.contains('hc') ? 'High contrast mode on.' : 'High contrast mode off.');
+}
+
+function toggleSpeed() {
+  G.speed = G.speed === 1 ? 2 : 1;
+  $('aSpeed').textContent = 'Speed: ' + G.speed + 'x';
+  $('aSpeed').classList.toggle('on', G.speed > 1);
+  toast('Speed: ' + G.speed + 'x');
+}
+
+function showHelp() {
+  showModal('Controls & Help',
+    'KEYBOARD: E=Eat, D=Drink, T=Tun, W=Wake, R=Reproduce, M=Explore, P/Space=Pause, H=Contrast, +=Speed, 1-5=Biomes, Ctrl+S=Save, ?=Help.\n\n' +
+    'MOUSE/TOUCH: Click the game world to move your lead tardigrade.\n\n' +
+    'GOAL: Survive extreme environments, grow your colony, unlock all 3 species and 5 biomes. Enter tun state (cryptobiosis) to survive crises.\n\n' +
+    'TIPS: Forage for food and water regularly. Enter tun state before crises kill you. Different species resist different threats.',
+    'Got it!');
+}
+
+function restartGame() {
+  G = newGame();
+  initWorld();
+  updateBiomeButtons();
+  updateSpeciesButtons();
+  $('log').innerHTML = '';
+  $('disc-list').innerHTML = '';
+  $('aTun').disabled = false;
+  $('aWake').disabled = true;
+  $('aEat').disabled = false;
+  $('aDrink').disabled = false;
+  $('aRepro').disabled = false;
+  $('aMove').disabled = false;
+  addLog('A new colony begins in the Moss Forest...', 'good');
+  addDiscovery(FACTS[0]);
+  announce('New game started. You are a Hypsibius tardigrade in the Moss Forest.');
+}
+
+// ---- Game Loop ----
+let lastTime = 0;
+function gameLoop(now) {
+  const dt = Math.min((now - lastTime) / 1000, 0.1); // cap dt
+  lastTime = now;
+  update(dt);
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// ---- Init ----
+function init() {
+  const loaded = loadGame();
+  if (!loaded) {
+    addLog('Welcome! You are a Hypsibius tardigrade in the Moss Forest.', 'good');
+    addLog('Forage [E], drink [D], reproduce [R], or enter tun state [T] to survive.', 'info');
+    addDiscovery(FACTS[0]);
+  } else {
+    addLog('Save loaded. Welcome back!', 'good');
+  }
+  initWorld();
+  updateBiomeButtons();
+  updateSpeciesButtons();
+  setupInput();
+
+  // Show welcome modal on first play
+  if (!loaded) {
+    showModal('Tardigrade Survival',
+      'You are a tardigrade — Earth\'s most indestructible micro-animal. Survive extreme environments, grow your colony, and unlock new species and biomes.\n\n' +
+      'Forage for food and water. When danger strikes, enter cryptobiosis (tun state) to endure. But you can\'t eat or move while in tun!\n\n' +
+      'Controls: E=Eat, D=Drink, T=Tun, W=Wake, R=Reproduce, M=Explore, or click the game world.',
+      'Begin Survival');
+  }
+
+  lastTime = performance.now();
+  requestAnimationFrame(gameLoop);
+}
+
+init();
+</script>
+</body>
+</html>

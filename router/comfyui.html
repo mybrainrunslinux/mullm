@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ComfyUI Studio — muLLM</title>
+<style>
+/* ── Design tokens ── */
+:root {
+  --bg:        #0a0a0f;
+  --bg2:       #111118;
+  --bg3:       #1a1a25;
+  --bg4:       #22223a;
+  --border:    #2a2a50;
+  --gold:      #d4af37;
+  --gold-dim:  #8a6f20;
+  --blue:      #38bdf8;
+  --green:     #22c55e;
+  --red:       #ef4444;
+  --purple:    #a855f7;
+  --text:      #e2e8f0;
+  --text-dim:  #94a3b8;
+  --text-faint:#475569;
+  --radius:    10px;
+  --radius-lg: 16px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Header ── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+
+.header-brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.header h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: -0.02em;
+}
+
+.header-sub {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.nav-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nav-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.nav-links a:hover,
+.nav-links a:focus-visible {
+  color: var(--gold);
+  border-color: var(--gold-dim);
+  outline: none;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.btn-open-comfy {
+  background: var(--bg4);
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-open-comfy:hover,
+.btn-open-comfy:focus-visible {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: #fff;
+  outline: none;
+}
+
+/* ── Status bar ── */
+.status-bar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+.status-dot.online { background: var(--green); }
+.status-dot.offline { background: var(--red); }
+
+.status-text { font-size: 0.75rem; }
+
+/* ── Main ── */
+.main {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Section header ── */
+.section-heading {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 12px;
+}
+
+/* ── Preset grid ── */
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  gap: 16px;
+}
+
+/* ── Preset card ── */
+.preset-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.preset-card:focus-within {
+  border-color: var(--gold-dim);
+  box-shadow: 0 0 0 1px var(--gold-dim);
+}
+
+.preset-card.error-state {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 30%, transparent);
+}
+
+.preset-card.success-state {
+  border-color: var(--green);
+}
+
+/* Card header strip */
+.card-header {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.card-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: saturate(0.85);
+}
+
+.card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.card-model {
+  font-size: 0.72rem;
+  color: var(--gold-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+.card-desc {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.card-badge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.badge-free {
+  background: color-mix(in srgb, var(--green) 15%, transparent);
+  color: var(--green);
+  border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
+}
+
+.badge-wip {
+  background: color-mix(in srgb, var(--purple) 15%, transparent);
+  color: var(--purple);
+  border: 1px solid color-mix(in srgb, var(--purple) 30%, transparent);
+}
+
+/* Card body */
+.card-body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+/* Form elements */
+.field-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 5px;
+}
+
+textarea, input[type="text"], input[type="url"], select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 9px 12px;
+  transition: border-color 0.15s;
+  outline: none;
+  resize: vertical;
+}
+
+textarea:focus, input:focus, select:focus {
+  border-color: var(--gold-dim);
+}
+
+textarea { min-height: 90px; }
+select option { background: var(--bg3); }
+
+/* Slider */
+.slider-row { display: flex; flex-direction: column; gap: 5px; }
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.slider-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.slider-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+/* Toggle */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.toggle-info {}
+
+.toggle-label {
+  font-size: 0.82rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.toggle-sub {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input { display: none; }
+
+.toggle-switch .slider-track {
+  position: absolute;
+  inset: 0;
+  background: var(--bg4);
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.toggle-switch .slider-track::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch input:checked + .slider-track {
+  background: color-mix(in srgb, var(--gold) 20%, var(--bg4));
+  border-color: var(--gold-dim);
+}
+
+.toggle-switch input:checked + .slider-track::before {
+  transform: translateX(18px);
+  background: var(--gold);
+}
+
+.toggle-switch input:focus-visible + .slider-track {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--bg3);
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: var(--gold-dim);
+  background: color-mix(in srgb, var(--gold) 5%, var(--bg3));
+}
+
+.drop-zone-icon { font-size: 1.6rem; margin-bottom: 6px; }
+
+.drop-zone-text {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.drop-zone-sub {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.drop-zone-selected {
+  font-size: 0.8rem;
+  color: var(--green);
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+/* Progress bar */
+.progress-wrap {
+  display: none;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.progress-wrap.visible { display: flex; }
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.progress-label { color: var(--text-dim); }
+.progress-time { color: var(--gold); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.progress-bar-track {
+  height: 6px;
+  background: var(--bg4);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.4s ease;
+  animation: pulse-glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-glow {
+  from { filter: brightness(0.9); }
+  to   { filter: brightness(1.3); }
+}
+
+/* Status message */
+.card-status {
+  font-size: 0.78rem;
+  padding: 8px 10px;
+  border-radius: 7px;
+  display: none;
+}
+
+.card-status.visible { display: block; }
+
+.card-status.status-error {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  color: var(--red);
+  border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
+}
+
+.card-status.status-info {
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  color: var(--blue);
+  border: 1px solid color-mix(in srgb, var(--blue) 25%, transparent);
+}
+
+.card-status.status-success {
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  color: var(--green);
+  border: 1px solid color-mix(in srgb, var(--green) 25%, transparent);
+}
+
+/* Video preview */
+.video-preview {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.video-preview.visible { display: flex; }
+
+.video-preview video {
+  width: 100%;
+  border-radius: var(--radius);
+  background: #000;
+  max-height: 220px;
+  object-fit: contain;
+}
+
+.video-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-action {
+  flex: 1;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  text-align: center;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.btn-action:hover,
+.btn-action:focus-visible {
+  color: var(--text);
+  border-color: var(--gold-dim);
+  outline: none;
+}
+
+/* GLB result */
+.glb-result {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.glb-result.visible { display: flex; }
+
+.glb-info {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  background: var(--bg3);
+  border-radius: 7px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+}
+
+/* I2V image preview */
+.img-thumb {
+  display: none;
+  width: 100%;
+  max-height: 140px;
+  object-fit: contain;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: #000;
+}
+
+.img-thumb.visible { display: block; }
+
+/* Card footer — Generate button */
+.card-footer {
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-generate {
+  width: 100%;
+  background: linear-gradient(135deg, var(--gold-dim), color-mix(in srgb, var(--gold) 70%, #fff));
+  border: none;
+  border-radius: var(--radius);
+  color: #0a0a0f;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 11px 20px;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+.btn-generate:hover:not(:disabled),
+.btn-generate:focus-visible:not(:disabled) {
+  filter: brightness(1.1);
+  outline: none;
+}
+
+.btn-generate:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-generate:disabled {
+  filter: brightness(0.5);
+  cursor: not-allowed;
+}
+
+.btn-generate .spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #0a0a0f4a;
+  border-top-color: #0a0a0f;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+  display: none;
+}
+
+.btn-generate.loading .spinner { display: block; }
+.btn-generate.loading .btn-label::after { content: '...'; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Open Node card (special full-width) ── */
+.open-node-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  text-decoration: none;
+  transition: border-color 0.2s, background 0.15s;
+  cursor: pointer;
+}
+
+.open-node-card:hover,
+.open-node-card:focus-visible {
+  border-color: var(--gold-dim);
+  background: color-mix(in srgb, var(--gold) 4%, var(--bg2));
+  outline: none;
+}
+
+.open-node-icon { font-size: 2.2rem; flex-shrink: 0; }
+
+.open-node-meta { flex: 1; }
+
+.open-node-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.open-node-sub {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+.open-node-arrow {
+  font-size: 1.3rem;
+  color: var(--gold-dim);
+  flex-shrink: 0;
+}
+
+/* ── Recent outputs ── */
+.recent-section {}
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+
+.recent-empty {
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 32px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.recent-thumb {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s;
+}
+
+.recent-thumb:hover { border-color: var(--gold-dim); }
+
+.recent-thumb video {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  background: #000;
+  display: block;
+}
+
+.recent-thumb-info {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.recent-thumb-prompt {
+  font-size: 0.73rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-thumb-meta {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+}
+
+.recent-thumb-link {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+/* Tooltip */
+[title] { cursor: help; }
+
+.has-tooltip {
+  position: relative;
+}
+
+.has-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.72rem;
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+}
+
+.has-tooltip:hover::after,
+.has-tooltip:focus-visible::after {
+  opacity: 1;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .header { padding: 12px 14px; }
+  .main { padding: 14px; }
+  .card-header { padding: 12px 14px 10px; }
+  .card-body { padding: 12px 14px; }
+  .card-footer { padding: 10px 14px 14px; }
+  .header-actions { width: 100%; order: 3; }
+  .btn-open-comfy { width: 100%; justify-content: center; }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Focus visible polyfill ── */
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="header" role="banner">
+  <div class="header-brand">
+    <h1>muLLM &times; ComfyUI</h1>
+    <span class="header-sub">Generation Studio</span>
+  </div>
+
+  <nav class="nav-links" aria-label="Site navigation">
+    <a href="/chat" title="Go to Chat">Chat</a>
+    <a href="/dashboard" title="Go to Dashboard">Dashboard</a>
+    <a href="/video" title="Go to Video page">Video</a>
+    <a href="/3d" title="Go to 3D page">3D</a>
+  </nav>
+
+  <div class="header-actions">
+    <a
+      href="http://10.0.0.165:8188"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="btn-open-comfy has-tooltip"
+      data-tooltip="Open ComfyUI node graph in new tab"
+      aria-label="Open ComfyUI interface in a new tab"
+    >Open ComfyUI &#8599;</a>
+  </div>
+</header>
+
+<!-- ── Status bar ── -->
+<div class="status-bar" role="status" aria-live="polite">
+  <span class="status-dot" id="statusDot" aria-hidden="true"></span>
+  <span class="status-text" id="statusText">Checking ComfyUI&hellip;</span>
+</div>
+
+<!-- ── Main ── -->
+<main class="main" id="main">
+
+  <!-- Preset cards -->
+  <section aria-labelledby="presetsHeading">
+    <h2 class="section-heading" id="presetsHeading">Generation Presets</h2>
+    <div class="presets-grid" id="presetsGrid">
+
+      <!-- ── Card 1: Text → Video ── -->
+      <article class="preset-card" id="card-t2v" aria-label="Text to Video preset">
+        <div class="card-header">
+          <span class="card-icon" aria-hidden="true">&#127916;</span>
+          <div class="card-meta">
+            <div class="card-title">Text &rarr; Video</div>
+            <div class="card-model">Wan2.2 T2V 14B</div>
+            <div class="card-desc">Generate a short video clip from a text prompt. Runs locally on RTX 5090.</div>
+          </div>
+          <span class="card-badge badge-free" title="Zero cloud cost — runs locally">$0</span>
+        </div>
+
+        <div class="card-body">
+          <div>
+            <label class="field-label" for="t2v-prompt">Prompt</label>
+            <textarea
+              id="t2v-prompt"
+              placeholder="A slow-motion wave crashing on a rocky shore at golden hour, cinematic, 4K"
+              aria-describedby="t2v-prompt-hint"
+            >A futuristic city at night with neon lights reflecting on rain-soaked streets, cyberpunk aesthetic, cinematic depth of field</textarea>
+            <span id="t2v-prompt-hint" class="toggle-sub" style="display:block;margin-top:4px;">Be descriptive — style, lighting, mood help a lot.</span>
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-header">
+              <span class="slider-label" id="dur-label">Duration</span>
+              <span class="slider-value" id="t2v-dur-val">2s</span>
+            </div>
+            <input
+              type="range" min="1" max="4" step="1" value="2"
+              id="t2v-duration"
+              aria-labelledby="dur-label"
+              aria-valuenow="2"
+              aria-valuetext="2 seconds"
+              oninput="updateSlider('t2v-duration','t2v-dur-val',this.value,'s'); this.setAttribute('aria-valuenow',this.value); this.setAttribute('aria-valuetext',this.value+' seconds')"
+            >
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Upscale 4&times; after generation</div>
+              <div class="toggle-sub">Real-ESRGAN — adds ~2min post-processing</div>
+            </div>
+            <label class="toggle-switch" aria-label="Enable Real-ESRGAN upscale after generation">
+              <input type="checkbox" id="t2v-upscale">
+              <span class="slider-track"></span>
+            </label>
+          </div>
+
+          <div class="progress-wrap" id="t2v-progress" role="status" aria-live="polite">
+            <div class="progress-header">
+              <span class="progress-label" id="t2v-progress-label">Generating&hellip;</span>
+              <span class="progress-time" id="t2v-elapsed">0:00</span>
+            </div>
+            <div class="progress-bar-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-labelledby="t2v-progress-label" id="t2v-progress-bar-aria">
+              <div class="progress-bar-fill" id="t2v-bar"></div>
+            </div>
+          </div>
+
+          <div class="video-preview" id="t2v-preview">
+            <video id="t2v-video" controls loop playsinline muted aria-label="Generated video preview">
+              Your browser does not support video.
+            </video>
+            <div class="video-actions">
+              <a id="t2v-download" class="btn-action" download aria-label="Download generated video">&#8681; Download</a>
+              <button class="btn-action has-tooltip" data-tooltip="Send to Upscale card" onclick="sendToUpscale('t2v')" aria-label="Send this video to the Upscale card">&#8679; Upscale</button>
+            </div>
+          </div>
+
+          <div class="card-status" id="t2v-status" role="alert"></div>
+        </div>
+
+        <div class="card-footer">
+          <button
+            class="btn-generate"
+            id="t2v-btn"
+            onclick="generateT2V()"
+            aria-label="Generate video from text prompt"
+            title="POST /api/video — runs on local RTX 5090, $0"
+          >
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-label">Generate &rarr;</span>
+          </button>
+        </div>
+      </article>
+
+      <!-- ── Card 2: Image → Video ── -->
+      <article class="preset-card" id="card-i2v" aria-label="Image to Video preset">
+        <div class="card-header">
+          <span class="card-icon" aria-hidden="true">&#128444;&#65039;&#8594;&#127916;</span>
+          <div class="card-meta">
+            <div class="card-title">Image &rarr; Video</div>
+            <div class="card-model">Wan2.2 I2V 14B</div>
+            <div class="card-desc">Animate a still image into a short video clip using the I2V model.</div>
+          </div>
+          <span class="card-badge badge-wip" title="I2V workflow in progress">Beta</span>
+        </div>
+
+        <div class="card-body">
+          <div>
+            <label class="field-label" for="i2v-url">Image URL or Upload</label>
+            <input
+              type="url"
+              id="i2v-url"
+              placeholder="https://example.com/photo.jpg  (or drag-drop below)"
+              oninput="previewI2VUrl(this.value)"
+              aria-describedby="i2v-url-hint"
+            >
+            <span id="i2v-url-hint" class="toggle-sub" style="display:block;margin-top:4px;">Provide a URL or use the file picker below.</span>
+          </div>
+
+          <div style="position:relative;">
+            <div
+              class="drop-zone"
+              id="i2v-drop"
+              role="button"
+              tabindex="0"
+              aria-label="Drop an image here or click to upload"
+              onkeydown="if(event.key==='Enter'||event.key===' ')document.getElementById('i2v-file').click()"
+              ondragover="dragOver(event,'i2v-drop')"
+              ondragleave="dragLeave('i2v-drop')"
+              ondrop="dropFile(event,'i2v')"
+            >
+              <input
+                type="file"
+                id="i2v-file"
+                accept="image/*"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"
+                onchange="fileSelected(this,'i2v')"
+                aria-label="Upload image file"
+              >
+              <div class="drop-zone-icon" aria-hidden="true">&#128444;&#65039;</div>
+              <div class="drop-zone-text">Drop image here or click to upload</div>
+              <div class="drop-zone-sub">PNG, JPG, WebP &mdash; max 20 MB</div>
+              <div class="drop-zone-selected" id="i2v-file-name"></div>
+            </div>
+          </div>
+
+          <img id="i2v-thumb" class="img-thumb" alt="Selected source image preview" src="#">
+
+          <div>
+            <label class="field-label" for="i2v-prompt">Motion Prompt <span style="font-weight:400;color:var(--text-faint)">(optional)</span></label>
+            <textarea
+              id="i2v-prompt"
+              style="min-height:70px;"
+              placeholder="Camera slowly zooms out, gentle breeze moves the leaves"
+            ></textarea>
+          </div>
+
+          <div class="progress-wrap" id="i2v-progress" role="status" aria-live="polite">
+            <div class="progress-header">
+              <span class="progress-label" id="i2v-progress-label">Generating&hellip;</span>
+              <span class="progress-time" id="i2v-elapsed">0:00</span>
+            </div>
+            <div class="progress-bar-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-labelledby="i2v-progress-label">
+              <div class="progress-bar-fill" id="i2v-bar"></div>
+            </div>
+          </div>
+
+          <div class="video-preview" id="i2v-preview">
+            <video id="i2v-video" controls loop playsinline muted aria-label="Generated video preview">
+              Your browser does not support video.
+            </video>
+            <div class="video-actions">
+              <a id="i2v-download" class="btn-action" download aria-label="Download generated video">&#8681; Download</a>
+            </div>
+          </div>
+
+          <div class="card-status" id="i2v-status" role="alert"></div>
+        </div>
+
+        <div class="card-footer">
+          <button
+            class="btn-generate"
+            id="i2v-btn"
+            onclick="generateI2V()"
+            aria-label="Animate image to video"
+            title="POST /api/video — I2V mode, local RTX 5090, $0"
+          >
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-label">Animate &rarr;</span>
+          </button>
+        </div>
+      </article>
+
+      <!-- ── Card 3: Text → 3D ── -->
+      <article class="preset-card" id="card-3d" aria-label="Text to 3D Model preset">
+        <div class="card-header">
+          <span class="card-icon" aria-hidden="true">&#128255;</span>
+          <div class="card-meta">
+            <div class="card-title">Text &rarr; 3D Model</div>
+            <div class="card-model">Hunyuan3D via ComfyUI</div>
+            <div class="card-desc">SDXL reference image + Hunyuan3Dv2 &rarr; VoxelToMesh &rarr; GLB. Downloads in seconds.</div>
+          </div>
+          <span class="card-badge badge-free" title="Zero cloud cost — runs locally">$0</span>
+        </div>
+
+        <div class="card-body">
+          <div>
+            <label class="field-label" for="td-prompt">Object Description</label>
+            <textarea
+              id="td-prompt"
+              style="min-height:80px;"
+              placeholder="A medieval iron sword with ornate crossguard, highly detailed"
+            >A futuristic power armor helmet, glossy black visor, sci-fi design, hard-surface details</textarea>
+          </div>
+
+          <div>
+            <label class="field-label" for="td-style">Style</label>
+            <select id="td-style" aria-label="3D model style">
+              <option value="realistic">Realistic</option>
+              <option value="stylized">Stylized</option>
+              <option value="lowpoly">Low Poly</option>
+              <option value="anime">Anime / Toon</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field-label" for="td-name">Asset Name <span style="font-weight:400;color:var(--text-faint)">(slug)</span></label>
+            <input type="text" id="td-name" value="my-model" placeholder="my-model" aria-describedby="td-name-hint">
+            <span id="td-name-hint" class="toggle-sub" style="display:block;margin-top:4px;">Used for the output filename. Lowercase, no spaces.</span>
+          </div>
+
+          <div class="progress-wrap" id="td-progress" role="status" aria-live="polite">
+            <div class="progress-header">
+              <span class="progress-label" id="td-progress-label">Queued on ComfyUI&hellip;</span>
+              <span class="progress-time" id="td-elapsed">0:00</span>
+            </div>
+            <div class="progress-bar-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-labelledby="td-progress-label">
+              <div class="progress-bar-fill" id="td-bar"></div>
+            </div>
+          </div>
+
+          <div class="glb-result" id="td-result">
+            <div class="glb-info" id="td-glb-info">GLB ready</div>
+            <div class="video-actions">
+              <a id="td-view" class="btn-action" href="/3d" target="_blank" rel="noopener" aria-label="Open 3D viewer">&#128064; View in 3D</a>
+              <a id="td-comfy-check" class="btn-action" href="http://10.0.0.165:8188" target="_blank" rel="noopener" aria-label="Check ComfyUI for output">Check ComfyUI &#8599;</a>
+            </div>
+          </div>
+
+          <div class="card-status" id="td-status" role="alert"></div>
+        </div>
+
+        <div class="card-footer">
+          <button
+            class="btn-generate"
+            id="td-btn"
+            onclick="generate3D()"
+            aria-label="Generate 3D model from text"
+            title="POST /api/3d/comfyui — Hunyuan3Dv2 pipeline, local, $0"
+          >
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-label">Generate 3D &rarr;</span>
+          </button>
+        </div>
+      </article>
+
+      <!-- ── Card 4: Upscale ── -->
+      <article class="preset-card" id="card-up" aria-label="Upscale video preset">
+        <div class="card-header">
+          <span class="card-icon" aria-hidden="true">&#11014;&#65039;</span>
+          <div class="card-meta">
+            <div class="card-title">Upscale Video 4&times;</div>
+            <div class="card-model">Real-ESRGAN x4</div>
+            <div class="card-desc">Upscale a video to 1080p, 2K, or 4K using Real-ESRGAN. Drop a file or paste a URL.</div>
+          </div>
+          <span class="card-badge badge-wip" title="Upscale requires adapter">Adapter</span>
+        </div>
+
+        <div class="card-body">
+          <div>
+            <label class="field-label" for="up-url">Video URL <span style="font-weight:400;color:var(--text-faint)">(or upload below)</span></label>
+            <input
+              type="url"
+              id="up-url"
+              placeholder="https://example.com/video.mp4  or /api/video/abc123/file"
+              aria-describedby="up-url-hint"
+            >
+            <span id="up-url-hint" class="toggle-sub" style="display:block;margin-top:4px;">Paste any accessible MP4/WebM URL, or use the file picker below.</span>
+          </div>
+
+          <div style="position:relative;">
+            <div
+              class="drop-zone"
+              id="up-drop"
+              role="button"
+              tabindex="0"
+              aria-label="Drop a video here or click to upload"
+              onkeydown="if(event.key==='Enter'||event.key===' ')document.getElementById('up-file').click()"
+              ondragover="dragOver(event,'up-drop')"
+              ondragleave="dragLeave('up-drop')"
+              ondrop="dropFile(event,'up')"
+            >
+              <input
+                type="file"
+                id="up-file"
+                accept="video/*"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"
+                onchange="fileSelected(this,'up')"
+                aria-label="Upload video file"
+              >
+              <div class="drop-zone-icon" aria-hidden="true">&#127916;</div>
+              <div class="drop-zone-text">Drop MP4 / WebM here or click to upload</div>
+              <div class="drop-zone-sub">Max 500 MB</div>
+              <div class="drop-zone-selected" id="up-file-name"></div>
+            </div>
+          </div>
+
+          <div>
+            <label class="field-label" for="up-res">Target Resolution</label>
+            <select id="up-res" aria-label="Target upscale resolution">
+              <option value="1080p">1080p (1920&times;1080)</option>
+              <option value="2k">2K (2560&times;1440)</option>
+              <option value="4k">4K (3840&times;2160)</option>
+            </select>
+          </div>
+
+          <div class="card-status visible status-info" role="note">
+            &#9432; Real-ESRGAN x4 upscaling. Paste a video URL or upload a file, select target resolution, and click Upscale. Local GPU, $0.
+          </div>
+
+          <div class="card-status" id="up-status" role="alert"></div>
+        </div>
+
+        <div class="card-footer">
+          <button
+            class="btn-generate"
+            id="up-btn"
+            onclick="upscaleVideo()"
+            aria-label="Upscale video with Real-ESRGAN"
+            title="POST /api/video/upscale — Real-ESRGAN x4, local, $0"
+          >
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-label">Upscale &rarr;</span>
+          </button>
+        </div>
+      </article>
+
+    </div><!-- /presets-grid -->
+  </section>
+
+  <!-- Open Node Graph card -->
+  <section aria-labelledby="nodeHeading">
+    <h2 class="section-heading" id="nodeHeading">Advanced</h2>
+    <a
+      href="http://10.0.0.165:8188"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="open-node-card"
+      aria-label="Open full ComfyUI node graph interface in a new tab"
+      title="Opens ComfyUI at http://10.0.0.165:8188"
+    >
+      <span class="open-node-icon" aria-hidden="true">&#128279;</span>
+      <div class="open-node-meta">
+        <div class="open-node-title">Open Full Node Graph</div>
+        <div class="open-node-sub">Advanced workflows, custom LoRAs, multi-stage pipelines, ComfyUI Manager. Full control over every node.</div>
+      </div>
+      <span class="open-node-arrow" aria-hidden="true">&#8599;</span>
+    </a>
+  </section>
+
+  <!-- Recent outputs -->
+  <section aria-labelledby="recentHeading" id="recent-section">
+    <h2 class="section-heading" id="recentHeading">Recent Outputs</h2>
+    <div class="recent-grid" id="recentGrid">
+      <div class="recent-empty" id="recentEmpty">No recent videos yet. Generate one above!</div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+'use strict';
+
+const BASE = window.location.origin; // https://10.0.0.165:6856
+
+// ── Utility ──────────────────────────────────────────────────────────────────
+
+function fmtElapsed(secs) {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function setStatus(id, msg, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `card-status visible status-${type}`;
+  el.textContent = msg;
+}
+
+function clearStatus(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'card-status';
+  el.textContent = '';
+}
+
+function setCardError(cardId, statusId, msg) {
+  document.getElementById(cardId).classList.add('error-state');
+  setStatus(statusId, msg, 'error');
+}
+
+function clearCardState(cardId) {
+  const card = document.getElementById(cardId);
+  card.classList.remove('error-state','success-state');
+}
+
+function setBtnLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  if (loading) {
+    btn.classList.add('loading');
+  } else {
+    btn.classList.remove('loading');
+  }
+}
+
+function updateSlider(inputId, valId, val, suffix='') {
+  const el = document.getElementById(valId);
+  if (el) el.textContent = val + suffix;
+}
+
+function showProgress(prefix, label) {
+  const wrap = document.getElementById(`${prefix}-progress`);
+  if (wrap) wrap.classList.add('visible');
+  const lbl = document.getElementById(`${prefix}-progress-label`);
+  if (lbl) lbl.textContent = label || 'Generating…';
+}
+
+function hideProgress(prefix) {
+  const wrap = document.getElementById(`${prefix}-progress`);
+  if (wrap) wrap.classList.remove('visible');
+}
+
+function updateProgressBar(prefix, pct) {
+  const bar = document.getElementById(`${prefix}-bar`);
+  if (bar) bar.style.width = `${Math.min(100, pct)}%`;
+  const aria = document.getElementById(`${prefix}-progress-bar-aria`);
+  if (aria) aria.setAttribute('aria-valuenow', Math.round(pct));
+}
+
+// Smooth indeterminate progress (oscillates 5%→85% during unknown wait)
+function startIndeterminateProgress(prefix) {
+  let dir = 1, val = 5;
+  return setInterval(() => {
+    val += dir * 0.6;
+    if (val > 85) dir = -1;
+    if (val < 5) dir = 1;
+    updateProgressBar(prefix, val);
+  }, 120);
+}
+
+// ── ComfyUI health check ──────────────────────────────────────────────────────
+
+async function checkComfyUI() {
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  try {
+    const r = await fetch(`${BASE}/api/video`, { method: 'GET' });
+    // If mullm server responds, that's a good proxy for server health.
+    // We don't have a direct ComfyUI health endpoint from this origin.
+    if (r.ok) {
+      dot.className  = 'status-dot online';
+      text.textContent = 'muLLM online — ComfyUI routes ready';
+    } else {
+      dot.className  = 'status-dot offline';
+      text.textContent = `muLLM returned ${r.status}`;
+    }
+  } catch(e) {
+    dot.className  = 'status-dot offline';
+    text.textContent = 'Cannot reach muLLM server';
+  }
+}
+
+// ── Video polling ─────────────────────────────────────────────────────────────
+
+async function pollVideoJob(jobId, prefix, btnId) {
+  const startTs = Date.now();
+  const timer = setInterval(() => {
+    const elapsed = (Date.now() - startTs) / 1000;
+    const el = document.getElementById(`${prefix}-elapsed`);
+    if (el) el.textContent = fmtElapsed(elapsed);
+  }, 500);
+
+  const progress = startIndeterminateProgress(prefix);
+
+  try {
+    while (true) {
+      await new Promise(r => setTimeout(r, 2500));
+      const r = await fetch(`${BASE}/api/video/${jobId}`);
+      if (!r.ok) {
+        clearInterval(timer); clearInterval(progress);
+        setBtnLoading(btnId, false); hideProgress(prefix);
+        setCardError(`card-${prefix}`, `${prefix}-status`, `Poll error: ${r.status}`);
+        return;
+      }
+      const data = await r.json();
+      if (data.status === 'done') {
+        clearInterval(timer); clearInterval(progress);
+        updateProgressBar(prefix, 100);
+        setTimeout(() => hideProgress(prefix), 600);
+        setBtnLoading(btnId, false);
+        document.getElementById(`card-${prefix}`).classList.add('success-state');
+        // Show video preview
+        const video = document.getElementById(`${prefix}-video`);
+        const dl    = document.getElementById(`${prefix}-download`);
+        if (video && data.output_url) {
+          video.src = `${BASE}${data.output_url}`;
+          video.load();
+          if (dl) dl.href = `${BASE}${data.output_url}`;
+        }
+        const preview = document.getElementById(`${prefix}-preview`);
+        if (preview) preview.classList.add('visible');
+        setStatus(`${prefix}-status`, `Done in ${fmtElapsed(data.elapsed_s || 0)}`, 'success');
+        loadRecentVideos();
+        return;
+      }
+      if (data.status === 'error') {
+        clearInterval(timer); clearInterval(progress);
+        setBtnLoading(btnId, false); hideProgress(prefix);
+        setCardError(`card-${prefix}`, `${prefix}-status`, data.error || 'Generation failed');
+        return;
+      }
+      // Still running — update label
+      const lbl = document.getElementById(`${prefix}-progress-label`);
+      if (lbl) lbl.textContent = `Generating… ${fmtElapsed(data.elapsed_s || 0)} elapsed`;
+    }
+  } catch(e) {
+    clearInterval(timer); clearInterval(progress);
+    setBtnLoading(btnId, false); hideProgress(prefix);
+    setCardError(`card-${prefix}`, `${prefix}-status`, `Network error: ${e.message}`);
+  }
+}
+
+// ── Text → Video ──────────────────────────────────────────────────────────────
+
+async function generateT2V() {
+  const prompt  = document.getElementById('t2v-prompt').value.trim();
+  const duration = parseInt(document.getElementById('t2v-duration').value, 10);
+  const upscale  = document.getElementById('t2v-upscale').checked;
+
+  if (!prompt) {
+    setCardError('card-t2v','t2v-status','Please enter a prompt.');
+    return;
+  }
+
+  clearCardState('card-t2v');
+  clearStatus('t2v-status');
+  document.getElementById('t2v-preview').classList.remove('visible');
+  setBtnLoading('t2v-btn', true);
+  showProgress('t2v', 'Queuing on ComfyUI…');
+
+  try {
+    const r = await fetch(`${BASE}/api/video`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, duration, upscale }),
+    });
+    const data = await r.json();
+    if (!r.ok || data.error) {
+      setBtnLoading('t2v-btn', false);
+      hideProgress('t2v');
+      setCardError('card-t2v','t2v-status', data.error || `Error ${r.status}`);
+      return;
+    }
+    setStatus('t2v-status', `Job queued (${data.job_id}) — polling…`, 'info');
+    pollVideoJob(data.job_id, 't2v', 't2v-btn');
+  } catch(e) {
+    setBtnLoading('t2v-btn', false);
+    hideProgress('t2v');
+    setCardError('card-t2v','t2v-status', `Network error: ${e.message}`);
+  }
+}
+
+// ── Image → Video ─────────────────────────────────────────────────────────────
+
+let _i2vFileDataUrl = null;
+
+function previewI2VUrl(url) {
+  if (!url) return;
+  const thumb = document.getElementById('i2v-thumb');
+  thumb.src = url;
+  thumb.classList.add('visible');
+  _i2vFileDataUrl = null;
+}
+
+async function generateI2V() {
+  const urlInput = document.getElementById('i2v-url').value.trim();
+  const prompt   = document.getElementById('i2v-prompt').value.trim();
+  const imageUrl = _i2vFileDataUrl || urlInput;
+
+  if (!imageUrl) {
+    setCardError('card-i2v','i2v-status','Please provide an image URL or upload a file.');
+    return;
+  }
+
+  clearCardState('card-i2v');
+  clearStatus('i2v-status');
+  document.getElementById('i2v-preview').classList.remove('visible');
+  setBtnLoading('i2v-btn', true);
+  showProgress('i2v', 'Queuing I2V on ComfyUI…');
+
+  try {
+    const body = { mode: 'i2v', image_url: imageUrl, prompt };
+    const r = await fetch(`${BASE}/api/video`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!r.ok || data.error) {
+      setBtnLoading('i2v-btn', false);
+      hideProgress('i2v');
+      setCardError('card-i2v','i2v-status', data.error || `Error ${r.status}`);
+      return;
+    }
+    setStatus('i2v-status', `Job queued (${data.job_id}) — polling…`, 'info');
+    pollVideoJob(data.job_id, 'i2v', 'i2v-btn');
+  } catch(e) {
+    setBtnLoading('i2v-btn', false);
+    hideProgress('i2v');
+    setCardError('card-i2v','i2v-status', `Network error: ${e.message}`);
+  }
+}
+
+// ── Text → 3D ─────────────────────────────────────────────────────────────────
+
+async function generate3D() {
+  const prompt = document.getElementById('td-prompt').value.trim();
+  const style  = document.getElementById('td-style').value;
+  const name   = document.getElementById('td-name').value.trim().replace(/\s+/g,'-').toLowerCase() || 'my-model';
+
+  if (!prompt) {
+    setCardError('card-3d','td-status','Please describe the object to generate.');
+    return;
+  }
+
+  clearCardState('card-3d');
+  clearStatus('td-status');
+  document.getElementById('td-result').classList.remove('visible');
+  setBtnLoading('td-btn', true);
+  showProgress('td', 'Queuing on ComfyUI — SDXL ref image first…');
+
+  const progressTimer = startIndeterminateProgress('td');
+  const startTs = Date.now();
+  const elapsedTimer = setInterval(() => {
+    const el = document.getElementById('td-elapsed');
+    if (el) el.textContent = fmtElapsed((Date.now() - startTs) / 1000);
+  }, 500);
+
+  try {
+    const r = await fetch(`${BASE}/api/3d/comfyui`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, style, name }),
+    });
+    const data = await r.json();
+
+    clearInterval(progressTimer);
+    clearInterval(elapsedTimer);
+    updateProgressBar('td', 100);
+    setTimeout(() => hideProgress('td'), 600);
+    setBtnLoading('td-btn', false);
+
+    if (!r.ok || data.error) {
+      setCardError('card-3d','td-status', data.detail || data.error || `Error ${r.status}`);
+      return;
+    }
+
+    document.getElementById('card-3d').classList.add('success-state');
+    const info = document.getElementById('td-glb-info');
+    if (info) {
+      if (data.stage === 'reference_image') {
+        info.textContent = `Reference image queued on ComfyUI — prompt_id: ${data.prompt_id || 'N/A'}. When it completes, use the generated ${data.reference_prefix || 'reference'} image as the Hunyuan3D input.`;
+      } else {
+        info.textContent = `Mesh queued on ComfyUI — prompt_id: ${data.prompt_id || 'N/A'}. Pipeline: Hunyuan3Dv2 → VoxelToMesh → GLB. Check ComfyUI or /3d gallery for result.`;
+      }
+    }
+    document.getElementById('td-result').classList.add('visible');
+    setStatus('td-status', data.stage === 'reference_image' ? 'Reference image job submitted.' : '3D mesh job submitted.', 'success');
+  } catch(e) {
+    clearInterval(progressTimer);
+    clearInterval(elapsedTimer);
+    setBtnLoading('td-btn', false);
+    hideProgress('td');
+    setCardError('card-3d','td-status', `Network error: ${e.message}`);
+  }
+}
+
+// ── Upscale ───────────────────────────────────────────────────────────────────
+
+let _upFileBlob = null;
+
+async function upscaleVideo() {
+  const urlInput = document.getElementById('up-url').value.trim();
+  const res = document.getElementById('up-res').value;
+
+  if (!urlInput && !_upFileBlob) {
+    setCardError('card-up','up-status','Please provide a video URL or upload a file.');
+    return;
+  }
+
+  clearCardState('card-up');
+  setBtnLoading('up-btn', true);
+  showProgress('up', 'Upscaling with Real-ESRGAN x4… this may take several minutes');
+
+  try {
+    let videoUrl = urlInput;
+
+    // If we have a blob (uploaded file), upload it first
+    if (!videoUrl && _upFileBlob) {
+      showProgress('up', 'Uploading video…');
+      const fd = new FormData();
+      fd.append('file', _upFileBlob, _upFileName || 'video.mp4');
+      const uploadResp = await fetch(API + '/api/video/upload', { method: 'POST', body: fd });
+      if (!uploadResp.ok) throw new Error('Upload failed: ' + uploadResp.status);
+      const uploadData = await uploadResp.json();
+      videoUrl = uploadData.output_url || uploadData.url || '';
+    }
+
+    showProgress('up', 'Running Real-ESRGAN x4 upscale…');
+    const resp = await fetch(API + '/api/video/upscale', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: videoUrl, resolution: res })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || 'Upscale failed: ' + resp.status);
+    }
+
+    const data = await resp.json();
+    setBtnLoading('up-btn', false);
+    hideProgress('up');
+    setCardSuccess('card-up', 'up-status',
+      `Upscale complete! ${data.size_mb} MB · <a href="${data.output_url}" download style="color:var(--teal)">Download ${res} video</a>`);
+
+    // Add video player to card
+    const existingVideo = document.getElementById('up-video');
+    if (existingVideo) existingVideo.remove();
+    const video = document.createElement('video');
+    video.id = 'up-video';
+    video.src = API + data.output_url;
+    video.controls = true;
+    video.style.cssText = 'width:100%;border-radius:8px;margin-top:12px;border:1px solid var(--border2)';
+    document.getElementById('card-up').appendChild(video);
+
+  } catch (err) {
+    setBtnLoading('up-btn', false);
+    hideProgress('up');
+    setCardError('card-up', 'up-status', 'Upscale failed: ' + err.message);
+  }
+}
+
+// ── Send to upscale (from T2V result) ─────────────────────────────────────────
+
+function sendToUpscale(fromPrefix) {
+  const video = document.getElementById(`${fromPrefix}-video`);
+  if (!video || !video.src) return;
+  document.getElementById('up-url').value = video.src;
+  // Scroll to upscale card
+  document.getElementById('card-up').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+
+function dragOver(e, zoneId) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById(zoneId).classList.add('drag-over');
+}
+
+function dragLeave(zoneId) {
+  document.getElementById(zoneId).classList.remove('drag-over');
+}
+
+function dropFile(e, prefix) {
+  e.preventDefault();
+  dragLeave(`${prefix}-drop`);
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  handleFile(file, prefix);
+}
+
+function fileSelected(input, prefix) {
+  const file = input.files[0];
+  if (!file) return;
+  handleFile(file, prefix);
+}
+
+function handleFile(file, prefix) {
+  const nameEl = document.getElementById(`${prefix}-file-name`);
+  if (nameEl) nameEl.textContent = file.name;
+
+  if (prefix === 'i2v') {
+    // Read as data URL for preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      _i2vFileDataUrl = e.target.result;
+      const thumb = document.getElementById('i2v-thumb');
+      if (thumb) {
+        thumb.src = _i2vFileDataUrl;
+        thumb.classList.add('visible');
+      }
+    };
+    reader.readAsDataURL(file);
+  } else if (prefix === 'up') {
+    _upFileBlob = file;
+  }
+}
+
+// ── Recent Videos ─────────────────────────────────────────────────────────────
+
+async function loadRecentVideos() {
+  try {
+    const r = await fetch(`${BASE}/api/video/list`);
+    if (!r.ok) return;
+    const data = await r.json();
+    const videos = (data.videos || []).slice(0, 6);
+    const grid  = document.getElementById('recentGrid');
+    const empty = document.getElementById('recentEmpty');
+
+    if (!videos.length) {
+      if (empty) empty.style.display = '';
+      return;
+    }
+
+    if (empty) empty.style.display = 'none';
+    grid.innerHTML = '';
+
+    videos.forEach((v) => {
+      const url = v.url.startsWith('http') ? v.url : `${BASE}${v.url}`;
+      const card = document.createElement('div');
+      card.className = 'recent-thumb';
+      card.setAttribute('role', 'listitem');
+
+      const prompt = v.prompt ? v.prompt.slice(0, 60) + (v.prompt.length > 60 ? '…' : '') : '(no prompt)';
+
+      card.innerHTML = `
+        <video
+          src="${url}"
+          muted
+          loop
+          autoplay
+          playsinline
+          preload="metadata"
+          aria-label="Recent video: ${prompt.replace(/"/g,'&quot;')}"
+        ></video>
+        <div class="recent-thumb-info">
+          <div class="recent-thumb-prompt" title="${prompt.replace(/"/g,'&quot;')}">${prompt}</div>
+          <div class="recent-thumb-meta">${v.source === 'job' ? 'Generated' : 'File'}</div>
+        </div>
+        <a
+          href="${url}"
+          target="_blank"
+          rel="noopener"
+          class="recent-thumb-link"
+          aria-label="Open video: ${prompt.replace(/"/g,'&quot;')}"
+          title="Open full video"
+        ></a>
+      `;
+      grid.appendChild(card);
+    });
+  } catch(_) {
+    // Fail silently — recent videos are non-critical
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+checkComfyUI();
+loadRecentVideos();
+
+// Refresh recent videos every 30s
+setInterval(loadRecentVideos, 30000);
+</script>
+
+</body>
+</html>

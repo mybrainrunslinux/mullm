@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>muLLM — Code Fiddle</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;--bg4:#243044;
+  --border:#1e2d3d;--border2:#2a3a4d;
+  --green:#22c55e;--teal:#14b8a6;--blue:#3b82f6;--amber:#f59e0b;
+  --coral:#ef6c4c;--purple:#a78bfa;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,sans-serif;
+  color-scheme:dark;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.logo{font-weight:700;font-size:14px;display:flex;align-items:center;gap:0;text-decoration:none;border:none!important;padding:0!important}
+.logo-mu{color:var(--amber);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px;font-family:var(--mono)}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{display:flex;gap:8px;padding:10px 16px;font-size:11px;font-family:var(--mono);align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.nav a{color:var(--text3);text-decoration:none;padding:4px 12px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s}
+.nav a:hover,.nav a.active{color:var(--teal);border-color:var(--teal)}
+.toolbar{display:flex;gap:8px;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap}
+.toolbar button{padding:6px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.2s}
+.toolbar button:hover{color:var(--teal);border-color:var(--teal)}
+.toolbar button.primary{background:var(--teal);color:#000;border-color:var(--teal);font-weight:700}
+.toolbar button.primary:hover{background:var(--green)}
+.toolbar .spacer{flex:1}
+.toolbar select{padding:4px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px}
+.main{display:flex;flex:1;min-height:0}
+.editor-pane{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);min-width:0}
+.preview-pane{flex:1;display:flex;flex-direction:column;min-width:0}
+.pane-header{padding:6px 12px;background:var(--bg2);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px}
+.pane-header .dot{width:6px;height:6px;border-radius:50%;background:var(--teal)}
+textarea{flex:1;width:100%;resize:none;background:var(--bg);color:var(--text);border:none;padding:12px 16px;font-family:var(--mono);font-size:13px;line-height:1.6;tab-size:2;outline:none}
+textarea::placeholder{color:var(--text3)}
+iframe{flex:1;width:100%;border:none;background:#fff}
+.status{padding:4px 16px;background:var(--bg2);border-top:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text3);display:flex;gap:16px}
+@media(max-width:768px){
+  .main{flex-direction:column}
+  .editor-pane{border-right:none;border-bottom:1px solid var(--border);max-height:50vh}
+}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="/" class="logo"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot"></a>
+  <a href="/chat">Chat</a>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/code" class="active">Code</a>
+  <a href="/games">Games</a>
+  <a href="/routes">Routes</a>
+</div>
+
+<div class="toolbar">
+  <button class="primary" onclick="runCode()" title="Run code (Ctrl+Enter)">▶ Run</button>
+  <button onclick="clearEditor()">Clear</button>
+  <button onclick="loadTemplate('html')">HTML Template</button>
+  <button onclick="loadTemplate('canvas')">Canvas Template</button>
+  <button onclick="loadTemplate('game')">Game Template</button>
+  <div class="spacer"></div>
+  <select id="themeSelect" onchange="setPreviewTheme(this.value)">
+    <option value="dark">Dark preview</option>
+    <option value="light">Light preview</option>
+  </select>
+  <button onclick="downloadCode()" title="Download as .html">⬇ Download</button>
+  <button onclick="copyCode()" title="Copy to clipboard">📋 Copy</button>
+</div>
+
+<div class="main">
+  <div class="editor-pane">
+    <div class="pane-header"><span class="dot"></span> EDITOR</div>
+    <textarea id="editor" placeholder="Write HTML, CSS, JS here... Press Ctrl+Enter to run." spellcheck="false"></textarea>
+  </div>
+  <div class="preview-pane">
+    <div class="pane-header"><span class="dot" style="background:var(--green)"></span> PREVIEW</div>
+    <iframe id="preview" sandbox="allow-scripts allow-modals allow-forms"></iframe>
+  </div>
+</div>
+
+<div class="status">
+  <span id="charCount">0 chars</span>
+  <span id="lineCount">0 lines</span>
+  <span>Ctrl+Enter to run</span>
+</div>
+
+<script>
+const editor = document.getElementById('editor');
+const preview = document.getElementById('preview');
+
+function runCode() {
+  const code = editor.value;
+  const blob = new Blob([code], {type: 'text/html'});
+  const url = URL.createObjectURL(blob);
+  preview.src = url;
+  updateStatus();
+}
+
+function clearEditor() {
+  editor.value = '';
+  preview.src = 'about:blank';
+  updateStatus();
+}
+
+function updateStatus() {
+  const code = editor.value;
+  document.getElementById('charCount').textContent = code.length + ' chars';
+  document.getElementById('lineCount').textContent = code.split('\n').length + ' lines';
+}
+
+editor.addEventListener('input', updateStatus);
+
+editor.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    runCode();
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 2;
+  }
+});
+
+function loadTemplate(type) {
+  const templates = {
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { background: #0a0e1a; color: #e2e8f0; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    h1 { color: #14b8a6; }
+  </style>
+</head>
+<body>
+  <h1>Hello muLLM!</h1>
+</body>
+</html>`,
+    canvas: `<!DOCTYPE html>
+<html><head><style>body{margin:0;background:#0a0e1a;overflow:hidden}</style></head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+c.width = innerWidth; c.height = innerHeight;
+
+let t = 0;
+function draw() {
+  ctx.fillStyle = 'rgba(10,14,26,0.1)';
+  ctx.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < 5; i++) {
+    const x = c.width/2 + Math.cos(t + i) * 150;
+    const y = c.height/2 + Math.sin(t * 0.7 + i) * 150;
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = \`hsl(\${(t * 50 + i * 60) % 360}, 80%, 60%)\`;
+    ctx.fill();
+  }
+  t += 0.02;
+  requestAnimationFrame(draw);
+}
+draw();
+<\/script>
+</body></html>`,
+    game: `<!DOCTYPE html>
+<html><head><style>
+body{margin:0;background:#0a0e1a;overflow:hidden;font-family:monospace}
+#ui{position:fixed;top:10px;left:10px;color:#14b8a6;font-size:14px}
+</style></head>
+<body>
+<div id="ui">Score: <span id="score">0</span></div>
+<canvas id="c"></canvas>
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+c.width = innerWidth; c.height = innerHeight;
+
+let player = {x: c.width/2, y: c.height - 60, w: 40, h: 40};
+let score = 0;
+let items = [];
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') player.x -= 20;
+  if (e.key === 'ArrowRight') player.x += 20;
+});
+
+function spawn() {
+  items.push({x: Math.random() * c.width, y: 0, speed: 2 + Math.random() * 3});
+}
+
+function loop() {
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, 0, c.width, c.height);
+
+  // Player
+  ctx.fillStyle = '#14b8a6';
+  ctx.fillRect(player.x - player.w/2, player.y, player.w, player.h);
+
+  // Items
+  items.forEach(it => {
+    it.y += it.speed;
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(it.x, it.y, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (Math.abs(it.x - player.x) < 30 && Math.abs(it.y - player.y) < 30) {
+      score++;
+      document.getElementById('score').textContent = score;
+      it.y = c.height + 100;
+    }
+  });
+  items = items.filter(it => it.y < c.height + 50);
+
+  if (Math.random() < 0.02) spawn();
+  requestAnimationFrame(loop);
+}
+loop();
+<\/script>
+</body></html>`,
+  };
+  editor.value = templates[type] || '';
+  runCode();
+}
+
+function downloadCode() {
+  const blob = new Blob([editor.value], {type: 'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'fiddle.html';
+  a.click();
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(editor.value).then(() => {
+    const btn = event.target;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => btn.textContent = '📋 Copy', 1500);
+  });
+}
+
+function setPreviewTheme(theme) {
+  // Just a hint — the user's code controls the actual preview theme
+}
+
+// Auto-run on load if there's saved code
+const saved = localStorage.getItem('mullm-fiddle');
+if (saved) {
+  editor.value = saved;
+  runCode();
+}
+
+// Auto-save
+setInterval(() => {
+  if (editor.value) localStorage.setItem('mullm-fiddle', editor.value);
+}, 5000);
+
+updateStatus();
+</script>
+</body>
+</html>

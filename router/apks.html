@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM Games — Android APKs</title>
+  <meta name="description" content="Download muLLM AI-generated games as APKs. Install directly on any Android device." />
+  <meta name="theme-color" content="#0a0a12" />
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:       #0a0a12;
+      --bg2:      #10101e;
+      --bg3:      #16162a;
+      --bg4:      #1e1e36;
+      --border:   #252540;
+      --border2:  #323260;
+      --gold:     #c9a227;
+      --gold-dim: rgba(201,162,39,0.12);
+      --gold-glow:0 0 20px rgba(201,162,39,0.3);
+      --gold2:    #e5b93a;
+      --teal:     #14b8a6;
+      --text:     #e8e6ff;
+      --text2:    #9896c0;
+      --text3:    #6664a0;
+      --mono:     "JetBrains Mono", "Fira Code", "Courier New", monospace;
+      --sans:     "DM Sans", "Inter", system-ui, sans-serif;
+      --radius:   10px;
+      --shadow:   0 4px 24px rgba(0,0,0,0.5);
+      color-scheme: dark;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ─── Nav ───────────────────────────────────────────────────── */
+    .nav {
+      display: flex;
+      gap: 8px;
+      padding: 14px 24px;
+      font-size: 11px;
+      font-family: var(--mono);
+      flex-wrap: wrap;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      text-decoration: none;
+      border: none !important;
+      padding: 0 !important;
+    }
+    .logo-mu  { color: var(--gold);   font-family: 'Times New Roman', Georgia, serif; font-size: 18px; font-style: italic; line-height: 14px; }
+    .logo-pipe{ color: var(--text3);  font-size: 20px; line-height: 14px; margin: 0 -1px; font-weight: 400; opacity: 0.5; }
+    .logo-llm { color: var(--teal);   letter-spacing: 1px; font-family: var(--mono); }
+
+    .nav a {
+      color: var(--text3);
+      text-decoration: none;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: color 0.18s, border-color 0.18s;
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .nav a:hover    { color: var(--gold);  border-color: var(--gold); }
+    .nav a.active   { color: var(--gold);  border-color: var(--gold); }
+    .nav a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .nav-spacer { flex: 1; }
+
+    /* ─── Skip link ─────────────────────────────────────────────── */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 8px;
+      background: var(--gold);
+      color: var(--bg);
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 9999;
+      transition: top 0.2s;
+    }
+    .skip-link:focus { top: 8px; }
+
+    /* ─── Hero Header ───────────────────────────────────────────── */
+    .hero {
+      padding: 52px 24px 36px;
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hero h1 {
+      font-size: clamp(22px, 5vw, 38px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 .accent { color: var(--gold); }
+
+    .hero-subtitle {
+      font-size: clamp(13px, 2vw, 15px);
+      color: var(--text2);
+      max-width: 600px;
+    }
+
+    .hero-subtitle .highlight {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .install-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,162,39,0.3);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 12.5px;
+      color: var(--text2);
+      margin-top: 4px;
+      max-width: max-content;
+    }
+
+    .install-note .icon { font-size: 16px; flex-shrink: 0; }
+    .install-note strong { color: var(--text); }
+
+    /* ─── Stats Bar ─────────────────────────────────────────────── */
+    .stats-bar {
+      display: flex;
+      gap: 12px;
+      padding: 0 24px 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+    }
+
+    .stat-chip {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .stat-chip .num {
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    .stat-chip .lbl {
+      font-size: 11px;
+      color: var(--text3);
+      line-height: 1.3;
+    }
+
+    /* ─── Section Label ─────────────────────────────────────────── */
+    .section-label {
+      padding: 0 24px 16px;
+      max-width: 1200px;
+      margin: 0 auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text3);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── Grid ──────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      padding: 0 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; padding: 0 16px; }
+      .hero { padding: 32px 16px 24px; }
+      .stats-bar { padding: 0 16px 24px; }
+      .section-label { padding: 0 16px 12px; }
+      .nav { padding: 10px 16px; }
+    }
+
+    /* ─── APK Card ──────────────────────────────────────────────── */
+    .apk-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color 0.2s, transform 0.18s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .apk-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(201,162,39,0.04) 0%, transparent 60%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .apk-card:hover {
+      border-color: rgba(201,162,39,0.4);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,162,39,0.1);
+    }
+
+    .apk-card:hover::before { opacity: 1; }
+
+    .apk-card.source-recipe {
+      opacity: 0.65;
+    }
+
+    .apk-card.source-recipe:hover {
+      transform: none;
+      border-color: var(--border);
+      box-shadow: none;
+    }
+
+    .apk-card.source-recipe:hover::before { opacity: 0; }
+
+    /* Card top row */
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .card-icon {
+      font-size: 32px;
+      line-height: 1;
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg3);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .card-meta { flex: 1; min-width: 0; }
+
+    .card-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+
+    .card-size {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+
+    /* Badges row */
+    .card-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-family: var(--mono);
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .badge-android {
+      background: rgba(61,220,132,0.12);
+      border: 1px solid rgba(61,220,132,0.3);
+      color: #3ddc84;
+    }
+
+    .badge-genre {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text3);
+    }
+
+    .badge-source {
+      background: rgba(201,162,39,0.1);
+      border: 1px solid rgba(201,162,39,0.3);
+      color: var(--gold);
+    }
+
+    /* Download button */
+    .download-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #c9a227 0%, #e5b93a 100%);
+      color: #0a0a0a;
+      font-weight: 700;
+      font-size: 13px;
+      border-radius: 7px;
+      text-decoration: none;
+      transition: opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+      min-height: 44px;
+      box-shadow: 0 2px 12px rgba(201,162,39,0.25);
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      font-family: var(--sans);
+      letter-spacing: 0.02em;
+    }
+
+    .download-btn:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(201,162,39,0.4);
+    }
+
+    .download-btn:focus-visible {
+      outline: 2px solid var(--gold2);
+      outline-offset: 3px;
+    }
+
+    .download-btn:active { transform: translateY(0); }
+
+    .download-btn svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    /* Source recipe action */
+    .soon-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--bg3);
+      color: var(--text3);
+      font-weight: 600;
+      font-size: 13px;
+      border-radius: 7px;
+      border: 1px dashed var(--border2);
+      min-height: 44px;
+      cursor: default;
+      width: 100%;
+      font-family: var(--sans);
+    }
+
+    /* ─── Section gap ───────────────────────────────────────────── */
+    .section-gap { height: 40px; }
+
+    /* ─── Footer Discovery ──────────────────────────────────────── */
+    .discovery {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 16px;
+    }
+
+    .discovery-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .discovery-body {
+      font-size: 13.5px;
+      color: var(--text2);
+      max-width: 480px;
+      line-height: 1.6;
+    }
+
+    .discovery-body a {
+      color: var(--gold);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(201,162,39,0.3);
+      transition: border-color 0.15s;
+    }
+    .discovery-body a:hover { border-color: var(--gold); }
+    .discovery-body a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+    .discovery-divider {
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      border-radius: 1px;
+    }
+
+    /* ─── Scrollbar ─────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 8px; background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+  </style>
+</head>
+<body>
+
+  <a href="#main-content" class="skip-link">Skip to APK listing</a>
+
+  <!-- ── Navigation ────────────────────────────────────────────── -->
+  <nav class="nav" aria-label="Site navigation">
+    <a href="/" class="logo" aria-label="muLLM home">
+      <span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span>
+    </a>
+    <a href="/chat">Chat</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/games">Games</a>
+    <a href="/bench">Bench</a>
+    <a href="/apks-page" class="active" aria-current="page">APKs</a>
+    <a href="/unblock">Unblock</a>
+    <div class="nav-spacer"></div>
+  </nav>
+
+  <!-- ── Hero ──────────────────────────────────────────────────── -->
+  <header class="hero" aria-labelledby="page-title">
+    <h1 id="page-title">
+      muLLM Games — <span class="accent">Android APKs</span>
+    </h1>
+    <p class="hero-subtitle">
+      Install directly on any Android device.
+    </p>
+    <div class="install-note" role="note">
+      <span class="icon" aria-hidden="true">ℹ️</span>
+      <span>Enable <strong>"Install from unknown sources"</strong> in <strong>Settings → Security</strong> before installing.</span>
+    </div>
+  </header>
+
+  <!-- ── Stats ─────────────────────────────────────────────────── -->
+  <section class="stats-bar" aria-label="APK collection stats">
+    <div class="stat-chip">
+      <span class="num">12</span>
+      <span class="lbl">Available<br>now</span>
+    </div>
+    <div class="stat-chip">
+      <span class="num">10</span>
+      <span class="lbl">Coming<br>soon</span>
+    </div>
+    <div class="stat-chip">
+      <span class="num">3.6 MB</span>
+      <span class="lbl">Avg APK<br>size</span>
+    </div>
+    <div class="stat-chip">
+      <span class="num">Free</span>
+      <span class="lbl">No ads,<br>no IAP</span>
+    </div>
+  </section>
+
+  <!-- ── Main Content ───────────────────────────────────────────── -->
+  <main id="main-content">
+
+    <!-- Available APKs -->
+    <div class="section-label" aria-label="Available APKs">Available Now</div>
+
+    <section class="grid" aria-label="Downloadable APKs">
+
+      <!-- Hay & Harness 3D -->
+      <article class="apk-card" aria-label="Hay and Harness 3D APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🏇</div>
+          <div class="card-meta">
+            <div class="card-name">Hay &amp; Harness 3D</div>
+            <div class="card-size">3.58 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Racing</span>
+          <span class="badge badge-genre">Sports</span>
+        </div>
+        <a href="/apks/hay-and-harness.apk" class="download-btn" download aria-label="Download Hay and Harness 3D APK (3.58 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Jacks! -->
+      <article class="apk-card" aria-label="Jacks APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">✳️</div>
+          <div class="card-meta">
+            <div class="card-name">Jacks!</div>
+            <div class="card-size">3.57 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Casual</span>
+          <span class="badge badge-genre">Skill</span>
+        </div>
+        <a href="/apks/jacks.apk" class="download-btn" download aria-label="Download Jacks! APK (3.57 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Balloon Voyage -->
+      <article class="apk-card" aria-label="Balloon Voyage APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🎈</div>
+          <div class="card-meta">
+            <div class="card-name">Balloon Voyage</div>
+            <div class="card-size">3.58 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Arcade</span>
+          <span class="badge badge-genre">Casual</span>
+        </div>
+        <a href="/apks/balloon-voyage.apk" class="download-btn" download aria-label="Download Balloon Voyage APK (3.58 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Windsurf Rider -->
+      <article class="apk-card" aria-label="Windsurf Rider APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🏄</div>
+          <div class="card-meta">
+            <div class="card-name">Windsurf Rider</div>
+            <div class="card-size">3.58 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Sports</span>
+          <span class="badge badge-genre">Action</span>
+        </div>
+        <a href="/apks/windsurf-rider.apk" class="download-btn" download aria-label="Download Windsurf Rider APK (3.58 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Cornhole Pro -->
+      <article class="apk-card" aria-label="Cornhole Pro APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🎯</div>
+          <div class="card-meta">
+            <div class="card-name">Cornhole Pro</div>
+            <div class="card-size">3.57 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Sports</span>
+          <span class="badge badge-genre">Casual</span>
+        </div>
+        <a href="/apks/cornhole-pro.apk" class="download-btn" download aria-label="Download Cornhole Pro APK (3.57 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Gyro Ball -->
+      <article class="apk-card" aria-label="Gyro Ball APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">⚽</div>
+          <div class="card-meta">
+            <div class="card-name">Gyro Ball</div>
+            <div class="card-size">3.56 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Arcade</span>
+          <span class="badge badge-genre">Gyro</span>
+        </div>
+        <a href="/apks/gyro-ball.apk" class="download-btn" download aria-label="Download Gyro Ball APK (3.56 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Rampartillery -->
+      <article class="apk-card" aria-label="Rampartillery APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">⚔️</div>
+          <div class="card-meta">
+            <div class="card-name">Rampartillery</div>
+            <div class="card-size">3.89 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Puzzle</span>
+          <span class="badge badge-genre">Physics</span>
+        </div>
+        <a href="/apks/rampartillery.apk" class="download-btn" download aria-label="Download Rampartillery APK (3.89 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Storm Chaser -->
+      <article class="apk-card" aria-label="Storm Chaser APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🌪️</div>
+          <div class="card-meta">
+            <div class="card-name">Storm Chaser</div>
+            <div class="card-size">3.57 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Action</span>
+          <span class="badge badge-genre">Simulation</span>
+        </div>
+        <a href="/apks/storm-chaser.apk" class="download-btn" download aria-label="Download Storm Chaser APK (3.57 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Busk! -->
+      <article class="apk-card" aria-label="Busk APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🥁</div>
+          <div class="card-meta">
+            <div class="card-name">Busk!</div>
+            <div class="card-size">3.58 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Rhythm</span>
+          <span class="badge badge-genre">Music</span>
+        </div>
+        <a href="/apks/busk.apk" class="download-btn" download aria-label="Download Busk! APK (3.58 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Dink! 3D -->
+      <article class="apk-card" aria-label="Dink 3D APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🎾</div>
+          <div class="card-meta">
+            <div class="card-name">Dink! 3D</div>
+            <div class="card-size">3.57 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Sports</span>
+          <span class="badge badge-genre">3D</span>
+        </div>
+        <a href="/apks/dink-3d.apk" class="download-btn" download aria-label="Download Dink 3D APK (3.57 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Sky Islands Conquest -->
+      <article class="apk-card" aria-label="Sky Islands Conquest APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🏝️</div>
+          <div class="card-meta">
+            <div class="card-name">Sky Islands Conquest</div>
+            <div class="card-size">3.59 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Exploration</span>
+          <span class="badge badge-genre">Strategy</span>
+        </div>
+        <a href="/apks/sky-islands-conquest.apk" class="download-btn" download aria-label="Download Sky Islands Conquest APK (3.59 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+      <!-- Aurora Painter (gyro-aurora) -->
+      <article class="apk-card" aria-label="Aurora Painter APK">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🎨</div>
+          <div class="card-meta">
+            <div class="card-name">Aurora Painter</div>
+            <div class="card-size">3.56 MB</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-android">Android</span>
+          <span class="badge badge-genre">Creative</span>
+          <span class="badge badge-genre">Gyro</span>
+        </div>
+        <a href="/apks/gyro-aurora.apk" class="download-btn" download aria-label="Download Aurora Painter APK (3.56 MB)">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg>
+          Download APK
+        </a>
+      </article>
+
+    </section>
+
+    <!-- Source Recipe section -->
+    <div class="section-gap"></div>
+    <div class="section-label" aria-label="APK source recipes">Source Recipe</div>
+
+    <section class="grid" aria-label="APK source recipes">
+
+      <!-- Apex Racer -->
+      <article class="apk-card source-recipe" aria-label="Apex Racer — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🏎️</div>
+          <div class="card-meta">
+            <div class="card-name">Apex Racer</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Racing</span>
+          <span class="badge badge-genre">3D</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+      <!-- Viking Voyage -->
+      <article class="apk-card source-recipe" aria-label="Viking Voyage — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">⚔️</div>
+          <div class="card-meta">
+            <div class="card-name">Viking Voyage</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Adventure</span>
+          <span class="badge badge-genre">Strategy</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+      <!-- Bollywood Hero -->
+      <article class="apk-card source-recipe" aria-label="Bollywood Hero — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🎬</div>
+          <div class="card-meta">
+            <div class="card-name">Bollywood Hero</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Rhythm</span>
+          <span class="badge badge-genre">Story</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+      <!-- Clean The Garage -->
+      <article class="apk-card source-recipe" aria-label="Clean The Garage — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🏠</div>
+          <div class="card-meta">
+            <div class="card-name">Clean The Garage</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Puzzle</span>
+          <span class="badge badge-genre">Physics</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+      <!-- Escher Ascent -->
+      <article class="apk-card source-recipe" aria-label="Escher Ascent Slink — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🌀</div>
+          <div class="card-meta">
+            <div class="card-name">Escher Ascent: Slink</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Puzzle</span>
+          <span class="badge badge-genre">Casual</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+      <!-- Iron Nomads -->
+      <article class="apk-card source-recipe" aria-label="Iron Nomads — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">⚙️</div>
+          <div class="card-meta">
+            <div class="card-name">Iron Nomads</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Survival</span>
+          <span class="badge badge-genre">Strategy</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+      <!-- Origami World -->
+      <article class="apk-card source-recipe" aria-label="Origami World — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🦢</div>
+          <div class="card-meta">
+            <div class="card-name">Origami World</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Puzzle</span>
+          <span class="badge badge-genre">Creative</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+      <!-- Shadow Grid -->
+      <article class="apk-card source-recipe" aria-label="Shadow Grid — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🕵️</div>
+          <div class="card-meta">
+            <div class="card-name">Shadow Grid</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Stealth</span>
+          <span class="badge badge-genre">Puzzle</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+      <!-- Unredacted -->
+      <article class="apk-card source-recipe" aria-label="Unredacted — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">📋</div>
+          <div class="card-meta">
+            <div class="card-name">Unredacted</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Puzzle</span>
+          <span class="badge badge-genre">Mystery</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+      <!-- Pickleball 3D -->
+      <article class="apk-card source-recipe" aria-label="Pickleball 3D — source recipe">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">🏓</div>
+          <div class="card-meta">
+            <div class="card-name">Pickleball 3D</div>
+            <div class="card-size">&mdash;</div>
+          </div>
+        </div>
+        <div class="card-badges">
+          <span class="badge badge-source">Source Recipe</span>
+          <span class="badge badge-genre">Sports</span>
+          <span class="badge badge-genre">3D</span>
+        </div>
+        <div class="soon-btn" aria-disabled="true">Build from source</div>
+      </article>
+
+    </section>
+
+    <!-- Discovery footer -->
+    <div class="section-gap"></div>
+    <footer class="discovery" aria-label="More games">
+      <div class="discovery-divider" aria-hidden="true"></div>
+      <h2 class="discovery-title">More Games Available</h2>
+      <p class="discovery-body">
+        Browse and play 200+ AI-generated games in the browser at
+        <a href="/games">Play Games</a>.
+        Want a specific game packaged as an APK? Request it on the
+        <a href="/games">games page</a>.
+      </p>
+      <div class="discovery-divider" aria-hidden="true"></div>
+    </footer>
+
+  </main>
+
+<script>
+(function () {
+  // Auto-upgrade "Source Recipe" cards when APKs are available.
+  // Fetches /api/apks manifest and promotes cards whose slug now has a built APK.
+  function nameToSlug(name) {
+    return name.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  fetch('/api/apks')
+    .then(r => r.json())
+    .then(data => {
+      const available = {};
+      (data.apks || []).forEach(apk => {
+        available[apk.slug] = apk;
+        // Also index by display name slug for fuzzy matching
+        available[nameToSlug(apk.name)] = apk;
+      });
+
+      document.querySelectorAll('.apk-card.source-recipe').forEach(card => {
+        const label = card.getAttribute('aria-label') || '';
+        // Extract game name from "Game Name — source recipe"
+        const gameName = label.replace(/\s*[—–-]\s*source recipe$/i, '').trim();
+        const slug = nameToSlug(gameName);
+
+        // Try direct slug match, then name-derived slug
+        const apk = available[slug] || available[nameToSlug(gameName)];
+        if (!apk) return;
+
+        // Upgrade card: remove source-recipe class, swap badge and button
+        card.classList.remove('source-recipe');
+        card.setAttribute('aria-label', `${gameName} APK`);
+
+        // Update size
+        const sizeEl = card.querySelector('.card-size');
+        if (sizeEl) sizeEl.textContent = apk.size_label;
+
+        // Swap badge
+        const soonBadge = card.querySelector('.badge-source');
+        if (soonBadge) {
+          soonBadge.className = 'badge badge-new';
+          soonBadge.textContent = 'New';
+        }
+
+        // Replace "Build from source" button with download link
+        const soonBtn = card.querySelector('.soon-btn');
+        if (soonBtn) {
+          const dl = document.createElement('a');
+          dl.href = apk.url;
+          dl.className = 'download-btn';
+          dl.download = '';
+          dl.setAttribute('aria-label', `Download ${gameName} APK (${apk.size_label})`);
+          dl.innerHTML = '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12L3 7h3V2h4v5h3L8 12z"/><path d="M2 14h12v1H2z"/></svg> Download APK';
+          soonBtn.replaceWith(dl);
+        }
+      });
+
+      // Update section label if all source-recipe are now real
+      const remaining = document.querySelectorAll('.apk-card.source-recipe').length;
+      const sectionLabel = document.querySelector('.section-label[aria-label="APK source recipes"]');
+      if (sectionLabel && remaining === 0) {
+        sectionLabel.textContent = 'More Games';
+        sectionLabel.setAttribute('aria-label', 'More games');
+      }
+    })
+    .catch(() => {}); // Fail silently — static page still works
+}());
+</script>
+
+</body>
+</html>

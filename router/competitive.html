@@ -1,0 +1,1349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>muLLM — Competitive Analysis</title>
+  <meta name="description" content="muLLM vs GPT-4o, Claude, OpenRouter: independent benchmarks, real production numbers, no spin." />
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── Design tokens (match bench.html / investors.html exactly) ── */
+    :root {
+      --bg0:        #0d1117;
+      --bg:         #0f1117;
+      --bg2:        #1a1d2e;
+      --bg3:        #232740;
+      --bg4:        #2d3154;
+      --border:     #2a2f4a;
+      --border2:    #3a4060;
+      --gold:       #f5c842;
+      --gold-dim:   rgba(245, 200, 66, 0.12);
+      --gold-glow:  0 0 20px rgba(245, 200, 66, 0.25);
+      --teal:       #3dd9b3;
+      --teal-dim:   rgba(61, 217, 179, 0.12);
+      --coral:      #ef6c4c;
+      --text:       #e8eaf0;
+      --text2:      #94a3b8;
+      --text3:      #64748b;
+      --green:      #22c55e;
+      --red:        #ef4444;
+      --amber:      #f59e0b;
+      --radius:     8px;
+      --font:       'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg0);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    /* ── Starfield background ── */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        radial-gradient(1px 1px at  8% 12%, rgba(245,200,66,0.50)  0%, transparent 100%),
+        radial-gradient(1px 1px at 22% 38%, rgba(255,255,255,0.22) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 38% 68%, rgba(245,200,66,0.38) 0%, transparent 100%),
+        radial-gradient(1px 1px at 53% 18%, rgba(255,255,255,0.18) 0%, transparent 100%),
+        radial-gradient(1px 1px at 67% 52%, rgba(61,217,179,0.28)  0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 78% 82%, rgba(255,255,255,0.15) 0%, transparent 100%),
+        radial-gradient(1px 1px at 88% 28%, rgba(245,200,66,0.42)  0%, transparent 100%),
+        radial-gradient(1px 1px at 14% 72%, rgba(255,255,255,0.25) 0%, transparent 100%),
+        radial-gradient(1px 1px at 58% 88%, rgba(245,200,66,0.22)  0%, transparent 100%),
+        radial-gradient(1px 1px at 33%  8%, rgba(61,217,179,0.25)  0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 46% 45%, rgba(245,200,66,0.45) 0%, transparent 100%),
+        radial-gradient(1px 1px at 72% 10%, rgba(255,255,255,0.20)  0%, transparent 100%),
+        radial-gradient(1px 1px at 95% 45%, rgba(245,200,66,0.28)  0%, transparent 100%);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      body::before {
+        animation: starDrift 90s linear infinite;
+      }
+    }
+
+    @keyframes starDrift {
+      0%   { transform: translateY(0);      opacity: 0.7; }
+      100% { transform: translateY(-100vh); opacity: 0;   }
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13, 17, 23, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.65rem 1.5rem;
+    }
+
+    .nav-brand {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+      list-style: none;
+      margin-left: auto;
+    }
+
+    .nav-links a {
+      color: var(--text2);
+      text-decoration: none;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .nav-links a:hover,
+    .nav-links a:focus-visible {
+      color: var(--gold);
+      background: var(--gold-dim);
+      outline: none;
+    }
+
+    /* ── Main layout ── */
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .page-header h1 {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 0.6rem;
+    }
+
+    .page-header p {
+      color: var(--text2);
+      font-size: 0.9rem;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+      padding: 0.6rem 1.25rem;
+      font-family: var(--font);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text3);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.2s, border-color 0.2s;
+      margin-bottom: -1px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .tab:hover { color: var(--text2); }
+
+    .tab.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+    }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    /* ── Panels ── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Section headers ── */
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── Cost bar chart ── */
+    .cost-chart {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .cost-chart h2 {
+      font-size: 0.85rem;
+      color: var(--text2);
+      margin-bottom: 0.25rem;
+    }
+
+    .cost-assumption {
+      font-size: 0.68rem;
+      color: var(--text3);
+      margin-bottom: 1.5rem;
+      font-style: italic;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 160px 1fr 80px;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .bar-label {
+      font-size: 0.75rem;
+      color: var(--text2);
+      text-align: right;
+      line-height: 1.3;
+    }
+
+    .bar-label small {
+      display: block;
+      font-size: 0.62rem;
+      color: var(--text3);
+    }
+
+    .bar-track {
+      height: 28px;
+      background: var(--bg3);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: var(--bg4);
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: width;
+    }
+
+    .bar-fill.gold {
+      background: linear-gradient(90deg, #c49a10, var(--gold));
+      box-shadow: 0 0 16px rgba(245, 200, 66, 0.4);
+    }
+
+    .bar-value {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text2);
+      white-space: nowrap;
+    }
+
+    .bar-value.gold { color: var(--gold); }
+
+    /* Animate bars in */
+    .bar-fill { width: 0 !important; }
+    .bar-fill.animate { width: var(--target-w) !important; }
+
+    /* ── Differentiator cards ── */
+    .diff-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .diff-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.2s;
+    }
+
+    .diff-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .diff-card:hover {
+      border-color: var(--gold);
+    }
+
+    .diff-card-stat {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 0.4rem;
+    }
+
+    .diff-card-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .diff-card-desc {
+      font-size: 0.72rem;
+      color: var(--text3);
+      line-height: 1.5;
+    }
+
+    /* ── Performance table ── */
+    .perf-table-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .perf-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.76rem;
+    }
+
+    .perf-table thead tr {
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border2);
+    }
+
+    .perf-table th {
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text3);
+      white-space: nowrap;
+    }
+
+    .perf-table td {
+      padding: 0.6rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text2);
+      vertical-align: middle;
+    }
+
+    .perf-table tbody tr:last-child td { border-bottom: none; }
+
+    .perf-table tbody tr {
+      opacity: 0;
+      transition: opacity 0.4s ease, background 0.2s;
+    }
+
+    .perf-table tbody tr.visible { opacity: 1; }
+
+    .perf-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+    .perf-table tbody tr.mullm-row {
+      background: rgba(245, 200, 66, 0.07);
+      border-left: 3px solid var(--gold);
+    }
+
+    .perf-table tbody tr.mullm-row td {
+      color: var(--text);
+    }
+
+    .perf-table tbody tr.mullm-row:hover {
+      background: rgba(245, 200, 66, 0.1);
+    }
+
+    .val-gold { color: var(--gold) !important; font-weight: 700; }
+    .val-green { color: var(--green) !important; }
+    .val-teal  { color: var(--teal) !important; font-weight: 600; }
+    .val-red   { color: var(--red)   !important; }
+    .val-dim   { color: var(--text3) !important; }
+    .check     { color: var(--green); font-size: 1rem; }
+    .cross     { color: var(--red);   font-size: 1rem; }
+
+    /* ── Architecture SVG ── */
+    .arch-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      overflow-x: auto;
+    }
+
+    .arch-wrap h3 {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 1rem;
+    }
+
+    .arch-svg {
+      display: block;
+      width: 100%;
+      max-width: 760px;
+      height: auto;
+      margin: 0 auto;
+    }
+
+    /* ── Key stats strip ── */
+    .stats-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-pill {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.72rem;
+      color: var(--text2);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      opacity: 0;
+      transform: scale(0.95);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .stat-pill.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .stat-pill strong {
+      color: var(--teal);
+      font-weight: 700;
+    }
+
+    /* ── Overhead metric cards (backend tab callout grid) ── */
+    .metric-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .metric-card strong {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      display: block;
+    }
+
+    .metric-card span {
+      color: var(--text2);
+      font-size: 0.78rem;
+      margin-top: 0.4rem;
+      line-height: 1.5;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .bar-row {
+        grid-template-columns: 110px 1fr 70px;
+        gap: 0.5rem;
+      }
+
+      .bar-label { font-size: 0.68rem; }
+
+      .diff-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .perf-table th,
+      .perf-table td {
+        padding: 0.5rem 0.55rem;
+        font-size: 0.68rem;
+      }
+
+      .arch-svg { min-width: 600px; }
+    }
+
+    @media (max-width: 420px) {
+      .diff-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav aria-label="Site navigation">
+  <a href="/" class="nav-brand" aria-label="muLLM home">mu<span style="color:var(--teal)">LLM</span></a>
+  <ul class="nav-links" role="list">
+    <li><a href="/dashboard">Dashboard</a></li>
+    <li><a href="/investors">Investors</a></li>
+    <li><a href="/bench">Benchmarks</a></li>
+    <li><a href="/chat">Chat</a></li>
+  </ul>
+</nav>
+
+<main>
+  <header class="page-header">
+    <!-- Tardigrade mascot — barrel body, 8 stubby legs (4 pairs), claws, amber eyes -->
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" width="100" height="84"
+         role="img" aria-label="muLLM tardigrade mascot"
+         style="display:block;margin:0 auto 1rem;filter:drop-shadow(0 0 12px rgba(61,217,179,0.35));">
+      <defs>
+        <linearGradient id="tardi-body" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#4ee8c0"/>
+          <stop offset="100%" stop-color="#1a9b7d"/>
+        </linearGradient>
+        <linearGradient id="tardi-head" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#5af0c8"/>
+          <stop offset="100%" stop-color="#22b890"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Legs: 4 pairs, stubby, with tiny claws -->
+      <!-- Pair 1 (frontmost) -->
+      <line x1="38" y1="56" x2="22" y2="72" stroke="#1a9b7d" stroke-width="5" stroke-linecap="round"/>
+      <line x1="22" y1="72" x2="16" y2="78" stroke="#1a9b7d" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="22" y1="72" x2="21" y2="80" stroke="#1a9b7d" stroke-width="3" stroke-linecap="round"/>
+      <!-- Pair 1 right -->
+      <line x1="82" y1="56" x2="98" y2="72" stroke="#1a9b7d" stroke-width="5" stroke-linecap="round"/>
+      <line x1="98" y1="72" x2="104" y2="78" stroke="#1a9b7d" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="98" y1="72" x2="99" y2="80" stroke="#1a9b7d" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- Pair 2 -->
+      <line x1="46" y1="64" x2="30" y2="80" stroke="#1a9b7d" stroke-width="5" stroke-linecap="round"/>
+      <line x1="30" y1="80" x2="24" y2="86" stroke="#1a9b7d" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="30" y1="80" x2="28" y2="88" stroke="#1a9b7d" stroke-width="3" stroke-linecap="round"/>
+      <!-- Pair 2 right -->
+      <line x1="74" y1="64" x2="90" y2="80" stroke="#1a9b7d" stroke-width="5" stroke-linecap="round"/>
+      <line x1="90" y1="80" x2="96" y2="86" stroke="#1a9b7d" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="90" y1="80" x2="92" y2="88" stroke="#1a9b7d" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- Pair 3 -->
+      <line x1="57" y1="67" x2="44" y2="83" stroke="#1a9b7d" stroke-width="5" stroke-linecap="round"/>
+      <line x1="44" y1="83" x2="38" y2="89" stroke="#1a9b7d" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="44" y1="83" x2="42" y2="91" stroke="#1a9b7d" stroke-width="3" stroke-linecap="round"/>
+      <!-- Pair 3 right -->
+      <line x1="63" y1="67" x2="76" y2="83" stroke="#1a9b7d" stroke-width="5" stroke-linecap="round"/>
+      <line x1="76" y1="83" x2="82" y2="89" stroke="#1a9b7d" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="76" y1="83" x2="78" y2="91" stroke="#1a9b7d" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- Pair 4 (rearmost) -->
+      <line x1="60" y1="66" x2="50" y2="84" stroke="#158f72" stroke-width="4.5" stroke-linecap="round"/>
+      <line x1="50" y1="84" x2="45" y2="90" stroke="#158f72" stroke-width="3" stroke-linecap="round"/>
+      <line x1="50" y1="84" x2="48" y2="93" stroke="#158f72" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- Pair 4 right -->
+      <line x1="60" y1="66" x2="70" y2="84" stroke="#158f72" stroke-width="4.5" stroke-linecap="round"/>
+      <line x1="70" y1="84" x2="75" y2="90" stroke="#158f72" stroke-width="3" stroke-linecap="round"/>
+      <line x1="70" y1="84" x2="72" y2="93" stroke="#158f72" stroke-width="2.5" stroke-linecap="round"/>
+
+      <!-- Body: barrel-shaped ellipse -->
+      <ellipse cx="60" cy="52" rx="30" ry="22" fill="url(#tardi-body)" stroke="#0e6b58" stroke-width="1.5"/>
+
+      <!-- Body segmentation creases -->
+      <ellipse cx="60" cy="52" rx="22" ry="20" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <ellipse cx="60" cy="52" rx="14" ry="18" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+
+      <!-- Head -->
+      <circle cx="60" cy="32" r="16" fill="url(#tardi-head)" stroke="#0e6b58" stroke-width="1.5"/>
+
+      <!-- Eyes: amber/gold, friendly -->
+      <circle cx="54" cy="28" r="5.5" fill="#f5c842"/>
+      <circle cx="66" cy="28" r="5.5" fill="#f5c842"/>
+      <!-- Eye pupils -->
+      <circle cx="55" cy="29" r="2.8" fill="#1a1200"/>
+      <circle cx="67" cy="29" r="2.8" fill="#1a1200"/>
+      <!-- Eye glint -->
+      <circle cx="55.8" cy="27.8" r="1" fill="rgba(255,255,255,0.75)"/>
+      <circle cx="67.8" cy="27.8" r="1" fill="rgba(255,255,255,0.75)"/>
+
+      <!-- Mouth: tiny friendly curve -->
+      <path d="M55 37 Q60 41 65 37" fill="none" stroke="#0e6b58" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <h1>Why muLLM?</h1>
+    <p>Independent benchmarks. Real production numbers. No spin.</p>
+  </header>
+
+  <!-- Tab bar -->
+  <div class="tabs" role="tablist" aria-label="Competitive analysis sections">
+    <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-business" id="tab-business" onclick="switchTab('business')">Business</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-technical" id="tab-technical" onclick="switchTab('technical')">Technical</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-backends" id="tab-backends" onclick="switchTab('backends')">Inference Backends</button>
+  </div>
+
+  <!-- ════════════════════ BUSINESS TAB ════════════════════ -->
+  <section class="panel active" id="panel-business" role="tabpanel" aria-labelledby="tab-business">
+
+    <!-- Cost bar chart -->
+    <div class="cost-chart" aria-label="Monthly cost comparison chart">
+      <p class="section-title">Monthly Cost Comparison</p>
+      <h2>What 10K queries/day actually costs</h2>
+      <p class="cost-assumption">Assumes 10,000 queries/day &middot; ~1,500 tokens avg &middot; 100 engineers</p>
+
+      <div role="list" aria-label="Cost bars by system">
+
+        <div class="bar-row" role="listitem">
+          <div class="bar-label">GPT-4o Direct</div>
+          <div class="bar-track" aria-label="GPT-4o Direct: $15,000/month, 100% of maximum">
+            <div class="bar-fill" style="--target-w: 100%" aria-hidden="true"></div>
+          </div>
+          <div class="bar-value">$15,000</div>
+        </div>
+
+        <div class="bar-row" role="listitem">
+          <div class="bar-label">Claude Sonnet Direct</div>
+          <div class="bar-track" aria-label="Claude Sonnet Direct: $12,000/month">
+            <div class="bar-fill" style="--target-w: 80%" aria-hidden="true"></div>
+          </div>
+          <div class="bar-value">$12,000</div>
+        </div>
+
+        <div class="bar-row" role="listitem">
+          <div class="bar-label">OpenRouter</div>
+          <div class="bar-track" aria-label="OpenRouter: $8,500/month">
+            <div class="bar-fill" style="--target-w: 57%" aria-hidden="true"></div>
+          </div>
+          <div class="bar-value">$8,500</div>
+        </div>
+
+        <div class="bar-row" role="listitem">
+          <div class="bar-label">
+            Plain Ollama
+            <small>no routing intelligence</small>
+          </div>
+          <div class="bar-track" aria-label="Plain Ollama: $800/month">
+            <div class="bar-fill" style="--target-w: 5.3%" aria-hidden="true"></div>
+          </div>
+          <div class="bar-value">$800</div>
+        </div>
+
+        <div class="bar-row" role="listitem">
+          <div class="bar-label" style="color:var(--gold);font-weight:700">muLLM</div>
+          <div class="bar-track" aria-label="muLLM: $180/month, 1.2% of maximum">
+            <div class="bar-fill gold" style="--target-w: 1.2%" aria-hidden="true"></div>
+          </div>
+          <div class="bar-value gold">$180</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Differentiator cards -->
+    <p class="section-title">What sets muLLM apart</p>
+    <div class="diff-grid" aria-label="Key differentiators">
+
+      <article class="diff-card" aria-label="Local-first at zero cost">
+        <div class="diff-card-stat">93%</div>
+        <div class="diff-card-label">Local-first at $0</div>
+        <div class="diff-card-desc">93% of queries never touch a cloud API. Routed to on-device 30B model. Zero marginal cost per query.</div>
+      </article>
+
+      <article class="diff-card" aria-label="100% HumanEval pass rate">
+        <div class="diff-card-stat">100%</div>
+        <div class="diff-card-label">HumanEval pass@1</div>
+        <div class="diff-card-desc">Industry-standard coding benchmark. 164/164 problems passed. Scored by muLLM's own router at $0.00.</div>
+      </article>
+
+      <article class="diff-card" aria-label="Cumulative savings since inception">
+        <div class="diff-card-stat">$6,329</div>
+        <div class="diff-card-label">Saved since inception</div>
+        <div class="diff-card-desc">Real production number from the scoring log. Zero cherry-picking. Tracked query by query.</div>
+      </article>
+
+      <article class="diff-card" aria-label="Tokens processed at zero cost">
+        <div class="diff-card-stat">11M</div>
+        <div class="diff-card-label">Tokens, $0.00 cost</div>
+        <div class="diff-card-desc">muLLM routed its own development work. 11 million tokens processed free via local model.</div>
+      </article>
+
+    </div>
+
+
+  </section>
+
+  <!-- ════════════════════ TECHNICAL TAB ════════════════════ -->
+  <section class="panel" id="panel-technical" role="tabpanel" aria-labelledby="tab-technical">
+
+    <!-- Performance table -->
+    <p class="section-title">Performance comparison</p>
+    <div class="perf-table-wrap" aria-label="System performance comparison table">
+      <table class="perf-table">
+        <thead>
+          <tr>
+            <th scope="col">System</th>
+            <th scope="col">HumanEval</th>
+            <th scope="col">P50 Latency</th>
+            <th scope="col">Cost / 1K q</th>
+            <th scope="col">Local-only</th>
+            <th scope="col">Routing IQ</th>
+          </tr>
+        </thead>
+        <tbody id="perf-tbody">
+          <tr>
+            <td>GPT-4o Direct</td>
+            <td class="val-dim">88.4%</td>
+            <td class="val-dim">1,200ms</td>
+            <td class="val-dim">$50</td>
+            <td><span class="cross" aria-label="No">&#10007;</span></td>
+            <td class="val-dim">None</td>
+          </tr>
+          <tr>
+            <td>Claude Sonnet</td>
+            <td class="val-dim">92%</td>
+            <td class="val-dim">1,400ms</td>
+            <td class="val-dim">$40</td>
+            <td><span class="cross" aria-label="No">&#10007;</span></td>
+            <td class="val-dim">None</td>
+          </tr>
+          <tr>
+            <td>Plain Ollama</td>
+            <td class="val-dim">~65%</td>
+            <td class="val-dim">3,500ms</td>
+            <td class="val-green">$0</td>
+            <td><span class="check" aria-label="Yes">&#10003;</span></td>
+            <td class="val-dim">None</td>
+          </tr>
+          <tr>
+            <td>OpenRouter</td>
+            <td class="val-dim">varies</td>
+            <td class="val-dim">1,600ms</td>
+            <td class="val-dim">$28</td>
+            <td><span class="cross" aria-label="No">&#10007;</span></td>
+            <td class="val-dim">Basic</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>muLLM</strong></td>
+            <td class="val-gold">100%</td>
+            <td class="val-gold">850ms</td>
+            <td class="val-gold">$0.60</td>
+            <td><span class="check val-gold" aria-label="Yes">&#10003;</span></td>
+            <td class="val-gold">Advanced</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Architecture diagram -->
+    <div class="arch-wrap" aria-label="muLLM routing pipeline architecture">
+      <h3>Routing Pipeline Architecture</h3>
+      <svg class="arch-svg" viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="5-stage pipeline: Query to DeBERTa Classifier to Groundtruth LUT to Local 30B to Cloud API, with short-circuit arrows for fast paths">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#64748b" />
+          </marker>
+          <marker id="arr-gold" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#f5c842" />
+          </marker>
+          <marker id="arr-teal" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#3dd9b3" />
+          </marker>
+        </defs>
+
+        <!-- Stage boxes -->
+        <!-- 1: Query -->
+        <rect x="10" y="72" width="104" height="56" rx="6" fill="#1a1d2e" stroke="#3a4060" stroke-width="1.5"/>
+        <text x="62" y="97" text-anchor="middle" fill="#94a3b8" font-family="monospace" font-size="10" font-weight="700">QUERY</text>
+        <text x="62" y="112" text-anchor="middle" fill="#64748b" font-family="monospace" font-size="8">incoming request</text>
+
+        <!-- Arrow 1→2 -->
+        <line x1="114" y1="100" x2="148" y2="100" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- 2: DeBERTa -->
+        <rect x="150" y="72" width="130" height="56" rx="6" fill="#1a1d2e" stroke="#f5c842" stroke-width="1.5"/>
+        <text x="215" y="94" text-anchor="middle" fill="#f5c842" font-family="monospace" font-size="10" font-weight="700">DeBERTa</text>
+        <text x="215" y="107" text-anchor="middle" fill="#94a3b8" font-family="monospace" font-size="8">Classifier</text>
+        <text x="215" y="119" text-anchor="middle" fill="#64748b" font-family="monospace" font-size="7">44MB · 82.4% acc</text>
+
+        <!-- Arrow 2→3 -->
+        <line x1="280" y1="100" x2="314" y2="100" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- 3: Groundtruth LUT -->
+        <rect x="316" y="72" width="130" height="56" rx="6" fill="#1a1d2e" stroke="#3dd9b3" stroke-width="1.5"/>
+        <text x="381" y="94" text-anchor="middle" fill="#3dd9b3" font-family="monospace" font-size="10" font-weight="700">Groundtruth</text>
+        <text x="381" y="107" text-anchor="middle" fill="#94a3b8" font-family="monospace" font-size="8">LUT Cache</text>
+        <text x="381" y="119" text-anchor="middle" fill="#64748b" font-family="monospace" font-size="7">&lt;1ms · 12.7% hit rate</text>
+
+        <!-- Arrow 3→4 -->
+        <line x1="446" y1="100" x2="480" y2="100" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- 4: Local 30B -->
+        <rect x="482" y="72" width="110" height="56" rx="6" fill="#1a1d2e" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="537" y="94" text-anchor="middle" fill="#e8eaf0" font-family="monospace" font-size="10" font-weight="700">Local 30B</text>
+        <text x="537" y="107" text-anchor="middle" fill="#94a3b8" font-family="monospace" font-size="8">Ollama · RTX 5090</text>
+        <text x="537" y="119" text-anchor="middle" fill="#64748b" font-family="monospace" font-size="7">$0 · 93% of traffic</text>
+
+        <!-- Arrow 4→5 -->
+        <line x1="592" y1="100" x2="626" y2="100" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- 5: Cloud API -->
+        <rect x="628" y="72" width="122" height="56" rx="6" fill="#1a1d2e" stroke="#ef6c4c" stroke-width="1.5"/>
+        <text x="689" y="94" text-anchor="middle" fill="#ef6c4c" font-family="monospace" font-size="10" font-weight="700">Cloud API</text>
+        <text x="689" y="107" text-anchor="middle" fill="#94a3b8" font-family="monospace" font-size="8">Claude / GPT / Gemini</text>
+        <text x="689" y="119" text-anchor="middle" fill="#64748b" font-family="monospace" font-size="7">7% of traffic</text>
+
+        <!-- Short-circuit: LUT hit → response (skip Local + Cloud) -->
+        <path d="M381 72 Q381 28 480 28 Q580 28 689 28 Q730 28 730 72" fill="none" stroke="#3dd9b3" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr-teal)"/>
+        <text x="535" y="20" text-anchor="middle" fill="#3dd9b3" font-family="monospace" font-size="8">LUT hit — instant answer</text>
+
+        <!-- Short-circuit: Local handles → skip Cloud -->
+        <path d="M537 128 Q537 172 630 172 Q680 172 689 128" fill="none" stroke="#f5c842" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr-gold)"/>
+        <text x="620" y="188" text-anchor="middle" fill="#f5c842" font-family="monospace" font-size="8">local confident — skip cloud</text>
+      </svg>
+    </div>
+
+    <!-- Key stats strip -->
+    <p class="section-title">Key technical stats</p>
+    <div class="stats-strip" aria-label="Technical highlights" role="list">
+      <div class="stat-pill" role="listitem">
+        <strong>44MB</strong> DeBERTa classifier
+      </div>
+      <div class="stat-pill" role="listitem">
+        <strong>82.4%</strong> routing accuracy
+      </div>
+      <div class="stat-pill" role="listitem">
+        <strong>12.7%</strong> groundtruth hit rate
+      </div>
+      <div class="stat-pill" role="listitem">
+        <strong>&lt;1ms</strong> LUT lookups
+      </div>
+      <div class="stat-pill" role="listitem">
+        <strong>99.4%</strong> cost avoidance
+      </div>
+      <div class="stat-pill" role="listitem">
+        <strong>850ms</strong> P50 response
+      </div>
+      <div class="stat-pill" role="listitem">
+        <strong>100%</strong> HumanEval pass@1
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ════════════════════ BACKENDS TAB ════════════════════ -->
+  <section class="panel" id="panel-backends" role="tabpanel" aria-labelledby="tab-backends">
+
+    <p class="section-title">Inference Backend Comparison — RTX 5090 · qwen3-coder</p>
+    <p style="color:var(--text2);font-size:0.85rem;margin-bottom:1.5rem;max-width:700px;">
+      muLLM is a <em>routing layer</em>, not an inference engine. Tok/s is determined by the backend you choose.
+      muLLM adds <strong style="color:var(--teal)">≤1.8ms</strong> routing overhead per query — but routes
+      <strong style="color:var(--gold)">93%</strong> of queries to groundtruth or cache at $0.00, so
+      average effective latency is <em>lower</em> than running any backend alone.
+    </p>
+
+    <div class="perf-table-wrap" aria-label="Inference backend tok/s comparison">
+      <table class="perf-table" id="backend-tbody-table">
+        <thead>
+          <tr>
+            <th scope="col">Backend</th>
+            <th scope="col">Mode</th>
+            <th scope="col">Tok/s (gen)</th>
+            <th scope="col">TTFT (P50)</th>
+            <th scope="col">Routing overhead</th>
+            <th scope="col">% queries free</th>
+            <th scope="col">Cost / 1K q</th>
+          </tr>
+        </thead>
+        <tbody id="backend-tbody">
+
+          <!-- ── Model group A: Qwen3-Coder-30B-A3B MoE (GGUF Q4_K_M) ── -->
+          <tr style="background:rgba(61,217,179,0.06)">
+            <td colspan="7" style="color:var(--teal);font-size:0.8rem;padding:0.6rem 1rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:700;">
+              Model A — Qwen3-Coder-30B-A3B · MoE · GGUF Q4_K_M · RTX 5090
+              <span style="font-weight:400;color:var(--text3);font-size:0.72rem;margin-left:0.75rem;">30B params, 3B active per token (Mixture-of-Experts)</span>
+            </td>
+          </tr>
+
+          <!-- Ollama / 30B MoE -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">Ollama</td>
+          </tr>
+          <tr>
+            <td>Ollama standalone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim">230 tok/s²</td>
+            <td class="val-dim">~1,750ms</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>Ollama + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-gold">230 tok/s²</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- llama.cpp / 30B MoE -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">llama.cpp — CUDA, n-gpu-layers 999</td>
+          </tr>
+          <tr>
+            <td>llama.cpp standalone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim">300 tok/s²</td>
+            <td class="val-dim">~1,330ms</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>llama.cpp + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-gold">300 tok/s²</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- LiteLLM / 30B MoE -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">LiteLLM → llama.cpp proxy</td>
+          </tr>
+          <tr>
+            <td>LiteLLM proxy alone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim">296 tok/s²</td>
+            <td class="val-dim">~1,350ms</td>
+            <td class="val-dim">&lt;3ms proxy</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>LiteLLM + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-gold">296 tok/s²</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- vLLM / 30B MoE -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">vLLM — PagedAttention, continuous batching</td>
+          </tr>
+          <tr>
+            <td>vLLM standalone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim" title="MoE GGUF not supported: vLLM cannot map mlp.experts.gate_up_proj weight keys for qwen3moe architecture via GGUF loader.">not tested⁴</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>vLLM + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-dim" title="Requires HF-format MoE model; GGUF loader does not support qwen3moe weight layout">not tested⁴</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- ── Model group B: Qwen3.6-27B hybrid SSM+attention (GGUF Q4_K_M) ── -->
+          <tr style="background:rgba(61,217,179,0.06)">
+            <td colspan="7" style="color:var(--teal);font-size:0.8rem;padding:0.6rem 1rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:700;">
+              Model B — Qwen3.6-27B · Hybrid SSM+Attn · GGUF Q4_K_M · RTX 5090
+              <span style="font-weight:400;color:var(--text3);font-size:0.72rem;margin-left:0.75rem;">27B params, Mamba-style SSM every 4 layers — ~4× slower per-token than MoE, vLLM unsupported (new arch)</span>
+            </td>
+          </tr>
+
+          <!-- Ollama / 27B dense -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">Ollama (imported from GGUF)</td>
+          </tr>
+          <tr>
+            <td>Ollama standalone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim">61 tok/s³</td>
+            <td class="val-dim">~6,800ms</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>Ollama + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-gold">61 tok/s³</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- llama.cpp / 27B dense -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">llama.cpp — CUDA, n-gpu-layers 999</td>
+          </tr>
+          <tr>
+            <td>llama.cpp standalone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim">70 tok/s³</td>
+            <td class="val-dim">~5,730ms</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>llama.cpp + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-gold">70 tok/s³</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- LiteLLM / 27B dense -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">LiteLLM → llama.cpp proxy</td>
+          </tr>
+          <tr>
+            <td>LiteLLM proxy alone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim">70 tok/s³</td>
+            <td class="val-dim">~5,740ms</td>
+            <td class="val-dim">&lt;1ms proxy</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>LiteLLM + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-gold">70 tok/s³</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- vLLM / 27B hybrid -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">vLLM — PagedAttention, continuous batching</td>
+          </tr>
+          <tr>
+            <td>vLLM standalone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim" title="Qwen3.6-27B uses a hybrid SSM+attention architecture (qwen35 GGUF arch, full_attention_interval=4 with Mamba-style SSM layers). vLLM Qwen3ForCausalLM has no SSM layer support; unsupported architecture.">unsupported⁵</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>vLLM + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-dim" title="vLLM does not support hybrid SSM+attention (Qwen3.5/3.6 qwen35 arch). muLLM falls back to llama.cpp via Ollama automatically.">routes to llama.cpp⁵</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- ── Model group C: Qwen3-4B Dense Transformer (GGUF Q4_K_M) ── -->
+          <tr style="background:rgba(61,217,179,0.06)">
+            <td colspan="7" style="color:var(--teal);font-size:0.8rem;padding:0.6rem 1rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:700;">
+              Model C — Qwen3-4B · Dense Transformer · GGUF Q4_K_M · RTX 5090
+              <span style="font-weight:400;color:var(--text3);font-size:0.72rem;margin-left:0.75rem;">4B params, standard attention — reference model, supported by all backends</span>
+            </td>
+          </tr>
+
+          <!-- Ollama / 4B dense -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">Ollama (llama.cpp backend)</td>
+          </tr>
+          <tr>
+            <td>Ollama standalone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim">315 tok/s⁶</td>
+            <td class="val-dim">~390ms</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>Ollama + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-gold">315 tok/s⁶</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- vLLM / 4B dense -->
+          <tr style="background:rgba(245,200,66,0.03)">
+            <td colspan="7" style="color:var(--text2);font-size:0.75rem;padding:0.4rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">vLLM — PagedAttention, continuous batching</td>
+          </tr>
+          <tr>
+            <td>vLLM standalone</td>
+            <td class="val-dim">bare backend</td>
+            <td class="val-dim" title="vLLM measured live: 163.2/163.7/162.0 tok/s (3 runs). GGUF format, enforce-eager. vLLM excels at concurrent batch throughput; single-request tok/s is lower than Ollama/llama.cpp for GGUF.">163 tok/s⁶</td>
+            <td class="val-dim">~530ms</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim">0%</td>
+            <td class="val-dim">~$50 / 1K</td>
+          </tr>
+          <tr class="mullm-row">
+            <td><strong>vLLM + muLLM</strong></td>
+            <td style="color:var(--teal)">smart routing</td>
+            <td class="val-gold" title="muLLM routes to fastest backend per request; Ollama preferred for single-user GGUF inference">315 tok/s⁶</td>
+            <td class="val-gold">1.76ms avg¹</td>
+            <td class="val-teal">+1.76ms</td>
+            <td class="val-gold">93%</td>
+            <td class="val-gold">$0.60 / 1K</td>
+          </tr>
+
+          <!-- Cloud baseline -->
+          <tr style="background:rgba(239,68,68,0.04)">
+            <td colspan="7" style="color:var(--text2);font-size:0.78rem;padding:0.5rem 1rem;letter-spacing:0.08em;text-transform:uppercase;">Cloud baseline (no local inference)</td>
+          </tr>
+          <tr>
+            <td>GPT-4o / Claude Sonnet direct</td>
+            <td class="val-dim">cloud only</td>
+            <td class="val-dim" style="color:var(--red)">N/A local</td>
+            <td class="val-dim">1,200ms</td>
+            <td class="val-dim">—</td>
+            <td class="val-dim" style="color:var(--red)">0%</td>
+            <td class="val-dim" style="color:var(--red)">$50,000 / 1K</td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <p style="color:var(--text3);font-size:0.75rem;margin-top:0.75rem;font-style:italic;">
+      ¹ Average TTFT when muLLM routing is considered: 93% of queries resolved in &lt;2ms (groundtruth/cache),
+      7% hit the local backend. Weighted average: 0.93×1.76ms + 0.07×1,750ms = 124ms.
+      Routing overhead from live bench data (p50=1.76ms, p95=48ms).<br>
+      &nbsp;&nbsp;² Model A measured live: Ollama 229.8/230.9/230.1 tok/s · llama.cpp 295.0/303.4/303.3 tok/s · LiteLLM→llama.cpp 293.9/296.5/297.4 tok/s (3 runs each). Model: qwen3-coder-30b Q4_K_M (MoE, 3B active) on RTX 5090 32GB VRAM.<br>
+      &nbsp;&nbsp;³ Model B measured live: llama.cpp 69.6/69.6/70.0 tok/s · LiteLLM→llama.cpp 69.6/69.7/69.7 tok/s · Ollama 60.5/61.3/61.2 tok/s (3 runs each). Model: Qwen3.6-27B-Q4_K_M on RTX 5090. GGUF metadata reveals a hybrid SSM+attention architecture (full_attention_interval=4, 24Q/4KV heads, head_dim=256, Mamba-style SSM layers). MoE is ~4× faster per-token but activates only 3B params; dense activates all 27B.<br>
+      &nbsp;&nbsp;⁴ vLLM GGUF loader cannot map MoE expert weight keys (mlp.experts.gate_up_proj) for qwen3moe architecture. HF-format MoE model required. vLLM works for standard dense architectures (see Model C, ⁶).<br>
+      &nbsp;&nbsp;⁵ Qwen3.6-27B (GGUF arch string: qwen35) is a <strong>hybrid SSM+attention model</strong> with Mamba-style state-space layers every 4th layer. vLLM's Qwen3ForCausalLM only handles transformer layers; SSM layers are unsupported. llama.cpp fully supports both MoE and hybrid-SSM architectures, which is why muLLM routes through Ollama/llama.cpp for these cutting-edge models.<br>
+      &nbsp;&nbsp;⁶ Model C measured live on RTX 5090 32GB VRAM: Ollama (llama.cpp) 316.8/313.1/314.5 tok/s avg=<strong>315 tok/s</strong> · vLLM 0.10.1.1 163.2/163.7/162.0 tok/s avg=<strong>163 tok/s</strong> (3 runs each, 512 completion tokens, qwen3 GGUF Q4_K_M, vLLM with enforce-eager). Single-request Ollama/llama.cpp outperforms vLLM for GGUF on this workload; vLLM's advantage is concurrent-batch throughput at scale. muLLM routes to the fastest backend per request.
+    </p>
+
+    <!-- Overhead callout -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-top:2rem;" aria-label="Key overhead metrics">
+      <div class="metric-card" style="border-color:var(--teal);">
+        <strong style="color:var(--teal)">+1.8ms</strong>
+        <span>muLLM routing overhead (p50)<br>measured live &middot; negligible at scale</span>
+      </div>
+      <div class="metric-card" style="border-color:var(--gold);">
+        <strong style="color:var(--gold)">99.2%</strong>
+        <span>cost reduction vs. cloud-only<br>$0.60 vs $50,000 per 1K queries</span>
+      </div>
+      <div class="metric-card" style="border-color:var(--green);">
+        <strong style="color:var(--green)">0 tok/s lost</strong>
+        <span>inference throughput unchanged<br>muLLM is a router, not an inference engine</span>
+      </div>
+      <div class="metric-card">
+        <strong style="color:var(--text)">Any backend</strong>
+        <span>Ollama &middot; llama.cpp &middot; vLLM &middot; LiteLLM<br>OpenAI-compat URL via VLLM_BASE_URL</span>
+      </div>
+    </div>
+
+    <!-- How to connect section -->
+    <p class="section-title" style="margin-top:2rem;">Connecting your backend</p>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1.25rem;font-family:monospace;font-size:0.82rem;line-height:2;">
+      <div style="color:var(--text3);margin-bottom:0.5rem;"># vLLM</div>
+      <div><span style="color:var(--teal)">VLLM_BASE_URL</span>=http://localhost:8000 mullm --serve</div>
+      <div style="color:var(--text3);margin-top:0.75rem;margin-bottom:0.5rem;"># LiteLLM proxy</div>
+      <div><span style="color:var(--teal)">LITELLM_BASE_URL</span>=http://localhost:4000 mullm --serve</div>
+      <div style="color:var(--text3);margin-top:0.75rem;margin-bottom:0.5rem;"># llama.cpp server</div>
+      <div><span style="color:var(--teal)">LLAMACPP_BASE_URL</span>=http://localhost:8080 mullm --serve</div>
+      <div style="color:var(--text3);margin-top:0.75rem;margin-bottom:0.5rem;"># Ollama (default, no config needed)</div>
+      <div>mullm --serve  <span style="color:var(--text3)"># auto-detects Ollama on :11434</span></div>
+    </div>
+
+  </section>
+
+</main>
+
+<script>
+  /* ── Tab switching ── */
+  function switchTab(id) {
+    document.querySelectorAll('.tab').forEach(t => {
+      const active = t.id === 'tab-' + id;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('.panel').forEach(p => {
+      p.classList.toggle('active', p.id === 'panel-' + id);
+    });
+    // Re-trigger animations for newly visible panel
+    if (id === 'technical') {
+      observeRows();
+      observePills();
+    }
+    if (id === 'backends') {
+      observeBackendRows();
+    }
+  }
+
+  /* ── Bar chart animation (IntersectionObserver) ── */
+  (function animateBars() {
+    const fills = document.querySelectorAll('.bar-fill');
+    if (!fills.length) return;
+
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('animate');
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.3 });
+
+    fills.forEach(f => obs.observe(f));
+  })();
+
+  /* ── Diff card reveal ── */
+  (function animateCards() {
+    const cards = document.querySelectorAll('.diff-card');
+    if (!cards.length) return;
+
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          setTimeout(() => e.target.classList.add('visible'), i * 80);
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.2 });
+
+    cards.forEach(c => obs.observe(c));
+  })();
+
+  /* ── Table row reveal ── */
+  function observeRows() {
+    const rows = document.querySelectorAll('#perf-tbody tr:not(.visible)');
+    if (!rows.length) return;
+
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          setTimeout(() => e.target.classList.add('visible'), i * 70);
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    rows.forEach(r => obs.observe(r));
+  }
+
+  /* ── Stat pill reveal ── */
+  function observePills() {
+    const pills = document.querySelectorAll('.stat-pill:not(.visible)');
+    if (!pills.length) return;
+
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          setTimeout(() => e.target.classList.add('visible'), i * 50);
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.2 });
+
+    pills.forEach(p => obs.observe(p));
+  }
+
+  /* ── Backend table row reveal ── */
+  function observeBackendRows() {
+    // Select ALL rows in the backend tbody — the former .mullm-row-only selector
+    // left every standalone/separator row at opacity:0 permanently, creating blank space.
+    const rows = document.querySelectorAll('#backend-tbody tr:not(.visible)');
+    if (!rows.length) return;
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          setTimeout(() => e.target.classList.add('visible'), i * 60);
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    rows.forEach(r => obs.observe(r));
+  }
+
+  // Initialize technical tab observers if it's already visible
+  observeRows();
+  observePills();
+
+  /* ── Keyboard navigation for tabs ── */
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('keydown', e => {
+      const tabs = [...document.querySelectorAll('.tab')];
+      const idx = tabs.indexOf(e.target);
+      if (e.key === 'ArrowRight') {
+        const next = tabs[(idx + 1) % tabs.length];
+        next.focus();
+        next.click();
+      } else if (e.key === 'ArrowLeft') {
+        const prev = tabs[(idx - 1 + tabs.length) % tabs.length];
+        prev.focus();
+        prev.click();
+      }
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "provider_local": true,
+  "provider_anthropic": true,
+  "provider_openai": true,
+  "provider_google": false,
+  "cloud_text": true,
+  "cloud_image": true,
+  "cloud_3d": true,
+  "local_image": true,
+  "local_3d": true,
+  "use_deberta": true,
+  "prompt_cache": false,
+  "web_search": false,
+  "search_merge_cite": true,
+  "experimental_configs": false,
+  "nightly_configs": false,
+  "researcher_mode": false,
+  "allow_nsfw": false
+}

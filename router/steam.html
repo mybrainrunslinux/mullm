@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — Steam Asset Pipeline</title>
+  <meta name="description" content="Generate and export all required Steam store images, capsules, icons, and gameplay clips for browser-based games." />
+  <meta name="theme-color" content="#0a0a1a" media="(prefers-color-scheme: dark)" />
+  <style>
+    /* ── Reset & Tokens ─────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:      #0a0a1a;
+      --bg2:     #0f0f2a;
+      --bg3:     #141428;
+      --border:  #1e1e3a;
+      --teal:    #00bfa5;
+      --teal-dim:#007a6a;
+      --coral:   #ff6b6b;
+      --amber:   #f59e0b;
+      --purple:  #a78bfa;
+      --green:   #22c55e;
+      --steam:   #1b2838;
+      --steam2:  #2a475e;
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --text3:   #5a6a7a;
+      --mono:    "JetBrains Mono", "Fira Code", monospace;
+      --sans:    "Inter", -apple-system, sans-serif;
+      color-scheme: dark;
+    }
+    [data-theme="light"] {
+      --bg:     #f0f4ff; --bg2: #e8edf8; --bg3: #dce3f0;
+      --border: #c5cfe0; --teal: #007a6a; --teal-dim: #004d42;
+      --coral:  #c0392b; --text: #0f1730; --text2: #3a4a5e; --text3: #6a7a8e;
+      color-scheme: light;
+    }
+
+    /* ── Accessibility ── */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--teal); color: #000;
+      padding: 8px 16px; z-index: 10000; font-weight: 600;
+      border-radius: 0 0 8px 0; transition: top 0.2s;
+      font-family: var(--mono); font-size: 13px;
+    }
+    .skip-link:focus { top: 0; }
+    *:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); overflow-x: hidden; line-height: 1.6;
+    }
+    button { font-family: inherit; cursor: pointer; }
+    img { display: block; }
+
+    /* ── Tooltip ── */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 10px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: .75rem; color: var(--text); white-space: nowrap;
+      z-index: 9999; pointer-events: none; font-family: var(--mono);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    [data-tooltip][data-tip-wide]:hover::after { white-space: normal; width: 220px; text-align: left; }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: rgba(10,10,26,.88); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px; display: flex; align-items: center; gap: 14px;
+      font-family: var(--mono); font-size: 13px;
+      position: sticky; top: 0; z-index: 200; flex-wrap: wrap;
+    }
+    .logo {
+      font-weight: 700; font-size: 14px; letter-spacing: 1px;
+      color: var(--teal); text-decoration: none;
+      text-shadow: 0 0 12px rgba(0,191,165,.4);
+      display: flex; align-items: center; gap: 0;
+    }
+    .logo-mu { color: var(--amber); font-family: "Times New Roman", Georgia, serif; font-size: 18px; font-style: italic; line-height: 14px; }
+    .logo-pipe { color: var(--text3); font-size: 20px; line-height: 14px; margin: 0 -1px; font-weight: 400; opacity: .5; position: relative; top: -1px; }
+    .logo-llm { color: var(--teal); letter-spacing: 1px; }
+    .topbar-spacer { flex: 1; }
+    .nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+    .nav-link {
+      padding: 4px 10px; border-radius: 6px; font-size: .82rem;
+      color: var(--text2); transition: all .15s; text-decoration: none;
+    }
+    .nav-link:hover { background: var(--bg3); color: var(--text); }
+    .nav-link.active { background: linear-gradient(135deg, var(--teal), #00796b); color: #000; font-weight: 600; }
+    .theme-toggle {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text2); padding: 4px 10px; border-radius: 6px; font-size: .82rem; transition: all .15s;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--teal); }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, #0a0a1a 0%, #0d1025 40%, #0a0e1a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 36px 24px 32px; text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(0,191,165,.12); border: 1px solid rgba(0,191,165,.3);
+      border-radius: 100px; padding: 4px 14px;
+      font-family: var(--mono); font-size: .72rem;
+      color: var(--teal); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 18px;
+    }
+    .hero-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--teal); box-shadow: 0 0 6px var(--teal);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .hero-title {
+      font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 800; letter-spacing: -1px;
+      background: linear-gradient(135deg, #fff 0%, var(--teal) 50%, var(--coral) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1.15; margin-bottom: 10px;
+    }
+    .hero-sub { font-size: clamp(.88rem, 2vw, 1rem); color: var(--text2); max-width: 540px; margin: 0 auto; }
+
+    /* ── Section ── */
+    .section { padding: 32px 24px; max-width: 1280px; margin: 0 auto; }
+    .section-title {
+      font-family: var(--mono); font-size: .7rem; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--text3); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── Controls row ── */
+    .controls-row {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 20px; margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .ctrl-label {
+      font-family: var(--mono); font-size: .72rem; color: var(--text3);
+      text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
+    }
+    select, input[type="text"], input[type="number"], input[type="range"], textarea {
+      font-family: var(--mono); font-size: .85rem;
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 8px 12px;
+      transition: border-color .15s;
+    }
+    select:focus, input:focus, textarea:focus { outline: none; border-color: var(--teal); }
+    select { cursor: pointer; min-width: 200px; }
+    .ctrl-gap { flex: 1; }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--teal), #00796b); color: #000;
+      font-weight: 700; font-size: .88rem; padding: 10px 22px;
+      border: none; border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 44px; transition: transform .15s, box-shadow .15s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,191,165,.35); }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-secondary {
+      background: var(--bg3); color: var(--text); font-weight: 600; font-size: .82rem;
+      padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 4px;
+      transition: all .15s; min-height: 38px;
+    }
+    .btn-secondary:hover { border-color: var(--teal); color: var(--teal); }
+    .btn-secondary:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-danger {
+      background: rgba(255,107,107,.12); color: var(--coral);
+      border: 1px solid rgba(255,107,107,.3); font-size: .82rem;
+      padding: 8px 16px; border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 4px;
+      transition: all .15s; min-height: 38px;
+    }
+    .btn-danger:hover { background: rgba(255,107,107,.2); border-color: var(--coral); }
+    .btn-amber {
+      background: rgba(245,158,11,.12); color: var(--amber);
+      border: 1px solid rgba(245,158,11,.3); font-weight: 600; font-size: .88rem;
+      padding: 10px 22px; border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 44px; transition: all .15s;
+    }
+    .btn-amber:hover { background: rgba(245,158,11,.2); box-shadow: 0 4px 16px rgba(245,158,11,.2); }
+    .btn-amber:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Live preview ── */
+    .preview-frame {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden; aspect-ratio: 16/9; position: relative;
+      max-height: 340px; display: flex; align-items: center; justify-content: center;
+    }
+    .preview-frame img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .preview-placeholder {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      color: var(--text3); font-family: var(--mono); font-size: .8rem; padding: 24px;
+    }
+    .preview-icon { font-size: 2.5rem; opacity: .4; }
+    .preview-loading {
+      position: absolute; inset: 0; background: rgba(10,10,26,.7);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono); font-size: .82rem; color: var(--teal);
+    }
+    .spinner {
+      width: 20px; height: 20px; border: 2px solid var(--border);
+      border-top-color: var(--teal); border-radius: 50%;
+      animation: spin .8s linear infinite; margin-right: 8px; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Format grid ── */
+    .format-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+      gap: 12px; margin-top: 16px;
+    }
+    .format-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; position: relative;
+      transition: border-color .2s, box-shadow .2s; overflow: hidden;
+    }
+    .format-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--card-color, var(--border)), transparent);
+    }
+    .format-card.complete { --card-color: var(--green); border-color: rgba(34,197,94,.25); }
+    .format-card.missing { --card-color: var(--border); }
+    .format-card.generating { --card-color: var(--amber); border-color: rgba(245,158,11,.3); }
+    .format-name {
+      font-family: var(--mono); font-size: .72rem; font-weight: 700;
+      color: var(--teal); text-transform: uppercase; letter-spacing: .5px;
+      margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .format-dim {
+      font-family: var(--mono); font-size: .8rem; color: var(--text3); margin-bottom: 6px;
+    }
+    .format-note {
+      font-size: .72rem; color: var(--text2); line-height: 1.4;
+    }
+    .format-thumb {
+      width: 100%; aspect-ratio: 16/9; object-fit: cover;
+      border-radius: 6px; margin-top: 10px; border: 1px solid var(--border);
+    }
+    .format-thumb.portrait { aspect-ratio: 2/3; }
+    .format-thumb.square { aspect-ratio: 1; }
+    .format-badge {
+      position: absolute; top: 10px; right: 10px;
+      font-family: var(--mono); font-size: .65rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 100px; text-transform: uppercase;
+    }
+    .format-badge.done { background: rgba(34,197,94,.15); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+    .format-badge.missing { background: rgba(90,106,122,.15); color: var(--text3); border: 1px solid var(--border); }
+    .format-badge.busy { background: rgba(245,158,11,.15); color: var(--amber); border: 1px solid rgba(245,158,11,.3); }
+
+    /* ── Progress bar ── */
+    .progress-wrap {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 20px;
+      display: none;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-label {
+      font-family: var(--mono); font-size: .78rem; color: var(--text2);
+      margin-bottom: 8px; display: flex; justify-content: space-between;
+    }
+    .progress-track {
+      background: var(--bg3); border-radius: 100px; height: 8px; overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%; border-radius: 100px;
+      background: linear-gradient(90deg, var(--teal), var(--purple));
+      transition: width .4s ease; will-change: width;
+    }
+    .progress-log {
+      margin-top: 10px; font-family: var(--mono); font-size: .72rem;
+      color: var(--text3); line-height: 1.7; max-height: 80px;
+      overflow-y: auto;
+    }
+
+    /* ── Capsule generator ── */
+    .capsule-panel {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 22px;
+    }
+    .capsule-form { display: flex; flex-direction: column; gap: 12px; }
+    .capsule-form label {
+      font-family: var(--mono); font-size: .72rem; color: var(--text3);
+      text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px;
+    }
+    .capsule-form input[type="text"],
+    .capsule-form textarea { width: 100%; resize: vertical; }
+    .capsule-form textarea { min-height: 68px; }
+    .capsule-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .capsule-preview {
+      margin-top: 14px; border-radius: 8px; overflow: hidden;
+      border: 1px solid var(--border); max-width: 400px;
+      display: none;
+    }
+    .capsule-preview.visible { display: block; }
+    .capsule-preview img { width: 100%; display: block; }
+
+    /* ── Clip recorder ── */
+    .clip-panel {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 22px;
+    }
+    .clip-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .clip-dur-label {
+      font-family: var(--mono); font-size: .82rem; color: var(--teal);
+      min-width: 50px; text-align: center;
+    }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      height: 6px; border-radius: 3px; padding: 0;
+      background: linear-gradient(90deg, var(--teal) var(--pct, 30%), var(--bg3) var(--pct, 30%));
+      border: none; cursor: pointer; min-width: 160px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px;
+      border-radius: 50%; background: var(--teal);
+      border: 2px solid var(--bg); box-shadow: 0 0 6px rgba(0,191,165,.4);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--teal); border: 2px solid var(--bg);
+    }
+    .clip-status {
+      font-family: var(--mono); font-size: .78rem; color: var(--amber);
+      display: none;
+    }
+    .clip-status.visible { display: flex; align-items: center; gap: 6px; }
+    .clip-result { margin-top: 14px; display: none; }
+    .clip-result.visible { display: block; }
+    .clip-result video {
+      width: 100%; max-width: 640px; border-radius: 8px;
+      border: 1px solid var(--border); background: #000;
+    }
+    .clip-links {
+      display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;
+    }
+
+    /* ── Checklist ── */
+    .checklist {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 6px; margin-top: 12px;
+    }
+    .check-item {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: .78rem; padding: 8px 10px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 8px; transition: border-color .15s;
+    }
+    .check-item.done { border-color: rgba(34,197,94,.25); }
+    .check-icon { font-size: 1rem; flex-shrink: 0; }
+    .check-name { color: var(--text2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .check-dim { color: var(--text3); font-size: .68rem; }
+
+    /* ── Toast ── */
+    .toast-container {
+      position: fixed; bottom: 24px; right: 24px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 5000; pointer-events: none;
+    }
+    .toast {
+      background: var(--bg2); border: 1px solid var(--border);
+      padding: 10px 16px; border-radius: 10px;
+      font-family: var(--mono); font-size: .8rem; color: var(--text);
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      animation: toastIn .25s ease-out;
+      max-width: 320px;
+    }
+    .toast.success { border-color: rgba(34,197,94,.4); color: var(--green); }
+    .toast.error   { border-color: rgba(255,107,107,.4); color: var(--coral); }
+    .toast.info    { border-color: rgba(0,191,165,.4); color: var(--teal); }
+    @keyframes toastIn { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
+
+    /* ── Layout columns ── */
+    .two-col {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 860px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+    .full-col { grid-column: 1 / -1; }
+
+    /* ── Misc ── */
+    .dimtext { color: var(--text3); font-size: .8rem; }
+    .mono { font-family: var(--mono); }
+    .stat-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+    .stat-chip {
+      font-family: var(--mono); font-size: .78rem;
+      padding: 5px 12px; border-radius: 8px;
+      background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+    }
+    .stat-chip b { color: var(--teal); }
+    .error-box {
+      background: rgba(255,107,107,.08); border: 1px solid rgba(255,107,107,.25);
+      border-radius: 10px; padding: 14px 16px; margin-top: 14px;
+      font-family: var(--mono); font-size: .8rem; color: var(--coral);
+      display: none;
+    }
+    .error-box.visible { display: block; }
+
+    @media (max-width: 600px) {
+      .section { padding: 20px 14px; }
+      .controls-row { flex-direction: column; align-items: stretch; }
+      select { min-width: unset; width: 100%; }
+      .topbar { padding: 8px 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to content</a>
+
+  <header class="topbar" role="banner">
+    <a href="/" class="logo" aria-label="muLLM home">
+      <span class="logo-mu">m&#956;</span><span class="logo-pipe">&#x2502;</span><span class="logo-llm">LLM</span>
+    </a>
+    <nav class="nav-links" aria-label="Main navigation">
+      <a href="/bench"   class="nav-link" data-tooltip="Benchmarks">Bench</a>
+      <a href="/3d"      class="nav-link" data-tooltip="3D pipeline">3D</a>
+      <a href="/comfyui" class="nav-link" data-tooltip="ComfyUI">Image</a>
+      <a href="/steam"   class="nav-link active" aria-current="page">Steam</a>
+    </nav>
+    <div class="topbar-spacer" role="none"></div>
+    <button class="theme-toggle" id="themeBtn" data-tooltip="Toggle light/dark mode" aria-label="Toggle theme">
+      Light
+    </button>
+  </header>
+
+  <div class="hero" role="region" aria-label="Steam asset pipeline">
+    <div class="hero-badge">
+      <span class="hero-badge-dot" aria-hidden="true"></span>
+      Steam Asset Pipeline
+    </div>
+    <h1 class="hero-title">Steam Store Assets</h1>
+    <p class="hero-sub">Capture screenshots, generate capsules, record gameplay clips — everything Valve requires, automated.</p>
+  </div>
+
+  <main id="main">
+
+    <!-- ── Game selector + preview ── -->
+    <section class="section" aria-label="Game selector">
+      <p class="section-title">Select game</p>
+
+      <div class="controls-row">
+        <span class="ctrl-label">Game</span>
+        <select id="gameSelect" aria-label="Select a game to capture">
+          <option value="">Loading games…</option>
+        </select>
+        <button class="btn-secondary" id="refreshBtn"
+                data-tooltip="Reload game list" aria-label="Refresh game list">
+          Refresh
+        </button>
+        <div class="ctrl-gap" role="none"></div>
+        <a id="openGameLink" href="#" target="_blank" rel="noopener noreferrer"
+           class="btn-secondary" style="display:none"
+           data-tooltip="Open game in new tab">
+          Open game
+        </a>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="preview-frame" id="previewFrame" role="img" aria-label="Game preview screenshot">
+            <div class="preview-placeholder" id="previewPlaceholder">
+              <span class="preview-icon" aria-hidden="true">&#127918;</span>
+              <span>Select a game to preview</span>
+            </div>
+            <img id="previewImg" src="" alt="" style="display:none" />
+            <div class="preview-loading" id="previewLoading" style="display:none" aria-live="polite">
+              <div class="spinner" aria-hidden="true"></div>Loading preview…
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div id="statsRow" class="stat-row" style="margin-top:0" aria-live="polite">
+            <span class="stat-chip" id="statComplete">— / — formats</span>
+          </div>
+
+          <!-- Full capture action -->
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn-primary" id="captureBtn" disabled
+                    data-tooltip="Screenshot the game and resize to all Steam formats">
+              <span aria-hidden="true">&#128247;</span> Capture all formats
+            </button>
+            <button class="btn-secondary" id="downloadBtn" disabled
+                    data-tooltip="Download all generated assets as a .zip">
+              <span aria-hidden="true">&#128229;</span> Download all assets
+            </button>
+          </div>
+
+          <div class="progress-wrap" id="progressWrap" role="status" aria-live="polite">
+            <div class="progress-label">
+              <span id="progressText">Capturing…</span>
+              <span id="progressPct">0%</span>
+            </div>
+            <div class="progress-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progressTrack">
+              <div class="progress-bar" id="progressBar" style="width:0%"></div>
+            </div>
+            <div class="progress-log" id="progressLog" aria-live="polite"></div>
+          </div>
+
+          <div class="error-box" id="captureError" role="alert"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Format grid ── -->
+    <section class="section" aria-label="Steam format checklist">
+      <p class="section-title">Format checklist</p>
+
+      <div class="checklist" id="checklistGrid" aria-live="polite">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Asset grid</div>
+      <div class="format-grid" id="formatGrid" aria-live="polite">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <!-- ── Capsule generator ── -->
+    <section class="section" aria-label="AI capsule generator">
+      <p class="section-title">AI capsule generator</p>
+
+      <div class="capsule-panel">
+        <form class="capsule-form" id="capsuleForm" onsubmit="return false">
+          <div class="two-col" style="gap:12px">
+            <div>
+              <label for="capsuleTitle">Game title</label>
+              <input type="text" id="capsuleTitle" placeholder="e.g. Capyballista" autocomplete="off" />
+            </div>
+            <div>
+              <label for="capsuleFormat">Format</label>
+              <select id="capsuleFormat" aria-label="Capsule format">
+                <option value="capsule_md">capsule_md — 616×353 (primary)</option>
+                <option value="header">header — 460×215</option>
+                <option value="capsule_sm">capsule_sm — 231×87</option>
+                <option value="capsule_lg">capsule_lg — 616×353</option>
+                <option value="library_600x900">library_600x900 — 600×900</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label for="capsulePrompt">Visual description for AI</label>
+            <textarea id="capsulePrompt"
+              placeholder="e.g. A heroic catapult siege scene with a capybara general, dramatic lighting, game box art style, dark fantasy background"></textarea>
+          </div>
+
+          <div class="capsule-row">
+            <div>
+              <label for="capsuleModel" style="display:block;margin-bottom:4px">Image model</label>
+              <select id="capsuleModel" aria-label="Image generation model">
+                <option value="dall-e-3">dall-e-3 (OpenAI)</option>
+                <option value="gpt-image-1">gpt-image-1 (OpenAI)</option>
+                <option value="imagen-4">imagen-4 (Google)</option>
+                <option value="comfyui">ComfyUI (local)</option>
+              </select>
+            </div>
+            <div style="flex:1"></div>
+            <button type="submit" class="btn-amber" id="capsuleBtn" disabled
+                    data-tooltip="Generate AI capsule image with title overlay">
+              <span aria-hidden="true">&#10024;</span> Generate capsule
+            </button>
+          </div>
+
+          <div class="capsule-preview" id="capsulePreview">
+            <img id="capsulePreviewImg" src="" alt="Generated capsule image" />
+          </div>
+          <div class="error-box" id="capsuleError" role="alert"></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ── Clip recorder ── -->
+    <section class="section" aria-label="Gameplay clip recorder">
+      <p class="section-title">Gameplay clip recorder</p>
+
+      <div class="clip-panel">
+        <div class="clip-row">
+          <span class="ctrl-label">Duration</span>
+          <input type="range" id="clipDur" min="3" max="60" value="10" step="1"
+                 aria-label="Clip duration in seconds"
+                 oninput="this.style.setProperty('--pct', ((this.value-3)/(60-3)*100)+'%'); document.getElementById('clipDurLabel').textContent = this.value + 's'" />
+          <span class="clip-dur-label" id="clipDurLabel" aria-live="polite">10s</span>
+          <div style="flex:1"></div>
+          <button class="btn-amber" id="clipBtn" disabled
+                  data-tooltip="Record a gameplay clip using Playwright screen recording">
+            <span aria-hidden="true">&#127910;</span> Record clip
+          </button>
+        </div>
+
+        <div class="clip-status" id="clipStatus" aria-live="polite">
+          <div class="spinner" aria-hidden="true"></div>
+          <span id="clipStatusText">Recording…</span>
+        </div>
+
+        <div class="clip-result" id="clipResult">
+          <video id="clipVideo" controls preload="metadata" aria-label="Recorded gameplay clip">
+            Your browser does not support the video element.
+          </video>
+          <div class="clip-links" id="clipLinks"></div>
+        </div>
+        <div class="error-box" id="clipError" role="alert"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="toast-container" id="toastContainer" aria-live="assertive" aria-atomic="true"></div>
+
+  <script>
+    'use strict';
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let currentGame = '';
+    let pollTimer = null;
+    let isCapturing = false;
+    let allFormats = {};  // key → {width, height, note}
+
+    // ── Toast ────────────────────────────────────────────────────────────────
+    function toast(msg, type = 'info', ms = 4000) {
+      const c = document.getElementById('toastContainer');
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.textContent = msg;
+      c.appendChild(el);
+      setTimeout(() => el.remove(), ms);
+    }
+
+    // ── Theme toggle ─────────────────────────────────────────────────────────
+    (function () {
+      const btn = document.getElementById('themeBtn');
+      const stored = localStorage.getItem('mullm-theme');
+      if (stored === 'light') { document.documentElement.setAttribute('data-theme', 'light'); btn.textContent = 'Dark'; }
+      btn.addEventListener('click', () => {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        document.documentElement.setAttribute('data-theme', isLight ? '' : 'light');
+        btn.textContent = isLight ? 'Light' : 'Dark';
+        localStorage.setItem('mullm-theme', isLight ? '' : 'light');
+      });
+    })();
+
+    // ── Load format metadata ─────────────────────────────────────────────────
+    async function loadFormats() {
+      try {
+        const resp = await fetch('/api/steam/formats');
+        const data = await resp.json();
+        allFormats = data.formats || {};
+      } catch (e) {
+        console.warn('Could not load Steam formats:', e);
+      }
+    }
+
+    // ── Load game list ───────────────────────────────────────────────────────
+    async function loadGames() {
+      const sel = document.getElementById('gameSelect');
+      try {
+        // Use /api/apks which scans router/*.html
+        const resp = await fetch('/api/apks');
+        const data = await resp.json();
+        const games = data.apps || data.games || [];
+        sel.innerHTML = '<option value="">— select a game —</option>';
+        games.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.slug || g.id || g.file || '';
+          opt.textContent = g.name || opt.value;
+          sel.appendChild(opt);
+        });
+        if (games.length === 0) {
+          sel.innerHTML = '<option value="">No games found</option>';
+        }
+      } catch (e) {
+        // Fallback: scan router HTML files via a lightweight approach
+        sel.innerHTML = '<option value="">Error loading games — try Refresh</option>';
+        console.error('loadGames error:', e);
+      }
+    }
+
+    // ── On game change ───────────────────────────────────────────────────────
+    document.getElementById('gameSelect').addEventListener('change', function () {
+      currentGame = this.value.trim();
+      const openLink = document.getElementById('openGameLink');
+
+      if (!currentGame) {
+        document.getElementById('captureBtn').disabled = true;
+        document.getElementById('downloadBtn').disabled = true;
+        document.getElementById('capsuleBtn').disabled = true;
+        document.getElementById('clipBtn').disabled = true;
+        openLink.style.display = 'none';
+        clearPreview();
+        clearFormatGrid();
+        return;
+      }
+
+      document.getElementById('captureBtn').disabled = false;
+      document.getElementById('capsuleBtn').disabled = false;
+      document.getElementById('clipBtn').disabled = false;
+      openLink.style.display = 'inline-flex';
+      openLink.href = `/${currentGame}`;
+
+      // Auto-fill capsule title
+      const titleEl = document.getElementById('capsuleTitle');
+      if (!titleEl.value) {
+        titleEl.value = currentGame.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      }
+
+      loadAssets(currentGame);
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', loadGames);
+
+    // ── Preview helpers ───────────────────────────────────────────────────────
+    function clearPreview() {
+      document.getElementById('previewImg').style.display = 'none';
+      document.getElementById('previewPlaceholder').style.display = 'flex';
+    }
+
+    function showPreviewUrl(url) {
+      const img = document.getElementById('previewImg');
+      const ph  = document.getElementById('previewPlaceholder');
+      img.src = url + '?t=' + Date.now();
+      img.alt = `Screenshot of ${currentGame}`;
+      img.style.display = 'block';
+      ph.style.display = 'none';
+    }
+
+    // ── Load existing assets ─────────────────────────────────────────────────
+    async function loadAssets(game) {
+      if (!game) return;
+      try {
+        const resp = await fetch(`/api/steam/assets/${encodeURIComponent(game)}`);
+        if (!resp.ok) { clearFormatGrid(); return; }
+        const data = await resp.json();
+        renderAssets(data);
+        renderChecklist(data.checklist || {});
+
+        // Show latest screenshot_hd as preview
+        const hd = data.files.find(f => f.format === 'screenshot_hd' || f.format === 'raw_1920x1080');
+        if (hd) showPreviewUrl(hd.url);
+
+        document.getElementById('downloadBtn').disabled = data.count === 0;
+        document.getElementById('statComplete').innerHTML =
+          `<b>${data.complete_count}</b> / ${data.total_formats} formats`;
+      } catch (e) {
+        clearFormatGrid();
+      }
+    }
+
+    function clearFormatGrid() {
+      document.getElementById('formatGrid').innerHTML = `
+        <p class="dimtext" style="grid-column:1/-1;padding:8px 0">
+          Select a game and click "Capture all formats" to generate assets.
+        </p>`;
+      document.getElementById('checklistGrid').innerHTML = '';
+      document.getElementById('statComplete').innerHTML = '— / — formats';
+    }
+
+    // ── Render format asset cards ─────────────────────────────────────────────
+    function renderAssets(data) {
+      const grid = document.getElementById('formatGrid');
+      const filesByFormat = {};
+      (data.files || []).forEach(f => { filesByFormat[f.format] = f; });
+
+      if (data.count === 0 && Object.keys(filesByFormat).length === 0) {
+        clearFormatGrid();
+        return;
+      }
+
+      const fmtKeys = Object.keys(allFormats);
+      const allKeys = [...new Set([...fmtKeys, ...Object.keys(filesByFormat)])];
+
+      grid.innerHTML = allKeys.map(k => {
+        const f = filesByFormat[k];
+        const fmt = allFormats[k] || {};
+        const dim = fmt.width ? `${fmt.width}×${fmt.height}` : '';
+        const note = fmt.note || '';
+        const isPortrait = fmt.width && fmt.height && fmt.height > fmt.width;
+        const isSquare = fmt.width && fmt.width === fmt.height;
+        const thumbClass = isPortrait ? 'portrait' : isSquare ? 'square' : '';
+        const cardClass = f ? 'complete' : 'missing';
+
+        return `<div class="format-card ${cardClass}" role="article">
+          <span class="format-badge ${f ? 'done' : 'missing'}">${f ? 'Done' : 'Missing'}</span>
+          <div class="format-name">${k}</div>
+          <div class="format-dim mono">${dim}</div>
+          <div class="format-note">${note}</div>
+          ${f ? `<img class="format-thumb ${thumbClass}" src="${f.url}?t=${Date.now()}"
+                      alt="${k} asset for ${data.game}"
+                      loading="lazy" />` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // ── Render checklist ──────────────────────────────────────────────────────
+    function renderChecklist(checklist) {
+      const grid = document.getElementById('checklistGrid');
+      grid.innerHTML = Object.entries(checklist).map(([k, v]) => `
+        <div class="check-item ${v.complete ? 'done' : ''}"
+             data-tooltip="${v.note}" data-tip-wide role="listitem">
+          <span class="check-icon" aria-hidden="true">${v.complete ? '✅' : '⬜'}</span>
+          <span class="check-name">${k}</span>
+          <span class="check-dim">${v.dimensions}</span>
+        </div>
+      `).join('');
+    }
+
+    // ── Progress helpers ─────────────────────────────────────────────────────
+    function showProgress(text, pct) {
+      const wrap = document.getElementById('progressWrap');
+      wrap.classList.add('visible');
+      document.getElementById('progressText').textContent = text;
+      document.getElementById('progressPct').textContent = Math.round(pct) + '%';
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('progressTrack').setAttribute('aria-valuenow', Math.round(pct));
+    }
+
+    function logProgress(msg) {
+      const log = document.getElementById('progressLog');
+      log.textContent += msg + '\n';
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function hideProgress() {
+      document.getElementById('progressWrap').classList.remove('visible');
+      document.getElementById('progressLog').textContent = '';
+    }
+
+    // ── Capture ──────────────────────────────────────────────────────────────
+    document.getElementById('captureBtn').addEventListener('click', async () => {
+      if (!currentGame || isCapturing) return;
+      isCapturing = true;
+
+      const btn = document.getElementById('captureBtn');
+      const errBox = document.getElementById('captureError');
+      btn.disabled = true;
+      errBox.classList.remove('visible');
+      hideProgress();
+      showProgress('Launching browser…', 5);
+
+      // Show preview loading
+      document.getElementById('previewLoading').style.display = 'flex';
+
+      try {
+        showProgress('Navigating to game…', 15);
+        logProgress('POST /api/steam/capture');
+
+        const resp = await fetch('/api/steam/capture', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ game: currentGame, wait_ms: 3000 }),
+        });
+
+        showProgress('Resizing to Steam formats…', 60);
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({detail: resp.statusText}));
+          throw new Error(err.detail || `HTTP ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        showProgress('Done!', 100);
+
+        data.files.forEach(f => logProgress(`  ✓ ${f.format} (${f.width}x${f.height})`));
+        if (data.errors && data.errors.length) {
+          data.errors.forEach(e => logProgress(`  ! ${e}`));
+        }
+
+        toast(`Captured ${data.files.length} assets in ${Math.round(data.duration_ms)}ms`, 'success');
+
+        // Refresh asset display
+        await loadAssets(currentGame);
+
+        // Update preview to the new raw screenshot
+        const raw = data.files.find(f => f.format === 'raw_1920x1080' || f.format === 'screenshot_hd');
+        if (raw) showPreviewUrl(raw.url);
+
+        document.getElementById('downloadBtn').disabled = false;
+
+        setTimeout(hideProgress, 3000);
+      } catch (e) {
+        showProgress('Error', 0);
+        errBox.textContent = e.message || String(e);
+        errBox.classList.add('visible');
+        toast('Capture failed: ' + (e.message || e), 'error', 7000);
+      } finally {
+        isCapturing = false;
+        btn.disabled = false;
+        document.getElementById('previewLoading').style.display = 'none';
+      }
+    });
+
+    // ── Download all ─────────────────────────────────────────────────────────
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      if (!currentGame) return;
+      const a = document.createElement('a');
+      a.href = `/api/steam/download/${encodeURIComponent(currentGame)}`;
+      a.download = `steam_assets_${currentGame}.zip`;
+      a.click();
+    });
+
+    // ── Capsule generation ───────────────────────────────────────────────────
+    document.getElementById('capsuleForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentGame) { toast('Select a game first', 'error'); return; }
+
+      const title    = document.getElementById('capsuleTitle').value.trim();
+      const prompt   = document.getElementById('capsulePrompt').value.trim();
+      const model    = document.getElementById('capsuleModel').value;
+      const format   = document.getElementById('capsuleFormat').value;
+      const btn      = document.getElementById('capsuleBtn');
+      const errBox   = document.getElementById('capsuleError');
+      const preview  = document.getElementById('capsulePreview');
+      const previewImg = document.getElementById('capsulePreviewImg');
+
+      if (!title)  { toast('Enter a game title', 'error'); return; }
+      if (!prompt) { toast('Enter a visual description', 'error'); return; }
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner" aria-hidden="true" style="width:16px;height:16px;border-width:2px;margin-right:6px;"></div> Generating…';
+      errBox.classList.remove('visible');
+      preview.classList.remove('visible');
+
+      try {
+        const resp = await fetch('/api/steam/capsule', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ game: currentGame, title, prompt, model, format }),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({detail: resp.statusText}));
+          throw new Error(err.detail || `HTTP ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        previewImg.src = data.url + '?t=' + Date.now();
+        previewImg.alt = `Capsule for ${title}`;
+        preview.classList.add('visible');
+        toast(`Capsule generated via ${data.provider}`, 'success');
+        await loadAssets(currentGame);
+      } catch (err) {
+        errBox.textContent = err.message || String(err);
+        errBox.classList.add('visible');
+        toast('Capsule generation failed: ' + (err.message || err), 'error', 7000);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span aria-hidden="true">✨</span> Generate capsule';
+      }
+    });
+
+    document.getElementById('capsuleBtn').addEventListener('click', () => {
+      document.getElementById('capsuleForm').dispatchEvent(new Event('submit'));
+    });
+
+    // ── Clip recording ───────────────────────────────────────────────────────
+    document.getElementById('clipBtn').addEventListener('click', async () => {
+      if (!currentGame) return;
+
+      const dur      = parseInt(document.getElementById('clipDur').value, 10);
+      const btn      = document.getElementById('clipBtn');
+      const status   = document.getElementById('clipStatus');
+      const statusTxt= document.getElementById('clipStatusText');
+      const result   = document.getElementById('clipResult');
+      const video    = document.getElementById('clipVideo');
+      const links    = document.getElementById('clipLinks');
+      const errBox   = document.getElementById('clipError');
+
+      btn.disabled = true;
+      result.classList.remove('visible');
+      errBox.classList.remove('visible');
+      status.classList.add('visible');
+      statusTxt.textContent = `Recording ${dur}s…`;
+
+      // Count down
+      let remaining = dur;
+      const countdown = setInterval(() => {
+        remaining--;
+        statusTxt.textContent = remaining > 0 ? `Recording… ${remaining}s remaining` : 'Processing clip…';
+      }, 1000);
+
+      try {
+        const resp = await fetch('/api/steam/clip', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ game: currentGame, duration_s: dur }),
+        });
+
+        clearInterval(countdown);
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({detail: resp.statusText}));
+          throw new Error(err.detail || `HTTP ${resp.status}`);
+        }
+
+        const data = await resp.json();
+
+        // Show video
+        const src = data.mp4 ? data.mp4.url : data.webm.url;
+        video.src = src;
+        result.classList.add('visible');
+
+        // Download links
+        links.innerHTML = '';
+        if (data.webm) {
+          const a = document.createElement('a');
+          a.href = data.webm.url; a.download = data.webm.filename;
+          a.className = 'btn-secondary'; a.textContent = 'Download .webm';
+          links.appendChild(a);
+        }
+        if (data.mp4) {
+          const a = document.createElement('a');
+          a.href = data.mp4.url; a.download = data.mp4.filename;
+          a.className = 'btn-primary'; a.textContent = 'Download .mp4';
+          links.appendChild(a);
+        }
+
+        toast(`Clip recorded (${dur}s)`, 'success');
+        status.classList.remove('visible');
+      } catch (err) {
+        clearInterval(countdown);
+        status.classList.remove('visible');
+        errBox.textContent = err.message || String(err);
+        errBox.classList.add('visible');
+        toast('Clip recording failed: ' + (err.message || err), 'error', 7000);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ── Poll during capture ───────────────────────────────────────────────────
+    // Lightweight: after capture completes, we refresh via loadAssets.
+    // No polling needed for the sync capture endpoint.
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    (async () => {
+      await loadFormats();
+      await loadGames();
+      clearFormatGrid();
+    })();
+  </script>
+</body>
+</html>

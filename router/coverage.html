@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mu|LLM — Coverage</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --bg: #0a0e1a;
+        --bg2: #111827;
+        --bg3: #1a2332;
+        --bg4: #243044;
+        --border: #1e2d3d;
+        --border2: #2a3a4d;
+        --green: #22c55e;
+        --teal: #14b8a6;
+        --blue: #3b82f6;
+        --amber: #f59e0b;
+        --coral: #ef6c4c;
+        --purple: #a78bfa;
+        --text: #e2e8f0;
+        --text2: #94a3b8;
+        --text3: #8294a7;
+        --mono: "JetBrains Mono", "Fira Code", monospace;
+        --sans: "DM Sans", "Inter", system-ui, sans-serif;
+      }
+      body {
+        font-family: var(--sans);
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+      }
+      .logo { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 0; text-decoration: none; border: none !important; padding: 0 !important; }
+      .logo-mu { color: var(--amber); font-family: 'Times New Roman', Georgia, serif; font-size: 18px; font-style: italic; line-height: 14px; }
+      .logo-pipe { color: var(--text3); font-size: 20px; line-height: 14px; margin: 0 -1px; font-weight: 400; opacity: 0.5; }
+      .logo-llm { color: var(--teal); letter-spacing: 1px; font-family: var(--mono); }
+      .logo-tardi { height: 14px; margin-left: 6px; opacity: 0.7; filter: invert(1) brightness(0.8); transition: opacity 0.2s; }
+      .logo-tardi:hover { opacity: 1; }
+      .nav {
+        display: flex;
+        gap: 8px;
+        padding: 16px 24px;
+        font-size: 11px;
+        font-family: var(--mono);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .nav a {
+        color: var(--text3);
+        text-decoration: none;
+        padding: 4px 12px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+      .nav a:hover,
+      .nav a.active {
+        color: var(--teal);
+        border-color: var(--teal);
+      }
+
+      .header {
+        padding: 24px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .header h1 {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .header .subtitle {
+        color: var(--text2);
+        font-size: 13px;
+      }
+
+      /* Stats bar */
+      .stats-bar {
+        display: flex;
+        gap: 16px;
+        padding: 0 24px 16px;
+        max-width: 1200px;
+        margin: 0 auto;
+        flex-wrap: wrap;
+      }
+      .stat-card {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .stat-card .num {
+        font-family: var(--mono);
+        font-size: 28px;
+        font-weight: 700;
+      }
+      .stat-card .label {
+        font-size: 11px;
+        color: var(--text3);
+        line-height: 1.4;
+      }
+
+      /* Screenshot gallery — game store style */
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+        padding: 0 24px 24px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .gallery-item {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+      }
+      .gallery-item:hover {
+        border-color: var(--teal);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+      }
+
+      /* Image container — still by default, animated on hover */
+      .gallery-item .preview {
+        width: 100%;
+        aspect-ratio: 16/10;
+        overflow: hidden;
+        position: relative;
+        background: var(--bg3);
+      }
+      .gallery-item .preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s;
+      }
+      .gallery-item:hover .preview img {
+        transform: scale(1.02);
+      }
+
+      /* Video overlay — hidden until hover */
+      .gallery-item .preview video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .gallery-item:hover .preview video {
+        opacity: 1;
+      }
+
+      /* Play icon overlay */
+      .gallery-item .play-icon {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      .gallery-item .play-icon svg {
+        width: 48px;
+        height: 48px;
+        fill: rgba(255, 255, 255, 0.8);
+        filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+        transition: transform 0.2s;
+      }
+      .gallery-item:hover .play-icon svg {
+        transform: scale(1.1);
+      }
+      .gallery-item:hover .play-icon {
+        opacity: 0.6;
+      }
+
+      .gallery-item .info {
+        padding: 12px 16px;
+      }
+      .gallery-item .info h3 {
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .gallery-item .info p {
+        font-size: 11px;
+        color: var(--text3);
+      }
+      .gallery-item .badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 1px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: rgba(34, 197, 94, 0.2);
+        color: var(--green);
+        backdrop-filter: blur(4px);
+      }
+
+      /* Infinite scroll — fade-and-pop entrance animation */
+      .gallery-item {
+        opacity: 0;
+        transform: translateY(24px) scale(0.96);
+        transition:
+          opacity 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+          transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      }
+      .gallery-item.visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      .gallery-item:nth-child(even).visible {
+        animation: swipe-in-right 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+      }
+      .gallery-item:nth-child(odd).visible {
+        animation: swipe-in-left 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+      }
+      @keyframes swipe-in-left {
+        from {
+          opacity: 0;
+          transform: translateX(-30px) scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0) scale(1);
+        }
+      }
+      @keyframes swipe-in-right {
+        from {
+          opacity: 0;
+          transform: translateX(30px) scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0) scale(1);
+        }
+      }
+
+      /* Sentinel for infinite scroll */
+      .scroll-sentinel {
+        height: 1px;
+        width: 100%;
+      }
+      .load-more-hint {
+        text-align: center;
+        padding: 16px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text3);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .load-more-hint.show {
+        opacity: 1;
+      }
+
+      /* Test spec list */
+      .spec-list {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px 40px;
+      }
+      .spec-section {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text3);
+        letter-spacing: 2px;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+      }
+      .spec-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 8px;
+      }
+      .spec-item {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-family: var(--mono);
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+      }
+      .spec-item:hover {
+        border-color: var(--teal);
+        transform: translateY(-1px);
+      }
+      .spec-item .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .spec-item .dot.pass {
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green);
+      }
+      .spec-item .count {
+        margin-left: auto;
+        color: var(--green);
+        font-size: 10px;
+      }
+      .spec-item .hover-desc {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: var(--bg2);
+        border: 1px solid var(--teal);
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 10px;
+        color: var(--text2);
+        z-index: 10;
+        line-height: 1.4;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      }
+      .spec-item {
+        position: relative;
+      }
+      .spec-item:hover .hover-desc {
+        display: block;
+      }
+
+      /* Coverage section */
+      .coverage-section {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px 32px;
+      }
+      .coverage-section + .coverage-section {
+        padding-top: 0;
+      }
+      .coverage-heading {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text3);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .coverage-heading .ch-badge {
+        font-size: 10px;
+        letter-spacing: 0.5px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: rgba(34, 197, 94, 0.12);
+        color: var(--green);
+        border: 1px solid rgba(34, 197, 94, 0.25);
+      }
+      .coverage-card {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .coverage-summary {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+      .coverage-summary .cs-stat {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .coverage-summary .cs-num {
+        font-family: var(--mono);
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .coverage-summary .cs-label {
+        font-size: 11px;
+        color: var(--text3);
+      }
+      .coverage-summary .cs-divider {
+        width: 1px;
+        height: 28px;
+        background: var(--border);
+      }
+      .module-row {
+        display: grid;
+        grid-template-columns: 140px 44px 1fr 44px;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 20px;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.15s;
+      }
+      .module-row:last-child {
+        border-bottom: none;
+      }
+      .module-row:hover {
+        background: var(--bg3);
+      }
+      .module-row.excluded {
+        opacity: 0.55;
+      }
+      .module-name {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text2);
+      }
+      .module-pct {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 700;
+        text-align: right;
+      }
+      .module-bar-track {
+        height: 8px;
+        background: var(--bg4);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .module-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      }
+      .module-note {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--text3);
+        letter-spacing: 0.3px;
+      }
+
+      /* Playwright breakdown grid */
+      .pw-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 10px;
+        padding: 16px 20px;
+      }
+      .pw-row {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        transition: border-color 0.2s;
+      }
+      .pw-row:hover {
+        border-color: var(--teal);
+      }
+      .pw-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .pw-desc {
+        font-size: 10px;
+        color: var(--text3);
+        line-height: 1.4;
+      }
+      .pw-count {
+        font-family: var(--mono);
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--teal);
+        margin-top: 2px;
+      }
+      .pw-count span {
+        font-size: 10px;
+        color: var(--text3);
+        font-weight: 400;
+      }
+      .pw-total-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 20px;
+        border-top: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text3);
+      }
+      .pw-total-row strong {
+        color: var(--green);
+        font-size: 16px;
+      }
+      .history-grid,
+      .badge-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 10px;
+        padding: 16px 20px;
+      }
+      .history-item,
+      .badge-item {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+      }
+      .history-title,
+      .badge-title {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text);
+        overflow-wrap: anywhere;
+      }
+      .history-meta,
+      .badge-meta {
+        margin-top: 6px;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text3);
+        line-height: 1.5;
+      }
+      .empty-state {
+        padding: 16px 20px;
+        color: var(--text3);
+        font-size: 12px;
+      }
+
+      /* Info tag (replaces run button) */
+      .info-tag {
+        padding: 8px 16px;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text3);
+        letter-spacing: 0.5px;
+        line-height: 1.5;
+      }
+      .info-tag strong {
+        color: var(--teal);
+      }
+
+      /* Lightbox */
+      .lightbox {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+      .lightbox.open {
+        display: flex;
+      }
+      .lightbox img,
+      .lightbox video {
+        max-width: 90vw;
+        max-height: 85vh;
+        border-radius: 12px;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      }
+      .lightbox .unmute {
+        position: absolute;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 229, 255, 0.15);
+        border: 1px solid var(--teal);
+        border-radius: 6px;
+        padding: 8px 16px;
+        color: var(--teal);
+        font-family: var(--mono);
+        font-size: 10px;
+        cursor: pointer;
+        letter-spacing: 1px;
+      }
+      .lightbox .close-x {
+        position: absolute;
+        top: 16px;
+        right: 24px;
+        font-size: 24px;
+        color: var(--text3);
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="nav">
+      <a href="/" class="logo"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot"></a>
+      <a href="/chat">Chat</a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/performance">Performance</a>
+      <a href="/cost">Cost</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/coverage" class="active">Coverage</a>
+      <a href="/games">Games</a>
+    </div>
+
+    <div class="header">
+      <h1>
+        <span style="color: var(--green)">&#9679;</span>
+        Test Coverage & Visual QA
+      </h1>
+      <div class="subtitle">
+        Playwright test results with hover-to-preview screenshots and video
+        recordings
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="num" style="color: var(--green)" id="pytestPassing">—</div>
+        <div class="label">pytest<br />Passing</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" style="color: var(--teal)" id="totalPassed">—</div>
+        <div class="label">Playwright<br />Tests</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" style="color: var(--teal)" id="totalSpecs">—</div>
+        <div class="label">Spec<br />Files</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" style="color: var(--green)" id="coveragePct">—</div>
+        <div class="label">Backend<br />Coverage</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" style="color: var(--purple)" id="totalScreenshots">
+          —
+        </div>
+        <div class="label">Screenshots<br />& Videos</div>
+      </div>
+      <div class="stat-card">
+        <div class="info-tag" id="lastRunInfo">
+          <strong>Unit &amp; Integration Tests</strong><br />Loading coverage,
+          visual QA, and benchmark history.
+        </div>
+      </div>
+    </div>
+
+    <div class="gallery" id="gallery"></div>
+
+    <!-- Backend Coverage (pytest) -->
+    <div class="coverage-section">
+      <div class="coverage-heading">
+        Backend Coverage (pytest)
+        <span class="ch-badge" id="pytestBadge">loading</span>
+      </div>
+      <div class="coverage-card">
+        <div class="coverage-summary">
+          <div class="cs-stat">
+            <div class="cs-num" style="color:var(--green)" id="backendTestCount">—</div>
+            <div class="cs-label">tests<br>passing</div>
+          </div>
+          <div class="cs-divider"></div>
+          <div class="cs-stat">
+            <div class="cs-num" style="color:var(--teal)" id="backendModuleCount">—</div>
+            <div class="cs-label">modules<br>measured</div>
+          </div>
+          <div class="cs-divider"></div>
+          <div class="cs-stat">
+            <div class="cs-num" style="color:var(--amber)" id="backendCoveragePct">—</div>
+            <div class="cs-label">overall<br>coverage</div>
+          </div>
+          <div class="cs-divider"></div>
+          <div class="cs-stat">
+            <div class="cs-num" style="color:var(--coral)" id="backendMissingCount">—</div>
+            <div class="cs-label">missing<br>lines</div>
+          </div>
+        </div>
+        <div id="backendModules"></div>
+      </div>
+    </div>
+
+    <!-- Frontend Tests (Playwright) -->
+    <div class="coverage-section">
+      <div class="coverage-heading">
+        Frontend Tests (Playwright)
+        <span class="ch-badge" id="playwrightBadge">loading</span>
+      </div>
+      <div class="coverage-card">
+        <div class="pw-grid" id="playwrightGrid"></div>
+        <div class="pw-total-row">
+          <span>Total browser tests</span>
+          <span><strong id="playwrightTotal">—</strong> indexed</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="coverage-section">
+      <div class="coverage-heading">
+        Historic Benchmarks
+        <span class="ch-badge" id="historyBadge">loading</span>
+      </div>
+      <div class="coverage-card">
+        <div class="history-grid" id="historyGrid"></div>
+      </div>
+    </div>
+
+    <div class="coverage-section">
+      <div class="coverage-heading">
+        Preview Badges
+        <span class="ch-badge" id="badgeCount">loading</span>
+      </div>
+      <div class="coverage-card">
+        <div class="badge-grid" id="badgeGrid"></div>
+      </div>
+    </div>
+
+    <div class="coverage-section">
+      <div class="coverage-heading">
+        Project Coverage
+        <span class="ch-badge">workspace gated</span>
+      </div>
+      <div class="coverage-card">
+        <div class="empty-state" id="projectDashboard">
+          Configure a workspace registry and sandboxed test runner to collect
+          per-project coverage with artifact limits and optional ffmpeg/WebM compression.
+        </div>
+      </div>
+    </div>
+
+    <div class="spec-list">
+      <div class="spec-section">Test Spec Files</div>
+      <div class="spec-grid" id="specGrid"></div>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+      <span class="close-x">&times;</span>
+      <div id="lbContent"></div>
+    </div>
+
+    <script>
+      const API = location.origin;
+
+      const DESCRIPTIONS = {
+        "01-chat-empty": {
+          title: "Chat — Empty State",
+          desc: "Landing page with sample prompts and mu|LLM branding",
+        },
+        "02-chat-response": {
+          title: "Chat — Local Response",
+          desc: "Query answered by local model, showing tier routing",
+        },
+        "03-dashboard": {
+          title: "Dashboard — Savings",
+          desc: "Real savings metrics, cost comparison, query stats",
+        },
+        "04-shortcuts": {
+          title: "Keyboard Shortcuts",
+          desc: "Shortcut overlay for power users",
+        },
+        "05-split-routing": {
+          title: "Split Routing",
+          desc: "Multi-part query decomposed and routed in parallel",
+        },
+        "06-coverage": {
+          title: "Coverage Board",
+          desc: "This page! Test coverage, screenshots, video milestones",
+        },
+        "07-mcp-docs": {
+          title: "MCP Integration Docs",
+          desc: "MCP tool reference with curl/Python/Node examples",
+        },
+        "08-rpc-docs": {
+          title: "JSON-RPC 2.0 Docs",
+          desc: "Interactive RPC testing with Try It panel",
+        },
+        "09-performance": {
+          title: "Performance Dashboard",
+          desc: "Latency percentiles, tier distribution, slow queries",
+        },
+        "10-a2a-docs": {
+          title: "A2A Agent Protocol",
+          desc: "Agent-to-agent registration, discovery, delegation",
+        },
+        "11-crokinole": {
+          title: "Crokinole Game",
+          desc: "One-shot generated: 2D Canvas disc-flicking game with physics, 400 LOC",
+        },
+        "12-pool3d": {
+          title: "Pool 3D Game",
+          desc: "One-shot generated: Three.js billiards with ball physics, 437 LOC",
+        },
+        tour: {
+          title: "Full Video Tour",
+          desc: "Automated walkthrough of all features",
+        },
+      };
+
+      const SPEC_INFO = {
+        "chat.spec.js": {
+          count: 39,
+          desc: "Chat UI: page load, rendering, input, file upload, shortcuts, sidebar collapse, cost panel, escalate, gestures, voice input",
+        },
+        "identity.spec.js": {
+          count: 24,
+          desc: "Self-awareness, fast-path routing (<1ms), ground truth: HTTP codes, ports, timezones, holidays, mythology, history, math, astronomy, geology, psychology, archaeology",
+        },
+        "dashboard.spec.js": {
+          count: 21,
+          desc: "Dashboard: savings gauge, exec breakdown panel (open/close 3 ways), tier distribution, role switcher, system stats",
+        },
+        "savings.spec.js": {
+          count: 19,
+          desc: "Cost savings: local routing, cache hits, classifier accuracy, dashboard stats, sanitization, fast mode, UI features",
+        },
+        "tts.spec.js": {
+          count: 16,
+          desc: "Voice output: TTS toggle, per-message read, text prep, code stripping, word limit, personas, voice selector",
+        },
+        "mullm-tour.spec.js": {
+          count: 16,
+          desc: "Full tour: file upload, text injection, streaming, tier forcing, split routing, chat management, voice input",
+        },
+        "screenshots.spec.js": {
+          count: 11,
+          desc: "Visual regression: 10 page screenshots (chat, dashboard, coverage, MCP, RPC, perf, A2A) + full video tour",
+        },
+        "perf.spec.js": {
+          count: 10,
+          desc: "Performance: latency percentiles, tier distribution, slowest queries with range filter, trace toggle, auto-refresh",
+        },
+        "games.spec.js": {
+          count: 8,
+          desc: "Games: crokinole, pool, gravity maze, paper football load tests + bot-solve gravity maze level 1",
+        },
+        "split.spec.js": {
+          count: 5,
+          desc: "Split routing: numbered/bullet list detection, single query bypass, API structure, single-task validation",
+        },
+        "cloud.spec.js": {
+          count: 8,
+          desc: "Cloud providers: Anthropic/OpenAI/Google routing, cost tracking, error handling (@spend — paid tests)",
+        },
+      };
+
+      // Lightbox
+      function openLightbox(url, type) {
+        const lb = document.getElementById("lightbox");
+        const content = document.getElementById("lbContent");
+        if (type === "video") {
+          content.innerHTML = `<video src="${url}" autoplay loop style="max-width:90vw;max-height:85vh;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.6)"></video><button class="unmute" onclick="event.stopPropagation();this.previousElementSibling.muted=!this.previousElementSibling.muted;this.textContent=this.previousElementSibling.muted?'UNMUTE':'MUTE'">UNMUTE</button>`;
+        } else {
+          content.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:85vh;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.6)">`;
+        }
+        lb.classList.add("open");
+      }
+      function closeLightbox() {
+        const lb = document.getElementById("lightbox");
+        lb.classList.remove("open");
+        document.getElementById("lbContent").innerHTML = "";
+      }
+
+      // ── Infinite scroll with fade-and-pop animation ──
+      const BATCH_SIZE = 12;
+      let _allItems = [];
+      let _rendered = 0;
+      let _observer = null;
+
+      function _makeCard(s) {
+        const info = DESCRIPTIONS[s.name] || { title: s.name, desc: s.type };
+        const isVideo = s.type === "video";
+        if (isVideo) {
+          return `<div class="gallery-item" onclick="openLightbox('${s.url}','video')" onmouseenter="this.querySelector('video')?.play()" onmouseleave="this.querySelector('video')?.pause()">
+            <div class="preview">
+              <video src="${s.url}" muted loop preload="metadata"></video>
+              <div class="play-icon"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>
+            </div>
+            <span class="badge">VIDEO</span>
+            <div class="info"><h3>${info.title}</h3><p>${info.desc}</p></div>
+          </div>`;
+        }
+        return `<div class="gallery-item" onclick="openLightbox('${s.url}','image')">
+          <div class="preview"><img src="${s.url}" alt="${info.title}" loading="lazy"></div>
+          <span class="badge">PNG</span>
+          <div class="info"><h3>${info.title}</h3><p>${info.desc}</p></div>
+        </div>`;
+      }
+
+      function fmtDate(ts) {
+        if (!ts) return "never";
+        return new Date(ts * 1000).toLocaleString();
+      }
+
+      function pctColor(pct) {
+        if (pct >= 85) return "var(--green)";
+        if (pct >= 65) return "var(--amber)";
+        return "var(--coral)";
+      }
+
+      function renderBackend(d) {
+        const coverage = d.coverage || {};
+        const modules = coverage.modules || [];
+        const missing = modules.reduce((n, m) => n + Number(m.missing || 0), 0);
+        const coverageText = coverage.coverage_pct == null ? "—" : `${coverage.coverage_pct}%`;
+        document.getElementById("pytestPassing").textContent = d.pytest_tests || 0;
+        document.getElementById("backendTestCount").textContent = d.pytest_tests || 0;
+        document.getElementById("backendModuleCount").textContent = modules.length;
+        document.getElementById("backendCoveragePct").textContent = coverageText;
+        document.getElementById("backendMissingCount").textContent = missing;
+        document.getElementById("coveragePct").textContent = coverageText;
+        document.getElementById("pytestBadge").textContent = `${d.pytest_tests || 0} tests indexed`;
+        document.getElementById("lastRunInfo").innerHTML =
+          `<strong>Last Run</strong><br>${coverage.source || "no coverage file"}<br>${fmtDate(coverage.last_run_at)}`;
+
+        const rows = modules.map((m) => {
+          const pct = Number(m.coverage || 0);
+          const color = pctColor(pct);
+          return `<div class="module-row">
+            <div class="module-name">${m.name}</div>
+            <div class="module-pct" style="color:${color}">${pct}%</div>
+            <div class="module-bar-track"><div class="module-bar-fill" style="width:${Math.max(0, Math.min(100, pct))}%;background:${color}"></div></div>
+            <div class="module-note">${m.missing || 0} missing</div>
+          </div>`;
+        });
+        document.getElementById("backendModules").innerHTML = rows.length
+          ? rows.join("")
+          : `<div class="empty-state">Run the quick gate with coverage to populate measured backend modules.</div>`;
+      }
+
+      function renderPlaywright(d) {
+        const specs = (d.specs || []).filter((s) => s.kind === "playwright");
+        document.getElementById("totalPassed").textContent = d.playwright_tests || 0;
+        document.getElementById("playwrightTotal").textContent = d.playwright_tests || 0;
+        document.getElementById("playwrightBadge").textContent = `${d.playwright_tests || 0} tests indexed`;
+        document.getElementById("playwrightGrid").innerHTML = specs.length
+          ? specs.map((s) => {
+              const info = SPEC_INFO[s.name] || { desc: s.path || "Playwright specification" };
+              return `<div class="pw-row">
+                <div class="pw-label">${s.name}</div>
+                <div class="pw-desc">${info.desc}</div>
+                <div class="pw-count">${s.count}<span> tests</span></div>
+              </div>`;
+            }).join("")
+          : `<div class="empty-state">No Playwright specs were indexed.</div>`;
+      }
+
+      function renderHistory(d) {
+        const history = d.history || [];
+        document.getElementById("historyBadge").textContent = `${history.length} archived`;
+        document.getElementById("historyGrid").innerHTML = history.length
+          ? history.map((h) => `<div class="history-item">
+              <div class="history-title">${h.name}</div>
+              <div class="history-meta">
+                ${fmtDate(h.mtime)}<br>
+                score: ${h.score ?? "—"} · solved: ${h.solved ?? "—"} / ${h.total ?? "—"}
+              </div>
+            </div>`).join("")
+          : `<div class="empty-state">No archived benchmark JSON files were found yet.</div>`;
+      }
+
+      function renderBadges(d) {
+        const badges = d.badges || [];
+        document.getElementById("badgeCount").textContent = `${badges.length} badges`;
+        document.getElementById("badgeGrid").innerHTML = badges.length
+          ? badges.map((b) => `<div class="badge-item">
+              <div class="badge-title">${b.id}</div>
+              <div class="badge-meta">${b.label || "badge"}: ${b.message || b.value || "—"}<br>${b.color || "default"}</div>
+            </div>`).join("")
+          : `<div class="empty-state">No preview badge payloads were found.</div>`;
+      }
+
+      function _renderBatch() {
+        const gallery = document.getElementById("gallery");
+        const end = Math.min(_rendered + BATCH_SIZE, _allItems.length);
+        if (_rendered >= _allItems.length) return;
+        const frag = document.createDocumentFragment();
+        for (let i = _rendered; i < end; i++) {
+          const tmp = document.createElement("div");
+          tmp.innerHTML = _makeCard(_allItems[i]);
+          const card = tmp.firstElementChild;
+          frag.appendChild(card);
+        }
+        // Remove old sentinel before appending
+        const oldSentinel = gallery.querySelector(".scroll-sentinel");
+        if (oldSentinel) oldSentinel.remove();
+        gallery.appendChild(frag);
+        _rendered = end;
+        // Observe new cards for entrance animation
+        gallery
+          .querySelectorAll(".gallery-item:not(.observed)")
+          .forEach((el) => {
+            el.classList.add("observed");
+            _entranceObserver.observe(el);
+          });
+        // Add sentinel for next batch if more items remain
+        if (_rendered < _allItems.length) {
+          const sentinel = document.createElement("div");
+          sentinel.className = "scroll-sentinel";
+          gallery.appendChild(sentinel);
+          if (_observer) _observer.disconnect();
+          _observer = new IntersectionObserver(
+            (entries) => {
+              if (entries[0].isIntersecting) {
+                _observer.disconnect();
+                _renderBatch();
+              }
+            },
+            { rootMargin: "200px" },
+          );
+          _observer.observe(sentinel);
+        }
+        // Update hint
+        const hint = document.getElementById("loadHint");
+        if (hint) {
+          if (_rendered < _allItems.length) {
+            hint.textContent = `${_rendered} of ${_allItems.length} loaded — scroll for more`;
+            hint.classList.add("show");
+          } else {
+            hint.classList.remove("show");
+          }
+        }
+      }
+
+      // Entrance animation observer — triggers fade-and-pop when card enters viewport
+      const _entranceObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              // Stagger animation slightly per card
+              const idx = Array.from(e.target.parentElement.children).indexOf(
+                e.target,
+              );
+              const delay = (idx % BATCH_SIZE) * 60;
+              setTimeout(() => e.target.classList.add("visible"), delay);
+              _entranceObserver.unobserve(e.target);
+            }
+          });
+        },
+        { rootMargin: "50px", threshold: 0.1 },
+      );
+
+      async function loadCoverage() {
+        const d = await fetch(API + "/api/coverage").then((r) => r.json());
+
+        document.getElementById("totalSpecs").textContent = d.total_specs || 0;
+        document.getElementById("totalScreenshots").textContent =
+          (d.visual_artifacts || d.screenshots || []).length;
+        renderBackend(d);
+        renderPlaywright(d);
+        renderHistory(d);
+        renderBadges(d);
+        if (d.project_dashboard?.notes) {
+          document.getElementById("projectDashboard").textContent = d.project_dashboard.notes;
+        }
+
+        // Store all items, render first batch
+        _allItems = d.visual_artifacts || d.screenshots || [];
+        _rendered = 0;
+        document.getElementById("gallery").innerHTML = "";
+        // Add load-more hint after gallery
+        if (!document.getElementById("loadHint")) {
+          const hint = document.createElement("div");
+          hint.id = "loadHint";
+          hint.className = "load-more-hint";
+          document.getElementById("gallery").after(hint);
+        }
+        _renderBatch();
+
+        // Spec list
+        const specGrid = document.getElementById("specGrid");
+        specGrid.innerHTML = (d.specs || [])
+          .map((s) => {
+            const info = SPEC_INFO[s.name] || {
+              count: s.count || "?",
+              desc: "Test specification",
+            };
+            return `<div class="spec-item">
+      <div class="dot pass"></div>
+      ${s.name}
+      <span class="count">${s.count || info.count}</span>
+      <div class="hover-desc">${info.desc}</div>
+    </div>`;
+          })
+          .join("");
+      }
+
+      loadCoverage();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+{
+  "name": "godot-mcp",
+  "description": "Godot 4 engine integration — scene management, script generation, export to PC/Android/Web",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": ["gdmcp"],
+  "env": {
+    "GODOT_PATH": "/usr/local/bin/godot4"
+  },
+  "enabled": false,
+  "install_hint": "1) Install Godot 4: download from godotengine.org  2) pip install gdmcp  3) Set enabled=true",
+  "capabilities": [
+    "create_scene", "add_node", "set_property", "attach_script",
+    "run_project", "export_pc", "export_android", "export_web",
+    "import_glb", "generate_gdscript"
+  ],
+  "mullm_tools": [
+    {
+      "name": "godot_create_scene",
+      "description": "Create a new Godot scene with a given root node type",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "scene_name": {"type": "string"},
+          "root_type": {"type": "string", "enum": ["Node3D", "Node2D", "Control", "CharacterBody3D"], "default": "Node3D"}
+        },
+        "required": ["scene_name"]
+      }
+    },
+    {
+      "name": "godot_export",
+      "description": "Export Godot project to a target platform",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "platform": {"type": "string", "enum": ["windows", "linux", "android", "web", "macos"]},
+          "output_path": {"type": "string"}
+        },
+        "required": ["platform", "output_path"]
+      }
+    },
+    {
+      "name": "godot_run_script",
+      "description": "Run an arbitrary GDScript or Python script inside Godot",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "script": {"type": "string"},
+          "language": {"type": "string", "enum": ["gdscript", "python"], "default": "gdscript"}
+        },
+        "required": ["script"]
+      }
+    }
+  ]
+}

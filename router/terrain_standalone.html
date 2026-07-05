@@ -1,0 +1,1729 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>Terrain Builder — Standalone</title>
+  <meta name="description" content="Generate terrain GLBs in-browser. No server required. Procedural noise, heightmap PNG, JSON datasets, and optional Mapbox DEM tiles." />
+  <meta name="theme-color" content="#0a0a1a" media="(prefers-color-scheme: dark)" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    /* ── Reset & Tokens ──────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:       #0a0a1a;
+      --bg2:      #0f0f2a;
+      --bg3:      #141428;
+      --border:   #1e1e3a;
+      --teal:     #00bfa5;
+      --teal-dim: #007a6a;
+      --coral:    #ff6b6b;
+      --amber:    #f59e0b;
+      --purple:   #a78bfa;
+      --green:    #22c55e;
+      --text:     #e2e8f0;
+      --text2:    #94a3b8;
+      --text3:    #5a6a7a;
+      --mono:     "JetBrains Mono", "Fira Code", monospace;
+      --sans:     "Inter", -apple-system, sans-serif;
+      color-scheme: dark;
+    }
+    [data-theme="light"] {
+      --bg:     #f0f4ff;
+      --bg2:    #e8edf8;
+      --bg3:    #dce3f0;
+      --border: #c5cfe0;
+      --teal:   #007a6a;
+      --teal-dim:#004d42;
+      --coral:  #c0392b;
+      --text:   #0f1730;
+      --text2:  #3a4a5e;
+      --text3:  #6a7a8e;
+      color-scheme: light;
+    }
+
+    /* ── Accessibility ── */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--teal); color: #000;
+      padding: 8px 16px; z-index: 10000;
+      font-weight: 600; border-radius: 0 0 8px 0;
+      transition: top 0.2s; font-family: var(--mono); font-size: 13px;
+    }
+    .skip-link:focus { top: 0; }
+    *:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+    /* ── Typography ── */
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); overflow-x: hidden;
+      line-height: 1.6;
+    }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: rgba(10, 10, 26, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px; display: flex;
+      align-items: center; gap: 14px;
+      font-family: var(--mono); font-size: 13px;
+      position: sticky; top: 0; z-index: 200;
+      flex-wrap: wrap;
+    }
+    [data-theme="light"] .topbar { background: rgba(240, 244, 255, 0.92); }
+    .topbar-brand {
+      display: flex; flex-direction: column; gap: 0;
+    }
+    .topbar-title {
+      font-weight: 700; font-size: 14px; letter-spacing: 1px;
+      color: var(--teal);
+      text-shadow: 0 0 12px rgba(0,191,165,0.4);
+    }
+    .topbar-tagline {
+      font-size: 10px; color: var(--text3); letter-spacing: 0.5px;
+    }
+    .topbar-spacer { flex: 1; }
+    .theme-toggle {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text2); padding: 4px 10px; border-radius: 6px;
+      font-size: .82rem; transition: all .15s;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--teal); }
+
+    /* ── Tooltip ── */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 10px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: .75rem; color: var(--text); white-space: nowrap;
+      z-index: 9999; pointer-events: none; font-family: var(--mono);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    [data-tooltip][data-tip-wide]:hover::after,
+    [data-tooltip][data-tip-wide]:focus-visible::after {
+      white-space: normal; width: 260px; text-align: left;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      position: relative; overflow: hidden;
+      min-height: clamp(140px, 22vh, 220px);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 32px 24px 28px;
+      background: linear-gradient(135deg, #0a0a1a 0%, #0a100a 40%, #0a1410 100%);
+    }
+    [data-theme="light"] .hero {
+      background: linear-gradient(135deg, #dce3f0 0%, #d0e8e4 100%);
+    }
+    .hero-content { position: relative; z-index: 2; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(0,191,165,0.1); border: 1px solid rgba(0,191,165,0.3);
+      border-radius: 100px; padding: 4px 14px;
+      font-family: var(--mono); font-size: .72rem;
+      color: var(--teal); letter-spacing: 1.5px;
+      text-transform: uppercase; margin-bottom: 14px;
+    }
+    .hero-title {
+      font-size: clamp(1.6rem, 4vw, 2.6rem);
+      font-weight: 800; letter-spacing: -1px;
+      background: linear-gradient(135deg, #fff 0%, var(--green) 50%, var(--teal) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1.15; margin-bottom: 8px;
+    }
+    [data-theme="light"] .hero-title {
+      background: linear-gradient(135deg, #0f1730 0%, var(--teal-dim) 50%, #007a6a 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: clamp(0.8rem, 2vw, 0.95rem); color: var(--text2);
+      max-width: 460px; margin: 0 auto;
+    }
+
+    /* ── Section Layout ── */
+    .section { padding: 28px 24px; max-width: 1400px; margin: 0 auto; }
+    .section-title {
+      font-family: var(--mono); font-size: .72rem; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--text3); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── Builder Layout ── */
+    .builder-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px; align-items: start;
+    }
+    @media (max-width: 1024px) { .builder-layout { grid-template-columns: 1fr; } }
+
+    /* ── Control Panel ── */
+    .control-panel {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px;
+      position: sticky; top: 60px;
+      display: flex; flex-direction: column; gap: 18px;
+      max-height: calc(100vh - 80px); overflow-y: auto;
+    }
+    .control-panel::-webkit-scrollbar { width: 4px; }
+    .control-panel::-webkit-scrollbar-track { background: transparent; }
+    .control-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── Form Groups ── */
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label {
+      font-family: var(--mono); font-size: .7rem;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--text3);
+    }
+    .form-input {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text); padding: 7px 12px; border-radius: 8px;
+      font-size: .88rem; font-family: var(--mono);
+      transition: border-color 0.15s; width: 100%;
+    }
+    .form-input:focus { border-color: var(--teal); outline: none; }
+    .form-input::placeholder { color: var(--text3); }
+
+    .form-select {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text); padding: 7px 12px; border-radius: 8px;
+      font-size: .85rem; font-family: var(--mono);
+      transition: border-color 0.15s; width: 100%;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+    .form-select:focus { border-color: var(--teal); outline: none; }
+
+    /* ── Sliders ── */
+    .slider-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .slider-row { display: flex; align-items: center; gap: 10px; }
+    .range-slider {
+      flex: 1; -webkit-appearance: none; appearance: none;
+      height: 4px; border-radius: 2px;
+      background: linear-gradient(to right, var(--teal) 0%, var(--teal) var(--pct, 50%), var(--border) var(--pct, 50%));
+    }
+    .range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px;
+      border-radius: 50%; background: var(--teal);
+      box-shadow: 0 0 6px rgba(0,191,165,0.5); cursor: pointer;
+    }
+    .range-slider::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--teal); border: none; cursor: pointer;
+    }
+    .range-val {
+      font-family: var(--mono); font-size: .82rem;
+      color: var(--teal); min-width: 52px; text-align: right;
+    }
+
+    /* ── Source Tabs ── */
+    .source-tabs {
+      display: flex; gap: 4px; background: var(--bg3);
+      border-radius: 10px; padding: 4px;
+    }
+    .source-tab {
+      flex: 1; padding: 6px 8px; border: none;
+      border-radius: 7px; font-size: .75rem; font-family: var(--mono);
+      color: var(--text2); background: transparent; transition: all .15s;
+      cursor: pointer;
+    }
+    .source-tab:hover { color: var(--text); }
+    .source-tab.active {
+      background: var(--teal); color: #000; font-weight: 700;
+    }
+
+    /* ── Preset Grid ── */
+    .preset-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    }
+    .preset-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 9px; padding: 8px 10px;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; flex-direction: column; gap: 2px;
+      position: relative;
+    }
+    .preset-card:hover { border-color: var(--teal); }
+    .preset-card.selected {
+      border-color: var(--teal);
+      background: rgba(0,191,165,0.08);
+    }
+    .preset-card input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+    .preset-icon { font-size: 1.1rem; line-height: 1; }
+    .preset-name { font-family: var(--mono); font-size: .75rem; font-weight: 700; color: var(--text); }
+    .preset-desc { font-size: .68rem; color: var(--text3); line-height: 1.3; }
+
+    /* ── Quality Presets ── */
+    .quality-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .quality-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 6px;
+      cursor: pointer; transition: all 0.15s;
+      text-align: center;
+    }
+    .quality-card:hover { border-color: var(--amber); }
+    .quality-card.selected { border-color: var(--amber); background: rgba(245,158,11,0.08); }
+    .quality-card input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+    .quality-name { font-family: var(--mono); font-size: .72rem; font-weight: 700; color: var(--text); }
+    .quality-grid-sz { font-size: .65rem; color: var(--amber); font-family: var(--mono); }
+
+    /* ── Upload Zone ── */
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: 20px; text-align: center; cursor: pointer;
+      transition: all .15s; background: var(--bg3);
+    }
+    .upload-zone:hover, .upload-zone.drag-over { border-color: var(--teal); background: rgba(0,191,165,0.05); }
+    .upload-zone-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .upload-zone-text { font-size: .82rem; color: var(--text2); }
+    .upload-zone-hint { font-size: .72rem; color: var(--text3); margin-top: 3px; }
+    .upload-zone input[type="file"] { display: none; }
+
+    /* ── Info Card ── */
+    .info-card {
+      background: rgba(0,191,165,0.07); border: 1px solid rgba(0,191,165,0.25);
+      border-radius: 10px; padding: 12px; font-size: .8rem;
+    }
+    .info-card-title { font-family: var(--mono); font-weight: 700; color: var(--teal); margin-bottom: 4px; }
+    .info-card-row { display: flex; justify-content: space-between; color: var(--text2); font-size: .75rem; }
+    .info-card-val { color: var(--text); font-family: var(--mono); }
+
+    /* ── Geocode Search ── */
+    .geocode-wrap { position: relative; }
+    .geocode-input-row { display: flex; gap: 6px; }
+    .geocode-input-row .form-input { flex: 1; }
+    .btn-geocode {
+      background: var(--teal); color: #000; font-weight: 700;
+      border: none; border-radius: 8px; padding: 8px 12px;
+      font-size: .82rem; font-family: var(--mono);
+      transition: opacity .15s; white-space: nowrap; min-width: 44px;
+    }
+    .btn-geocode:hover { opacity: .85; }
+    .btn-geocode:disabled { opacity: .4; cursor: not-allowed; }
+    .geocode-results {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--bg2); border: 1px solid var(--teal);
+      border-radius: 8px; z-index: 500;
+      max-height: 200px; overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+    .geocode-result-item {
+      padding: 8px 12px; cursor: pointer; font-size: .82rem;
+      border-bottom: 1px solid var(--border); transition: background .1s;
+      font-family: var(--mono); color: var(--text2); line-height: 1.3;
+    }
+    .geocode-result-item:last-child { border-bottom: none; }
+    .geocode-result-item:hover, .geocode-result-item:focus { background: var(--bg3); color: var(--text); outline: none; }
+    .geocode-result-item strong { color: var(--teal); font-weight: 700; }
+
+    /* ── Mapbox Settings ── */
+    .settings-section {
+      border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    }
+    .settings-header {
+      padding: 10px 14px; background: var(--bg3); cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--mono); font-size: .78rem; color: var(--text2);
+      border: none; width: 100%; text-align: left; transition: all .15s;
+    }
+    .settings-header:hover { color: var(--text); }
+    .settings-body { padding: 14px; display: none; flex-direction: column; gap: 10px; }
+    .settings-body.open { display: flex; }
+    .settings-chevron { transition: transform .2s; }
+    .settings-header.open .settings-chevron { transform: rotate(180deg); }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 9px 18px; border-radius: 8px; border: none;
+      font-size: .88rem; font-weight: 600; font-family: var(--mono);
+      transition: all 0.15s; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--teal), var(--teal-dim));
+      color: #000;
+    }
+    .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); filter: brightness(0.95); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-secondary {
+      background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+    }
+    .btn-secondary:hover { border-color: var(--amber); color: var(--amber); }
+    .btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-success {
+      background: linear-gradient(135deg, var(--green), #16a34a);
+      color: #000;
+    }
+    .btn-success:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-success:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    .btn-full { width: 100%; justify-content: center; }
+
+    /* ── Preview Panel ── */
+    .preview-panel {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .preview-header {
+      padding: 12px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: .78rem;
+    }
+    .preview-header-title { color: var(--text2); }
+    .preview-header-status { color: var(--teal); }
+    .preview-header-spacer { flex: 1; }
+    #canvas-container {
+      position: relative; width: 100%;
+      aspect-ratio: 16/9; min-height: 320px;
+      background: #050510;
+    }
+    #preview-canvas { width: 100%; height: 100%; display: block; }
+    .preview-placeholder {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--text3); gap: 12px;
+      font-family: var(--mono); font-size: .8rem;
+    }
+    .preview-placeholder-icon { font-size: 3rem; opacity: 0.3; }
+    #preview-loading {
+      position: absolute; inset: 0;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(5, 5, 16, 0.8); flex-direction: column; gap: 12px;
+    }
+    .spinner {
+      width: 36px; height: 36px; border: 3px solid var(--border);
+      border-top-color: var(--teal); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-family: var(--mono); font-size: .8rem; color: var(--text2); }
+
+    /* ── Stats Bar ── */
+    .stats-bar {
+      padding: 10px 20px; border-top: 1px solid var(--border);
+      display: flex; gap: 20px; flex-wrap: wrap;
+    }
+    .stat-item { display: flex; flex-direction: column; gap: 1px; }
+    .stat-label { font-family: var(--mono); font-size: .62rem; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-family: var(--mono); font-size: .88rem; color: var(--teal); }
+
+    /* ── Format doc ── */
+    .format-doc {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px;
+      font-family: var(--mono); font-size: .75rem; color: var(--text2);
+      line-height: 1.7;
+    }
+    .format-doc pre {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 10px; margin-top: 8px;
+      overflow-x: auto; font-size: .72rem; color: var(--green);
+      white-space: pre;
+    }
+
+    /* ── Progress bar ── */
+    .progress-wrap {
+      height: 3px; background: var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%; background: linear-gradient(90deg, var(--teal), var(--green));
+      border-radius: 2px; transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; padding: 28px 24px;
+      font-size: .75rem; color: var(--text3); font-family: var(--mono);
+      border-top: 1px solid var(--border); margin-top: 32px;
+    }
+    footer a { color: var(--teal); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Notice ── */
+    .notice {
+      padding: 8px 12px; border-radius: 7px; font-size: .78rem;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .notice-warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); color: var(--amber); }
+    .notice-info { background: rgba(0,191,165,0.08); border: 1px solid rgba(0,191,165,0.2); color: var(--teal); }
+
+    /* ── Section separator ── */
+    hr.divider { border: none; border-top: 1px solid var(--border); }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      .spinner, .btn-primary:hover, .btn-success:hover { animation: none; transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <!-- Topbar -->
+  <header class="topbar" role="banner">
+    <div class="topbar-brand">
+      <span class="topbar-title">Terrain Builder</span>
+      <span class="topbar-tagline">Standalone — no server required</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark theme"
+            data-tooltip="Toggle light/dark theme">
+      Light Mode
+    </button>
+  </header>
+
+  <!-- Hero -->
+  <div class="hero" role="img" aria-label="Terrain Builder header">
+    <div class="hero-content">
+      <div class="hero-badge">No Install Required</div>
+      <h1 class="hero-title">Procedural Terrain GLBs</h1>
+      <p class="hero-sub">Generate, preview, and export terrain meshes entirely in the browser. Procedural noise, PNG heightmaps, JSON datasets, or real-world Mapbox DEM tiles.</p>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <main id="main">
+    <div class="section">
+      <div class="builder-layout">
+
+        <!-- ── Control Panel ── -->
+        <aside class="control-panel" aria-label="Terrain controls">
+
+          <!-- Source Mode -->
+          <div class="form-group">
+            <span class="form-label" id="source-label">Data Source</span>
+            <div class="source-tabs" role="tablist" aria-labelledby="source-label">
+              <button class="source-tab active" role="tab" aria-selected="true" aria-controls="panel-procedural" data-source="procedural" id="tab-procedural">Procedural</button>
+              <button class="source-tab" role="tab" aria-selected="false" aria-controls="panel-heightmap" data-source="heightmap" id="tab-heightmap">PNG</button>
+              <button class="source-tab" role="tab" aria-selected="false" aria-controls="panel-json" data-source="json" id="tab-json">JSON</button>
+              <button class="source-tab" role="tab" aria-selected="false" aria-controls="panel-mapbox" data-source="mapbox" id="tab-mapbox">Mapbox</button>
+            </div>
+          </div>
+
+          <!-- Procedural Panel -->
+          <div id="panel-procedural" role="tabpanel" aria-labelledby="tab-procedural">
+            <div class="form-group" style="margin-bottom:12px;">
+              <label class="form-label" for="noise-preset">Terrain Preset</label>
+              <select class="form-select" id="noise-preset" aria-label="Choose a terrain preset">
+                <option value="custom">-- Custom --</option>
+                <option value="plains" selected>Flat Plains</option>
+                <option value="hills">Rolling Hills</option>
+                <option value="mountains">Mountains</option>
+                <option value="canyon">Canyon</option>
+                <option value="island">Island</option>
+                <option value="fantasy">Fantasy Peaks</option>
+                <option value="alien">Alien Spires</option>
+              </select>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div class="slider-wrap">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span class="form-label">Noise Scale</span>
+                  <span class="range-val" id="val-scale">3.0</span>
+                </div>
+                <input type="range" class="range-slider" id="sl-scale" min="0.5" max="10" step="0.1" value="3" aria-label="Noise scale" />
+              </div>
+              <div class="slider-wrap">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span class="form-label">Octaves</span>
+                  <span class="range-val" id="val-octaves">6</span>
+                </div>
+                <input type="range" class="range-slider" id="sl-octaves" min="1" max="8" step="1" value="6" aria-label="Octaves" />
+              </div>
+              <div class="slider-wrap">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span class="form-label">Persistence</span>
+                  <span class="range-val" id="val-persistence">0.50</span>
+                </div>
+                <input type="range" class="range-slider" id="sl-persistence" min="0.1" max="0.9" step="0.01" value="0.5" aria-label="Persistence" />
+              </div>
+              <div class="slider-wrap">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span class="form-label">Lacunarity</span>
+                  <span class="range-val" id="val-lacunarity">2.0</span>
+                </div>
+                <input type="range" class="range-slider" id="sl-lacunarity" min="1.0" max="4.0" step="0.1" value="2" aria-label="Lacunarity" />
+              </div>
+              <div class="slider-wrap">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span class="form-label">Height Scale (m)</span>
+                  <span class="range-val" id="val-hscale">1200</span>
+                </div>
+                <input type="range" class="range-slider" id="sl-hscale" min="100" max="5000" step="50" value="1200" aria-label="Height scale in meters" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="noise-seed">Seed</label>
+                <input type="text" class="form-input" id="noise-seed" value="terrain-42" placeholder="any text" aria-label="Random seed for terrain generation" />
+              </div>
+            </div>
+          </div>
+
+          <!-- PNG Heightmap Panel -->
+          <div id="panel-heightmap" role="tabpanel" aria-labelledby="tab-heightmap" hidden>
+            <div class="form-group">
+              <span class="form-label">Upload PNG Heightmap</span>
+              <label class="upload-zone" id="heightmap-zone"
+                     data-tooltip="Drag & drop a greyscale PNG"
+                     tabindex="0" role="button" aria-label="Upload PNG heightmap">
+                <input type="file" id="heightmap-input" accept="image/png,image/jpeg,image/webp" />
+                <div class="upload-zone-icon" aria-hidden="true">🗺️</div>
+                <div class="upload-zone-text">Drop a PNG heightmap here</div>
+                <div class="upload-zone-hint">Greyscale: R=0 is sea, R=255 is peak</div>
+              </label>
+              <div id="heightmap-info" style="display:none;"></div>
+            </div>
+            <div class="slider-wrap" style="margin-top:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="form-label">Height Scale (m)</span>
+                <span class="range-val" id="val-hm-hscale">1500</span>
+              </div>
+              <input type="range" class="range-slider" id="sl-hm-hscale" min="100" max="5000" step="50" value="1500" aria-label="Heightmap height scale in meters" />
+            </div>
+          </div>
+
+          <!-- JSON Dataset Panel -->
+          <div id="panel-json" role="tabpanel" aria-labelledby="tab-json" hidden>
+            <div class="form-group" style="margin-bottom:10px;">
+              <span class="form-label">Upload JSON Dataset</span>
+              <label class="upload-zone" id="json-zone"
+                     data-tooltip="Upload a terrain JSON file"
+                     tabindex="0" role="button" aria-label="Upload JSON terrain dataset">
+                <input type="file" id="json-input" accept=".json,application/json" />
+                <div class="upload-zone-icon" aria-hidden="true">📦</div>
+                <div class="upload-zone-text">Drop a terrain JSON file here</div>
+                <div class="upload-zone-hint">See format docs below</div>
+              </label>
+              <div id="json-info" style="display:none;"></div>
+            </div>
+            <details style="margin-top:4px;">
+              <summary style="cursor:pointer; font-family:var(--mono); font-size:.72rem; color:var(--text3); user-select:none;">JSON Format Reference</summary>
+              <div class="format-doc" style="margin-top:8px;">
+                Grid values are 0.0–1.0 (normalized elevation).
+                <pre>{
+  "name": "Darkwood Forest",
+  "scale_m": 8000,
+  "description": "A fantasy forest world",
+  "grid": [
+    [0.0, 0.1, 0.2, ...],
+    [0.1, 0.3, 0.5, ...],
+    ...
+  ]
+}</pre>
+              </div>
+            </details>
+          </div>
+
+          <!-- Mapbox Panel -->
+          <div id="panel-mapbox" role="tabpanel" aria-labelledby="tab-mapbox" hidden>
+            <div class="notice notice-info" style="margin-bottom:12px;">
+              <span aria-hidden="true">ℹ</span>
+              <span>Real-world elevation from Mapbox Terrain-RGB tiles. Requires a free Mapbox token.</span>
+            </div>
+            <div class="settings-section">
+              <button class="settings-header" id="mapbox-settings-btn" aria-expanded="false" aria-controls="mapbox-settings-body">
+                <span>Mapbox Token</span>
+                <span class="settings-chevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="settings-body" id="mapbox-settings-body" role="region" aria-label="Mapbox token settings">
+                <div class="form-group">
+                  <label class="form-label" for="mapbox-token">Access Token</label>
+                  <input type="password" class="form-input" id="mapbox-token" placeholder="pk.eyJ1..." autocomplete="off" />
+                </div>
+                <button class="btn btn-secondary" id="save-token-btn" style="font-size:.78rem; padding:6px 12px;">Save Token (localStorage)</button>
+              </div>
+            </div>
+            <div style="height:10px;"></div>
+            <!-- Geocode search -->
+            <div class="form-group">
+              <label class="form-label" for="mapbox-geocode">Search Address / Landmark</label>
+              <div class="geocode-wrap">
+                <div class="geocode-input-row">
+                  <input type="text" id="mapbox-geocode" class="form-input"
+                         placeholder="Las Vegas Strip, Grand Canyon…"
+                         autocomplete="off" />
+                  <button class="btn-geocode" id="sa-geocode-btn"
+                          onclick="standaloneGeocode()" aria-label="Search">&#128269;</button>
+                </div>
+                <div id="sa-geocode-results" class="geocode-results"
+                     style="display:none;" role="listbox"></div>
+              </div>
+              <select class="form-select" style="margin-top:6px;"
+                      onchange="applyStandaloneQuickLoc(this.value)" aria-label="Quick location presets">
+                <option value="">— Quick Locations —</option>
+                <optgroup label="Game Dev Favorites">
+                  <option value="36.1147,-115.1728">Las Vegas Strip, NV</option>
+                  <option value="40.7580,-73.9855">Manhattan, NYC</option>
+                  <option value="37.7749,-122.4194">San Francisco, CA</option>
+                  <option value="36.0544,-112.1401">Grand Canyon, AZ</option>
+                  <option value="46.5763,8.0054">Swiss Alps (Eiger)</option>
+                  <option value="64.8014,-18.3274">Iceland Highlands</option>
+                  <option value="62.0079,-6.7888">Faroe Islands</option>
+                  <option value="35.6762,139.6503">Tokyo</option>
+                </optgroup>
+                <optgroup label="Fantasy Proxies">
+                  <option value="64.7658,-17.5278">Mordor (Iceland proxy)</option>
+                  <option value="42.6481,18.1042">King's Landing (Dubrovnik)</option>
+                  <option value="27.9881,86.9250">Middle-earth Peaks (Nepal)</option>
+                  <option value="63.4305,20.2748">The North / Westeros</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="map-lat">Latitude</label>
+              <input type="number" class="form-input" id="map-lat" value="46.8182" step="0.001" aria-label="Center latitude" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="map-lon">Longitude</label>
+              <input type="number" class="form-input" id="map-lon" value="8.2275" step="0.001" aria-label="Center longitude" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="map-zoom">Zoom Level</label>
+              <select class="form-select" id="map-zoom" aria-label="Mapbox tile zoom level">
+                <option value="8">8 — Country (~400km)</option>
+                <option value="9">9 — Region (~200km)</option>
+                <option value="10" selected>10 — Area (~100km)</option>
+                <option value="11">11 — Valley (~50km)</option>
+                <option value="12">12 — Local (~25km)</option>
+                <option value="13">13 — Detailed (~12km)</option>
+              </select>
+            </div>
+            <div class="notice notice-warn" style="margin-top:6px;">
+              <span aria-hidden="true">⚠</span>
+              <span>Your browser must allow cross-origin requests to api.mapbox.com. Token is stored locally only.</span>
+            </div>
+          </div>
+
+          <hr class="divider" />
+
+          <!-- Quality Preset -->
+          <div class="form-group">
+            <span class="form-label">Quality Preset</span>
+            <div class="quality-grid" role="group" aria-label="Quality presets">
+              <label class="quality-card" id="qc-arcade">
+                <input type="radio" name="quality" value="arcade" />
+                <div class="quality-name">Arcade</div>
+                <div class="quality-grid-sz">32×32</div>
+              </label>
+              <label class="quality-card selected" id="qc-game">
+                <input type="radio" name="quality" value="game" checked />
+                <div class="quality-name">Game</div>
+                <div class="quality-grid-sz">128×128</div>
+              </label>
+              <label class="quality-card" id="qc-realistic">
+                <input type="radio" name="quality" value="realistic" />
+                <div class="quality-name">Realistic</div>
+                <div class="quality-grid-sz">256×256</div>
+              </label>
+              <label class="quality-card" id="qc-survey">
+                <input type="radio" name="quality" value="survey" />
+                <div class="quality-name">Survey</div>
+                <div class="quality-grid-sz">512×512</div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div class="progress-wrap" id="gen-progress-wrap" style="display:none;">
+              <div class="progress-bar" id="gen-progress-bar"></div>
+            </div>
+            <button class="btn btn-primary btn-full" id="generate-btn" aria-label="Generate terrain preview">
+              Generate Terrain
+            </button>
+            <button class="btn btn-success btn-full" id="export-btn" disabled aria-label="Download terrain as GLB file"
+                    data-tooltip="Export the current terrain as a .glb file">
+              Download GLB
+            </button>
+          </div>
+
+          <!-- Status text -->
+          <div id="status-text" style="font-family:var(--mono); font-size:.75rem; color:var(--text3); min-height:1.2em;" role="status" aria-live="polite"></div>
+        </aside>
+
+        <!-- ── Preview Panel ── -->
+        <section class="preview-panel" aria-label="3D terrain preview">
+          <div class="preview-header">
+            <span class="preview-header-title">3D Preview</span>
+            <span class="preview-header-status" id="preview-status">Ready</span>
+            <span class="preview-header-spacer"></span>
+            <button class="btn btn-secondary" id="reset-camera-btn" style="padding:4px 10px; font-size:.75rem;"
+                    data-tooltip="Reset camera to default position" aria-label="Reset camera">
+              Reset Camera
+            </button>
+          </div>
+          <div id="canvas-container" role="img" aria-label="3D terrain mesh preview">
+            <canvas id="preview-canvas" aria-hidden="true"></canvas>
+            <div class="preview-placeholder" id="preview-placeholder" aria-hidden="true">
+              <div class="preview-placeholder-icon">⛰️</div>
+              <div>Configure and click Generate to preview terrain</div>
+            </div>
+            <div id="preview-loading" role="status" aria-label="Generating terrain">
+              <div class="spinner" aria-hidden="true"></div>
+              <div class="loading-text" id="loading-text">Building mesh...</div>
+            </div>
+          </div>
+          <div class="stats-bar" id="stats-bar" style="display:none;" aria-label="Terrain statistics">
+            <div class="stat-item">
+              <div class="stat-label">Vertices</div>
+              <div class="stat-value" id="stat-verts">—</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Triangles</div>
+              <div class="stat-value" id="stat-tris">—</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Grid</div>
+              <div class="stat-value" id="stat-grid">—</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Height Range</div>
+              <div class="stat-value" id="stat-range">—</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Source</div>
+              <div class="stat-value" id="stat-source">—</div>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /.builder-layout -->
+    </div><!-- /.section -->
+  </main>
+
+  <footer>
+    Built with <a href="https://threejs.org" target="_blank" rel="noopener">Three.js</a> &middot;
+    GLB export via GLTFExporter &middot;
+    No server required &middot;
+    Open source
+  </footer>
+
+  <!-- Hidden canvas for PNG parsing -->
+  <canvas id="offscreen-canvas" style="display:none;" aria-hidden="true"></canvas>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+    // ──────────────────────────────────────────────────────────────────
+    // State
+    // ──────────────────────────────────────────────────────────────────
+    let currentSource = 'procedural';
+    let heightmapData = null;   // Float32Array or null
+    let heightmapSize = { w: 0, h: 0 };
+    let jsonDataset = null;     // parsed JSON object or null
+    let generatedMesh = null;   // THREE.Mesh
+    let scene, camera, renderer, controls, animId;
+    let lastGenParams = null;
+
+    const QUALITY_MAP = { arcade: 32, game: 128, realistic: 256, survey: 512 };
+
+    // ──────────────────────────────────────────────────────────────────
+    // Seeded PRNG (mulberry32)
+    // ──────────────────────────────────────────────────────────────────
+    function hashString(s) {
+      let h = 0x811c9dc5;
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = (h * 0x01000193) >>> 0;
+      }
+      return h;
+    }
+
+    function makePrng(seed) {
+      let s = typeof seed === 'string' ? hashString(seed) : (seed >>> 0);
+      return function() {
+        s += 0x6d2b79f5;
+        let t = s;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Value noise (no external dependency)
+    // ──────────────────────────────────────────────────────────────────
+    function buildValueNoise(rng, tableSize = 512) {
+      const table = new Float32Array(tableSize);
+      for (let i = 0; i < tableSize; i++) table[i] = rng() * 2 - 1;
+
+      function smoothstep(t) { return t * t * (3 - 2 * t); }
+      function lerp(a, b, t) { return a + (b - a) * t; }
+
+      function noise2(x, y) {
+        const ix = Math.floor(x) & (tableSize - 1);
+        const iy = Math.floor(y) & (tableSize - 1);
+        const fx = x - Math.floor(x);
+        const fy = y - Math.floor(y);
+        const ux = smoothstep(fx);
+        const uy = smoothstep(fy);
+
+        const idx = (ix2, iy2) => (ix2 + iy2 * 137) & (tableSize - 1);
+
+        const n00 = table[idx(ix, iy)];
+        const n10 = table[idx(ix + 1, iy)];
+        const n01 = table[idx(ix, iy + 1)];
+        const n11 = table[idx(ix + 1, iy + 1)];
+
+        return lerp(lerp(n00, n10, ux), lerp(n01, n11, ux), uy);
+      }
+
+      return noise2;
+    }
+
+    function fbm(noise2, x, y, octaves, persistence, lacunarity) {
+      let val = 0, amp = 1, freq = 1, max = 0;
+      for (let o = 0; o < octaves; o++) {
+        val += noise2(x * freq, y * freq) * amp;
+        max += amp;
+        amp *= persistence;
+        freq *= lacunarity;
+      }
+      return val / max;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Terrain Presets
+    // ──────────────────────────────────────────────────────────────────
+    const PRESETS = {
+      plains:    { scale: 8.0, octaves: 3, persistence: 0.35, lacunarity: 2.0, hscale: 200 },
+      hills:     { scale: 4.0, octaves: 5, persistence: 0.50, lacunarity: 2.0, hscale: 600 },
+      mountains: { scale: 2.5, octaves: 8, persistence: 0.55, lacunarity: 2.2, hscale: 3000 },
+      canyon:    { scale: 3.0, octaves: 6, persistence: 0.45, lacunarity: 2.5, hscale: 1500 },
+      island:    { scale: 2.0, octaves: 6, persistence: 0.50, lacunarity: 2.0, hscale: 800 },
+      fantasy:   { scale: 1.8, octaves: 7, persistence: 0.60, lacunarity: 2.8, hscale: 4000 },
+      alien:     { scale: 1.2, octaves: 8, persistence: 0.70, lacunarity: 3.5, hscale: 5000 },
+    };
+
+    // ──────────────────────────────────────────────────────────────────
+    // Generate height grid from procedural noise
+    // ──────────────────────────────────────────────────────────────────
+    function generateProceduralGrid(res, params) {
+      const { scale, octaves, persistence, lacunarity, hscale, seed } = params;
+      const rng = makePrng(seed || 'terrain-42');
+      const noise2 = buildValueNoise(rng);
+
+      const grid = new Float32Array(res * res);
+      let minV = Infinity, maxV = -Infinity;
+
+      for (let j = 0; j < res; j++) {
+        for (let i = 0; i < res; i++) {
+          const nx = (i / res) * scale;
+          const ny = (j / res) * scale;
+          let v = fbm(noise2, nx, ny, octaves, persistence, lacunarity);
+
+          // Island mask: fade edges to 0 for "island" preset
+          if (params.preset === 'island') {
+            const cx = i / res - 0.5;
+            const cy = j / res - 0.5;
+            const d = Math.sqrt(cx * cx + cy * cy) * 2;
+            v *= Math.max(0, 1 - Math.pow(d, 1.5));
+          }
+
+          // Canyon: sharpen with absolute value + ridged noise
+          if (params.preset === 'canyon') {
+            v = 1.0 - Math.abs(v);
+            v = v * v;
+          }
+
+          grid[j * res + i] = v;
+          if (v < minV) minV = v;
+          if (v > maxV) maxV = v;
+        }
+      }
+
+      // Normalize to [0,1] then scale to meters
+      const range = maxV - minV || 1;
+      for (let k = 0; k < grid.length; k++) {
+        grid[k] = ((grid[k] - minV) / range) * hscale;
+      }
+
+      return { grid, res, hscale };
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Build height grid from uploaded PNG heightmap
+    // ──────────────────────────────────────────────────────────────────
+    function gridFromHeightmap(targetRes, hscale) {
+      if (!heightmapData) throw new Error('No heightmap loaded');
+      const { w, h } = heightmapSize;
+      const grid = new Float32Array(targetRes * targetRes);
+
+      for (let j = 0; j < targetRes; j++) {
+        for (let i = 0; i < targetRes; i++) {
+          // Bilinear sample from heightmap
+          const sx = (i / (targetRes - 1)) * (w - 1);
+          const sy = (j / (targetRes - 1)) * (h - 1);
+          const ix = Math.floor(sx), iy = Math.floor(sy);
+          const fx = sx - ix, fy = sy - iy;
+          const ix2 = Math.min(ix + 1, w - 1), iy2 = Math.min(iy + 1, h - 1);
+
+          const s = (px, py) => heightmapData[py * w + px] / 255;
+          const v = s(ix, iy) * (1 - fx) * (1 - fy)
+                  + s(ix2, iy) * fx * (1 - fy)
+                  + s(ix, iy2) * (1 - fx) * fy
+                  + s(ix2, iy2) * fx * fy;
+          grid[j * targetRes + i] = v * hscale;
+        }
+      }
+      return { grid, res: targetRes, hscale };
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Build height grid from JSON dataset
+    // ──────────────────────────────────────────────────────────────────
+    function gridFromJson(targetRes) {
+      if (!jsonDataset || !jsonDataset.grid) throw new Error('No JSON dataset loaded');
+      const src = jsonDataset.grid;
+      const srcH = src.length;
+      const srcW = src[0].length;
+      const scaleM = jsonDataset.scale_m || 10000;
+      const grid = new Float32Array(targetRes * targetRes);
+
+      for (let j = 0; j < targetRes; j++) {
+        for (let i = 0; i < targetRes; i++) {
+          const sx = (i / (targetRes - 1)) * (srcW - 1);
+          const sy = (j / (targetRes - 1)) * (srcH - 1);
+          const ix = Math.floor(sx), iy = Math.floor(sy);
+          const fx = sx - ix, fy = sy - iy;
+          const ix2 = Math.min(ix + 1, srcW - 1), iy2 = Math.min(iy + 1, srcH - 1);
+
+          const s = (px, py) => Math.min(1, Math.max(0, src[py][px]));
+          const v = s(ix, iy) * (1 - fx) * (1 - fy)
+                  + s(ix2, iy) * fx * (1 - fy)
+                  + s(ix, iy2) * (1 - fx) * fy
+                  + s(ix2, iy2) * fx * fy;
+          grid[j * targetRes + i] = v * scaleM * 0.3; // scale_m is world footprint, not height
+        }
+      }
+      return { grid, res: targetRes, hscale: scaleM * 0.3 };
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Fetch Mapbox DEM tile and decode RGB→elevation
+    // ──────────────────────────────────────────────────────────────────
+    function latLonToTile(lat, lon, zoom) {
+      const n = Math.pow(2, zoom);
+      const x = Math.floor((lon + 180) / 360 * n);
+      const latRad = lat * Math.PI / 180;
+      const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+      return { x, y, z: zoom };
+    }
+
+    async function fetchMapboxTile(token, lat, lon, zoom) {
+      const tile = latLonToTile(lat, lon, zoom);
+      const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${tile.z}/${tile.x}/${tile.y}.pngraw?access_token=${encodeURIComponent(token)}`;
+
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`Mapbox fetch failed: ${resp.status} ${resp.statusText}`);
+
+      const blob = await resp.blob();
+      const imgBitmap = await createImageBitmap(blob);
+
+      const offscreen = new OffscreenCanvas(imgBitmap.width, imgBitmap.height);
+      const ctx = offscreen.getContext('2d');
+      ctx.drawImage(imgBitmap, 0, 0);
+      const px = ctx.getImageData(0, 0, imgBitmap.width, imgBitmap.height).data;
+
+      const W = imgBitmap.width, H = imgBitmap.height;
+      const elevGrid = new Float32Array(W * H);
+      for (let i = 0; i < W * H; i++) {
+        const R = px[i * 4], G = px[i * 4 + 1], B = px[i * 4 + 2];
+        elevGrid[i] = -10000 + (R * 65536 + G * 256 + B) * 0.1;
+      }
+
+      return { elevGrid, W, H };
+    }
+
+    async function gridFromMapbox(targetRes) {
+      const token = document.getElementById('mapbox-token').value.trim()
+        || localStorage.getItem('terrain-mapbox-token');
+      if (!token) throw new Error('No Mapbox token. Enter your token in the Mapbox settings panel.');
+
+      const lat = parseFloat(document.getElementById('map-lat').value);
+      const lon = parseFloat(document.getElementById('map-lon').value);
+      const zoom = parseInt(document.getElementById('map-zoom').value);
+
+      const { elevGrid, W, H } = await fetchMapboxTile(token, lat, lon, zoom);
+      // Resample to targetRes
+      const grid = new Float32Array(targetRes * targetRes);
+      for (let j = 0; j < targetRes; j++) {
+        for (let i = 0; i < targetRes; i++) {
+          const sx = (i / (targetRes - 1)) * (W - 1);
+          const sy = (j / (targetRes - 1)) * (H - 1);
+          const ix = Math.floor(sx), iy = Math.floor(sy);
+          const ix2 = Math.min(ix + 1, W - 1), iy2 = Math.min(iy + 1, H - 1);
+          const fx = sx - ix, fy = sy - iy;
+          const s = (px, py) => elevGrid[py * W + px];
+          grid[j * targetRes + i] = s(ix, iy) * (1 - fx) * (1 - fy)
+            + s(ix2, iy) * fx * (1 - fy)
+            + s(ix, iy2) * (1 - fx) * fy
+            + s(ix2, iy2) * fx * fy;
+        }
+      }
+      const minE = Math.min(...grid);
+      for (let k = 0; k < grid.length; k++) grid[k] -= minE; // zero-base
+      return { grid, res: targetRes, hscale: Math.max(...grid) };
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Three.js mesh construction with vertex colors
+    // ──────────────────────────────────────────────────────────────────
+    function buildMesh(heightResult) {
+      const { grid, res } = heightResult;
+      const worldSize = 10000; // 10km world space units
+
+      const geo = new THREE.PlaneGeometry(worldSize, worldSize, res - 1, res - 1);
+      geo.rotateX(-Math.PI / 2);
+
+      const pos = geo.attributes.position;
+      let minY = Infinity, maxY = -Infinity;
+
+      for (let i = 0; i < pos.count; i++) {
+        const h = grid[i] || 0;
+        pos.setY(i, h);
+        if (h < minY) minY = h;
+        if (h > maxY) maxY = h;
+      }
+      pos.needsUpdate = true;
+      geo.computeVertexNormals();
+
+      // Vertex colors by elevation band
+      const colors = new Float32Array(pos.count * 3);
+      const c = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const t = (pos.getY(i) - minY) / (maxY - minY || 1);
+        if (t < 0.05) {
+          c.set(0x1a5276); // deep water
+        } else if (t < 0.12) {
+          c.set(0x2e86c1); // shallow water
+        } else if (t < 0.22) {
+          c.set(0xd4ac0d); // sand
+        } else if (t < 0.55) {
+          c.set(0x27ae60); // lowland grass
+        } else if (t < 0.72) {
+          c.set(0x145a32); // highland forest
+        } else if (t < 0.85) {
+          c.set(0x7d6608); // rock/brown
+        } else if (t < 0.93) {
+          c.set(0x808b96); // rocky peak
+        } else {
+          c.set(0xfdfefe); // snow
+        }
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const mat = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.85,
+        metalness: 0.0,
+      });
+
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = 'terrain';
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+
+      return { mesh, minY, maxY, res };
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Three.js scene setup
+    // ──────────────────────────────────────────────────────────────────
+    function initThree() {
+      const container = document.getElementById('canvas-container');
+      const canvas = document.getElementById('preview-canvas');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x050510);
+      scene.fog = new THREE.FogExp2(0x050510, 0.00004);
+
+      camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 1, 100000);
+      camera.position.set(0, 8000, 14000);
+
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.maxPolarAngle = Math.PI / 2 - 0.05;
+      controls.minDistance = 200;
+      controls.maxDistance = 60000;
+
+      // Lights
+      const ambLight = new THREE.AmbientLight(0x334455, 0.8);
+      scene.add(ambLight);
+
+      const sunLight = new THREE.DirectionalLight(0xfff0e0, 2.5);
+      sunLight.position.set(4000, 8000, 2000);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      sunLight.shadow.camera.near = 1;
+      sunLight.shadow.camera.far = 60000;
+      sunLight.shadow.camera.left = -15000;
+      sunLight.shadow.camera.right = 15000;
+      sunLight.shadow.camera.top = 15000;
+      sunLight.shadow.camera.bottom = -15000;
+      scene.add(sunLight);
+
+      const fillLight = new THREE.HemisphereLight(0x8899bb, 0x443300, 0.5);
+      scene.add(fillLight);
+
+      // Resize observer
+      const ro = new ResizeObserver(() => {
+        if (!renderer) return;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+      ro.observe(container);
+
+      // Animation loop
+      function animate() {
+        animId = requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+    }
+
+    function resetCamera() {
+      if (!camera || !controls) return;
+      camera.position.set(0, 8000, 14000);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Swap mesh in scene
+    // ──────────────────────────────────────────────────────────────────
+    function applyMeshToScene(mesh) {
+      if (generatedMesh) {
+        scene.remove(generatedMesh);
+        generatedMesh.geometry.dispose();
+        generatedMesh.material.dispose();
+      }
+      generatedMesh = mesh;
+      scene.add(mesh);
+
+      // Auto-frame camera
+      const box = new THREE.Box3().setFromObject(mesh);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      camera.position.set(center.x, center.y + maxDim * 0.7, center.z + maxDim * 0.9);
+      controls.target.copy(center);
+      controls.update();
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // UI: source tabs
+    // ──────────────────────────────────────────────────────────────────
+    const sourceTabs = document.querySelectorAll('.source-tab');
+    const sourcePanels = {
+      procedural: document.getElementById('panel-procedural'),
+      heightmap:  document.getElementById('panel-heightmap'),
+      json:       document.getElementById('panel-json'),
+      mapbox:     document.getElementById('panel-mapbox'),
+    };
+
+    sourceTabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentSource = btn.dataset.source;
+        sourceTabs.forEach(b => {
+          b.classList.toggle('active', b === btn);
+          b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+        });
+        Object.entries(sourcePanels).forEach(([key, panel]) => {
+          panel.hidden = key !== currentSource;
+        });
+      });
+    });
+
+    // ──────────────────────────────────────────────────────────────────
+    // UI: sliders
+    // ──────────────────────────────────────────────────────────────────
+    function bindSlider(id, valId, fmt) {
+      const sl = document.getElementById(id);
+      const vl = document.getElementById(valId);
+      function update() {
+        const v = parseFloat(sl.value);
+        vl.textContent = fmt(v);
+        const min = parseFloat(sl.min), max = parseFloat(sl.max);
+        const pct = ((v - min) / (max - min) * 100).toFixed(1);
+        sl.style.setProperty('--pct', pct + '%');
+      }
+      sl.addEventListener('input', () => { update(); applyNoiseParsed(); });
+      update();
+    }
+
+    bindSlider('sl-scale',       'val-scale',       v => v.toFixed(1));
+    bindSlider('sl-octaves',     'val-octaves',     v => v.toFixed(0));
+    bindSlider('sl-persistence', 'val-persistence', v => v.toFixed(2));
+    bindSlider('sl-lacunarity',  'val-lacunarity',  v => v.toFixed(1));
+    bindSlider('sl-hscale',      'val-hscale',      v => Math.round(v).toLocaleString());
+    bindSlider('sl-hm-hscale',   'val-hm-hscale',   v => Math.round(v).toLocaleString());
+
+    function applyNoiseParsed() {
+      // Mark preset as custom when sliders change
+      document.getElementById('noise-preset').value = 'custom';
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // UI: noise preset select
+    // ──────────────────────────────────────────────────────────────────
+    document.getElementById('noise-preset').addEventListener('change', (e) => {
+      const key = e.target.value;
+      if (key === 'custom') return;
+      const p = PRESETS[key];
+      if (!p) return;
+
+      const setSlider = (id, val, valId, fmt) => {
+        const sl = document.getElementById(id);
+        sl.value = val;
+        document.getElementById(valId).textContent = fmt(val);
+        const min = parseFloat(sl.min), max = parseFloat(sl.max);
+        sl.style.setProperty('--pct', ((val - min) / (max - min) * 100).toFixed(1) + '%');
+      };
+
+      setSlider('sl-scale',       p.scale,       'val-scale',       v => v.toFixed(1));
+      setSlider('sl-octaves',     p.octaves,     'val-octaves',     v => v.toFixed(0));
+      setSlider('sl-persistence', p.persistence, 'val-persistence', v => v.toFixed(2));
+      setSlider('sl-lacunarity',  p.lacunarity,  'val-lacunarity',  v => v.toFixed(1));
+      setSlider('sl-hscale',      p.hscale,      'val-hscale',      v => Math.round(v).toLocaleString());
+    });
+
+    // ──────────────────────────────────────────────────────────────────
+    // UI: quality preset cards
+    // ──────────────────────────────────────────────────────────────────
+    document.querySelectorAll('.quality-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.quality-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        card.querySelector('input').checked = true;
+      });
+    });
+
+    function getQuality() {
+      const checked = document.querySelector('input[name="quality"]:checked');
+      return QUALITY_MAP[checked ? checked.value : 'game'];
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // UI: PNG heightmap upload
+    // ──────────────────────────────────────────────────────────────────
+    const heightmapInput = document.getElementById('heightmap-input');
+    const heightmapZone  = document.getElementById('heightmap-zone');
+
+    function handleHeightmapFile(file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const oc = document.getElementById('offscreen-canvas');
+          oc.width = img.width;
+          oc.height = img.height;
+          const ctx = oc.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const px = ctx.getImageData(0, 0, img.width, img.height).data;
+          heightmapData = new Uint8Array(img.width * img.height);
+          for (let i = 0; i < heightmapData.length; i++) heightmapData[i] = px[i * 4]; // R channel
+          heightmapSize = { w: img.width, h: img.height };
+
+          const infoEl = document.getElementById('heightmap-info');
+          infoEl.style.display = 'block';
+          infoEl.innerHTML = `<div class="info-card" style="margin-top:8px;">
+            <div class="info-card-title">${file.name}</div>
+            <div class="info-card-row"><span>Dimensions</span><span class="info-card-val">${img.width} &times; ${img.height}</span></div>
+            <div class="info-card-row"><span>Channels</span><span class="info-card-val">Greyscale (R)</span></div>
+          </div>`;
+          setStatus(`Heightmap loaded: ${img.width}x${img.height}`);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    heightmapInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleHeightmapFile(e.target.files[0]);
+    });
+
+    ['dragover', 'dragenter'].forEach(evt => {
+      heightmapZone.addEventListener(evt, (e) => { e.preventDefault(); heightmapZone.classList.add('drag-over'); });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+      heightmapZone.addEventListener(evt, (e) => { e.preventDefault(); heightmapZone.classList.remove('drag-over'); });
+    });
+    heightmapZone.addEventListener('drop', (e) => {
+      const f = e.dataTransfer.files[0];
+      if (f && f.type.startsWith('image/')) handleHeightmapFile(f);
+    });
+    heightmapZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); heightmapInput.click(); }
+    });
+
+    // ──────────────────────────────────────────────────────────────────
+    // UI: JSON dataset upload
+    // ──────────────────────────────────────────────────────────────────
+    const jsonInput = document.getElementById('json-input');
+    const jsonZone  = document.getElementById('json-zone');
+
+    function handleJsonFile(file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          jsonDataset = JSON.parse(ev.target.result);
+          if (!jsonDataset.grid || !Array.isArray(jsonDataset.grid)) {
+            throw new Error('Missing or invalid "grid" array');
+          }
+          const rows = jsonDataset.grid.length;
+          const cols = jsonDataset.grid[0]?.length || 0;
+          const infoEl = document.getElementById('json-info');
+          infoEl.style.display = 'block';
+          infoEl.innerHTML = `<div class="info-card" style="margin-top:8px;">
+            <div class="info-card-title">${jsonDataset.name || file.name}</div>
+            <div class="info-card-row"><span>Grid</span><span class="info-card-val">${cols} &times; ${rows}</span></div>
+            <div class="info-card-row"><span>Scale</span><span class="info-card-val">${(jsonDataset.scale_m || 10000).toLocaleString()} m</span></div>
+            ${jsonDataset.description ? `<div style="font-size:.7rem; color:var(--text3); margin-top:4px;">${jsonDataset.description}</div>` : ''}
+          </div>`;
+          setStatus(`JSON loaded: ${jsonDataset.name || file.name}`);
+        } catch (err) {
+          setStatus(`JSON parse error: ${err.message}`);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    jsonInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleJsonFile(e.target.files[0]);
+    });
+    ['dragover', 'dragenter'].forEach(evt => {
+      jsonZone.addEventListener(evt, (e) => { e.preventDefault(); jsonZone.classList.add('drag-over'); });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+      jsonZone.addEventListener(evt, (e) => { e.preventDefault(); jsonZone.classList.remove('drag-over'); });
+    });
+    jsonZone.addEventListener('drop', (e) => {
+      const f = e.dataTransfer.files[0];
+      if (f) handleJsonFile(f);
+    });
+    jsonZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jsonInput.click(); }
+    });
+
+    // ──────────────────────────────────────────────────────────────────
+    // UI: Mapbox token
+    // ──────────────────────────────────────────────────────────────────
+    const savedToken = localStorage.getItem('terrain-mapbox-token');
+    if (savedToken) document.getElementById('mapbox-token').value = savedToken;
+
+    document.getElementById('save-token-btn').addEventListener('click', () => {
+      const t = document.getElementById('mapbox-token').value.trim();
+      if (t) {
+        localStorage.setItem('terrain-mapbox-token', t);
+        setStatus('Mapbox token saved to localStorage');
+      }
+    });
+
+    const mapboxSettingsBtn = document.getElementById('mapbox-settings-btn');
+    mapboxSettingsBtn.addEventListener('click', () => {
+      const body = document.getElementById('mapbox-settings-body');
+      const open = body.classList.toggle('open');
+      mapboxSettingsBtn.classList.toggle('open', open);
+      mapboxSettingsBtn.setAttribute('aria-expanded', String(open));
+    });
+
+    // ──────────────────────────────────────────────────────────────────
+    // UI: status / progress helpers
+    // ──────────────────────────────────────────────────────────────────
+    function setStatus(msg) {
+      document.getElementById('status-text').textContent = msg;
+    }
+
+    function setLoading(show, msg = 'Building mesh...') {
+      const el = document.getElementById('preview-loading');
+      el.style.display = show ? 'flex' : 'none';
+      document.getElementById('loading-text').textContent = msg;
+    }
+
+    function setProgress(pct) {
+      const wrap = document.getElementById('gen-progress-wrap');
+      const bar  = document.getElementById('gen-progress-bar');
+      if (pct === null) { wrap.style.display = 'none'; return; }
+      wrap.style.display = 'block';
+      bar.style.width = pct + '%';
+    }
+
+    function updateStats(res, minY, maxY, source) {
+      document.getElementById('stat-verts').textContent  = (res * res).toLocaleString();
+      document.getElementById('stat-tris').textContent   = ((res - 1) * (res - 1) * 2).toLocaleString();
+      document.getElementById('stat-grid').textContent   = `${res}x${res}`;
+      document.getElementById('stat-range').textContent  = `${Math.round(minY)}–${Math.round(maxY)} m`;
+      document.getElementById('stat-source').textContent = source;
+      document.getElementById('stats-bar').style.display = 'flex';
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Generate
+    // ──────────────────────────────────────────────────────────────────
+    document.getElementById('generate-btn').addEventListener('click', generateTerrain);
+
+    async function generateTerrain() {
+      const genBtn    = document.getElementById('generate-btn');
+      const exportBtn = document.getElementById('export-btn');
+      const previewStatus = document.getElementById('preview-status');
+
+      genBtn.disabled = true;
+      exportBtn.disabled = true;
+      document.getElementById('preview-placeholder').style.display = 'none';
+      setLoading(true, 'Building mesh...');
+      setProgress(10);
+      previewStatus.textContent = 'Generating...';
+
+      try {
+        const res = getQuality();
+        let heightResult;
+
+        if (currentSource === 'procedural') {
+          const preset = document.getElementById('noise-preset').value;
+          const params = {
+            scale:       parseFloat(document.getElementById('sl-scale').value),
+            octaves:     parseInt(document.getElementById('sl-octaves').value),
+            persistence: parseFloat(document.getElementById('sl-persistence').value),
+            lacunarity:  parseFloat(document.getElementById('sl-lacunarity').value),
+            hscale:      parseFloat(document.getElementById('sl-hscale').value),
+            seed:        document.getElementById('noise-seed').value,
+            preset,
+          };
+          setStatus(`Generating ${res}x${res} procedural terrain...`);
+          setLoading(true, `Noise pass (${res}x${res})...`);
+          // Yield to browser before heavy computation
+          await new Promise(r => setTimeout(r, 30));
+          heightResult = generateProceduralGrid(res, params);
+        } else if (currentSource === 'heightmap') {
+          if (!heightmapData) throw new Error('Please upload a PNG heightmap first');
+          const hscale = parseFloat(document.getElementById('sl-hm-hscale').value);
+          setLoading(true, 'Resampling heightmap...');
+          await new Promise(r => setTimeout(r, 20));
+          heightResult = gridFromHeightmap(res, hscale);
+        } else if (currentSource === 'json') {
+          if (!jsonDataset) throw new Error('Please upload a JSON dataset first');
+          setLoading(true, 'Parsing dataset...');
+          await new Promise(r => setTimeout(r, 20));
+          heightResult = gridFromJson(res);
+        } else if (currentSource === 'mapbox') {
+          setLoading(true, 'Fetching Mapbox DEM tile...');
+          heightResult = await gridFromMapbox(res);
+        }
+
+        setProgress(60);
+        setLoading(true, 'Building geometry...');
+        await new Promise(r => setTimeout(r, 20));
+
+        const { mesh, minY, maxY } = buildMesh(heightResult);
+        setProgress(85);
+
+        if (!scene) initThree();
+        applyMeshToScene(mesh);
+        setProgress(100);
+
+        const sourceLabel = { procedural: 'Procedural', heightmap: 'PNG Upload', json: 'JSON Dataset', mapbox: 'Mapbox DEM' }[currentSource];
+        updateStats(res, minY, maxY, sourceLabel);
+        previewStatus.textContent = 'Ready';
+        setStatus(`Done — ${(res * res).toLocaleString()} vertices`);
+        exportBtn.disabled = false;
+        lastGenParams = { res, source: currentSource };
+
+        setTimeout(() => setProgress(null), 800);
+      } catch (err) {
+        setStatus(`Error: ${err.message}`);
+        previewStatus.textContent = 'Error';
+        console.error(err);
+        if (!generatedMesh) document.getElementById('preview-placeholder').style.display = 'flex';
+      } finally {
+        genBtn.disabled = false;
+        setLoading(false);
+      }
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // GLB Export
+    // ──────────────────────────────────────────────────────────────────
+    document.getElementById('export-btn').addEventListener('click', exportGLB);
+
+    function exportGLB() {
+      if (!generatedMesh) return;
+      const exportBtn = document.getElementById('export-btn');
+      exportBtn.disabled = true;
+      exportBtn.textContent = 'Exporting...';
+      setStatus('Exporting GLB...');
+
+      const exporter = new GLTFExporter();
+      exporter.parse(
+        generatedMesh,
+        (gltf) => {
+          const blob = new Blob([gltf], { type: 'model/gltf-binary' });
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement('a');
+          const res  = lastGenParams?.res || 'terrain';
+          const src  = lastGenParams?.source || 'proc';
+          a.href     = url;
+          a.download = `terrain_${src}_${res}.glb`;
+          a.click();
+          URL.revokeObjectURL(url);
+          exportBtn.disabled = false;
+          exportBtn.textContent = 'Download GLB';
+          setStatus(`GLB exported — terrain_${src}_${res}.glb`);
+        },
+        (err) => {
+          console.error('GLTFExporter error:', err);
+          setStatus('GLB export failed — see console');
+          exportBtn.disabled = false;
+          exportBtn.textContent = 'Download GLB';
+        },
+        { binary: true }
+      );
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Reset camera
+    // ──────────────────────────────────────────────────────────────────
+    document.getElementById('reset-camera-btn').addEventListener('click', resetCamera);
+
+    // ──────────────────────────────────────────────────────────────────
+    // Theme toggle
+    // ──────────────────────────────────────────────────────────────────
+    const themeToggle = document.getElementById('theme-toggle');
+    let isLight = false;
+
+    themeToggle.addEventListener('click', () => {
+      isLight = !isLight;
+      document.documentElement.setAttribute('data-theme', isLight ? 'light' : '');
+      themeToggle.textContent = isLight ? 'Dark Mode' : 'Light Mode';
+      if (scene) {
+        scene.background = new THREE.Color(isLight ? 0xdce3f0 : 0x050510);
+        scene.fog.color.set(isLight ? 0xdce3f0 : 0x050510);
+      }
+    });
+
+    // ── Geocoding (Nominatim) — for Mapbox panel ─────────────────────
+    let _saGeoTimer = null;
+    const saGeoInput = document.getElementById('mapbox-geocode');
+    const saGeoResults = document.getElementById('sa-geocode-results');
+
+    if (saGeoInput) {
+      saGeoInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); standaloneGeocode(); }});
+      saGeoInput.addEventListener('input', () => {
+        clearTimeout(_saGeoTimer);
+        if (saGeoInput.value.trim().length < 3) { saGeoResults.style.display = 'none'; return; }
+        _saGeoTimer = setTimeout(() => standaloneGeocode(true), 600);
+      });
+      document.addEventListener('click', e => {
+        if (!e.target.closest('.geocode-wrap')) saGeoResults.style.display = 'none';
+      });
+    }
+
+    window.standaloneGeocode = async function(auto = false) {
+      const q = saGeoInput?.value.trim();
+      if (!q) return;
+      const btn = document.getElementById('sa-geocode-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '…'; }
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6`;
+        const r = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+        const hits = await r.json();
+        if (!hits.length) { showNotice('No results for "' + q + '"'); saGeoResults.style.display = 'none'; return; }
+        if (!auto && hits.length === 1) { applyStandaloneGeocode(hits[0]); return; }
+        saGeoResults.innerHTML = hits.map((h, i) => {
+          const name = h.display_name.split(',').slice(0, 3).join(', ');
+          return `<div class="geocode-result-item" role="option" tabindex="0"
+            data-i="${i}" onclick="applyStandaloneGeocodeIdx(${i}, event)"
+            onkeydown="if(event.key==='Enter')applyStandaloneGeocodeIdx(${i}, event)">
+            <strong>${escHtml(h.name || name.split(',')[0])}</strong><br>
+            <span style="font-size:.7rem;">${escHtml(name)}</span>
+          </div>`;
+        }).join('');
+        saGeoResults._hits = hits;
+        saGeoResults.style.display = 'block';
+      } catch(e) {
+        showNotice('Geocode failed: ' + e.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🔍'; }
+      }
+    };
+
+    window.applyStandaloneGeocodeIdx = function(i, e) {
+      e?.stopPropagation();
+      const hits = saGeoResults._hits;
+      if (hits?.[i]) applyStandaloneGeocode(hits[i]);
+    };
+
+    function applyStandaloneGeocode(h) {
+      document.getElementById('map-lat').value = parseFloat(h.lat).toFixed(6);
+      document.getElementById('map-lon').value = parseFloat(h.lon).toFixed(6);
+      if (saGeoInput) saGeoInput.value = h.display_name.split(',').slice(0, 2).join(', ');
+      saGeoResults.style.display = 'none';
+      showNotice(`Jumped to ${h.display_name.split(',')[0]}`);
+    }
+
+    window.applyStandaloneQuickLoc = function(val) {
+      if (!val) return;
+      const [lat, lon] = val.split(',').map(Number);
+      document.getElementById('map-lat').value = lat;
+      document.getElementById('map-lon').value = lon;
+      document.querySelector('select[onchange*="applyStandaloneQuickLoc"]').value = '';
+    };
+
+    function showNotice(msg) {
+      const el = document.getElementById('status-bar');
+      if (el) el.textContent = msg;
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Boot: initialise Three.js eagerly so canvas is ready
+    // ──────────────────────────────────────────────────────────────────
+    initThree();
+    setStatus('Ready — configure terrain and click Generate');
+  </script>
+</body>
+</html>

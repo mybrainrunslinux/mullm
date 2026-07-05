@@ -1,0 +1,2032 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — ONNX Studio</title>
+  <meta name="description" content="Interactive ONNX model studio for solving ARC tasks — write Python/ONNX code, validate against examples, track your score." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+  <style>
+/* ── muLLM Theme System ── */
+body.theme-midnight {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --bg4: #30363d;
+  --surface: #161b22; --border: #30363d; --border2: #484f58;
+  --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  --text-muted: #8b949e;
+  --gold: #58a6ff; --gold-dim: rgba(88,166,255,0.15); --gold2: #79b8ff;
+  --gold-glow: 0 0 16px rgba(88,166,255,0.3);
+  --accent: #388bfd; color-scheme: dark;
+}
+body.theme-terminal {
+  --bg: #0a0a0a; --bg2: #111; --bg3: #181818; --bg4: #222;
+  --surface: #111; --border: #00ff41; --border2: #00cc33;
+  --text: #00ff41; --text2: #00cc33; --text3: #007a1f;
+  --text-muted: #007a1f;
+  --gold: #00ff41; --gold-dim: rgba(0,255,65,0.15); --gold2: #66ff88;
+  --gold-glow: 0 0 12px rgba(0,255,65,0.4);
+  --accent: #00cc33; color-scheme: dark;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace !important;
+}
+body.theme-terminal .panel, body.theme-terminal .card,
+body.theme-terminal button, body.theme-terminal input,
+body.theme-terminal select, body.theme-terminal textarea,
+body.theme-terminal [class*="badge"], body.theme-terminal [class*="pill"] {
+  border-radius: 0 !important; box-shadow: none !important;
+}
+body.theme-paper {
+  --bg: #fefcf7; --bg2: #f5f0e8; --bg3: #ede8dc; --bg4: #e0d8c8;
+  --surface: #f5f0e8; --border: #d4c5a9; --border2: #c0ae8c;
+  --text: #2c2416; --text2: #4a3c28; --text3: #6b5a3e;
+  --text-muted: #6b5a3e;
+  --gold: #8b6914; --gold-dim: rgba(139,105,20,0.15); --gold2: #a07820;
+  --gold-glow: 0 0 8px rgba(139,105,20,0.2);
+  --accent: #a07820; color-scheme: light;
+}
+body.theme-neon {
+  --bg: #0f0018; --bg2: #1a0030; --bg3: #250045; --bg4: #2f0055;
+  --surface: #1a0030; --border: #ff006e; --border2: #bf00ff;
+  --text: #ffffff; --text2: #cc99ff; --text3: #9966cc;
+  --text-muted: #cc99ff;
+  --gold: #ff006e; --gold-dim: rgba(255,0,110,0.15); --gold2: #ff4d9e;
+  --gold-glow: 0 0 16px rgba(255,0,110,0.5);
+  --accent: #bf00ff; color-scheme: dark;
+}
+body.theme-neon h1, body.theme-neon h2, body.theme-neon h3 {
+  text-shadow: 0 0 20px #ff006e, 0 0 40px #bf00ff;
+}
+
+/* ── Base Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0a0a0f;
+  --bg2:     #111118;
+  --bg3:     #18181f;
+  --bg4:     #22222c;
+  --surface: #14141b;
+  --border:  #2a2a3a;
+  --border2: #3a3a4a;
+  --text:    #e8e8f0;
+  --text2:   #9090a8;
+  --text3:   #606078;
+  --text-muted: #606078;
+  --gold:    #d4af37;
+  --gold2:   #c9a84c;
+  --gold-dim: rgba(212,175,55,0.12);
+  --gold-glow: 0 0 16px rgba(212,175,55,0.3);
+  --accent:  #c9a84c;
+  --green:   #4ade80;
+  --red:     #f87171;
+  --teal:    #22d3ee;
+  color-scheme: dark;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* ── Shared Nav System ── */
+#mullm-nav {
+  background: #0a0a0f;
+  border-bottom: 1px solid #2a2a3a;
+  padding: 0 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 48px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  flex-shrink: 0;
+}
+#mullm-nav .mn-brand {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #d4af37;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 0 0.25rem;
+  outline-offset: 3px;
+}
+#mullm-nav .mn-brand:focus-visible { outline: 2px solid #d4af37; border-radius: 4px; }
+#mullm-nav .mn-spacer { flex: 1; }
+#mullm-nav .mn-links {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#mullm-nav .mn-links a {
+  color: #888899;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  border-radius: 5px;
+  transition: color 0.15s, background 0.15s;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  outline-offset: 2px;
+}
+#mullm-nav .mn-links a:focus-visible { outline: 2px solid #d4af37; border-radius: 5px; }
+#mullm-nav .mn-links a:hover { color: #e8e8f0; background: rgba(255,255,255,0.06); }
+#mullm-nav .mn-links a.mn-active {
+  color: #d4af37;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+#mullm-nav .mn-artistic-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.3rem 0.5rem;
+  margin-left: 0.25rem;
+  border-radius: 5px;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.2s;
+  opacity: 0.7;
+  outline-offset: 2px;
+  color: #888899;
+}
+#mullm-nav .mn-artistic-btn:hover { opacity: 1; background: rgba(255,255,255,0.06); }
+#mullm-nav .mn-artistic-btn:focus-visible { outline: 2px solid #d4af37; border-radius: 5px; }
+#mullm-nav .mn-artistic-btn.mn-art-on { opacity: 1; transform: rotate(15deg) scale(1.1); }
+#mullm-nav .mn-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.35rem;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: #888899;
+  transition: color 0.15s, background 0.15s;
+  margin-left: 0.25rem;
+  outline-offset: 2px;
+}
+#mullm-nav .mn-hamburger:focus-visible { outline: 2px solid #d4af37; border-radius: 5px; }
+#mullm-nav .mn-hamburger:hover { color: #e8e8f0; background: rgba(255,255,255,0.06); }
+#mullm-nav .mn-hamburger svg { width: 20px; height: 20px; display: block; }
+#mullm-nav-dropdown {
+  display: none;
+  position: fixed;
+  top: 48px;
+  left: 0;
+  right: 0;
+  background: #0a0a0f;
+  border-bottom: 1px solid #2a2a3a;
+  z-index: 999;
+  padding: 0.5rem 1rem;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+#mullm-nav-dropdown.mn-open { display: flex; }
+#mullm-nav-dropdown a {
+  color: #888899;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+#mullm-nav-dropdown a:hover { color: #e8e8f0; background: rgba(255,255,255,0.06); }
+#mullm-nav-dropdown a.mn-active { color: #d4af37; }
+@media (max-width: 639px) {
+  #mullm-nav .mn-links { display: none; }
+  #mullm-nav .mn-hamburger { display: inline-flex; }
+  #mullm-nav .mn-artistic-btn { min-width: 36px; min-height: 36px; }
+}
+
+/* Theme picker */
+#theme-picker-wrap { position: relative; }
+#theme-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.3rem 0.5rem;
+  margin-left: 0.25rem;
+  border-radius: 5px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  opacity: 0.7;
+  outline-offset: 2px;
+}
+#theme-btn:hover { opacity: 1; background: rgba(255,255,255,0.06); }
+#theme-btn:focus-visible { outline: 2px solid #d4af37; border-radius: 5px; }
+#theme-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #12121a;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  list-style: none;
+  padding: 0.3rem 0;
+  z-index: 2000;
+  min-width: 140px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+#theme-menu.open { display: block; }
+#theme-menu li {
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  color: #9090a8;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+#theme-menu li:hover { background: rgba(255,255,255,0.06); color: #e8e8f0; }
+#theme-menu li.active { color: #d4af37; }
+
+/* VRAM pill */
+#vram-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-family: monospace;
+  cursor: pointer;
+  border: 1px solid rgba(74,222,128,0.25);
+  background: rgba(74,222,128,0.08);
+  color: #4ade80;
+  margin-left: 12px;
+  white-space: nowrap;
+  transition: border-color 0.2s, background 0.2s;
+}
+#vram-pill.warn { border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.1); color: #fbbf24; }
+#vram-pill.crit { border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.1); color: #f87171; }
+#vram-tooltip {
+  display: none;
+  position: fixed;
+  top: 52px;
+  right: 12px;
+  background: #12121a;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  padding: 10px 14px;
+  z-index: 2001;
+  min-width: 220px;
+  font-size: 12px;
+  color: #ccc;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+}
+
+/* Artistic Mode */
+@keyframes mnBgShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes mnStars {
+  0%   { transform: translateY(0); opacity: 0.6; }
+  100% { transform: translateY(-100vh); opacity: 0; }
+}
+body.artistic {
+  background: linear-gradient(135deg, #050510 0%, #0a0520 35%, #0d0a2a 65%, #08050f 100%);
+  background-size: 400% 400%;
+  animation: mnBgShift 8s ease-in-out infinite;
+}
+body.artistic::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, rgba(212,175,55,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 40%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 40% 70%, rgba(212,175,55,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 55% 20%, rgba(255,255,255,0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 55%, rgba(212,175,55,0.35) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 80% 85%, rgba(255,255,255,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 30%, rgba(212,175,55,0.45) 0%, transparent 100%),
+    radial-gradient(1px 1px at 35% 10%, rgba(180,130,255,0.3) 0%, transparent 100%);
+  animation: mnStars 60s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.artistic { animation: none; background: #050510; }
+  body.artistic::before { animation: none; }
+}
+body.artistic #mullm-nav {
+  background: rgba(10,10,20,0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Studio Layout ── */
+.studio-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 48px);
+  overflow: hidden;
+}
+.studio-body {
+  display: grid;
+  grid-template-columns: 300px 1fr 300px;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+}
+.studio-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.studio-panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+.studio-center {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  min-width: 0;
+}
+.panel-header {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg2);
+}
+.panel-header .panel-title-icon {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+.panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+.panel-scroll::-webkit-scrollbar { width: 5px; }
+.panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.panel-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── Task Selector ── */
+.task-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+  flex-shrink: 0;
+}
+.task-nav-btn {
+  background: var(--bg4);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  border-radius: 5px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.task-nav-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+.task-nav-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+#task-num-input {
+  flex: 1;
+  background: var(--bg4);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  border-radius: 5px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: center;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+#task-num-input:focus { outline: none; border-color: var(--gold); }
+.task-select-wrap {
+  flex: 1;
+  position: relative;
+}
+#task-dropdown {
+  width: 100%;
+  background: var(--bg4);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  border-radius: 5px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.82rem;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+#task-dropdown:focus { outline: none; border-color: var(--gold); }
+
+/* ── Grid Examples ── */
+.example-block {
+  margin-bottom: 1rem;
+}
+.example-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.example-label .ex-badge {
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1px solid rgba(212,175,55,0.2);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+}
+.example-label .ex-badge.test-badge {
+  background: rgba(34,211,238,0.1);
+  color: var(--teal);
+  border-color: rgba(34,211,238,0.2);
+}
+.grid-pair {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.grid-pair .arrow-sep {
+  color: var(--text3);
+  font-size: 1rem;
+  padding-top: 2px;
+  flex-shrink: 0;
+  align-self: center;
+}
+.grid-canvas-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.grid-canvas-label {
+  font-size: 0.6rem;
+  color: var(--text3);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+canvas.arc-grid {
+  display: block;
+  image-rendering: pixelated;
+  border-radius: 3px;
+  border: 1px solid var(--border2);
+}
+
+/* task list mini dots */
+.task-progress {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.tp-label {
+  font-size: 0.7rem;
+  color: var(--text3);
+  white-space: nowrap;
+}
+.tp-count {
+  font-size: 0.7rem;
+  color: var(--gold);
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+.task-dots-scroll {
+  width: 100%;
+  overflow-x: auto;
+  padding: 2px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+.task-dots {
+  display: flex;
+  gap: 3px;
+  width: max-content;
+}
+.task-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg4);
+  border: 1px solid var(--border2);
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+  flex-shrink: 0;
+}
+.task-dot:hover { transform: scale(1.4); }
+.task-dot.solved { background: var(--green); border-color: rgba(74,222,128,0.5); }
+.task-dot.current { border-color: var(--gold); box-shadow: 0 0 4px rgba(212,175,55,0.5); }
+
+/* ── Editor (center panel) ── */
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.editor-toolbar-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-right: 0.25rem;
+  white-space: nowrap;
+}
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 5px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text2);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 32px;
+  white-space: nowrap;
+}
+.toolbar-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+.toolbar-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.toolbar-btn.btn-validate { border-color: rgba(34,211,238,0.3); color: var(--teal); }
+.toolbar-btn.btn-validate:hover { border-color: var(--teal); background: rgba(34,211,238,0.08); }
+.toolbar-btn.btn-save { border-color: rgba(74,222,128,0.3); color: var(--green); }
+.toolbar-btn.btn-save:hover { border-color: var(--green); background: rgba(74,222,128,0.08); }
+.toolbar-btn.btn-generate { border-color: rgba(212,175,55,0.3); color: var(--gold); }
+.toolbar-btn.btn-generate:hover { border-color: var(--gold); background: var(--gold-dim); }
+.toolbar-btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+.shortcut-hint {
+  font-size: 0.66rem;
+  color: var(--text3);
+  margin-left: auto;
+  white-space: nowrap;
+}
+kbd {
+  display: inline-block;
+  background: var(--bg4);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  line-height: 1.6;
+  color: var(--text2);
+}
+
+/* Generate area */
+.generate-area {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+  display: none;
+}
+.generate-area.visible { display: block; }
+.generate-area label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+.generate-input-row {
+  display: flex;
+  gap: 0.4rem;
+}
+#gen-desc {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  border-radius: 5px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.82rem;
+  font-family: 'DM Sans', sans-serif;
+  resize: none;
+  min-height: 36px;
+  max-height: 80px;
+  transition: border-color 0.15s;
+}
+#gen-desc:focus { outline: none; border-color: var(--gold); }
+#gen-desc::placeholder { color: var(--text3); }
+
+/* CodeMirror overrides */
+.CodeMirror {
+  height: 100% !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-size: 13px !important;
+  background: #1c1c24 !important;
+  line-height: 1.6 !important;
+}
+.CodeMirror-scroll { height: 100%; }
+.editor-cm-wrap {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.streaming-indicator {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-size: 0.65rem;
+  color: var(--gold);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.05em;
+  animation: streamPulse 0.8s ease-in-out infinite;
+  z-index: 10;
+  display: none;
+}
+.streaming-indicator.active { display: block; }
+@keyframes streamPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Validation Panel (right) ── */
+.result-hero {
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 140px;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.result-idle {
+  color: var(--text3);
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.result-idle .idle-icon {
+  font-size: 2.5rem;
+  opacity: 0.25;
+}
+.result-pass {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.result-pass.visible { display: flex; }
+.result-fail {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+.result-fail.visible { display: flex; }
+.check-icon {
+  font-size: 3rem;
+  color: var(--green);
+  line-height: 1;
+  animation: checkBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes checkBounce {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.3); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.cross-icon {
+  font-size: 2.5rem;
+  color: var(--red);
+  line-height: 1;
+}
+.score-display {
+  font-size: 2rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.score-display.high { color: var(--green); text-shadow: 0 0 12px rgba(74,222,128,0.4); }
+.score-display.low { color: var(--gold); }
+.score-label {
+  font-size: 0.68rem;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.score-formula {
+  font-size: 0.65rem;
+  color: var(--text3);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 0.2rem;
+  opacity: 0.7;
+}
+.latency-badge {
+  font-size: 0.7rem;
+  color: var(--teal);
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(34,211,238,0.08);
+  border: 1px solid rgba(34,211,238,0.2);
+  border-radius: 10px;
+  padding: 2px 8px;
+  margin-top: 0.3rem;
+}
+.error-box {
+  width: 100%;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.25);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--red);
+  text-align: left;
+  word-break: break-word;
+  white-space: pre-wrap;
+  max-height: 80px;
+  overflow-y: auto;
+}
+.validating-spinner {
+  display: none;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text2);
+  font-size: 0.8rem;
+}
+.validating-spinner.active { display: flex; }
+.spinner-ring {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Attempt history */
+.attempt-history {
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.attempt-history-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 0.5rem;
+}
+.attempt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.attempt-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg3);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.attempt-item .ai-status { font-size: 0.75rem; flex-shrink: 0; }
+.attempt-item .ai-score { color: var(--text); font-weight: 600; }
+.attempt-item .ai-score.high { color: var(--green); }
+.attempt-item .ai-time { color: var(--text3); margin-left: auto; }
+
+/* Score info section */
+.score-info {
+  padding: 0.75rem;
+  background: var(--bg3);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-info-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 0.5rem;
+}
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px dashed var(--border);
+}
+.score-row:last-child { border-bottom: none; }
+.score-row .sr-key { color: var(--text3); }
+.score-row .sr-val { color: var(--text); font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+.score-row .sr-val.green { color: var(--green); }
+.score-row .sr-val.gold { color: var(--gold); }
+.score-row .sr-val.fail { color: var(--red); }
+
+/* ── Confetti ── */
+@keyframes confetti-fall {
+  0%   { transform: translateY(-20px) translateX(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(var(--fall-y)) translateX(var(--drift-x)) rotate(var(--spin)); opacity: 0; }
+}
+.confetti-piece {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: confetti-fall var(--duration) ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece { display: none !important; }
+}
+
+/* ── Loading / empty states ── */
+.task-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  color: var(--text3);
+  font-size: 0.8rem;
+}
+.task-loading .tl-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .studio-body { grid-template-columns: 250px 1fr; }
+  .studio-panel:last-child { display: none; }
+}
+@media (max-width: 640px) {
+  .studio-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    height: auto;
+  }
+  .studio-wrapper { height: auto; overflow: visible; }
+  .studio-panel, .studio-center { overflow: visible; }
+  .panel-scroll { overflow: visible; max-height: 350px; }
+  .editor-cm-wrap { min-height: 300px; }
+  .studio-panel:last-child { display: flex; border-left: none; border-top: 1px solid var(--border); }
+}
+
+/* ── Solved badge overlay ── */
+.solved-overlay {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(74,222,128,0.15);
+  border: 1px solid rgba(74,222,128,0.4);
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.result-hero.solved .solved-overlay { display: block; }
+
+/* Focus styles — WCAG 2.2 */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Scrollbar global */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav id="mullm-nav" role="navigation" aria-label="muLLM main navigation">
+  <a class="mn-brand" href="/" aria-label="muLLM home">m&#956;LLM</a>
+  <div class="mn-spacer" aria-hidden="true"></div>
+  <ul class="mn-links" role="list">
+    <li><a href="/" aria-current="false">Chat</a></li>
+    <li><a href="/dashboard" aria-current="false">Dashboard</a></li>
+    <li><a href="/bench" aria-current="false">Bench</a></li>
+    <li><a href="/research" aria-current="false">Research</a></li>
+    <li><a href="/onnx" class="mn-active" aria-current="page">ONNX</a></li>
+    <li><a href="/archaeology" aria-current="false">Archaeology</a></li>
+  </ul>
+  <div id="theme-picker-wrap">
+    <button id="theme-btn" aria-label="Change theme" title="Change theme">&#127912;</button>
+    <ul id="theme-menu" role="listbox" aria-label="Theme">
+      <li role="option" data-theme="">Default</li>
+      <li role="option" data-theme="theme-midnight">Midnight</li>
+      <li role="option" data-theme="theme-terminal">Terminal</li>
+      <li role="option" data-theme="theme-paper">Paper</li>
+      <li role="option" data-theme="theme-neon">Neon Tokyo</li>
+    </ul>
+  </div>
+  <button class="mn-hamburger" id="mn-hamburger"
+          aria-expanded="false" aria-controls="mullm-nav-dropdown"
+          aria-label="Toggle navigation menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+  <span id="vram-pill" class="ok" onclick="toggleVramTooltip()" title="Click for GPU details"
+        role="button" tabindex="0" aria-label="GPU VRAM status"
+        onkeydown="if(event.key==='Enter')toggleVramTooltip()">
+    <span id="vram-dot">&#9679;</span><span id="vram-label">GPU&#8230;</span>
+  </span>
+  <div id="vram-tooltip" role="tooltip" aria-live="polite">
+    <div id="vt-content">Loading&#8230;</div>
+  </div>
+</nav>
+<div id="mullm-nav-dropdown" role="menu" aria-label="Navigation menu">
+  <a href="/" role="menuitem">Chat</a>
+  <a href="/dashboard" role="menuitem">Dashboard</a>
+  <a href="/bench" role="menuitem">Bench</a>
+  <a href="/research" role="menuitem">Research</a>
+  <a href="/onnx" class="mn-active" role="menuitem" aria-current="page">ONNX</a>
+  <a href="/archaeology" role="menuitem">Archaeology</a>
+</div>
+
+<!-- Studio -->
+<div class="studio-wrapper">
+  <div class="studio-body">
+
+    <!-- LEFT: Task selector + grid examples -->
+    <aside class="studio-panel" aria-label="Task selector and examples">
+      <div class="panel-header">
+        <span class="panel-title-icon" aria-hidden="true">&#127370;</span>
+        <span>ARC Tasks</span>
+      </div>
+
+      <!-- Nav controls -->
+      <div class="task-nav" role="group" aria-label="Task navigation">
+        <button class="task-nav-btn" id="btn-prev" aria-label="Previous task" title="Previous task (&#8592;)">&#8592;</button>
+        <input type="number" id="task-num-input" min="1" max="400" value="1"
+               aria-label="Task number (1-400)" title="Enter task number" />
+        <button class="task-nav-btn" id="btn-next" aria-label="Next task" title="Next task (&#8594;)">&#8594;</button>
+      </div>
+
+      <!-- Progress dots -->
+      <div class="task-progress" role="group" aria-label="Task progress">
+        <span class="tp-label">Progress</span>
+        <span class="tp-count" id="solved-count" aria-live="polite">0 / 400</span>
+        <div class="task-dots-scroll" aria-hidden="true">
+          <div class="task-dots" id="task-dots"></div>
+        </div>
+      </div>
+
+      <!-- Examples scroll -->
+      <div class="panel-scroll" id="examples-scroll" role="region" aria-label="Task examples" aria-live="polite">
+        <div class="task-loading" id="examples-loading" aria-live="polite">
+          <div class="tl-spinner" role="status" aria-label="Loading task"></div>
+          <span>Loading task&hellip;</span>
+        </div>
+        <div id="examples-content" style="display:none"></div>
+      </div>
+    </aside>
+
+    <!-- CENTER: Editor -->
+    <main class="studio-center" role="main">
+      <!-- Toolbar -->
+      <div class="editor-toolbar" role="toolbar" aria-label="Editor actions">
+        <span class="editor-toolbar-title">Editor</span>
+        <button class="toolbar-btn btn-validate" id="btn-validate"
+                aria-label="Validate code against all examples"
+                title="Validate (Ctrl+Enter)">
+          &#9654; Validate
+        </button>
+        <button class="toolbar-btn btn-save" id="btn-save"
+                aria-label="Save solution"
+                title="Save passing solution">
+          &#10003; Save
+        </button>
+        <button class="toolbar-btn btn-generate" id="btn-generate-toggle"
+                aria-label="Toggle generate panel"
+                title="Generate code from description">
+          &#10024; Generate
+        </button>
+        <button class="toolbar-btn" id="btn-clear"
+                aria-label="Clear editor"
+                title="Clear editor">
+          &#128465; Clear
+        </button>
+        <span class="shortcut-hint" aria-hidden="true"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> validate &nbsp; <kbd>&#8592;&#8594;</kbd> navigate</span>
+      </div>
+
+      <!-- Generate area (collapsible) -->
+      <div class="generate-area" id="generate-area" aria-label="Code generation">
+        <label for="gen-desc">Describe the transformation rule in plain English</label>
+        <div class="generate-input-row">
+          <textarea id="gen-desc" rows="2"
+                    placeholder="e.g. rotate 90 degrees clockwise, mirror horizontally, fill holes with color 3..."
+                    aria-label="Transformation description"></textarea>
+          <button class="toolbar-btn btn-generate" id="btn-generate-run"
+                  aria-label="Generate code from description">
+            &#9654; Run
+          </button>
+        </div>
+      </div>
+
+      <!-- CodeMirror editor -->
+      <div class="editor-cm-wrap">
+        <span class="streaming-indicator" id="streaming-indicator" aria-live="polite">&#9644; STREAMING</span>
+        <textarea id="cm-editor" aria-label="Python ONNX code editor"></textarea>
+      </div>
+    </main>
+
+    <!-- RIGHT: Validation panel -->
+    <aside class="studio-panel" style="border-right:none;border-left:1px solid var(--border)" aria-label="Validation results">
+      <div class="panel-header">
+        <span class="panel-title-icon" aria-hidden="true">&#9989;</span>
+        <span>Results</span>
+      </div>
+
+      <!-- Result hero -->
+      <div class="result-hero" id="result-hero">
+        <span class="solved-overlay" aria-hidden="true">SOLVED</span>
+
+        <div class="result-idle" id="result-idle">
+          <span class="idle-icon" aria-hidden="true">&#128203;</span>
+          <span>Write code and validate</span>
+          <span style="font-size:0.68rem;opacity:0.6">Hit <kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>
+        </div>
+
+        <div class="validating-spinner" id="validating-spinner">
+          <div class="spinner-ring" role="status" aria-label="Validating"></div>
+          <span>Validating&hellip;</span>
+        </div>
+
+        <div class="result-pass" id="result-pass" aria-live="polite">
+          <span class="check-icon" aria-hidden="true">&#10003;</span>
+          <div class="score-display" id="score-display" aria-label="Score">&#8212;</div>
+          <div class="score-label">Score</div>
+          <div class="score-formula" title="Formula: max(1, 25 - log(MACs + memory + params))">
+            max(1, 25 &minus; log(MACs + mem + params))
+          </div>
+          <div class="latency-badge" id="latency-badge" aria-label="Validation latency"></div>
+        </div>
+
+        <div class="result-fail" id="result-fail" aria-live="polite">
+          <span class="cross-icon" aria-hidden="true">&#10007;</span>
+          <div class="error-box" id="error-box" role="alert"></div>
+          <div class="latency-badge" id="latency-badge-fail" aria-label="Validation latency" style="margin-top:0.4rem"></div>
+        </div>
+      </div>
+
+      <!-- Score breakdown -->
+      <div class="score-info" id="score-info" style="display:none">
+        <div class="score-info-header">Score Breakdown</div>
+        <div class="score-row">
+          <span class="sr-key">Score</span>
+          <span class="sr-val" id="si-score">&#8212;</span>
+        </div>
+        <div class="score-row">
+          <span class="sr-key">Threshold (pass)</span>
+          <span class="sr-val gold">&ge; 18</span>
+        </div>
+        <div class="score-row">
+          <span class="sr-key">Latency</span>
+          <span class="sr-val" id="si-latency">&#8212;</span>
+        </div>
+        <div class="score-row">
+          <span class="sr-key">Status</span>
+          <span class="sr-val" id="si-status">&#8212;</span>
+        </div>
+      </div>
+
+      <!-- Attempt history -->
+      <div class="panel-scroll">
+        <div class="attempt-history">
+          <div class="attempt-history-header">Attempt History</div>
+          <div class="attempt-list" id="attempt-list">
+            <div style="font-size:0.72rem;color:var(--text3);text-align:center;padding:0.5rem">
+              No attempts yet
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div><!-- .studio-body -->
+</div><!-- .studio-wrapper -->
+
+<script>
+/* ================================================================
+   muLLM ONNX Studio — main logic
+   ================================================================ */
+
+const BASE = `https://${window.location.hostname}:6856`;
+const SOLVED_KEY = 'onnx-solved-v1';
+const HISTORY_KEY = 'onnx-history-v1';
+const THEME_KEY = 'mullm-theme';
+const ART_KEY = 'mullm-artistic';
+
+// ARC color palette: index → CSS color
+const ARC_COLORS = [
+  '#000000', // 0 black
+  '#1E6FCC', // 1 blue
+  '#E63B2E', // 2 red
+  '#2EA42E', // 3 green
+  '#E8B820', // 4 yellow
+  '#7A7A8A', // 5 gray
+  '#D327C9', // 6 magenta
+  '#E87C26', // 7 orange
+  '#26C9E8', // 8 cyan
+  '#7B3F00', // 9 brown
+];
+const CELL = 14; // px per cell
+const GAP  = 1;  // gap between cells
+
+// ── State ──────────────────────────────────────────────────────────
+let currentTask = 1;
+let taskData = null;
+let solvedSet = new Set();
+let attemptHistory = {}; // taskNum -> [{ok, score, latency, time}]
+let editorReady = false;
+let cm = null;
+let lastValidation = null;
+let taskList = [];
+let isStreaming = false;
+let editorHasFocus = false;
+
+// ── Persistence ────────────────────────────────────────────────────
+function loadPersisted() {
+  try {
+    const s = localStorage.getItem(SOLVED_KEY);
+    if (s) solvedSet = new Set(JSON.parse(s));
+  } catch(e) {}
+  try {
+    const h = localStorage.getItem(HISTORY_KEY);
+    if (h) attemptHistory = JSON.parse(h);
+  } catch(e) {}
+}
+function saveSolved() {
+  localStorage.setItem(SOLVED_KEY, JSON.stringify([...solvedSet]));
+}
+function saveHistory() {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(attemptHistory));
+}
+function addAttempt(taskNum, result) {
+  if (!attemptHistory[taskNum]) attemptHistory[taskNum] = [];
+  attemptHistory[taskNum].unshift({
+    ok: result.ok,
+    score: result.score,
+    latency: result.latency_ms,
+    time: new Date().toLocaleTimeString()
+  });
+  // keep last 20 per task
+  if (attemptHistory[taskNum].length > 20) attemptHistory[taskNum].pop();
+  saveHistory();
+}
+
+// ── Canvas grid rendering ──────────────────────────────────────────
+function renderGrid(canvas, grid) {
+  if (!grid || !grid.length) return;
+  const rows = grid.length;
+  const cols = grid[0].length;
+  // Clamp cell size for large grids
+  const maxCellW = Math.floor((280 - GAP) / (cols + 1));
+  const maxCellH = Math.floor((220 - GAP) / (rows + 1));
+  const cell = Math.max(4, Math.min(CELL, maxCellW, maxCellH));
+  const w = cols * cell + (cols + 1) * GAP;
+  const h = rows * cell + (rows + 1) * GAP;
+  canvas.width  = w;
+  canvas.height = h;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1a1a2a';
+  ctx.fillRect(0, 0, w, h);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const val = grid[r][c] || 0;
+      ctx.fillStyle = ARC_COLORS[val] || '#333';
+      const x = GAP + c * (cell + GAP);
+      const y = GAP + r * (cell + GAP);
+      ctx.fillRect(x, y, cell, cell);
+    }
+  }
+}
+
+function makeGridCanvas(grid, label) {
+  const wrap = document.createElement('div');
+  wrap.className = 'grid-canvas-wrap';
+  if (label) {
+    const lbl = document.createElement('div');
+    lbl.className = 'grid-canvas-label';
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.className = 'arc-grid';
+  canvas.setAttribute('role', 'img');
+  canvas.setAttribute('aria-label', `ARC grid: ${label || 'grid'}`);
+  wrap.appendChild(canvas);
+  renderGrid(canvas, grid);
+  return wrap;
+}
+
+// ── Fetch task list ────────────────────────────────────────────────
+async function fetchTaskList() {
+  try {
+    const res = await fetch(`${BASE}/api/onnx/tasks`, {
+      headers: {'Accept': 'application/json'},
+      mode: 'cors'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      taskList = Array.isArray(data) ? data : [];
+    }
+  } catch(e) {
+    // fallback: build 1-400
+    taskList = Array.from({length: 400}, (_, i) => i + 1);
+  }
+  buildTaskDots();
+  updateSolvedCount();
+}
+
+// ── Fetch + display task ───────────────────────────────────────────
+async function loadTask(n) {
+  currentTask = n;
+  taskData = null;
+  lastValidation = null;
+
+  // Update input
+  const inp = document.getElementById('task-num-input');
+  if (inp) inp.value = n;
+
+  // Update dots highlight
+  document.querySelectorAll('.task-dot').forEach(d => {
+    d.classList.toggle('current', +d.dataset.task === n);
+  });
+
+  // Show loading
+  const loadEl = document.getElementById('examples-loading');
+  const contentEl = document.getElementById('examples-content');
+  loadEl.style.display = 'flex';
+  contentEl.style.display = 'none';
+  contentEl.innerHTML = '';
+
+  resetResultPanel();
+
+  try {
+    const res = await fetch(`${BASE}/api/onnx/task/${n}`, {
+      headers: {'Accept': 'application/json'},
+      mode: 'cors'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    taskData = await res.json();
+    renderTaskExamples(taskData);
+    // update editor placeholder
+    if (cm) {
+      const placeholder = buildPlaceholder(taskData);
+      if (!cm.getValue().trim()) cm.setValue(placeholder);
+    }
+  } catch(e) {
+    loadEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    contentEl.innerHTML = `<div style="padding:1rem;color:var(--red);font-size:0.8rem">
+      Failed to load task ${n}: ${e.message}<br>
+      <small style="color:var(--text3)">Is the server running at ${BASE}?</small>
+    </div>`;
+  }
+
+  renderAttemptHistory();
+  checkSolvedHero();
+}
+
+function buildPlaceholder(data) {
+  if (!data) return STARTER_CODE;
+  return `import numpy as np
+import onnx
+from onnx import helper, TensorProto
+
+# Task ${data.task_num} — input: ${data.h_in}×${data.w_in}, output: ${data.h_out}×${data.w_out}
+# Write a function that builds and returns an ONNX model.
+
+def build_model():
+    """Build ONNX model for ARC task ${data.task_num}.
+    Input shape:  [1, ${data.h_in}, ${data.w_in}]
+    Output shape: [1, ${data.h_out}, ${data.w_out}]
+    """
+    # Define input
+    X = helper.make_tensor_value_info('input', TensorProto.INT64, [1, ${data.h_in}, ${data.w_in}])
+    Y = helper.make_tensor_value_info('output', TensorProto.INT64, [1, ${data.h_out}, ${data.w_out}])
+
+    # TODO: add your ONNX nodes here
+    # Example: identity node (replace with actual transformation)
+    node = helper.make_node('Identity', inputs=['input'], outputs=['output'])
+
+    graph = helper.make_graph([node], 'arc_task_${data.task_num}', [X], [Y])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid('', 18)])
+    return model
+`;
+}
+
+const STARTER_CODE = `import numpy as np
+import onnx
+from onnx import helper, TensorProto
+
+def build_model():
+    """Build and return an ONNX model for the ARC task."""
+    X = helper.make_tensor_value_info('input', TensorProto.INT64, [1, None, None])
+    Y = helper.make_tensor_value_info('output', TensorProto.INT64, [1, None, None])
+
+    node = helper.make_node('Identity', inputs=['input'], outputs=['output'])
+
+    graph = helper.make_graph([node], 'arc_task', [X], [Y])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid('', 18)])
+    return model
+`;
+
+function renderTaskExamples(data) {
+  const loadEl = document.getElementById('examples-loading');
+  const contentEl = document.getElementById('examples-content');
+  loadEl.style.display = 'none';
+  contentEl.style.display = 'block';
+  contentEl.innerHTML = '';
+
+  if (!data || !data.examples || !data.examples.length) {
+    contentEl.innerHTML = '<div style="color:var(--text3);font-size:0.8rem;padding:0.5rem">No examples found</div>';
+    return;
+  }
+
+  data.examples.forEach((ex, i) => {
+    const isTest = ex.output == null;
+    const block = document.createElement('div');
+    block.className = 'example-block';
+
+    const label = document.createElement('div');
+    label.className = 'example-label';
+    const badge = document.createElement('span');
+    badge.className = isTest ? 'ex-badge test-badge' : 'ex-badge';
+    badge.textContent = isTest ? 'TEST' : `TRAIN ${i + 1}`;
+    label.appendChild(badge);
+    if (!isTest) {
+      const dims = document.createElement('span');
+      dims.style.cssText = 'font-size:0.62rem;color:var(--text3)';
+      dims.textContent = `${ex.input.length}×${ex.input[0].length} → ${ex.output.length}×${ex.output[0].length}`;
+      label.appendChild(dims);
+    }
+    block.appendChild(label);
+
+    const pair = document.createElement('div');
+    pair.className = 'grid-pair';
+    pair.appendChild(makeGridCanvas(ex.input, 'input'));
+
+    if (!isTest && ex.output) {
+      const arrow = document.createElement('span');
+      arrow.className = 'arrow-sep';
+      arrow.textContent = '→';
+      arrow.setAttribute('aria-hidden', 'true');
+      pair.appendChild(arrow);
+      pair.appendChild(makeGridCanvas(ex.output, 'output'));
+    }
+
+    block.appendChild(pair);
+    contentEl.appendChild(block);
+  });
+}
+
+// ── Task dots ──────────────────────────────────────────────────────
+function buildTaskDots() {
+  const container = document.getElementById('task-dots');
+  container.innerHTML = '';
+  const tasks = taskList.length ? taskList : Array.from({length: 400}, (_, i) => i + 1);
+  tasks.forEach(n => {
+    const dot = document.createElement('button');
+    dot.className = 'task-dot';
+    dot.dataset.task = n;
+    dot.setAttribute('aria-label', `Task ${n}${solvedSet.has(n) ? ' (solved)' : ''}`);
+    dot.setAttribute('title', `Task ${n}`);
+    if (solvedSet.has(n)) dot.classList.add('solved');
+    if (n === currentTask) dot.classList.add('current');
+    dot.addEventListener('click', () => {
+      if (cm) cm.setValue('');
+      loadTask(n);
+    });
+    container.appendChild(dot);
+  });
+}
+
+function updateSolvedCount() {
+  const el = document.getElementById('solved-count');
+  if (el) el.textContent = `${solvedSet.size} / 400`;
+}
+
+// ── Validation ─────────────────────────────────────────────────────
+async function doValidate() {
+  if (!cm) return;
+  const code = cm.getValue();
+  if (!code.trim()) {
+    showError('No code to validate.');
+    return;
+  }
+
+  // show spinner
+  document.getElementById('result-idle').style.display = 'none';
+  document.getElementById('result-pass').classList.remove('visible');
+  document.getElementById('result-fail').classList.remove('visible');
+  document.getElementById('validating-spinner').classList.add('active');
+  document.getElementById('score-info').style.display = 'none';
+
+  const btn = document.getElementById('btn-validate');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${BASE}/api/onnx/validate`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      mode: 'cors',
+      body: JSON.stringify({task_num: currentTask, code})
+    });
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const data = await res.json();
+    lastValidation = data;
+    addAttempt(currentTask, data);
+    renderAttemptHistory();
+    showValidationResult(data);
+  } catch(e) {
+    lastValidation = {ok: false, error: e.message, score: null, latency_ms: 0};
+    addAttempt(currentTask, lastValidation);
+    renderAttemptHistory();
+    showValidationResult(lastValidation);
+  } finally {
+    document.getElementById('validating-spinner').classList.remove('active');
+    btn.disabled = false;
+  }
+}
+
+function showValidationResult(data) {
+  const hero = document.getElementById('result-hero');
+  hero.classList.toggle('solved', solvedSet.has(currentTask));
+
+  if (data.ok) {
+    document.getElementById('result-pass').classList.add('visible');
+    document.getElementById('result-fail').classList.remove('visible');
+    document.getElementById('result-idle').style.display = 'none';
+
+    const scoreEl = document.getElementById('score-display');
+    const score = data.score != null ? +data.score : null;
+    if (score != null) {
+      scoreEl.textContent = score.toFixed(2);
+      scoreEl.className = 'score-display ' + (score >= 18 ? 'high' : 'low');
+    } else {
+      scoreEl.textContent = '—';
+      scoreEl.className = 'score-display';
+    }
+    document.getElementById('latency-badge').textContent = `${data.latency_ms}ms`;
+
+    // score info
+    const si = document.getElementById('score-info');
+    si.style.display = 'block';
+    const siScore = document.getElementById('si-score');
+    siScore.textContent = score != null ? score.toFixed(2) : '—';
+    siScore.className = 'sr-val ' + (score != null && score >= 18 ? 'green' : 'gold');
+    document.getElementById('si-latency').textContent = `${data.latency_ms}ms`;
+    document.getElementById('si-status').textContent = 'PASS';
+    document.getElementById('si-status').className = 'sr-val green';
+    document.getElementById('si-status').style.color = '';
+
+  } else {
+    document.getElementById('result-fail').classList.add('visible');
+    document.getElementById('result-pass').classList.remove('visible');
+    document.getElementById('result-idle').style.display = 'none';
+    document.getElementById('error-box').textContent = data.error || 'Unknown error';
+    document.getElementById('latency-badge-fail').textContent = data.latency_ms ? `${data.latency_ms}ms` : '';
+
+    const si = document.getElementById('score-info');
+    si.style.display = 'block';
+    document.getElementById('si-score').textContent = '—';
+    document.getElementById('si-score').className = 'sr-val';
+    document.getElementById('si-latency').textContent = data.latency_ms ? `${data.latency_ms}ms` : '—';
+    document.getElementById('si-status').textContent = 'FAIL';
+    document.getElementById('si-status').className = 'sr-val fail';
+    document.getElementById('si-status').style.color = '';
+  }
+}
+
+function showError(msg) {
+  document.getElementById('result-idle').style.display = 'none';
+  document.getElementById('result-pass').classList.remove('visible');
+  document.getElementById('error-box').textContent = msg;
+  document.getElementById('result-fail').classList.add('visible');
+}
+
+function resetResultPanel() {
+  document.getElementById('result-idle').style.display = 'flex';
+  document.getElementById('result-pass').classList.remove('visible');
+  document.getElementById('result-fail').classList.remove('visible');
+  document.getElementById('validating-spinner').classList.remove('active');
+  document.getElementById('score-info').style.display = 'none';
+  document.getElementById('result-hero').classList.remove('solved');
+}
+
+function checkSolvedHero() {
+  if (solvedSet.has(currentTask)) {
+    document.getElementById('result-hero').classList.add('solved');
+  }
+}
+
+// ── Save ───────────────────────────────────────────────────────────
+async function doSave() {
+  if (!cm) return;
+  const code = cm.getValue();
+  if (!code.trim()) return;
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = '⏳ Saving…';
+
+  try {
+    const res = await fetch(`${BASE}/api/onnx/save`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      mode: 'cors',
+      body: JSON.stringify({task_num: currentTask, code})
+    });
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const data = await res.json();
+    if (data.saved) {
+      markSolved(currentTask);
+      launchConfetti();
+    }
+  } catch(e) {
+    // show in error box
+    showError(`Save failed: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✓ Save';
+  }
+}
+
+function markSolved(n) {
+  solvedSet.add(n);
+  saveSolved();
+  updateSolvedCount();
+  // update dot
+  const dot = document.querySelector(`.task-dot[data-task="${n}"]`);
+  if (dot) { dot.classList.add('solved'); dot.setAttribute('aria-label', `Task ${n} (solved)`); }
+  // update hero
+  document.getElementById('result-hero').classList.add('solved');
+}
+
+// ── Confetti ───────────────────────────────────────────────────────
+function launchConfetti() {
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduced) return;
+
+  const colors = ['#d4af37', '#4ade80', '#60a5fa', '#f87171', '#a78bfa', '#22d3ee', '#fb923c'];
+  const count = 45;
+  const container = document.body;
+
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const x = 20 + Math.random() * 60; // % from left, centered on screen
+    const driftX = (Math.random() - 0.5) * 200;
+    const fallY = 150 + Math.random() * 300;
+    const spin = (Math.random() - 0.5) * 720;
+    const duration = 1.2 + Math.random() * 1;
+    const delay = Math.random() * 0.4;
+    piece.style.cssText = `
+      left: ${x}vw;
+      top: 48px;
+      background: ${colors[i % colors.length]};
+      --drift-x: ${driftX}px;
+      --fall-y: ${fallY}px;
+      --spin: ${spin}deg;
+      --duration: ${duration}s;
+      animation-delay: ${delay}s;
+      width: ${5 + Math.random() * 7}px;
+      height: ${5 + Math.random() * 7}px;
+      border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+    `;
+    container.appendChild(piece);
+    setTimeout(() => piece.remove(), (duration + delay + 0.2) * 1000);
+  }
+}
+
+// ── Generate (SSE streaming) ────────────────────────────────────────
+async function doGenerate() {
+  const desc = document.getElementById('gen-desc').value.trim();
+  if (!desc) {
+    document.getElementById('gen-desc').focus();
+    return;
+  }
+
+  const btn = document.getElementById('btn-generate-run');
+  const streamInd = document.getElementById('streaming-indicator');
+  btn.disabled = true;
+  isStreaming = true;
+  streamInd.classList.add('active');
+
+  // Clear editor for streaming
+  if (cm) cm.setValue('');
+
+  let accumulated = '';
+
+  try {
+    const res = await fetch(`${BASE}/api/onnx/generate`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Accept': 'text/event-stream'},
+      mode: 'cors',
+      body: JSON.stringify({task_num: currentTask, description: desc})
+    });
+
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const payload = line.slice(6).trim();
+          if (payload === '[DONE]') continue;
+          try {
+            const json = JSON.parse(payload);
+            // Standard mullm SSE: {token, content, chunk, text, delta}
+            const token = json.token ?? json.content ?? json.chunk ?? json.text ?? json.delta ?? '';
+            if (token) {
+              accumulated += token;
+              if (cm) {
+                cm.setValue(accumulated);
+                cm.scrollIntoView({line: cm.lineCount() - 1, ch: 0});
+              }
+            }
+          } catch(e) {
+            // plain text token
+            if (payload && payload !== '[DONE]') {
+              accumulated += payload;
+              if (cm) cm.setValue(accumulated);
+            }
+          }
+        }
+      }
+    }
+
+    // Auto-validate after stream complete
+    if (accumulated.trim() && cm) {
+      setTimeout(doValidate, 200);
+    }
+
+  } catch(e) {
+    if (cm && !cm.getValue()) cm.setValue(`# Generation failed: ${e.message}\n\n${STARTER_CODE}`);
+  } finally {
+    isStreaming = false;
+    streamInd.classList.remove('active');
+    btn.disabled = false;
+  }
+}
+
+// ── Attempt history render ─────────────────────────────────────────
+function renderAttemptHistory() {
+  const list = document.getElementById('attempt-list');
+  const attempts = attemptHistory[currentTask] || [];
+  if (!attempts.length) {
+    list.innerHTML = '<div style="font-size:0.72rem;color:var(--text3);text-align:center;padding:0.5rem">No attempts yet</div>';
+    return;
+  }
+  list.innerHTML = attempts.map((a, i) => {
+    const icon = a.ok ? '✓' : '✗';
+    const scoreStr = a.score != null ? (+a.score).toFixed(1) : '—';
+    const isHigh = a.score != null && +a.score >= 18;
+    return `<div class="attempt-item">
+      <span class="ai-status" style="color:${a.ok ? 'var(--green)' : 'var(--red)'}">${icon}</span>
+      <span class="ai-score${isHigh ? ' high' : ''}">${scoreStr}</span>
+      <span style="color:var(--text3);font-size:0.66rem">${a.latency ? a.latency + 'ms' : ''}</span>
+      <span class="ai-time">${a.time}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── VRAM pill ──────────────────────────────────────────────────────
+let vramVisible = false;
+function toggleVramTooltip() {
+  const tt = document.getElementById('vram-tooltip');
+  vramVisible = !vramVisible;
+  tt.style.display = vramVisible ? 'block' : 'none';
+  if (vramVisible) fetchVram();
+}
+async function fetchVram() {
+  try {
+    const res = await fetch(`${BASE}/api/system`, {mode:'cors'});
+    if (!res.ok) return;
+    const d = await res.json();
+    const vramFree = d.vram_free_gb ?? d.gpu_free ?? null;
+    const vramTotal = d.vram_total_gb ?? d.gpu_total ?? null;
+    const vramUsed = d.vram_used_gb ?? d.gpu_used ?? null;
+    const pill = document.getElementById('vram-pill');
+    const label = document.getElementById('vram-label');
+    if (vramFree != null && vramTotal != null) {
+      const pct = ((vramTotal - vramFree) / vramTotal) * 100;
+      label.textContent = `${(+vramFree).toFixed(1)}GB free`;
+      pill.className = pct > 90 ? 'crit' : pct > 70 ? 'warn' : 'ok';
+      document.getElementById('vt-content').innerHTML = `
+        <div style="margin-bottom:4px;font-weight:600;color:#e8e8f0">GPU Memory</div>
+        <div>Free: <strong>${(+vramFree).toFixed(2)} GB</strong></div>
+        ${vramUsed != null ? `<div>Used: <strong>${(+vramUsed).toFixed(2)} GB</strong></div>` : ''}
+        <div>Total: <strong>${(+vramTotal).toFixed(2)} GB</strong></div>
+        ${d.gpu_name ? `<div style="margin-top:4px;color:#888">GPU: ${d.gpu_name}</div>` : ''}
+      `;
+    } else {
+      label.textContent = 'GPU ?';
+    }
+  } catch(e) {
+    document.getElementById('vram-label').textContent = 'N/A';
+  }
+}
+// Poll VRAM pill every 15s passively
+setInterval(async () => {
+  if (!vramVisible) return;
+  fetchVram();
+}, 15000);
+// Initial quiet fetch for pill label only
+(async () => {
+  try {
+    const res = await fetch(`${BASE}/api/system`, {mode:'cors'});
+    if (!res.ok) return;
+    const d = await res.json();
+    const vramFree = d.vram_free_gb ?? d.gpu_free ?? null;
+    const vramTotal = d.vram_total_gb ?? d.gpu_total ?? null;
+    if (vramFree != null && vramTotal != null) {
+      const pct = ((vramTotal - vramFree) / vramTotal) * 100;
+      document.getElementById('vram-label').textContent = `${(+vramFree).toFixed(1)}GB`;
+      document.getElementById('vram-pill').className = pct > 90 ? 'crit' : pct > 70 ? 'warn' : 'ok';
+    }
+  } catch(e) {}
+})();
+
+// ── Theme system ────────────────────────────────────────────────────
+function applyTheme(theme, artistic) {
+  document.body.className = '';
+  if (theme) document.body.classList.add(theme);
+  if (artistic) document.body.classList.add('artistic');
+}
+function initTheme() {
+  const theme = localStorage.getItem(THEME_KEY) || '';
+  const artistic = localStorage.getItem(ART_KEY) === '1';
+  applyTheme(theme, artistic);
+  // mark active
+  document.querySelectorAll('#theme-menu li').forEach(li => {
+    li.classList.toggle('active', li.dataset.theme === theme);
+  });
+}
+document.getElementById('theme-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('theme-menu').classList.toggle('open');
+});
+document.getElementById('theme-menu').querySelectorAll('li').forEach(li => {
+  li.addEventListener('click', () => {
+    const theme = li.dataset.theme;
+    localStorage.setItem(THEME_KEY, theme);
+    applyTheme(theme, document.body.classList.contains('artistic'));
+    document.querySelectorAll('#theme-menu li').forEach(l => l.classList.remove('active'));
+    li.classList.add('active');
+    document.getElementById('theme-menu').classList.remove('open');
+  });
+});
+document.addEventListener('click', () => {
+  document.getElementById('theme-menu').classList.remove('open');
+});
+
+// ── Hamburger menu ──────────────────────────────────────────────────
+const hamburger = document.getElementById('mn-hamburger');
+const dropdown = document.getElementById('mullm-nav-dropdown');
+hamburger.addEventListener('click', () => {
+  const open = dropdown.classList.toggle('mn-open');
+  hamburger.setAttribute('aria-expanded', open);
+});
+document.addEventListener('click', e => {
+  if (!hamburger.contains(e.target) && !dropdown.contains(e.target)) {
+    dropdown.classList.remove('mn-open');
+    hamburger.setAttribute('aria-expanded', 'false');
+  }
+});
+
+// ── CodeMirror init ─────────────────────────────────────────────────
+function initEditor() {
+  const ta = document.getElementById('cm-editor');
+  cm = CodeMirror.fromTextArea(ta, {
+    mode: 'python',
+    theme: 'monokai',
+    lineNumbers: true,
+    lineWrapping: false,
+    tabSize: 4,
+    indentWithTabs: false,
+    autofocus: false,
+    matchBrackets: true,
+    autoCloseBrackets: true,
+    styleActiveLine: true,
+    extraKeys: {
+      'Ctrl-Enter': doValidate,
+      'Cmd-Enter': doValidate,
+      'Ctrl-S': doSave,
+      'Cmd-S': doSave,
+    }
+  });
+  cm.setValue(STARTER_CODE);
+  editorReady = true;
+
+  // Track editor focus for keyboard navigation
+  cm.on('focus', () => { editorHasFocus = true; });
+  cm.on('blur',  () => { editorHasFocus = false; });
+}
+
+// ── Keyboard navigation ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (editorHasFocus) return; // don't navigate while typing
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    const prev = Math.max(1, currentTask - 1);
+    if (cm) cm.setValue('');
+    loadTask(prev);
+  } else if (e.key === 'ArrowRight' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    const next = Math.min(400, currentTask + 1);
+    if (cm) cm.setValue('');
+    loadTask(next);
+  }
+});
+
+// ── Wire up buttons ────────────────────────────────────────────────
+document.getElementById('btn-validate').addEventListener('click', doValidate);
+document.getElementById('btn-save').addEventListener('click', doSave);
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (cm) cm.setValue('');
+  resetResultPanel();
+});
+document.getElementById('btn-generate-toggle').addEventListener('click', () => {
+  const area = document.getElementById('generate-area');
+  area.classList.toggle('visible');
+  if (area.classList.contains('visible')) {
+    document.getElementById('gen-desc').focus();
+  }
+});
+document.getElementById('btn-generate-run').addEventListener('click', doGenerate);
+document.getElementById('gen-desc').addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    doGenerate();
+  }
+});
+
+// Task nav buttons
+document.getElementById('btn-prev').addEventListener('click', () => {
+  const prev = Math.max(1, currentTask - 1);
+  if (cm) cm.setValue('');
+  loadTask(prev);
+});
+document.getElementById('btn-next').addEventListener('click', () => {
+  const next = Math.min(400, currentTask + 1);
+  if (cm) cm.setValue('');
+  loadTask(next);
+});
+
+// Task number input
+document.getElementById('task-num-input').addEventListener('change', e => {
+  const n = Math.min(400, Math.max(1, parseInt(e.target.value, 10) || 1));
+  e.target.value = n;
+  if (cm) cm.setValue('');
+  loadTask(n);
+});
+document.getElementById('task-num-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const n = Math.min(400, Math.max(1, parseInt(e.target.value, 10) || 1));
+    if (cm) cm.setValue('');
+    loadTask(n);
+  }
+});
+
+// Close VRAM tooltip on outside click
+document.addEventListener('click', e => {
+  const pill = document.getElementById('vram-pill');
+  const tt = document.getElementById('vram-tooltip');
+  if (!pill.contains(e.target) && !tt.contains(e.target)) {
+    tt.style.display = 'none';
+    vramVisible = false;
+  }
+});
+
+// ── Boot ───────────────────────────────────────────────────────────
+(function init() {
+  loadPersisted();
+  initTheme();
+  initEditor();
+  fetchTaskList().then(() => {
+    loadTask(1);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mu|LLM — Intake</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;--bg4:#243044;
+  --border:#1e2d3d;--border2:#2a3a4d;
+  --green:#22c55e;--teal:#14b8a6;--blue:#3b82f6;--amber:#f59e0b;
+  --coral:#ef6c4c;--red:#ef4444;--orange:#f97316;--yellow:#eab308;--purple:#a78bfa;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,sans-serif;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);padding:0;margin:0;min-height:100vh}
+.logo{font-weight:700;font-size:14px;display:flex;align-items:center;gap:0;text-decoration:none;border:none!important;padding:0!important}
+.logo-mu{color:var(--amber);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px;font-family:var(--mono)}
+.nav{display:flex;gap:8px;padding:16px 24px;font-size:11px;font-family:var(--mono);align-items:center;flex-wrap:wrap}
+.nav a{color:var(--text3);text-decoration:none;padding:4px 12px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s}
+.nav a:hover,.nav a.active{color:var(--teal);border-color:var(--teal)}
+
+/* Magic box */
+.intake-hero{
+  padding:32px 24px 24px;
+  max-width:800px;
+  margin:0 auto;
+}
+.intake-hero h1{
+  font-family:var(--mono);font-size:22px;color:var(--teal);letter-spacing:3px;margin-bottom:8px;
+}
+.intake-hero p{font-size:13px;color:var(--text3);line-height:1.6}
+
+.magic-box{
+  margin:24px auto;max-width:800px;padding:0 24px;
+}
+.magic-inner{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:16px;
+  padding:20px;box-shadow:0 8px 32px rgba(0,0,0,0.4);
+}
+.textarea-row{display:flex;gap:10px;align-items:flex-start}
+#intakeText{
+  flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;
+  color:var(--text);font-family:var(--sans);font-size:15px;padding:14px 16px;
+  resize:none;min-height:100px;transition:border-color 0.2s;line-height:1.6;
+}
+#intakeText:focus{border-color:var(--teal);outline:none;box-shadow:0 0 0 2px rgba(20,184,166,0.15)}
+#intakeText::placeholder{color:var(--text3);opacity:0.6}
+
+.voice-btn{
+  width:48px;height:48px;border-radius:50%;border:2px solid var(--border2);
+  background:var(--bg3);color:var(--text3);font-size:20px;cursor:pointer;
+  transition:all 0.2s;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+}
+.voice-btn:hover{border-color:var(--teal);color:var(--teal)}
+.voice-btn.active{border-color:var(--red);background:rgba(239,68,68,0.15);color:var(--red);animation:pulse-mic 1s infinite}
+@keyframes pulse-mic{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+
+.submit-row{display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap}
+.submit-btn{
+  padding:12px 28px;background:var(--teal);border:none;border-radius:10px;
+  color:#000;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s;
+  display:flex;align-items:center;gap:8px;
+}
+.submit-btn:hover{background:var(--green)}
+.submit-btn:disabled{opacity:0.5;cursor:not-allowed}
+.clear-btn{
+  padding:10px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+  color:var(--text3);font-size:13px;cursor:pointer;transition:all 0.2s;
+}
+.clear-btn:hover{border-color:var(--border2);color:var(--text)}
+.type-hint{font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto;padding:4px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)}
+
+/* Result panel */
+#resultPanel{
+  margin:16px auto;max-width:800px;padding:0 24px;display:none;
+}
+.result-card{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:20px;
+  animation:slideIn 0.2s ease-out;
+}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.result-header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.badge{padding:3px 10px;border-radius:6px;font-family:var(--mono);font-size:11px;font-weight:700}
+.badge.task{background:var(--orange);color:#000}
+.badge.question{background:var(--blue);color:#fff}
+.badge.chitchat{background:var(--text3);color:#000}
+.badge.queued{background:var(--green);color:#000}
+.badge.answered{background:var(--teal);color:#000}
+.badge.ignored{background:var(--text3);color:#000}
+.result-label{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.result-value{font-family:var(--mono);font-size:11px;color:var(--teal)}
+.result-response{
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:14px;font-size:13px;line-height:1.7;color:var(--text);margin-top:12px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.queue-pos{font-family:var(--mono);font-size:13px;color:var(--amber);margin-top:8px}
+
+/* Queue panel */
+.queue-section{max-width:800px;margin:24px auto;padding:0 24px 32px}
+.queue-header{
+  display:flex;align-items:center;gap:12px;margin-bottom:16px;
+  font-family:var(--mono);font-size:12px;color:var(--text3);
+}
+.queue-header h2{font-family:var(--mono);font-size:14px;color:var(--teal);letter-spacing:2px}
+.queue-count{background:var(--bg3);padding:2px 10px;border-radius:10px;font-size:11px}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:pulse-dot 2s infinite;display:inline-block}
+@keyframes pulse-dot{0%,100%{opacity:1;box-shadow:0 0 4px var(--teal)}50%{opacity:0.3;box-shadow:none}}
+
+.queue-empty{
+  text-align:center;padding:48px 24px;color:var(--text3);
+  font-family:var(--mono);font-size:12px;background:var(--bg2);
+  border:1px solid var(--border);border-radius:12px;
+}
+.queue-empty .icon{font-size:36px;margin-bottom:12px;opacity:0.3}
+
+.queue-item{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:16px;margin-bottom:12px;animation:slideIn 0.2s ease-out;
+}
+.queue-item:hover{border-color:var(--border2)}
+.qi-top{display:flex;gap:8px;align-items:flex-start;margin-bottom:10px}
+.qi-text{font-size:13px;color:var(--text);line-height:1.5;flex:1;word-break:break-word}
+.qi-meta{font-family:var(--mono);font-size:9px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.qi-pill{padding:1px 6px;border-radius:3px;font-weight:700;font-size:9px}
+.status-pill{padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:9px;font-weight:700}
+.status-pill.pending{background:var(--amber);color:#000}
+.status-pill.assigned{background:var(--green);color:#000}
+.assign-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.agent-select{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
+  color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 10px;
+  cursor:pointer;flex:1;min-width:160px;max-width:280px;
+}
+.assign-btn{
+  padding:6px 16px;background:var(--purple);border:none;border-radius:6px;
+  color:#fff;font-weight:600;font-size:11px;cursor:pointer;font-family:var(--mono);
+  transition:all 0.2s;white-space:nowrap;
+}
+.assign-btn:hover{background:var(--blue)}
+.dismiss-btn{
+  padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+  color:var(--text3);font-size:11px;cursor:pointer;transition:all 0.2s;
+}
+.dismiss-btn:hover{border-color:var(--coral);color:var(--coral)}
+
+.tier-local{color:var(--teal)}
+.tier-cache{color:var(--green)}
+.tier-cloud_cheap{color:var(--amber)}
+.tier-cloud_full{color:var(--coral)}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="/" class="logo"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span></a>
+  <a href="/chat">Chat</a>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/unblock">Unblock</a>
+  <a href="/intake" class="active">Intake</a>
+  <a href="/games">Games</a>
+</div>
+
+<div class="intake-hero">
+  <h1>INTAKE</h1>
+  <p>Type or speak a task, question, or anything — muLLM classifies it and routes it to the right agent or answers inline.</p>
+</div>
+
+<div class="magic-box">
+  <div class="magic-inner">
+    <div class="textarea-row">
+      <textarea id="intakeText" placeholder="What do you need? e.g. &quot;Fix the chat button&quot; or &quot;What is the current Redis queue size?&quot;" rows="4"></textarea>
+      <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Click to speak" aria-label="Voice input">&#127908;</button>
+    </div>
+    <div class="submit-row">
+      <button class="submit-btn" id="submitBtn" onclick="submitIntake()">
+        <span>&#9889;</span> Submit
+      </button>
+      <button class="clear-btn" onclick="clearIntake()">Clear</button>
+      <div class="type-hint" id="typeHint">task · question · chitchat</div>
+    </div>
+  </div>
+</div>
+
+<div id="resultPanel">
+  <div class="result-card" id="resultCard"></div>
+</div>
+
+<div class="queue-section">
+  <div class="queue-header">
+    <h2>INTAKE QUEUE</h2>
+    <span class="queue-count" id="queueCount">0 items</span>
+    <span><span class="pulse-dot"></span> Polls every 5s</span>
+  </div>
+  <div id="queueList">
+    <div class="queue-empty"><div class="icon">&#128228;</div>No pending intake items.</div>
+  </div>
+</div>
+
+<script>
+const API = location.origin;
+let voiceActive = false;
+let recognition = null;
+let _agents = [];
+
+// ── Voice Input ──────────────────────────────────────────────
+function toggleVoice() {
+  const btn = document.getElementById('voiceBtn');
+  const ta = document.getElementById('intakeText');
+  if (voiceActive && recognition) {
+    recognition.stop();
+    return;
+  }
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Speech recognition not supported. Use Chrome or Edge.');
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
+  voiceActive = true;
+  btn.classList.add('active');
+  recognition.onresult = (e) => {
+    let t = '';
+    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    ta.value = t;
+    updateTypeHint(t);
+  };
+  recognition.onend = () => {
+    voiceActive = false;
+    btn.classList.remove('active');
+    // Auto-submit after voice input completes
+    if (ta.value.trim()) {
+      setTimeout(() => submitIntake(), 400);
+    }
+  };
+  recognition.onerror = (e) => {
+    voiceActive = false;
+    btn.classList.remove('active');
+    console.warn('Voice error:', e.error);
+  };
+  recognition.start();
+}
+
+// ── Type hint ────────────────────────────────────────────────
+const _TASK_RE = /^(add|build|create|fix|write|make|refactor|test|deploy|implement|route|generate|update|remove|delete|migrate|optimize|debug|setup|configure|install|run|send|post|push|pull|merge|review|analyze|compare|benchmark|check|help me|please)\b/i;
+const _QUESTION_RE = /^(what|how|why|when|who|where|which|is|are|does|do|can|should|could|would|will|has|have)\b/i;
+const _GREETING_RE = /^(hi|hello|hey|thanks|thank you|yo|sup|ok|okay|great|cool|nice|bye|cya)\b[.!?\s]*$/i;
+
+function detectType(text) {
+  const t = text.trim();
+  if (!t) return null;
+  if (t.length < 30 && _GREETING_RE.test(t)) return 'chitchat';
+  if (t.endsWith('?') || _QUESTION_RE.test(t)) return 'question';
+  if (_TASK_RE.test(t) || t.toLowerCase().includes('please')) return 'task';
+  return 'task';
+}
+
+function updateTypeHint(text) {
+  const hint = document.getElementById('typeHint');
+  const type = detectType(text);
+  if (!type) { hint.textContent = 'task · question · chitchat'; hint.style.color = 'var(--text3)'; return; }
+  const colors = {task: 'var(--orange)', question: 'var(--blue)', chitchat: 'var(--text3)'};
+  hint.textContent = type;
+  hint.style.color = colors[type] || 'var(--text3)';
+}
+
+document.getElementById('intakeText').addEventListener('input', (e) => updateTypeHint(e.target.value));
+document.getElementById('intakeText').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submitIntake();
+});
+
+// ── Submit ───────────────────────────────────────────────────
+async function submitIntake() {
+  const text = document.getElementById('intakeText').value.trim();
+  if (!text) return;
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block">&#9696;</span> Classifying...';
+
+  // Detect session prefix from agents
+  const sp = window._sessionPrefix || '';
+
+  try {
+    const r = await fetch(API + '/api/intake', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, source: 'intake', session_prefix: sp}),
+    });
+    const d = await r.json();
+    showResult(d);
+    if (d.type === 'task') {
+      document.getElementById('intakeText').value = '';
+      updateTypeHint('');
+      setTimeout(refreshQueue, 600);
+    }
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>&#9889;</span> Submit';
+  }
+}
+
+function clearIntake() {
+  document.getElementById('intakeText').value = '';
+  document.getElementById('resultPanel').style.display = 'none';
+  updateTypeHint('');
+}
+
+function showResult(d) {
+  const panel = document.getElementById('resultPanel');
+  const card = document.getElementById('resultCard');
+  const typeColors = {task: 'var(--orange)', question: 'var(--blue)', chitchat: 'var(--text3)'};
+  const actionColors = {queued: 'var(--green)', answered: 'var(--teal)', ignored: 'var(--text3)'};
+  const tc = typeColors[d.type] || 'var(--text3)';
+  const ac = actionColors[d.action] || 'var(--teal)';
+
+  let extra = '';
+  if (d.type === 'task') {
+    extra = `<div class="queue-pos">&#10003; Queued at position #${d.queue_position || '?'} &#8594; <b style="color:var(--purple)">${d.suggested_agent}</b></div>`;
+  }
+
+  card.innerHTML = `
+    <div class="result-header">
+      <span class="badge ${d.type}">${d.type}</span>
+      <span class="badge ${d.action}">${d.action}</span>
+      <span class="result-label">intent:</span><span class="result-value">${d.classified_intent || '?'}</span>
+      <span class="result-label">tier:</span><span class="result-value tier-${(d.tier||'').replace(':','-')}">${d.tier || '?'}</span>
+    </div>
+    <div class="result-response">${escHtml(d.response || '')}</div>
+    ${extra}
+  `;
+  panel.style.display = 'block';
+}
+
+function showError(msg) {
+  const panel = document.getElementById('resultPanel');
+  const card = document.getElementById('resultCard');
+  card.innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:12px">&#10007; Error: ${escHtml(msg)}</div>`;
+  panel.style.display = 'block';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Queue ────────────────────────────────────────────────────
+async function refreshQueue() {
+  try {
+    const r = await fetch(API + '/api/intake/queue?limit=50');
+    const d = await r.json();
+    renderQueue(d.items || []);
+  } catch(e) {
+    console.warn('Queue fetch failed:', e);
+  }
+}
+
+async function loadAgents() {
+  try {
+    const r = await fetch(API + '/api/agents');
+    const d = await r.json();
+    _agents = d.agents || [];
+    // Detect session prefix
+    const ids = _agents.map(a => a.agent_id);
+    const nums = ids.map(id => { const m = id.match(/^s(\d+)-/); return m ? parseInt(m[1]) : 0; }).filter(n => n > 0);
+    if (nums.length > 0) window._sessionPrefix = 's' + Math.max(...nums);
+  } catch(e) {}
+}
+
+function agentOptions(suggestedAgent) {
+  // Build option list: suggested first, then registered agents, then generic fallbacks
+  const options = new Map();
+  if (suggestedAgent) options.set(suggestedAgent, suggestedAgent + ' (suggested)');
+  _agents.forEach(a => { if (!options.has(a.agent_id)) options.set(a.agent_id, a.name || a.agent_id); });
+  // Generic fallbacks
+  ['mullm', 'claude', 'orchestrator'].forEach(k => { if (!options.has(k)) options.set(k, k); });
+  return [...options.entries()].map(([v, l]) => `<option value="${escHtml(v)}">${escHtml(l)}</option>`).join('');
+}
+
+function renderQueue(items) {
+  const list = document.getElementById('queueList');
+  const count = document.getElementById('queueCount');
+  const pending = items.filter(i => i.status !== 'assigned');
+  count.textContent = pending.length + ' item' + (pending.length !== 1 ? 's' : '');
+
+  if (items.length === 0) {
+    list.innerHTML = '<div class="queue-empty"><div class="icon">&#128228;</div>No pending intake items.</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(item => {
+    const age = item.created_at ? timeAgo(item.created_at) : '';
+    const tierCls = 'tier-' + (item.tier || 'local').replace(':', '-');
+    const isPending = item.status === 'pending';
+    return `<div class="queue-item" id="qi-${item.id}">
+      <div class="qi-top">
+        <div class="qi-text">${escHtml(item.text || '')}</div>
+        <span class="status-pill ${item.status || 'pending'}">${item.status || 'pending'}</span>
+      </div>
+      <div class="qi-meta">
+        <span class="qi-pill" style="background:var(--bg4);color:var(--purple)">${escHtml(item.classified_intent || '?')}</span>
+        <span class="${tierCls}">${item.tier || '?'}</span>
+        <span style="color:var(--text3)">${item.source || 'intake'}</span>
+        <span style="color:var(--text3);margin-left:auto">${age}</span>
+      </div>
+      ${isPending ? `<div class="assign-row">
+        <select class="agent-select" id="sel-${item.id}">${agentOptions(item.suggested_agent)}</select>
+        <button class="assign-btn" onclick="assignItem('${escHtml(item.id)}')">&#10003; Assign</button>
+        <button class="dismiss-btn" onclick="dismissItem('${escHtml(item.id)}')">Dismiss</button>
+      </div>` : `<div style="font-family:var(--mono);font-size:10px;color:var(--green)">&#10003; Assigned to ${escHtml(item.assigned_agent || '')}</div>`}
+    </div>`;
+  }).join('');
+}
+
+function timeAgo(ts) {
+  const sec = Math.round(Date.now() / 1000 - ts);
+  if (sec < 60) return sec + 's ago';
+  if (sec < 3600) return Math.round(sec / 60) + 'm ago';
+  return Math.round(sec / 3600) + 'h ago';
+}
+
+async function assignItem(itemId) {
+  const sel = document.getElementById('sel-' + itemId);
+  if (!sel) return;
+  const agentId = sel.value;
+  if (!agentId) return;
+  sel.disabled = true;
+  try {
+    const r = await fetch(API + '/api/intake/' + encodeURIComponent(itemId) + '/assign', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({agent_id: agentId}),
+    });
+    const d = await r.json();
+    if (d.status === 'assigned') {
+      showToast('Assigned to ' + agentId, 'var(--green)');
+      setTimeout(refreshQueue, 400);
+    } else {
+      showToast('Assignment failed', 'var(--coral)');
+    }
+  } catch(e) {
+    showToast('Error: ' + e.message, 'var(--coral)');
+  } finally {
+    if (sel) sel.disabled = false;
+  }
+}
+
+async function dismissItem(itemId) {
+  // Optimistic: remove from queue by "assigning" to dismissed
+  const el = document.getElementById('qi-' + itemId);
+  if (el) el.style.opacity = '0.3';
+  try {
+    await fetch(API + '/api/intake/' + encodeURIComponent(itemId) + '/assign', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({agent_id: 'dismissed'}),
+    });
+    setTimeout(refreshQueue, 400);
+  } catch(e) {
+    if (el) el.style.opacity = '1';
+  }
+}
+
+function showToast(msg, color) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;top:60px;right:20px;padding:12px 20px;background:' + (color||'var(--green)') + ';color:#000;border-radius:8px;font-family:var(--mono);font-size:11px;font-weight:700;z-index:300;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── Init ─────────────────────────────────────────────────────
+loadAgents();
+refreshQueue();
+setInterval(refreshQueue, 5000);
+setInterval(loadAgents, 15000);
+
+// SSE for real-time queue updates
+const es = new EventSource(API + '/events');
+es.onmessage = (e) => {
+  try {
+    const d = JSON.parse(e.data);
+    if (d.type === 'agent_blocked' || d.type === 'session_unblocked') refreshQueue();
+  } catch {}
+};
+</script>
+</body>
+</html>

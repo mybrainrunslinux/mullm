@@ -1,0 +1,1847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0f">
+<title>Musaic — Audio Studio</title>
+<style>
+/* ── Design tokens ─────────────────────────────────────── */
+:root {
+  --bg:         #0a0a0f;
+  --bg2:        #12121a;
+  --bg3:        #1a1a26;
+  --bg4:        #22223a;
+  --border:     #2a2a42;
+  --gold:       #d4a92a;
+  --gold-dim:   #9a7a1e;
+  --teal:       #2ad4c8;
+  --teal-dim:   #1a9690;
+  --red:        #d44a2a;
+  --green:      #2ad46a;
+  --text:       #e8e8f0;
+  --text-dim:   #8888aa;
+  --text-muted: #55556a;
+  --radius:     8px;
+  --radius-lg:  14px;
+  --shadow:     0 2px 16px rgba(0,0,0,0.6);
+  --shadow-glow:0 0 24px rgba(212,169,42,0.2);
+}
+
+/* ── Reset & base ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Typography ─────────────────────────────────────────── */
+h1 { font-size: clamp(1.5rem, 5vw, 2.2rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1rem, 3.5vw, 1.25rem); font-weight: 600; letter-spacing: -0.01em; }
+h3 { font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+
+/* ── Header ─────────────────────────────────────────────── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0.875rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.header-logo {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--teal) 100%);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; flex-shrink: 0;
+}
+
+.header-title { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+.header-sub   { font-size: 0.7rem; color: var(--text-dim); margin-top: 1px; }
+
+.header-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nav-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.8rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.nav-link:hover, .nav-link:focus-visible {
+  color: var(--text);
+  border-color: var(--border);
+  background: var(--bg3);
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Card ────────────────────────────────────────────────── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.card-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; flex-shrink: 0;
+}
+.card-icon.gold  { background: rgba(212,169,42,0.15); color: var(--gold); }
+.card-icon.teal  { background: rgba(42,212,200,0.12); color: var(--teal); }
+.card-icon.green { background: rgba(42,212,106,0.12); color: var(--green); }
+.card-icon.red   { background: rgba(212,74,42,0.15);  color: var(--red);  }
+
+.card-body { padding: 1.25rem; }
+
+/* ── Section tabs ────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 0;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+  flex: 1;
+  min-width: 80px;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-height: 48px;
+}
+.tab-btn:hover   { color: var(--text); }
+.tab-btn.active  { color: var(--gold); border-bottom-color: var(--gold); }
+
+.tab-panel       { display: none; padding: 1.25rem; }
+.tab-panel.active{ display: block; }
+
+.foley-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.875rem;
+}
+.foley-btn {
+  min-height: 64px;
+  padding: 0.75rem;
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.foley-btn:hover, .foley-btn.active {
+  border-color: var(--teal);
+  background: rgba(42,212,200,0.08);
+}
+.foley-btn:active { transform: scale(0.98); }
+.foley-btn strong { display: block; font-size: 0.86rem; }
+.foley-btn span { display: block; color: var(--text-muted); font-size: 0.7rem; margin-top: 0.25rem; line-height: 1.25; }
+.foley-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.foley-field {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+.foley-field label {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.foley-field input, .foley-field select {
+  width: 100%;
+  margin-top: 0.5rem;
+  accent-color: var(--gold);
+}
+.foley-field select {
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  min-height: 42px;
+  padding: 0.4rem 0.55rem;
+}
+
+/* ── Record button ───────────────────────────────────────── */
+.record-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.record-btn {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  border: 3px solid var(--red);
+  background: rgba(212,74,42,0.12);
+  color: var(--red);
+  font-size: 2.2rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.record-btn:active   { transform: scale(0.95); }
+.record-btn.recording {
+  background: rgba(212,74,42,0.28);
+  box-shadow: 0 0 0 0 rgba(212,74,42,0.6);
+  animation: pulse-ring 1.4s ease-out infinite;
+}
+.record-btn.recording .rec-icon { animation: blink-dot 1s step-end infinite; }
+
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(212,74,42,0.6); }
+  70%  { box-shadow: 0 0 0 18px rgba(212,74,42,0); }
+  100% { box-shadow: 0 0 0 0 rgba(212,74,42,0); }
+}
+@keyframes blink-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record-btn.recording {
+    animation: none;
+    box-shadow: 0 0 0 4px rgba(212,74,42,0.5);
+  }
+  .record-btn.recording .rec-icon { animation: none; }
+}
+
+.record-status {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  text-align: center;
+  min-height: 1.4em;
+}
+.record-status.live { color: var(--red); font-weight: 600; }
+
+.record-timer {
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  min-width: 5ch;
+  text-align: center;
+}
+.record-timer.live { color: var(--text); }
+
+/* ── Waveform canvas ─────────────────────────────────────── */
+.waveform-canvas {
+  width: 100%;
+  height: 80px;
+  border-radius: var(--radius);
+  background: var(--bg3);
+  display: block;
+}
+
+/* ── Upload area ─────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.drop-zone.over, .drop-zone:focus-within {
+  border-color: var(--teal);
+  background: rgba(42,212,200,0.05);
+}
+.drop-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  width: 100%; height: 100%;
+}
+.drop-icon  { font-size: 2.5rem; margin-bottom: 0.75rem; color: var(--text-muted); }
+.drop-text  { font-size: 1rem; color: var(--text-dim); }
+.drop-hint  { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem; }
+
+/* ── Progress bar ────────────────────────────────────────── */
+.progress-wrap {
+  background: var(--bg3);
+  border-radius: 100px;
+  height: 6px;
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--teal), var(--gold));
+  border-radius: 100px;
+  transition: width 0.2s;
+  width: 0%;
+}
+
+/* ── Process options ─────────────────────────────────────── */
+.process-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  min-height: 64px;
+}
+.toggle-row:hover { border-color: var(--gold-dim); }
+
+.toggle-row input[type="checkbox"] {
+  width: 20px; height: 20px;
+  accent-color: var(--gold);
+  cursor: pointer; flex-shrink: 0;
+}
+
+.toggle-label {
+  flex: 1;
+}
+.toggle-label strong { display: block; font-size: 0.875rem; }
+.toggle-label span   { font-size: 0.72rem; color: var(--text-muted); line-height: 1.3; }
+
+/* ── Format selector ─────────────────────────────────────── */
+.format-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.format-btn {
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  min-height: 44px;
+}
+.format-btn.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(212,169,42,0.1);
+}
+.format-btn.game-btn {
+  border-color: var(--teal-dim);
+  color: var(--teal);
+  background: rgba(42,212,200,0.08);
+}
+.format-btn.game-btn.active {
+  border-color: var(--teal);
+  background: rgba(42,212,200,0.18);
+}
+
+/* ── Action buttons ──────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 48px;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold) 0%, #b8901e 100%);
+  color: #0a0a0f;
+}
+.btn-primary:hover { box-shadow: 0 2px 16px rgba(212,169,42,0.3); }
+
+.btn-teal {
+  background: rgba(42,212,200,0.12);
+  border-color: var(--teal-dim);
+  color: var(--teal);
+}
+.btn-teal:hover { background: rgba(42,212,200,0.2); border-color: var(--teal); }
+
+.btn-ghost {
+  background: var(--bg3);
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--text-muted); }
+
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* ── Status pill ─────────────────────────────────────────── */
+.pill {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.pill.ready  { background: rgba(42,212,106,0.12); color: var(--green); }
+.pill.busy   { background: rgba(212,169,42,0.12); color: var(--gold); }
+.pill.error  { background: rgba(212,74,42,0.12);  color: var(--red); }
+.pill.idle   { background: var(--bg4); color: var(--text-muted); }
+
+/* ── Toast ────────────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  pointer-events: none;
+  width: min(calc(100vw - 2.5rem), 420px);
+}
+.toast {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.125rem;
+  font-size: 0.85rem;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+  animation: toast-in 0.2s ease forwards;
+  width: 100%;
+  pointer-events: auto;
+}
+.toast.success { border-color: var(--green);  color: var(--green); }
+.toast.error   { border-color: var(--red);    color: var(--red); }
+.toast.info    { border-color: var(--teal);   color: var(--teal); }
+
+@keyframes toast-in {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Player ──────────────────────────────────────────────── */
+.player-wrap {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+}
+.player-filename {
+  font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.75rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.play-btn {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--gold);
+  border: none;
+  color: #0a0a0f;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.play-btn:active { transform: scale(0.93); }
+
+.player-seek {
+  flex: 1;
+  min-width: 100px;
+  height: 6px;
+  accent-color: var(--gold);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.player-time {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  white-space: nowrap;
+  min-width: 8ch;
+}
+
+.player-opts {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.625rem;
+}
+
+select.speed-select {
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 0.375rem 0.625rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.loop-btn {
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg4);
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.loop-btn.on {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: rgba(42,212,200,0.1);
+}
+
+/* ── Library grid ────────────────────────────────────────── */
+.library-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.lib-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  transition: border-color 0.15s;
+}
+.lib-card:hover { border-color: var(--gold-dim); }
+
+.lib-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.lib-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-badge {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.lib-badge.raw      { background: rgba(212,169,42,0.1);  color: var(--gold-dim); }
+.lib-badge.processed{ background: rgba(42,212,200,0.1);  color: var(--teal-dim); }
+.lib-badge.game     { background: rgba(42,212,106,0.1);  color: var(--green); }
+
+.lib-stats {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 0.75rem;
+}
+
+.lib-waveform {
+  height: 36px;
+  background: var(--bg4);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.lib-waveform canvas {
+  width: 100%; height: 100%; display: block;
+}
+
+.lib-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.lib-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg4);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.lib-btn:hover      { color: var(--text); border-color: var(--text-muted); }
+.lib-btn.play       { color: var(--gold); border-color: var(--gold-dim); }
+.lib-btn.copy       { color: var(--teal); border-color: var(--teal-dim); }
+.lib-btn.download   { color: var(--green); border-color: var(--green); }
+
+/* ── Empty states ────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+}
+.empty-state .empty-icon { font-size: 3rem; margin-bottom: 0.75rem; opacity: 0.4; }
+.empty-state p           { font-size: 0.875rem; }
+
+/* ── Ffmpeg status banner ─────────────────────────────────── */
+.ffmpeg-banner {
+  display: none;
+  background: rgba(212,74,42,0.12);
+  border: 1px solid rgba(212,74,42,0.4);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  font-size: 0.825rem;
+  color: var(--red);
+  margin-bottom: 0.75rem;
+}
+
+/* ── Current file banner ──────────────────────────────────── */
+.current-file-bar {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.current-file-bar .pill { flex-shrink: 0; }
+.current-file-name {
+  flex: 1;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-dim);
+}
+
+/* ── Processing log ───────────────────────────────────────── */
+.process-log {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  font-family: "Fira Code", "Cascadia Code", monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  display: none;
+}
+.process-log.visible { display: block; }
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (min-width: 640px) {
+  .process-grid       { grid-template-columns: 1fr 1fr; }
+  .library-grid       { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 768px) {
+  .main               { padding: 1.75rem; }
+  .library-grid       { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Focus styles ────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<header class="header" role="banner">
+  <a href="/" class="header-brand" aria-label="muLLM home">
+    <div class="header-logo" aria-hidden="true">♪</div>
+    <div>
+      <div class="header-title">Musaic</div>
+      <div class="header-sub">Audio Studio</div>
+    </div>
+  </a>
+  <nav class="header-nav" aria-label="Main navigation">
+    <a href="/chat"  class="nav-link" title="Chat interface">Chat</a>
+    <a href="/games" class="nav-link" title="Games library">Games</a>
+    <a href="/setup" class="nav-link" title="Configuration">Setup</a>
+  </nav>
+</header>
+
+<!-- ── Toast container ─────────────────────────────────────── -->
+<div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+<!-- ── Main ─────────────────────────────────────────────────── -->
+<main class="main" role="main" id="main">
+
+  <!-- ffmpeg not available warning — hidden by default, shown by JS -->
+  <div class="ffmpeg-banner" id="ffmpeg-banner" role="alert">
+    <strong>ffmpeg not available on server</strong> — upload and recording work,
+    but audio processing (denoise, normalize, trim, pitch) requires ffmpeg on the server.
+    Contact your admin or install ffmpeg and restart muLLM.
+  </div>
+
+  <!-- ── Studio card ──────────────────────────────────────────── -->
+  <div class="card" id="studio-card">
+    <div class="card-header">
+      <div class="card-icon gold" aria-hidden="true">♪</div>
+      <h2>Studio</h2>
+      <div id="current-asset-pill" class="pill idle" style="margin-left:auto">No file loaded</div>
+    </div>
+
+    <div class="tab-bar" role="tablist" aria-label="Studio sections">
+      <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-record" id="tbtn-record"  onclick="switchTab('record')">Record</button>
+      <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-upload" id="tbtn-upload"  onclick="switchTab('upload')">Upload</button>
+      <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-process" id="tbtn-process" onclick="switchTab('process')">Process</button>
+      <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-foley" id="tbtn-foley" onclick="switchTab('foley')">Foley</button>
+      <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-preview" id="tbtn-preview" onclick="switchTab('preview')">Preview</button>
+      <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-library" id="tbtn-library" onclick="switchTab('library')">Library</button>
+    </div>
+
+    <!-- Record tab -->
+    <div class="tab-panel active" id="tab-record" role="tabpanel" aria-labelledby="tbtn-record">
+      <div class="record-center">
+        <div class="record-timer" id="rec-timer" aria-live="polite" aria-label="Recording duration">0:00</div>
+
+        <canvas class="waveform-canvas" id="rec-waveform" width="800" height="80"
+                aria-label="Live audio waveform" role="img"></canvas>
+
+        <button class="record-btn" id="record-btn"
+                aria-label="Start recording" aria-pressed="false"
+                onclick="toggleRecord()">
+          <span class="rec-icon" aria-hidden="true">●</span>
+        </button>
+
+        <p class="record-status" id="rec-status">
+          Tap to record from your microphone
+        </p>
+
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center">
+          <button class="btn btn-ghost" id="rec-save-btn" disabled onclick="saveRecording()"
+                  aria-label="Save recording to library">
+            Save Recording
+          </button>
+          <button class="btn btn-ghost" id="rec-discard-btn" disabled onclick="discardRecording()"
+                  aria-label="Discard recording">
+            Discard
+          </button>
+        </div>
+
+        <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;max-width:380px">
+          Max 5 minutes. Records webm/opus from your device microphone. For best dulcimer quality:
+          place phone 30–40 cm above the instrument, avoid wind noise.
+        </p>
+      </div>
+    </div>
+
+    <!-- Upload tab -->
+    <div class="tab-panel" id="tab-upload" role="tabpanel" aria-labelledby="tbtn-upload">
+      <label class="drop-zone" id="drop-zone"
+             aria-label="Drop audio file here or click to browse">
+        <div class="drop-icon" aria-hidden="true">↑</div>
+        <div class="drop-text">Drop audio file or tap to browse</div>
+        <div class="drop-hint">Accepts .m4a .mp3 .wav .webm .ogg — max 50 MB</div>
+        <input type="file" id="file-input" accept=".m4a,.mp3,.wav,.webm,.ogg,audio/*"
+               aria-label="Choose audio file" onchange="handleFileSelect(event)">
+      </label>
+
+      <div class="progress-wrap" id="upload-progress-wrap" style="display:none" role="progressbar"
+           aria-label="Upload progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" id="upload-progress-bar"></div>
+      </div>
+      <p id="upload-status" style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;min-height:1.2em"></p>
+
+      <p style="font-size:0.72rem;color:var(--text-muted);margin-top:1rem;line-height:1.6">
+        <strong style="color:var(--text-dim)">Compression tip:</strong>
+        Opus at 32 kbps is ~16x smaller than WAV with better quality than 64 kbps MP3 —
+        ideal for game sounds. MP3 at 128 kbps is the universal fallback.
+        Use "Optimize for game" to export Opus 32 kbps automatically.
+      </p>
+    </div>
+
+    <!-- Process tab -->
+    <div class="tab-panel" id="tab-process" role="tabpanel" aria-labelledby="tbtn-process">
+
+      <div id="process-no-file" style="display:none">
+        <div class="empty-state">
+          <div class="empty-icon" aria-hidden="true">♪</div>
+          <p>Record or upload a file first, then come back here to process it.</p>
+        </div>
+      </div>
+
+      <div id="process-form">
+        <div class="current-file-bar" id="proc-file-bar" style="display:none">
+          <span class="pill ready" aria-hidden="true">File</span>
+          <span class="current-file-name" id="proc-file-name">—</span>
+        </div>
+
+        <h3 style="margin-bottom:0.75rem">Processing options</h3>
+
+        <div class="process-grid">
+          <label class="toggle-row" title="Remove background hiss and room noise using high/low-pass filters and dynamic normalization">
+            <input type="checkbox" id="opt-denoise" aria-label="Denoise audio">
+            <div class="toggle-label">
+              <strong>Denoise</strong>
+              <span>High/low-pass + dynaudnorm — removes background hiss, AC hum, room noise</span>
+            </div>
+          </label>
+
+          <label class="toggle-row" title="Bring peak volume to -1.5 dBTP using EBU R128 loudness normalization">
+            <input type="checkbox" id="opt-normalize" checked aria-label="Normalize volume">
+            <div class="toggle-label">
+              <strong>Normalize</strong>
+              <span>EBU R128 loudnorm — sets target loudness to -16 LUFS, peak -1.5 dBTP</span>
+            </div>
+          </label>
+
+          <label class="toggle-row" title="Remove leading and trailing silence longer than 0.5 seconds">
+            <input type="checkbox" id="opt-trim" aria-label="Trim silence">
+            <div class="toggle-label">
+              <strong>Trim silence</strong>
+              <span>Removes leading/trailing silence over 0.5s, threshold -50 dB</span>
+            </div>
+          </label>
+
+          <label class="toggle-row" title="Detect dominant pitch via librosa pyin and snap to nearest note in selected key — fixes slight tuning misses">
+            <input type="checkbox" id="opt-pitch" aria-label="Pitch correct">
+            <div class="toggle-label">
+              <strong>Pitch correct</strong>
+              <span>librosa pitch detection → snap to nearest note in key (rubberband)</span>
+            </div>
+          </label>
+
+          <div id="pitch-key-row" style="display:none;align-items:center;gap:0.75rem;margin-top:0.5rem;margin-left:3rem">
+            <label for="opt-key" style="font-size:0.875rem;font-weight:600;white-space:nowrap">Key:</label>
+            <select id="opt-key" title="Target key for pitch correction — detected pitch snaps to nearest note in this scale"
+                    style="padding:0.25rem 0.5rem;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#1e1e2e);color:inherit;font-size:0.875rem">
+              <option value="D" selected>D</option>
+              <option value="G">G</option>
+              <option value="A">A</option>
+              <option value="E">E</option>
+              <option value="C">C</option>
+              <option value="F">F</option>
+              <option value="Bb">Bb</option>
+            </select>
+            <label for="opt-scale" style="font-size:0.875rem;font-weight:600;white-space:nowrap">Scale:</label>
+            <select id="opt-scale" title="Major or minor scale for pitch correction"
+                    style="padding:0.25rem 0.5rem;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#1e1e2e);color:inherit;font-size:0.875rem">
+              <option value="major" selected>Major</option>
+              <option value="minor">Minor</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem">
+          <h3 style="margin-bottom:0.5rem">Export format</h3>
+          <div class="format-row" id="format-row" role="group" aria-label="Select export format">
+            <button class="format-btn active" data-fmt="mp3_128" onclick="selectFormat(this)"
+                    title="MP3 128kbps — universal compatibility, ~1 MB/min">MP3 128k</button>
+            <button class="format-btn" data-fmt="mp3_256" onclick="selectFormat(this)"
+                    title="MP3 256kbps — higher quality, ~2 MB/min">MP3 256k</button>
+            <button class="format-btn" data-fmt="wav_16" onclick="selectFormat(this)"
+                    title="WAV 16-bit — lossless, ~10 MB/min">WAV 16-bit</button>
+            <button class="format-btn" data-fmt="wav_24" onclick="selectFormat(this)"
+                    title="WAV 24-bit — studio quality, ~14 MB/min">WAV 24-bit</button>
+            <button class="format-btn game-btn" data-fmt="opus_32" onclick="selectFormat(this)"
+                    title="Opus 32kbps — game-optimized: 16x smaller than WAV, better than MP3 64k">
+              Opus 32k (game)
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+          <button class="btn btn-primary" id="process-btn" onclick="runProcess()"
+                  aria-label="Process audio with selected options">
+            Process Audio
+          </button>
+          <button class="btn btn-teal" id="optimize-btn" onclick="runOptimize()"
+                  title="Export as Opus 32kbps — optimal game audio: smallest file, best quality"
+                  aria-label="Optimize for game use (Opus 32kbps)">
+            Optimize for game
+          </button>
+        </div>
+
+        <pre class="process-log" id="process-log" aria-live="polite" aria-label="Processing log"></pre>
+      </div>
+    </div>
+
+    <!-- Foley tab -->
+    <div class="tab-panel" id="tab-foley" role="tabpanel" aria-labelledby="tbtn-foley">
+      <div class="current-file-bar" style="display:flex">
+        <span class="pill ready" aria-hidden="true">Foley</span>
+        <span class="current-file-name" id="foley-selected">hit</span>
+      </div>
+
+      <div class="foley-grid" id="foley-grid" role="list" aria-label="Foley sound presets"></div>
+
+      <div class="foley-controls">
+        <div class="foley-field">
+          <label for="foley-duration">Duration <span id="foley-duration-val">400 ms</span></label>
+          <input id="foley-duration" type="range" min="80" max="5000" step="20" value="400" oninput="syncFoleyControls()">
+        </div>
+        <div class="foley-field">
+          <label for="foley-pitch">Pitch <span id="foley-pitch-val">0 st</span></label>
+          <input id="foley-pitch" type="range" min="-24" max="24" step="1" value="0" oninput="syncFoleyControls()">
+        </div>
+        <div class="foley-field">
+          <label for="foley-reverb">Reverb <span id="foley-reverb-val">0%</span></label>
+          <input id="foley-reverb" type="range" min="0" max="1" step="0.05" value="0" oninput="syncFoleyControls()">
+        </div>
+        <div class="foley-field">
+          <label for="foley-compression">Compression <span id="foley-compression-val">0.9</span></label>
+          <input id="foley-compression" type="range" min="0.1" max="2" step="0.1" value="0.9" oninput="syncFoleyControls()">
+        </div>
+        <div class="foley-field">
+          <label for="foley-format">Format</label>
+          <select id="foley-format">
+            <option value="mp3" selected>MP3</option>
+            <option value="wav">WAV</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+        <button class="btn btn-primary" id="foley-generate-btn" onclick="generateFoley(true)">Generate + Save</button>
+        <button class="btn btn-teal" onclick="generateFoley(false)">Preview only</button>
+        <button class="btn btn-ghost" onclick="generateAllFoley()">Generate all presets</button>
+      </div>
+    </div>
+
+    <!-- Preview tab -->
+    <div class="tab-panel" id="tab-preview" role="tabpanel" aria-labelledby="tbtn-preview">
+      <div id="preview-empty" class="empty-state">
+        <div class="empty-icon" aria-hidden="true">▶</div>
+        <p>Load a file from the Library or finish processing to preview it here.</p>
+      </div>
+
+      <div id="preview-player" style="display:none">
+        <div class="player-wrap">
+          <div class="player-filename" id="preview-filename">—</div>
+          <div class="player-controls">
+            <button class="play-btn" id="play-btn" onclick="togglePlay()"
+                    aria-label="Play" aria-pressed="false">▶</button>
+            <input type="range" class="player-seek" id="player-seek" min="0" max="100" step="0.1"
+                   value="0" aria-label="Playback position" oninput="seekAudio(this.value)">
+            <div class="player-time" id="player-time" aria-live="off">0:00 / 0:00</div>
+          </div>
+          <div class="player-opts">
+            <label style="font-size:0.78rem;color:var(--text-dim);display:flex;align-items:center;gap:0.375rem">
+              Speed:
+              <select class="speed-select" onchange="setPlaybackSpeed(this.value)"
+                      aria-label="Playback speed">
+                <option value="0.5">0.5×</option>
+                <option value="0.75">0.75×</option>
+                <option value="1" selected>1×</option>
+                <option value="1.25">1.25×</option>
+                <option value="1.5">1.5×</option>
+                <option value="2">2×</option>
+              </select>
+            </label>
+            <button class="loop-btn" id="loop-btn" onclick="toggleLoop()"
+                    aria-label="Toggle loop" aria-pressed="false">Loop</button>
+            <button class="btn btn-ghost" style="padding:0.375rem 0.75rem;min-height:44px;font-size:0.78rem"
+                    id="preview-dl-btn" onclick="downloadPreview()"
+                    aria-label="Download current file">Download</button>
+          </div>
+
+          <canvas class="waveform-canvas" id="preview-waveform" width="800" height="80"
+                  style="margin-top:0.75rem" aria-label="Audio waveform" role="img"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Library tab -->
+    <div class="tab-panel" id="tab-library" role="tabpanel" aria-labelledby="tbtn-library">
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap">
+        <h3 style="margin-bottom:0">Saved clips</h3>
+        <button class="btn btn-ghost" style="padding:0.375rem 0.75rem;min-height:44px;font-size:0.78rem;margin-left:auto"
+                onclick="refreshLibrary()" aria-label="Refresh library">Refresh</button>
+      </div>
+      <div class="library-grid" id="library-grid">
+        <div class="empty-state" id="library-empty">
+          <div class="empty-icon" aria-hidden="true">♪</div>
+          <p>No audio files yet. Record or upload something to get started.</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /studio-card -->
+
+</main>
+
+<audio id="preview-audio" aria-hidden="true"></audio>
+
+<script>
+/* ── State ─────────────────────────────────────────────────── */
+const state = {
+  currentAssetId: null,   // asset_id from server
+  currentFilename: null,  // display name
+  currentUrl: null,       // streaming URL
+  mediaRecorder: null,
+  recordChunks: [],
+  recordStart: null,
+  recordTimerInterval: null,
+  recordBlob: null,
+  analyserNode: null,
+  audioCtx: null,
+  animFrame: null,
+  selectedFormat: 'mp3_128',
+  isPlaying: false,
+  isLooping: false,
+  previewUrl: null,
+  previewFilename: null,
+  foleyPresets: {},
+  selectedFoley: 'hit',
+};
+
+const BASE = '';  // relative URLs — works on any port/host
+
+/* ── Toast ──────────────────────────────────────────────────── */
+function toast(msg, type = 'info', duration = 3500) {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  t.setAttribute('role', 'status');
+  c.appendChild(t);
+  setTimeout(() => {
+    t.style.animation = 'toast-in 0.2s ease reverse forwards';
+    setTimeout(() => t.remove(), 220);
+  }, duration);
+}
+
+/* ── Tab switching ──────────────────────────────────────────── */
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const active = b.id === `tbtn-${name}`;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-selected', active);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `tab-${name}`);
+  });
+  if (name === 'library') refreshLibrary();
+  if (name === 'foley') loadFoleyPresets();
+}
+
+/* ── Format selector ────────────────────────────────────────── */
+function selectFormat(btn) {
+  document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.selectedFormat = btn.dataset.fmt;
+}
+
+/* ── Recording ──────────────────────────────────────────────── */
+async function toggleRecord() {
+  if (state.mediaRecorder && state.mediaRecorder.state === 'recording') {
+    stopRecord();
+  } else {
+    await startRecord();
+  }
+}
+
+async function startRecord() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
+    });
+
+    // Web Audio analyser for waveform
+    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = state.audioCtx.createMediaStreamSource(stream);
+    state.analyserNode = state.audioCtx.createAnalyser();
+    state.analyserNode.fftSize = 256;
+    source.connect(state.analyserNode);
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+
+    state.mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+    state.recordChunks = [];
+    state.recordBlob = null;
+
+    state.mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) state.recordChunks.push(e.data);
+    };
+    state.mediaRecorder.onstop = finalizeRecording;
+    state.mediaRecorder.start(100);
+
+    state.recordStart = Date.now();
+    updateRecordTimer();
+    state.recordTimerInterval = setInterval(updateRecordTimer, 500);
+    drawLiveWaveform();
+
+    // 5 minute max
+    setTimeout(() => {
+      if (state.mediaRecorder && state.mediaRecorder.state === 'recording') stopRecord();
+    }, 300_000);
+
+    const btn = document.getElementById('record-btn');
+    btn.classList.add('recording');
+    btn.setAttribute('aria-label', 'Stop recording');
+    btn.setAttribute('aria-pressed', 'true');
+    document.getElementById('rec-status').textContent = 'Recording…';
+    document.getElementById('rec-status').className = 'record-status live';
+
+  } catch (err) {
+    toast('Microphone access denied: ' + err.message, 'error');
+  }
+}
+
+function stopRecord() {
+  if (state.mediaRecorder) {
+    state.mediaRecorder.stop();
+    state.mediaRecorder.stream.getTracks().forEach(t => t.stop());
+  }
+  clearInterval(state.recordTimerInterval);
+  cancelAnimationFrame(state.animFrame);
+  if (state.audioCtx) { state.audioCtx.close(); state.audioCtx = null; }
+
+  const btn = document.getElementById('record-btn');
+  btn.classList.remove('recording');
+  btn.setAttribute('aria-label', 'Start recording');
+  btn.setAttribute('aria-pressed', 'false');
+  document.getElementById('rec-status').textContent = 'Processing…';
+  document.getElementById('rec-status').className = 'record-status';
+}
+
+function finalizeRecording() {
+  const mimeType = state.mediaRecorder.mimeType || 'audio/webm';
+  state.recordBlob = new Blob(state.recordChunks, { type: mimeType });
+  document.getElementById('rec-status').textContent =
+    `Recording ready — ${formatBytes(state.recordBlob.size)} · ${document.getElementById('rec-timer').textContent}`;
+  document.getElementById('rec-save-btn').disabled = false;
+  document.getElementById('rec-discard-btn').disabled = false;
+  document.getElementById('rec-status').className = 'record-status';
+}
+
+function updateRecordTimer() {
+  const elapsed = Math.floor((Date.now() - state.recordStart) / 1000);
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  const el = document.getElementById('rec-timer');
+  el.textContent = `${m}:${String(s).padStart(2,'0')}`;
+  el.className = 'record-timer live';
+}
+
+function drawLiveWaveform() {
+  const canvas = document.getElementById('rec-waveform');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const bufLen = state.analyserNode.frequencyBinCount;
+  const buf = new Uint8Array(bufLen);
+
+  function draw() {
+    if (!state.analyserNode) return;
+    state.animFrame = requestAnimationFrame(draw);
+    state.analyserNode.getByteTimeDomainData(buf);
+
+    ctx.fillStyle = '#1a1a26';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#d4a92a';
+    ctx.beginPath();
+    const sliceW = W / bufLen;
+    let x = 0;
+    for (let i = 0; i < bufLen; i++) {
+      const v = buf[i] / 128.0;
+      const y = (v * H) / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceW;
+    }
+    ctx.lineTo(W, H / 2);
+    ctx.stroke();
+  }
+  draw();
+}
+
+async function saveRecording() {
+  if (!state.recordBlob) return;
+  const ext = state.recordBlob.type.includes('webm') ? 'webm' : 'm4a';
+  const filename = `recording_${Date.now()}.${ext}`;
+  await uploadBlob(state.recordBlob, filename);
+  discardRecording();
+}
+
+function discardRecording() {
+  state.recordBlob = null;
+  state.recordChunks = [];
+  document.getElementById('rec-save-btn').disabled = true;
+  document.getElementById('rec-discard-btn').disabled = true;
+  document.getElementById('rec-status').textContent = 'Tap to record from your microphone';
+  document.getElementById('rec-status').className = 'record-status';
+  document.getElementById('rec-timer').textContent = '0:00';
+  document.getElementById('rec-timer').className = 'record-timer';
+  const canvas = document.getElementById('rec-waveform');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1a1a26';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+/* ── Upload ─────────────────────────────────────────────────── */
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  handleFile(file);
+}
+
+function setupDrop() {
+  const zone = document.getElementById('drop-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+}
+
+function handleFile(file) {
+  if (file.size > 50 * 1024 * 1024) {
+    toast('File too large — max 50 MB', 'error');
+    return;
+  }
+  const allowed = ['.m4a','.mp3','.wav','.webm','.ogg'];
+  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+  if (!allowed.includes(ext) && !file.type.startsWith('audio/')) {
+    toast('Unsupported format — use .m4a .mp3 .wav .webm .ogg', 'error');
+    return;
+  }
+  uploadBlob(file, file.name);
+}
+
+async function uploadBlob(blob, filename) {
+  const wrap = document.getElementById('upload-progress-wrap');
+  const bar  = document.getElementById('upload-progress-bar');
+  const status = document.getElementById('upload-status');
+  wrap.style.display = 'block';
+  bar.style.width = '0%';
+  status.textContent = 'Uploading…';
+
+  const form = new FormData();
+  form.append('file', blob, filename);
+
+  try {
+    // Use XHR for progress
+    const xhr = new XMLHttpRequest();
+    await new Promise((resolve, reject) => {
+      xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          bar.style.width = pct + '%';
+          wrap.setAttribute('aria-valuenow', pct);
+        }
+      });
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.responseText);
+        else reject(new Error(`Server ${xhr.status}: ${xhr.responseText}`));
+      });
+      xhr.addEventListener('error', () => reject(new Error('Network error')));
+      xhr.open('POST', `${BASE}/api/musaic/upload`);
+      xhr.send(form);
+    });
+
+    const data = JSON.parse(xhr.responseText);
+    bar.style.width = '100%';
+    status.textContent = `Uploaded: ${data.filename} (${formatBytes(data.size)})`;
+
+    setCurrentAsset(data.asset_id, data.filename, data.stream_url);
+    toast(`Uploaded ${data.filename}`, 'success');
+    setTimeout(() => { wrap.style.display = 'none'; }, 1500);
+
+  } catch (err) {
+    bar.style.width = '0%';
+    status.textContent = 'Upload failed: ' + err.message;
+    toast('Upload failed: ' + err.message, 'error');
+  }
+}
+
+/* ── Asset state ─────────────────────────────────────────────── */
+function setCurrentAsset(assetId, filename, streamUrl) {
+  state.currentAssetId = assetId;
+  state.currentFilename = filename;
+  state.currentUrl = streamUrl;
+
+  document.getElementById('current-asset-pill').textContent = filename;
+  document.getElementById('current-asset-pill').className = 'pill ready';
+  document.getElementById('proc-file-name').textContent = filename;
+  document.getElementById('proc-file-bar').style.display = 'flex';
+  document.getElementById('process-no-file').style.display = 'none';
+  document.getElementById('process-btn').disabled = false;
+  document.getElementById('optimize-btn').disabled = false;
+}
+
+/* ── Process ─────────────────────────────────────────────────── */
+async function runProcess() {
+  if (!state.currentAssetId) {
+    toast('No file loaded — record or upload first', 'error');
+    switchTab('upload');
+    return;
+  }
+
+  const pitchOn = document.getElementById('opt-pitch').checked;
+  const payload = {
+    asset_id: state.currentAssetId,
+    denoise: document.getElementById('opt-denoise').checked,
+    normalize: document.getElementById('opt-normalize').checked,
+    trim_silence: document.getElementById('opt-trim').checked,
+    pitch_correct: pitchOn,
+    key: document.getElementById('opt-key').value || 'D',
+    scale: document.getElementById('opt-scale').value || 'major',
+    format: state.selectedFormat,
+  };
+
+  await submitProcess(payload, 'processed');
+}
+
+async function runOptimize() {
+  if (!state.currentAssetId) {
+    toast('No file loaded — record or upload first', 'error');
+    switchTab('upload');
+    return;
+  }
+  const payload = {
+    asset_id: state.currentAssetId,
+    denoise: false,
+    normalize: true,
+    trim_silence: true,
+    pitch_correct: false,
+    format: 'opus_32',
+    game_optimized: true,
+  };
+  await submitProcess(payload, 'game');
+}
+
+async function submitProcess(payload, outputType) {
+  const btn = outputType === 'game'
+    ? document.getElementById('optimize-btn')
+    : document.getElementById('process-btn');
+  const log = document.getElementById('process-log');
+
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+  log.textContent = '';
+  log.classList.add('visible');
+
+  try {
+    const resp = await fetch(`${BASE}/api/musaic/process`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(err);
+    }
+
+    const data = await resp.json();
+    log.textContent = data.log || 'Done.';
+
+    toast(`Processed: ${data.filename} (${formatBytes(data.size)})`, 'success');
+
+    // Auto-load into preview
+    loadPreview(data.stream_url, data.filename);
+    switchTab('preview');
+
+  } catch (err) {
+    log.textContent = 'Error: ' + err.message;
+    toast('Processing failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = outputType === 'game' ? 'Optimize for game' : 'Process Audio';
+  }
+}
+
+/* ── Foley ──────────────────────────────────────────────────── */
+async function loadFoleyPresets() {
+  if (Object.keys(state.foleyPresets).length) return;
+  try {
+    const resp = await fetch(`${BASE}/api/foley/presets`);
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+    state.foleyPresets = data.presets || {};
+    renderFoleyPresets();
+    selectFoley(state.selectedFoley);
+  } catch (err) {
+    document.getElementById('foley-grid').innerHTML = `<div class="empty-state"><p style="color:var(--red)">Foley error: ${err.message}</p></div>`;
+  }
+}
+
+function renderFoleyPresets() {
+  const grid = document.getElementById('foley-grid');
+  grid.innerHTML = Object.entries(state.foleyPresets).map(([key, preset]) => `
+    <button class="foley-btn" data-foley="${key}" role="listitem" onclick="selectFoley('${key}')">
+      <strong>${preset.label || key}</strong>
+      <span>${preset.description || ''}</span>
+    </button>
+  `).join('');
+}
+
+function selectFoley(key) {
+  state.selectedFoley = key;
+  const preset = state.foleyPresets[key] || {};
+  document.getElementById('foley-selected').textContent = key;
+  document.querySelectorAll('.foley-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.foley === key);
+  });
+  if (preset.duration_ms) document.getElementById('foley-duration').value = preset.duration_ms;
+  syncFoleyControls();
+}
+
+function syncFoleyControls() {
+  document.getElementById('foley-duration-val').textContent = `${document.getElementById('foley-duration').value} ms`;
+  document.getElementById('foley-pitch-val').textContent = `${document.getElementById('foley-pitch').value} st`;
+  document.getElementById('foley-reverb-val').textContent = `${Math.round(parseFloat(document.getElementById('foley-reverb').value) * 100)}%`;
+  document.getElementById('foley-compression-val').textContent = document.getElementById('foley-compression').value;
+}
+
+async function generateFoley(save) {
+  const btn = document.getElementById('foley-generate-btn');
+  btn.disabled = true;
+  try {
+    const payload = {
+      effect: state.selectedFoley,
+      name: state.selectedFoley,
+      format: document.getElementById('foley-format').value,
+      duration_ms: parseInt(document.getElementById('foley-duration').value, 10),
+      pitch_semitones: parseFloat(document.getElementById('foley-pitch').value),
+      reverb: parseFloat(document.getElementById('foley-reverb').value),
+      compression: parseFloat(document.getElementById('foley-compression').value),
+      save,
+    };
+    const resp = await fetch(`${BASE}/api/foley/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const blob = await resp.blob();
+    const assetId = resp.headers.get('X-Musaic-Asset-Id');
+    const streamUrl = resp.headers.get('X-Musaic-Stream-Url');
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const filename = (cd.match(/filename="([^"]+)"/) || [])[1] || `${state.selectedFoley}.${payload.format}`;
+    if (save && assetId && streamUrl) {
+      setCurrentAsset(assetId, filename, streamUrl);
+      loadPreview(streamUrl, filename);
+    } else {
+      loadPreview(URL.createObjectURL(blob), filename);
+    }
+    switchTab('preview');
+    toast(`Generated ${filename}`, 'success');
+  } catch (err) {
+    toast('Foley failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function generateAllFoley() {
+  await loadFoleyPresets();
+  const keys = Object.keys(state.foleyPresets);
+  for (const key of keys) {
+    selectFoley(key);
+    await generateFoley(true);
+  }
+  await refreshLibrary();
+  switchTab('library');
+}
+
+/* ── Preview player ──────────────────────────────────────────── */
+const audio = document.getElementById('preview-audio');
+
+function loadPreview(url, filename) {
+  state.previewUrl = url;
+  state.previewFilename = filename;
+
+  audio.src = url;
+  audio.load();
+
+  document.getElementById('preview-empty').style.display = 'none';
+  document.getElementById('preview-player').style.display = 'block';
+  document.getElementById('preview-filename').textContent = filename;
+  document.getElementById('preview-dl-btn').dataset.url = url;
+  document.getElementById('preview-dl-btn').dataset.name = filename;
+
+  audio.addEventListener('loadedmetadata', updateTimeDisplay, { once: true });
+  drawPreviewWaveform(url);
+}
+
+audio.addEventListener('timeupdate', () => {
+  const seek = document.getElementById('player-seek');
+  if (audio.duration) seek.value = (audio.currentTime / audio.duration) * 100;
+  updateTimeDisplay();
+});
+
+audio.addEventListener('ended', () => {
+  if (!state.isLooping) {
+    document.getElementById('play-btn').textContent = '▶';
+    document.getElementById('play-btn').setAttribute('aria-label', 'Play');
+    document.getElementById('play-btn').setAttribute('aria-pressed', 'false');
+    state.isPlaying = false;
+  }
+});
+
+function togglePlay() {
+  if (audio.paused) {
+    audio.play();
+    state.isPlaying = true;
+    document.getElementById('play-btn').textContent = '⏸';
+    document.getElementById('play-btn').setAttribute('aria-label', 'Pause');
+    document.getElementById('play-btn').setAttribute('aria-pressed', 'true');
+  } else {
+    audio.pause();
+    state.isPlaying = false;
+    document.getElementById('play-btn').textContent = '▶';
+    document.getElementById('play-btn').setAttribute('aria-label', 'Play');
+    document.getElementById('play-btn').setAttribute('aria-pressed', 'false');
+  }
+}
+
+function seekAudio(val) {
+  if (audio.duration) audio.currentTime = (val / 100) * audio.duration;
+}
+
+function setPlaybackSpeed(val) {
+  audio.playbackRate = parseFloat(val);
+}
+
+function toggleLoop() {
+  state.isLooping = !state.isLooping;
+  audio.loop = state.isLooping;
+  const btn = document.getElementById('loop-btn');
+  btn.classList.toggle('on', state.isLooping);
+  btn.setAttribute('aria-pressed', state.isLooping);
+}
+
+function updateTimeDisplay() {
+  const cur = formatTime(audio.currentTime);
+  const dur = audio.duration ? formatTime(audio.duration) : '0:00';
+  document.getElementById('player-time').textContent = `${cur} / ${dur}`;
+}
+
+function downloadPreview() {
+  const btn = document.getElementById('preview-dl-btn');
+  if (!btn.dataset.url) return;
+  const a = document.createElement('a');
+  a.href = btn.dataset.url;
+  a.download = btn.dataset.name || 'audio';
+  a.click();
+}
+
+async function drawPreviewWaveform(url) {
+  const canvas = document.getElementById('preview-waveform');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.fillStyle = '#1a1a26';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#2a2a42';
+  ctx.font = '12px system-ui';
+  ctx.fillText('Loading waveform…', 10, H/2 + 4);
+
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const resp = await fetch(url);
+    const buf = await resp.arrayBuffer();
+    const decoded = await ac.decodeAudioData(buf);
+    ac.close();
+
+    const data = decoded.getChannelData(0);
+    const step = Math.ceil(data.length / W);
+
+    ctx.fillStyle = '#1a1a26';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#d4a92a';
+    for (let i = 0; i < W; i++) {
+      let min = 1, max = -1;
+      for (let j = 0; j < step; j++) {
+        const val = data[i * step + j] || 0;
+        if (val < min) min = val;
+        if (val > max) max = val;
+      }
+      const y1 = (1 + min) / 2 * H;
+      const y2 = (1 + max) / 2 * H;
+      ctx.fillRect(i, y1, 1, Math.max(1, y2 - y1));
+    }
+  } catch (e) {
+    // Waveform decode failed — non-fatal
+    ctx.fillStyle = '#1a1a26';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#55556a';
+    ctx.font = '11px system-ui';
+    ctx.fillText('Waveform unavailable', 10, H/2 + 4);
+  }
+}
+
+/* ── Library ─────────────────────────────────────────────────── */
+async function refreshLibrary() {
+  const grid = document.getElementById('library-grid');
+  const empty = document.getElementById('library-empty');
+  grid.innerHTML = '';
+
+  try {
+    const resp = await fetch(`${BASE}/api/musaic/library`);
+    if (!resp.ok) throw new Error(await resp.text());
+    const files = await resp.json();
+
+    if (!files.length) {
+      grid.appendChild(empty);
+      return;
+    }
+
+    files.forEach(f => grid.appendChild(buildLibCard(f)));
+  } catch (err) {
+    grid.innerHTML = `<div class="empty-state"><p style="color:var(--red)">Library error: ${err.message}</p></div>`;
+  }
+}
+
+function buildLibCard(f) {
+  const card = document.createElement('div');
+  card.className = 'lib-card';
+
+  const badgeClass = f.bucket === 'raw' ? 'raw' : f.bucket === 'game' ? 'game' : 'processed';
+
+  card.innerHTML = `
+    <div class="lib-meta">
+      <span class="lib-name" title="${f.filename}">${f.filename}</span>
+      <span class="lib-badge ${badgeClass}">${f.bucket}</span>
+    </div>
+    <div class="lib-stats">
+      <span>${f.duration ? formatTime(f.duration) : '—'}</span>
+      <span>${formatBytes(f.size)}</span>
+      <span>${f.format || ''}</span>
+    </div>
+    <div class="lib-waveform"><canvas width="400" height="36" data-url="${f.stream_url}"></canvas></div>
+    <div class="lib-actions">
+      <button class="lib-btn play"     onclick='loadAndPreview(${JSON.stringify(f)})'>Play</button>
+      <button class="lib-btn copy"     onclick='copyPath(${JSON.stringify(f.stream_url)})'>Copy path</button>
+      <button class="lib-btn download" onclick='downloadFile(${JSON.stringify(f)})'>Download</button>
+    </div>
+  `;
+
+  // Lazy-draw mini waveform
+  const cvs = card.querySelector('canvas');
+  const observer = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      drawMiniWaveform(cvs, cvs.dataset.url);
+      observer.disconnect();
+    }
+  });
+  observer.observe(cvs);
+
+  return card;
+}
+
+async function drawMiniWaveform(canvas, url) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#22223a';
+  ctx.fillRect(0, 0, W, H);
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const resp = await fetch(url);
+    const buf = await resp.arrayBuffer();
+    const decoded = await ac.decodeAudioData(buf);
+    ac.close();
+    const data = decoded.getChannelData(0);
+    const step = Math.ceil(data.length / W);
+    ctx.fillStyle = '#2ad4c8';
+    for (let i = 0; i < W; i++) {
+      let min = 1, max = -1;
+      for (let j = 0; j < step; j++) {
+        const val = data[i * step + j] || 0;
+        if (val < min) min = val;
+        if (val > max) max = val;
+      }
+      const y1 = (1 + min) / 2 * H;
+      const y2 = (1 + max) / 2 * H;
+      ctx.fillRect(i, y1, 1, Math.max(1, y2 - y1));
+    }
+  } catch(_) {
+    ctx.fillStyle = '#2a2a42';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function loadAndPreview(f) {
+  setCurrentAsset(f.asset_id, f.filename, f.stream_url);
+  loadPreview(f.stream_url, f.filename);
+  switchTab('preview');
+}
+
+async function copyPath(url) {
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Path copied to clipboard', 'success');
+  } catch (_) {
+    toast('Could not copy — try manual select', 'error');
+  }
+}
+
+function downloadFile(f) {
+  const a = document.createElement('a');
+  a.href = f.stream_url;
+  a.download = f.filename;
+  a.click();
+}
+
+/* ── Helpers ─────────────────────────────────────────────────── */
+function formatTime(sec) {
+  if (!isFinite(sec)) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+/* ── ffmpeg check ────────────────────────────────────────────── */
+async function checkFfmpeg() {
+  try {
+    const resp = await fetch(`${BASE}/api/musaic/status`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (!data.ffmpeg_available) {
+        document.getElementById('ffmpeg-banner').style.display = 'block';
+      }
+    }
+  } catch (_) { /* non-fatal */ }
+}
+
+/* ── Init ────────────────────────────────────────────────────── */
+function init() {
+  setupDrop();
+  checkFfmpeg();
+  if (location.pathname === '/foley') {
+    switchTab('foley');
+  }
+
+  // Process tab: show empty state if no file
+  const procForm = document.getElementById('process-form');
+  const procEmpty = document.getElementById('process-no-file');
+  if (!state.currentAssetId) {
+    procEmpty.style.display = 'block';
+  }
+
+  // Show/hide key+scale selectors when pitch-correct is toggled
+  const pitchChk = document.getElementById('opt-pitch');
+  const keyRow = document.getElementById('pitch-key-row');
+  function _syncKeyRow() {
+    keyRow.style.display = pitchChk.checked ? 'flex' : 'none';
+  }
+  pitchChk.addEventListener('change', _syncKeyRow);
+  _syncKeyRow();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

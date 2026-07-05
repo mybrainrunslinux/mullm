@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assets — muLLM</title>
+<style>
+/* ── Design tokens ── */
+:root {
+  --bg:        #0a0a0f;
+  --bg2:       #111118;
+  --bg3:       #1a1a25;
+  --bg4:       #22223a;
+  --border:    #2a2a50;
+  --gold:      #d4af37;
+  --gold-dim:  #8a6f20;
+  --blue:      #38bdf8;
+  --green:     #22c55e;
+  --red:       #ef4444;
+  --purple:    #a855f7;
+  --text:      #e2e8f0;
+  --text-dim:  #94a3b8;
+  --text-faint:#475569;
+  --radius:    10px;
+  --radius-lg: 16px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Header ── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header h1 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: -0.02em;
+}
+
+.header-sub {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.header-search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 360px;
+}
+
+.header-search input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 8px 12px 8px 34px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.header-search input:focus { border-color: var(--gold-dim); }
+.header-search input::placeholder { color: var(--text-faint); }
+
+.header-search-wrap {
+  position: relative;
+}
+
+.header-search-wrap::before {
+  content: '&#128269;';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.nav-links {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nav-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.nav-links a:hover { color: var(--gold); border-color: var(--gold-dim); }
+.nav-links a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ── Page body ── */
+.page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 380px;
+}
+
+.search-wrap input {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 9px 12px 9px 36px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-wrap input:focus { border-color: var(--gold-dim); }
+.search-wrap input::placeholder { color: var(--text-faint); }
+
+.search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  color: var(--text-faint);
+  pointer-events: none;
+  user-select: none;
+}
+
+.sort-group {
+  display: flex;
+  gap: 4px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px;
+}
+
+.sort-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.sort-btn.active { background: var(--bg4); color: var(--gold); }
+.sort-btn:hover:not(.active) { color: var(--text); }
+.sort-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+.gen-btn {
+  background: linear-gradient(135deg, var(--gold-dim), #a07820);
+  border: 1px solid var(--gold);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+  min-height: 44px;
+}
+
+.gen-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.gen-btn:active { transform: translateY(0); }
+.gen-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* ── Tabs ── */
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+}
+
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.15s, color 0.15s;
+  min-height: 44px;
+}
+
+.tab-btn:hover:not(.active) { color: var(--text); }
+.tab-btn.active { background: var(--bg4); color: var(--gold); }
+.tab-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.tab-count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(212,175,55,0.12);
+  color: var(--gold);
+  border: 1px solid rgba(212,175,55,0.2);
+  min-width: 22px;
+  text-align: center;
+}
+
+.tab-btn:not(.active) .tab-count {
+  background: var(--bg3);
+  color: var(--text-faint);
+  border-color: var(--border);
+}
+
+/* ── Tab panels ── */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Masonry (images) ── */
+.masonry-grid {
+  column-count: 3;
+  column-gap: 14px;
+}
+
+@media (max-width: 1000px) { .masonry-grid { column-count: 2; } }
+@media (max-width: 600px)  { .masonry-grid { column-count: 1; } }
+
+.img-item {
+  break-inside: avoid;
+  margin-bottom: 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  animation: fadeIn 0.3s ease;
+}
+
+.img-item:hover { border-color: var(--gold-dim); }
+.img-item:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: var(--radius); }
+
+.img-item img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+/* ── Card grid (3D + videos) ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 600px) { .card-grid { grid-template-columns: 1fr; } }
+
+.asset-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s;
+  animation: fadeIn 0.3s ease;
+}
+
+.asset-card:hover { border-color: var(--gold-dim); }
+
+.asset-card-preview {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.asset-card-preview img,
+.asset-card-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.asset-card-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.asset-card-prompt {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.asset-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.asset-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(212,175,55,0.12);
+  color: var(--gold);
+  border: 1px solid rgba(212,175,55,0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.asset-date {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  margin-left: auto;
+}
+
+.asset-card-actions {
+  display: flex;
+  gap: 6px;
+  padding: 0 12px 10px;
+}
+
+.action-btn {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: border-color 0.15s, color 0.15s;
+  min-height: 36px;
+}
+
+.action-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+.action-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Card caption row (images) */
+.img-caption {
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.img-caption-text {
+  flex: 1;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.img-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(212,175,55,0.12);
+  color: var(--gold);
+  border: 1px solid rgba(212,175,55,0.2);
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.img-dl {
+  color: var(--gold);
+  font-size: 0.8rem;
+  text-decoration: none;
+  padding: 2px 6px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.img-dl:hover { opacity: 0.75; }
+.img-dl:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ── Lightbox ── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.lightbox.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.lightbox-inner {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lightbox-inner img {
+  max-width: 90vw;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  display: block;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 32px;
+  height: 32px;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  line-height: 1;
+}
+
+.lightbox-close:hover { background: var(--bg3); color: var(--gold); }
+.lightbox-close:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.lightbox-caption {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-faint);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.empty-state .empty-icon {
+  font-size: 3rem;
+  opacity: 0.4;
+}
+
+.empty-state h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.empty-state p { font-size: 0.85rem; max-width: 320px; }
+
+.empty-state a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  background: linear-gradient(135deg, var(--gold-dim), #a07820);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: opacity 0.15s;
+  min-height: 44px;
+}
+
+.empty-state a:hover { opacity: 0.85; }
+.empty-state a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* ── Loading skeleton ── */
+.skeleton-grid {
+  column-count: 3;
+  column-gap: 14px;
+}
+
+@media (max-width: 1000px) { .skeleton-grid { column-count: 2; } }
+@media (max-width: 600px)  { .skeleton-grid { column-count: 1; } }
+
+.skeleton-card {
+  break-inside: avoid;
+  margin-bottom: 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-img {
+  width: 100%;
+  background: var(--bg3);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.hidden { display: none !important; }
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ── Responsive header ── */
+@media (max-width: 700px) {
+  .header { flex-wrap: wrap; gap: 10px; }
+  .nav-links { margin-left: 0; }
+  .toolbar { gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <h1>muLLM Assets</h1>
+    <div class="header-sub">Generated Assets Gallery</div>
+  </div>
+  <nav class="nav-links" aria-label="Site navigation">
+    <a href="/chat">Chat</a>
+    <a href="/image">Image</a>
+    <a href="/3d">3D</a>
+    <a href="/video">Video</a>
+  </nav>
+</header>
+
+<main class="page" aria-label="Asset gallery">
+
+  <!-- Toolbar -->
+  <div class="toolbar" role="toolbar" aria-label="Gallery controls">
+    <div class="search-wrap" role="search">
+      <span class="search-icon" aria-hidden="true">&#128269;</span>
+      <input type="search" id="search-input" placeholder="Filter by prompt..."
+             aria-label="Filter assets by prompt text"
+             oninput="applyFilter()">
+    </div>
+
+    <div class="sort-group" role="group" aria-label="Sort order">
+      <button class="sort-btn active" id="sort-newest"
+              onclick="setSort('newest')" title="Sort by newest first"
+              aria-pressed="true">Newest</button>
+      <button class="sort-btn" id="sort-oldest"
+              onclick="setSort('oldest')" title="Sort by oldest first"
+              aria-pressed="false">Oldest</button>
+    </div>
+
+    <a id="gen-link" href="/image" class="gen-btn" title="Generate a new asset">
+      Generate New &#8594;
+    </a>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar" role="tablist" aria-label="Asset type tabs">
+    <button class="tab-btn" id="tab-images"
+            role="tab" aria-selected="false" aria-controls="panel-images"
+            onclick="switchTab('images')" >
+      Images
+      <span class="tab-count" id="count-images">&#8212;</span>
+    </button>
+    <button class="tab-btn active" id="tab-3d"
+            role="tab" aria-selected="true" aria-controls="panel-3d"
+            onclick="switchTab('3d')">
+      3D Models
+      <span class="tab-count" id="count-3d">&#8212;</span>
+    </button>
+    <button class="tab-btn" id="tab-videos"
+            role="tab" aria-selected="false" aria-controls="panel-videos"
+            onclick="switchTab('videos')">
+      Videos
+      <span class="tab-count" id="count-videos">&#8212;</span>
+    </button>
+  </div>
+
+  <!-- Images panel -->
+  <div id="panel-images" class="tab-panel"
+       role="tabpanel" aria-labelledby="tab-images">
+    <div class="masonry-grid" id="images-grid" role="list" aria-label="Generated images"></div>
+  </div>
+
+  <!-- 3D Models panel -->
+  <div id="panel-3d" class="tab-panel active"
+       role="tabpanel" aria-labelledby="tab-3d">
+    <div class="card-grid" id="models-grid" role="list" aria-label="Generated 3D models"></div>
+  </div>
+
+  <!-- Videos panel -->
+  <div id="panel-videos" class="tab-panel"
+       role="tabpanel" aria-labelledby="tab-videos">
+    <div class="card-grid" id="videos-grid" role="list" aria-label="Generated videos"></div>
+  </div>
+
+</main>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Full size image"
+     onclick="closeLightbox(event)">
+  <div class="lightbox-inner">
+    <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close">&times;</button>
+    <img id="lightbox-img" src="#" alt="" loading="lazy">
+    <div class="lightbox-caption" id="lightbox-caption"></div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+const state = {
+  tab: '3d',
+  sort: 'newest',
+  query: '',
+  data: { images: [], models: [], videos: [] },
+};
+
+// ── Util ──
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function fmtDate(ts) {
+  if (!ts) return '';
+  const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+  if (isNaN(d)) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ── Tab switching ──
+function switchTab(tab) {
+  state.tab = tab;
+
+  // Update tab buttons
+  ['images', '3d', 'videos'].forEach(t => {
+    const btn   = document.getElementById('tab-' + t);
+    const panel = document.getElementById('panel-' + t);
+    const isActive = t === tab;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', String(isActive));
+    panel.classList.toggle('active', isActive);
+  });
+
+  // Update "Generate New" link target
+  const targets = { images: '/image', '3d': '/3d', videos: '/video' };
+  document.getElementById('gen-link').href = targets[tab] || '/image';
+
+  renderCurrent();
+}
+
+// ── Sort ──
+function setSort(s) {
+  state.sort = s;
+  document.getElementById('sort-newest').classList.toggle('active', s === 'newest');
+  document.getElementById('sort-oldest').classList.toggle('active', s === 'oldest');
+  document.getElementById('sort-newest').setAttribute('aria-pressed', String(s === 'newest'));
+  document.getElementById('sort-oldest').setAttribute('aria-pressed', String(s === 'oldest'));
+  renderCurrent();
+}
+
+// ── Filter ──
+function applyFilter() {
+  state.query = document.getElementById('search-input').value.toLowerCase().trim();
+  renderCurrent();
+}
+
+function filterItems(items) {
+  if (!state.query) return items;
+  return items.filter(item => {
+    const text = (item.prompt || item.filename || '').toLowerCase();
+    return text.includes(state.query);
+  });
+}
+
+function sortItems(items) {
+  const ts = item => {
+    const v = item.created_at || item.timestamp || 0;
+    return typeof v === 'number' ? v : new Date(v).getTime() / 1000 || 0;
+  };
+  return [...items].sort((a, b) =>
+    state.sort === 'newest' ? ts(b) - ts(a) : ts(a) - ts(b)
+  );
+}
+
+function renderCurrent() {
+  if (state.tab === 'images')  renderImages();
+  if (state.tab === '3d')      renderModels();
+  if (state.tab === 'videos')  renderVideos();
+}
+
+// ── Images ──
+function renderImages() {
+  const grid = document.getElementById('images-grid');
+  const items = sortItems(filterItems(state.data.images));
+  grid.innerHTML = '';
+
+  if (!items.length) {
+    grid.appendChild(makeEmptyState('images'));
+    return;
+  }
+
+  for (const img of items) {
+    const caption = img.prompt || img.filename || '';
+    const dlName  = (img.filename || 'image.png').replace(/[^a-z0-9._-]/gi, '_');
+
+    const item = document.createElement('div');
+    item.className = 'img-item';
+    item.setAttribute('role', 'listitem');
+    item.setAttribute('tabindex', '0');
+    item.setAttribute('aria-label', 'Image: ' + caption.slice(0, 80));
+    item.innerHTML = `
+      <img src="${escAttr(img.url)}" alt="${escAttr(caption.slice(0, 120))}" loading="lazy">
+      <div class="img-caption">
+        <span class="img-caption-text" title="${escAttr(caption)}">${escHtml(caption)}</span>
+        ${img.model ? `<span class="img-badge" title="Model used">${escHtml(img.model)}</span>` : ''}
+        <a class="img-dl" href="${escAttr(img.url)}" download="${escAttr(dlName)}"
+           title="Download image" aria-label="Download ${escAttr(caption.slice(0,40))}"
+           onclick="event.stopPropagation()">&#8595;</a>
+      </div>`;
+    item.addEventListener('click', () => openLightbox(img.url, caption));
+    item.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(img.url, caption); }
+    });
+    grid.appendChild(item);
+  }
+}
+
+// ── 3D Models ──
+function renderModels() {
+  const grid  = document.getElementById('models-grid');
+  const items = sortItems(filterItems(state.data.models));
+  grid.innerHTML = '';
+
+  if (!items.length) {
+    grid.appendChild(makeEmptyState('3d'));
+    return;
+  }
+
+  for (const model of items) {
+    const caption  = model.prompt || model.filename || '';
+    const dlName   = (model.filename || 'model.glb').replace(/[^a-z0-9._-]/gi, '_');
+    const viewUrl  = model.view_url || (model.url ? `/3d?model=${encodeURIComponent(model.url)}` : '/3d');
+    const hasThumb = !!model.thumbnail;
+
+    const card = document.createElement('div');
+    card.className = 'asset-card';
+    card.setAttribute('role', 'listitem');
+    card.innerHTML = `
+      <div class="asset-card-preview">
+        ${hasThumb
+          ? `<img src="${escAttr(model.thumbnail)}" alt="Preview of ${escAttr(caption.slice(0,60))}" loading="lazy">`
+          : `<span aria-hidden="true" title="No preview available">&#11035;</span>`}
+      </div>
+      <div class="asset-card-body">
+        <div class="asset-card-prompt" title="${escAttr(caption)}">${escHtml(caption)}</div>
+        <div class="asset-card-meta">
+          ${model.model ? `<span class="asset-badge">${escHtml(model.model)}</span>` : ''}
+          <span class="asset-date">${escHtml(fmtDate(model.created_at))}</span>
+        </div>
+      </div>
+      <div class="asset-card-actions">
+        <a class="action-btn" href="${escAttr(viewUrl)}"
+           title="Open in 3D viewer" aria-label="View in 3D viewer">
+          &#128252; View
+        </a>
+        <a class="action-btn" href="${escAttr(model.url || '#')}" download="${escAttr(dlName)}"
+           title="Download GLB file" aria-label="Download ${escAttr(caption.slice(0,40))}">
+          &#8595; GLB
+        </a>
+      </div>`;
+    grid.appendChild(card);
+  }
+}
+
+// ── Videos ──
+function renderVideos() {
+  const grid  = document.getElementById('videos-grid');
+  const items = sortItems(filterItems(state.data.videos));
+  grid.innerHTML = '';
+
+  if (!items.length) {
+    grid.appendChild(makeEmptyState('videos'));
+    return;
+  }
+
+  for (const vid of items) {
+    const caption = vid.prompt || vid.filename || '';
+    const dlName  = (vid.filename || 'video.mp4').replace(/[^a-z0-9._-]/gi, '_');
+
+    const card = document.createElement('div');
+    card.className = 'asset-card';
+    card.setAttribute('role', 'listitem');
+    card.innerHTML = `
+      <div class="asset-card-preview">
+        <video src="${escAttr(vid.url)}" autoplay loop muted playsinline
+               title="${escAttr(caption)}"
+               aria-label="Generated video: ${escAttr(caption.slice(0,80))}"
+               onclick="this.paused ? this.play() : this.pause()"></video>
+      </div>
+      <div class="asset-card-body">
+        <div class="asset-card-prompt" title="${escAttr(caption)}">${escHtml(caption)}</div>
+        <div class="asset-card-meta">
+          ${vid.model ? `<span class="asset-badge">${escHtml(vid.model)}</span>` : ''}
+          <span class="asset-date">${escHtml(fmtDate(vid.created_at))}</span>
+        </div>
+      </div>
+      <div class="asset-card-actions">
+        <a class="action-btn" href="${escAttr(vid.url)}" download="${escAttr(dlName)}"
+           title="Download video" aria-label="Download ${escAttr(caption.slice(0,40))}">
+          &#8595; Download
+        </a>
+      </div>`;
+    grid.appendChild(card);
+  }
+}
+
+// ── Empty states ──
+function makeEmptyState(type) {
+  const configs = {
+    images: {
+      icon: '&#127748;',
+      title: 'No images yet',
+      msg: 'Generate your first AI image to see it here.',
+      link: '/image',
+      cta: 'Generate Image',
+    },
+    '3d': {
+      icon: '&#11035;',
+      title: 'No 3D models yet',
+      msg: 'Create a 3D model from a text prompt.',
+      link: '/3d',
+      cta: 'Generate 3D Model',
+    },
+    videos: {
+      icon: '&#127910;',
+      title: 'No videos yet',
+      msg: 'Generate a video with Wan2.2.',
+      link: '/video',
+      cta: 'Generate Video',
+    },
+  };
+
+  const c = configs[type] || configs.images;
+  const el = document.createElement('div');
+  el.className = 'empty-state';
+  el.innerHTML = `
+    <div class="empty-icon" aria-hidden="true">${c.icon}</div>
+    <h3>${escHtml(c.title)}</h3>
+    <p>${escHtml(c.msg)}</p>
+    <a href="${escAttr(c.link)}" title="${escAttr(c.cta)}">${escHtml(c.cta)} &#8594;</a>`;
+  return el;
+}
+
+// ── Lightbox ──
+function openLightbox(url, caption) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox-img').alt = caption;
+  document.getElementById('lightbox-caption').textContent = caption;
+  const lb = document.getElementById('lightbox');
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  lb.querySelector('.lightbox-close').focus();
+}
+
+function closeLightbox(evt) {
+  if (evt && evt.target !== document.getElementById('lightbox') &&
+      !evt.target.classList.contains('lightbox-close')) return;
+  const lb = document.getElementById('lightbox');
+  lb.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeLightbox({ target: document.getElementById('lightbox') });
+});
+
+// ── Load data ──
+async function safeFetch(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return r.json();
+  } catch (_) { return null; }
+}
+
+async function loadAll() {
+  const [imgData, modelData, vidData] = await Promise.all([
+    safeFetch('/api/image/list'),
+    safeFetch('/api/3d-assets'),
+    safeFetch('/api/video/list'),
+  ]);
+
+  state.data.images = (imgData && imgData.images)  || [];
+  state.data.models = (modelData && (modelData.assets || modelData.models || modelData.items)) || [];
+  state.data.videos = (vidData && vidData.videos)   || [];
+
+  // Update counts
+  document.getElementById('count-images').textContent = state.data.images.length || '0';
+  document.getElementById('count-3d').textContent     = state.data.models.length || '0';
+  document.getElementById('count-videos').textContent = state.data.videos.length || '0';
+
+  renderCurrent();
+}
+
+// ── Init ──
+loadAll();
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <title>muLLM — Model Accuracy</title>
+    <meta name="description" content="muLLM model accuracy dashboard — Elo leaderboard from cache displacement, neighborhood scoring, complexity radar." />
+    <meta name="theme-color" content="#a78bfa" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#7c3aed" media="(prefers-color-scheme: light)" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.json" />
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      :root, [data-theme="dark"] {
+        --bg: #0a0e1a; --bg2: #111827; --bg3: #1a2332; --border: #1e2d3d;
+        --green: #22c55e; --teal: #14b8a6; --blue: #3b82f6; --amber: #f59e0b;
+        --coral: #ef6c4c; --purple: #a78bfa; --pink: #ec4899;
+        --text: #e2e8f0; --text2: #94a3b8; --text3: #8294a7;
+        --mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
+        --sans: "Inter", -apple-system, sans-serif;
+        color-scheme: dark;
+      }
+      [data-theme="light"] {
+        --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --border: #cbd5e1;
+        --green: #16a34a; --teal: #0d9488; --blue: #2563eb; --amber: #d97706;
+        --coral: #dc2626; --purple: #7c3aed; --pink: #db2777;
+        --text: #0f172a; --text2: #475569; --text3: #64748b;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --border: #cbd5e1;
+          --green: #16a34a; --teal: #0d9488; --blue: #2563eb; --amber: #d97706;
+          --coral: #dc2626; --purple: #7c3aed; --pink: #db2777;
+          --text: #0f172a; --text2: #475569; --text3: #64748b;
+          color-scheme: light;
+        }
+      }
+      body {
+        font-family: var(--sans); background: var(--bg); color: var(--text);
+        min-height: 100vh; line-height: 1.5;
+      }
+      a { color: var(--purple); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      /* ── Topbar ── */
+      .topbar {
+        display: flex; align-items: center; gap: 12px; padding: 8px 20px;
+        background: var(--bg2); border-bottom: 1px solid var(--border);
+        position: sticky; top: 0; z-index: 100; flex-wrap: wrap;
+      }
+      .topbar .logo {
+        font-family: var(--mono); font-weight: 700; font-size: 14px;
+        white-space: nowrap; display: flex; align-items: center; gap: 0;
+        text-decoration: none;
+      }
+      .logo-mu { color: var(--amber); font-family: 'Times New Roman', Georgia, serif; font-size: 18px; font-style: italic; line-height: 14px; }
+      .logo-pipe { color: var(--text3); font-size: 20px; line-height: 14px; margin: 0 -1px; font-weight: 400; opacity: 0.5; }
+      .logo-llm { color: var(--teal); letter-spacing: 1px; }
+      .logo-tardi { height: 14px; margin-left: 6px; opacity: 0.7; filter: invert(1) brightness(0.8); transition: opacity 0.2s; }
+      .logo-tardi:hover { opacity: 1; }
+      .nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+      .nav-link {
+        padding: 4px 10px; border-radius: 6px; font-size: .82rem;
+        color: var(--text2); transition: all .15s;
+      }
+      .nav-link:hover { background: var(--bg3); color: var(--text); text-decoration: none; }
+      .nav-link.active { background: var(--purple); color: #fff; }
+      .topbar-spacer { flex: 1; }
+      .theme-toggle {
+        background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+        padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: .82rem;
+      }
+      .theme-toggle:hover { color: var(--text); }
+
+      /* ── Main Content ── */
+      .main { max-width: 1200px; margin: 0 auto; padding: 20px; }
+      h1 { font-size: 1.6rem; margin-bottom: 4px; }
+      .subtitle { color: var(--text2); font-size: .9rem; margin-bottom: 20px; }
+
+      /* ── Signal Strength ── */
+      .signal-bar {
+        display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+        background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+        margin-bottom: 20px;
+      }
+      .signal-dots { display: flex; gap: 4px; }
+      .signal-dot {
+        width: 12px; height: 12px; border-radius: 50%;
+        background: var(--bg3); transition: background .3s;
+      }
+      .signal-dot.active { background: var(--green); }
+      .signal-dot.active.medium { background: var(--amber); }
+      .signal-dot.active.warm { background: var(--coral); }
+      .signal-label { font-size: .85rem; color: var(--text2); }
+      .signal-count { font-family: var(--mono); font-size: .85rem; color: var(--text3); margin-left: auto; }
+
+      /* ── Cards ── */
+      .card {
+        background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+        padding: 16px; margin-bottom: 16px;
+      }
+      .card h2 { font-size: 1.1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+      .card h2 .icon { font-size: 1.2rem; }
+
+      /* ── Elo Table ── */
+      .elo-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+      .elo-table th {
+        text-align: left; padding: 8px 10px; color: var(--text3);
+        border-bottom: 2px solid var(--border); font-weight: 600;
+        cursor: pointer; user-select: none; white-space: nowrap;
+      }
+      .elo-table th:hover { color: var(--text); }
+      .elo-table th .sort-arrow { font-size: .7rem; margin-left: 4px; }
+      .elo-table td {
+        padding: 8px 10px; border-bottom: 1px solid var(--border);
+        font-family: var(--mono); white-space: nowrap;
+      }
+      .elo-table tr:hover td { background: var(--bg3); }
+      .elo-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 4px;
+        font-weight: 700; font-size: .8rem;
+      }
+      .elo-gold { background: #fbbf2440; color: #fbbf24; }
+      .elo-silver { background: #94a3b840; color: #94a3b8; }
+      .elo-bronze { background: #d9770640; color: #d97706; }
+      .elo-normal { color: var(--text2); }
+      .win { color: var(--green); }
+      .loss { color: var(--coral); }
+      .rate-bar {
+        width: 60px; height: 6px; background: var(--bg3); border-radius: 3px;
+        display: inline-block; vertical-align: middle; margin-right: 6px;
+      }
+      .rate-fill { height: 100%; border-radius: 3px; background: var(--green); }
+      .categories { display: flex; gap: 4px; flex-wrap: wrap; }
+      .cat-tag {
+        font-size: .7rem; padding: 1px 6px; border-radius: 3px;
+        background: var(--bg3); color: var(--text3); font-family: var(--sans);
+      }
+
+      /* ── Grid ── */
+      .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+      /* ── Radar Chart ── */
+      .radar-wrap { max-width: 320px; margin: 0 auto; }
+
+      /* ── Heatmap ── */
+      .heatmap { display: grid; gap: 2px; font-size: .75rem; }
+      .heatmap-cell {
+        padding: 6px 4px; text-align: center; border-radius: 4px;
+        font-family: var(--mono); font-size: .75rem; min-width: 50px;
+      }
+      .heatmap-header { font-weight: 600; color: var(--text2); background: transparent; }
+      .heatmap-model { text-align: right; padding-right: 8px; color: var(--text2); background: transparent; }
+
+      /* ── Displacement Feed ── */
+      .feed { max-height: 300px; overflow-y: auto; }
+      .feed-item {
+        display: flex; align-items: center; gap: 8px; padding: 6px 0;
+        border-bottom: 1px solid var(--border); font-size: .82rem;
+      }
+      .feed-item:last-child { border: none; }
+      .feed-arrow { color: var(--green); font-weight: 700; font-size: 1rem; }
+      .feed-winner { color: var(--green); font-weight: 600; }
+      .feed-loser { color: var(--text3); }
+      .feed-query { color: var(--text2); font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .feed-time { color: var(--text3); font-size: .75rem; margin-left: auto; font-family: var(--mono); }
+
+      /* ── Neighborhood Explorer ── */
+      .explorer-input {
+        width: 100%; padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border);
+        border-radius: 8px; color: var(--text); font-size: .9rem; font-family: var(--sans);
+        outline: none; transition: border-color .2s;
+      }
+      .explorer-input:focus { border-color: var(--purple); }
+      .explorer-results { margin-top: 12px; }
+      .nbr-bar {
+        display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+      }
+      .nbr-name { width: 120px; font-size: .82rem; color: var(--text2); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .nbr-track { flex: 1; height: 20px; background: var(--bg3); border-radius: 4px; position: relative; overflow: hidden; }
+      .nbr-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+      .nbr-pct { font-family: var(--mono); font-size: .78rem; color: var(--text3); width: 50px; }
+
+      /* ── Empty State ── */
+      .empty {
+        text-align: center; padding: 40px; color: var(--text3);
+      }
+      .empty .icon { font-size: 2rem; margin-bottom: 8px; display: block; }
+      .empty p { font-size: .9rem; }
+
+      /* ── Scroll ── */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+      /* ── Loading ── */
+      .loading { display: flex; align-items: center; justify-content: center; padding: 40px; gap: 8px; color: var(--text3); }
+      .spin { animation: spin 1s linear infinite; display: inline-block; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* ── Responsive table ── */
+      .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+      /* ── Tooltip ── */
+      [data-tooltip] { position: relative; }
+      [data-tooltip]:hover::after {
+        content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%;
+        transform: translateX(-50%); padding: 4px 8px; background: var(--bg);
+        border: 1px solid var(--border); border-radius: 4px; font-size: .75rem;
+        color: var(--text); white-space: nowrap; z-index: 50; pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ── Topbar ── -->
+    <div class="topbar" role="banner">
+      <a href="/" class="logo" aria-label="muLLM" style="text-decoration:none"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot"></a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="/chat" class="nav-link">Chat</a>
+        <a href="/dashboard" class="nav-link">Dashboard</a>
+        <a href="/performance" class="nav-link">Performance</a>
+        <a href="/accuracy" class="nav-link active" aria-current="page">Accuracy</a>
+        <a href="/games" class="nav-link">Games</a>
+      </nav>
+      <div class="topbar-spacer"></div>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" data-tooltip="Toggle theme">
+        <span id="theme-icon">🌙</span>
+      </button>
+    </div>
+
+    <!-- ── Main ── -->
+    <main class="main" role="main">
+      <h1>Model Accuracy</h1>
+      <p class="subtitle">Passive quality ranking from cache displacement Elo + neighborhood scoring. Zero extra API cost.</p>
+
+      <!-- Signal Strength -->
+      <div class="signal-bar" role="status" aria-label="Signal strength">
+        <div class="signal-dots" id="signal-dots">
+          <div class="signal-dot"></div>
+          <div class="signal-dot"></div>
+          <div class="signal-dot"></div>
+          <div class="signal-dot"></div>
+          <div class="signal-dot"></div>
+        </div>
+        <span class="signal-label" id="signal-label">Loading...</span>
+        <span class="signal-count" id="signal-count"></span>
+      </div>
+
+      <!-- Elo Leaderboard -->
+      <div class="card" id="leaderboard-card">
+        <h2><span class="icon" aria-hidden="true">🏆</span> Elo Leaderboard</h2>
+        <div class="table-wrap">
+          <table class="elo-table" id="elo-table" aria-label="Model Elo leaderboard">
+            <thead>
+              <tr>
+                <th data-col="rank" data-tooltip="Position">#</th>
+                <th data-col="model" data-tooltip="Model name">Model</th>
+                <th data-col="elo" data-tooltip="Elo rating from cache displacement">Elo <span class="sort-arrow">▼</span></th>
+                <th data-col="displacement_wins" data-tooltip="Times this model replaced another in cache">W</th>
+                <th data-col="displacement_losses" data-tooltip="Times another model replaced this one">L</th>
+                <th data-col="success_rate" data-tooltip="Success rate from scoring log">Success</th>
+                <th data-col="queries" data-tooltip="Total queries handled">Queries</th>
+                <th data-col="avg_latency_ms" data-tooltip="Average latency in milliseconds">Latency</th>
+                <th data-col="categories" data-tooltip="Top categories">Categories</th>
+              </tr>
+            </thead>
+            <tbody id="elo-body">
+              <tr><td colspan="9" class="loading"><span class="spin">⟳</span> Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Complexity Radar -->
+        <div class="card">
+          <h2><span class="icon" aria-hidden="true">📊</span> Complexity Radar</h2>
+          <div class="radar-wrap">
+            <canvas id="radar-chart" aria-label="Radar chart comparing model performance across simple, medium, and complex queries"></canvas>
+          </div>
+          <p id="radar-empty" class="empty" style="display:none">
+            <span class="icon" aria-hidden="true">📡</span>
+            <span>Need more data to render radar. Keep querying!</span>
+          </p>
+        </div>
+
+        <!-- Category Heatmap -->
+        <div class="card">
+          <h2><span class="icon" aria-hidden="true">🗺️</span> Category Heatmap</h2>
+          <div class="table-wrap">
+            <div id="heatmap" class="heatmap" role="grid" aria-label="Model vs category success rate heatmap"></div>
+          </div>
+          <p id="heatmap-empty" class="empty" style="display:none">
+            <span class="icon" aria-hidden="true">🗺️</span>
+            <span>No category data yet.</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Displacement Feed -->
+        <div class="card">
+          <h2><span class="icon" aria-hidden="true">⚡</span> Recent Displacements</h2>
+          <div class="feed" id="displacement-feed" role="log" aria-label="Recent cache displacement events" aria-live="polite">
+            <div class="loading"><span class="spin">⟳</span> Loading...</div>
+          </div>
+        </div>
+
+        <!-- Neighborhood Explorer -->
+        <div class="card">
+          <h2><span class="icon" aria-hidden="true">🔍</span> Neighborhood Explorer</h2>
+          <label for="nbr-input" class="sr-only">Type a query to see which models dominate that embedding region</label>
+          <input id="nbr-input" class="explorer-input" type="text"
+            placeholder="Type a query to explore model neighborhoods..."
+            aria-describedby="nbr-desc" />
+          <p id="nbr-desc" style="font-size:.78rem;color:var(--text3);margin-top:4px;">
+            Shows which models perform best for queries similar to yours.
+          </p>
+          <div id="nbr-results" class="explorer-results"></div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+    /* ── Theme ── */
+    function getTheme() {
+      return localStorage.getItem('mullm-theme') || (matchMedia('(prefers-color-scheme:light)').matches ? 'light' : 'dark');
+    }
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      document.getElementById('theme-icon').textContent = t === 'light' ? '☀️' : '🌙';
+      localStorage.setItem('mullm-theme', t);
+    }
+    function toggleTheme() {
+      applyTheme(getTheme() === 'dark' ? 'light' : 'dark');
+    }
+    applyTheme(getTheme());
+
+    /* ── State ── */
+    let leaderboardData = null;
+    let sortCol = 'elo';
+    let sortAsc = false;
+    let displacementLog = [];
+
+    /* ── Fetch Leaderboard ── */
+    async function fetchLeaderboard(query = '') {
+      try {
+        const url = query ? `/api/leaderboard?query=${encodeURIComponent(query)}` : '/api/leaderboard';
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`${r.status}`);
+        return await r.json();
+      } catch (e) {
+        console.error('Leaderboard fetch failed:', e);
+        return null;
+      }
+    }
+
+    /* ── Signal Strength ── */
+    function renderSignal(data) {
+      const dots = document.querySelectorAll('#signal-dots .signal-dot');
+      const label = document.getElementById('signal-label');
+      const count = document.getElementById('signal-count');
+      const s = data.signal_strength;
+      const total = data.total_displacements;
+      const levels = s === 'strong' ? 5 : s === 'moderate' ? 3 : 1;
+      dots.forEach((d, i) => {
+        d.classList.toggle('active', i < levels);
+        d.classList.toggle('warm', s === 'warming_up' && i < levels);
+        d.classList.toggle('medium', s === 'moderate' && i < levels);
+      });
+      const labels = { warming_up: 'Warming Up', moderate: 'Moderate Signal', strong: 'Strong Signal' };
+      label.textContent = labels[s] || s;
+      count.textContent = `${total} displacement${total !== 1 ? 's' : ''}`;
+    }
+
+    /* ── Elo Table ── */
+    function renderEloTable(data) {
+      const tbody = document.getElementById('elo-body');
+      const models = [...data.models];
+
+      // Sort
+      models.sort((a, b) => {
+        let va = a[sortCol], vb = b[sortCol];
+        if (sortCol === 'categories') {
+          va = (a.top_categories || [])[0]?.[0] || '';
+          vb = (b.top_categories || [])[0]?.[0] || '';
+        }
+        if (sortCol === 'model') return sortAsc ? String(va).localeCompare(vb) : String(vb).localeCompare(va);
+        if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return sortAsc ? va - vb : vb - va;
+      });
+
+      if (models.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty"><span class="icon">🏆</span><p>No model data yet. Start querying to build the leaderboard!</p></td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = models.map((m, i) => {
+        const rank = i + 1;
+        const eloCls = rank === 1 ? 'elo-gold' : rank === 2 ? 'elo-silver' : rank === 3 ? 'elo-bronze' : 'elo-normal';
+        const ratePct = Math.round(m.success_rate * 100);
+        const cats = (m.top_categories || []).map(c => `<span class="cat-tag">${esc(c[0])}</span>`).join('');
+        return `<tr>
+          <td>${rank}</td>
+          <td style="color:var(--text);font-weight:600">${esc(shortModel(m.model))}</td>
+          <td><span class="elo-badge ${eloCls}">${m.elo}</span></td>
+          <td class="win">${m.displacement_wins}</td>
+          <td class="loss">${m.displacement_losses}</td>
+          <td><span class="rate-bar"><span class="rate-fill" style="width:${ratePct}%"></span></span>${ratePct}%</td>
+          <td>${m.queries.toLocaleString()}</td>
+          <td>${m.avg_latency_ms > 0 ? m.avg_latency_ms + 'ms' : '—'}</td>
+          <td><div class="categories">${cats || '—'}</div></td>
+        </tr>`;
+      }).join('');
+
+      // Update sort arrows
+      document.querySelectorAll('.elo-table th').forEach(th => {
+        const arrow = th.querySelector('.sort-arrow');
+        if (arrow) arrow.remove();
+        if (th.dataset.col === sortCol) {
+          th.insertAdjacentHTML('beforeend', `<span class="sort-arrow">${sortAsc ? '▲' : '▼'}</span>`);
+        }
+      });
+    }
+
+    function shortModel(name) {
+      return name.replace(/^(anthropic|openai|google|meta|mistral)\//i, '').replace(/-\d{8}$/, '');
+    }
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    /* ── Sort Handler ── */
+    document.querySelector('.elo-table thead').addEventListener('click', e => {
+      const th = e.target.closest('th');
+      if (!th || !th.dataset.col) return;
+      if (sortCol === th.dataset.col) {
+        sortAsc = !sortAsc;
+      } else {
+        sortCol = th.dataset.col;
+        sortAsc = false;
+      }
+      if (leaderboardData) renderEloTable(leaderboardData);
+    });
+
+    /* ── Radar Chart ── */
+    let radarChart = null;
+    const MODEL_COLORS = [
+      '#a78bfa', '#22c55e', '#3b82f6', '#f59e0b', '#ef6c4c',
+      '#ec4899', '#14b8a6', '#6366f1', '#84cc16', '#f97316',
+    ];
+
+    function renderRadar(data) {
+      const canvas = document.getElementById('radar-chart');
+      const emptyEl = document.getElementById('radar-empty');
+      const models = data.models.filter(m => m.by_complexity && Object.keys(m.by_complexity).length > 0);
+
+      if (models.length === 0) {
+        canvas.style.display = 'none';
+        emptyEl.style.display = '';
+        return;
+      }
+      canvas.style.display = '';
+      emptyEl.style.display = 'none';
+
+      const bands = ['simple', 'medium', 'complex'];
+      const datasets = models.slice(0, 8).map((m, i) => ({
+        label: shortModel(m.model),
+        data: bands.map(b => (m.by_complexity[b]?.success_rate || 0) * 100),
+        borderColor: MODEL_COLORS[i % MODEL_COLORS.length],
+        backgroundColor: MODEL_COLORS[i % MODEL_COLORS.length] + '20',
+        pointBackgroundColor: MODEL_COLORS[i % MODEL_COLORS.length],
+        borderWidth: 2,
+        pointRadius: 4,
+      }));
+
+      if (radarChart) radarChart.destroy();
+      radarChart = new Chart(canvas, {
+        type: 'radar',
+        data: { labels: bands.map(b => b.charAt(0).toUpperCase() + b.slice(1)), datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          scales: {
+            r: {
+              beginAtZero: true, max: 100,
+              ticks: { stepSize: 25, color: 'var(--text3)', backdropColor: 'transparent' },
+              grid: { color: 'rgba(148,163,184,0.15)' },
+              pointLabels: { color: 'var(--text2)', font: { size: 13 } },
+            }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: 'var(--text2)', boxWidth: 12, padding: 8, font: { size: 11 } } },
+            tooltip: {
+              callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` }
+            }
+          }
+        }
+      });
+    }
+
+    /* ── Category Heatmap ── */
+    function renderHeatmap(data) {
+      const container = document.getElementById('heatmap');
+      const emptyEl = document.getElementById('heatmap-empty');
+      const models = data.models.filter(m => m.top_categories && m.top_categories.length > 0);
+
+      if (models.length === 0) {
+        container.style.display = 'none';
+        emptyEl.style.display = '';
+        return;
+      }
+      container.style.display = 'grid';
+      emptyEl.style.display = 'none';
+
+      // Collect all categories
+      const catSet = new Set();
+      models.forEach(m => (m.top_categories || []).forEach(c => catSet.add(c[0])));
+      const cats = [...catSet].sort().slice(0, 8);
+
+      // We need per-model per-category success rates — approximate from scoring log via top_categories count
+      const cols = cats.length + 1;
+      container.style.gridTemplateColumns = `100px repeat(${cats.length}, 1fr)`;
+
+      let html = '<div class="heatmap-cell heatmap-header"></div>';
+      cats.forEach(c => { html += `<div class="heatmap-cell heatmap-header" data-tooltip="${esc(c)}">${esc(c.slice(0, 8))}</div>`; });
+
+      models.slice(0, 10).forEach(m => {
+        const catCounts = Object.fromEntries(m.top_categories || []);
+        const total = Object.values(catCounts).reduce((a, b) => a + b, 0) || 1;
+        html += `<div class="heatmap-cell heatmap-model" title="${esc(m.model)}">${esc(shortModel(m.model).slice(0, 12))}</div>`;
+        cats.forEach(c => {
+          const count = catCounts[c] || 0;
+          const pct = Math.round((count / total) * 100);
+          // Color: green for high usage, dim for low
+          const intensity = Math.min(count / (total * 0.5), 1);
+          const bg = intensity > 0.5 ? `rgba(34,197,94,${0.2 + intensity * 0.4})` : intensity > 0 ? `rgba(59,130,246,${0.15 + intensity * 0.3})` : 'var(--bg3)';
+          html += `<div class="heatmap-cell" style="background:${bg}" data-tooltip="${esc(c)}: ${count} queries">${count > 0 ? count : '·'}</div>`;
+        });
+      });
+
+      container.innerHTML = html;
+    }
+
+    /* ── Displacement Feed ── */
+    async function fetchDisplacements() {
+      try {
+        const r = await fetch('/api/displacements?limit=30');
+        if (!r.ok) return [];
+        const d = await r.json();
+        return d.events || [];
+      } catch { return []; }
+    }
+
+    function renderDisplacementFeed(data, events) {
+      const feed = document.getElementById('displacement-feed');
+
+      if ((!events || events.length === 0) && data.total_displacements === 0) {
+        feed.innerHTML = '<div class="empty"><span class="icon">⚡</span><p>No displacements yet. As you query, models will compete for cache spots.</p></div>';
+        return;
+      }
+
+      // Use real displacement events if available
+      if (events && events.length > 0) {
+        feed.innerHTML = events.slice(0, 20).map(e => {
+          const ago = timeAgo(e.ts);
+          const q = e.query ? e.query.slice(0, 40) : '';
+          return `<div class="feed-item">
+            <span class="feed-arrow" aria-hidden="true">→</span>
+            <span class="feed-winner">${esc(shortModel(e.winner))}</span>
+            <span style="color:var(--text3)">beat</span>
+            <span class="feed-loser">${esc(shortModel(e.loser))}</span>
+            ${q ? `<span class="feed-query" title="${esc(e.query)}">${esc(q)}</span>` : ''}
+            <span class="feed-time">${ago}</span>
+          </div>`;
+        }).join('');
+        return;
+      }
+
+      // Fallback: synthetic from model data
+      const items = (data.models || []).filter(m => m.displacement_wins > 0)
+        .sort((a, b) => b.displacement_wins - a.displacement_wins);
+      feed.innerHTML = items.slice(0, 20).map(item => `
+        <div class="feed-item">
+          <span class="feed-arrow" aria-hidden="true">→</span>
+          <span class="feed-winner">${esc(shortModel(item.model))}</span>
+          <span style="color:var(--text3)">displaced</span>
+          <span class="feed-loser">${item.displacement_wins} entries</span>
+          <span class="feed-time">Elo ${item.elo}</span>
+        </div>
+      `).join('');
+    }
+
+    function timeAgo(ts) {
+      const s = Math.floor(Date.now() / 1000 - ts);
+      if (s < 60) return s + 's ago';
+      if (s < 3600) return Math.floor(s / 60) + 'm ago';
+      if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+      return Math.floor(s / 86400) + 'd ago';
+    }
+
+    /* ── Neighborhood Explorer ── */
+    let nbrDebounce = null;
+    document.getElementById('nbr-input').addEventListener('input', e => {
+      clearTimeout(nbrDebounce);
+      nbrDebounce = setTimeout(() => exploreNeighborhood(e.target.value), 400);
+    });
+
+    async function exploreNeighborhood(query) {
+      const results = document.getElementById('nbr-results');
+      if (!query || query.length < 3) {
+        results.innerHTML = '';
+        return;
+      }
+
+      results.innerHTML = '<div class="loading"><span class="spin">⟳</span> Searching...</div>';
+
+      const data = await fetchLeaderboard(query);
+      if (!data || !data.neighborhood) {
+        results.innerHTML = '<p style="color:var(--text3);font-size:.85rem;padding:8px">No neighborhood data found. Try a different query.</p>';
+        return;
+      }
+
+      const nbrs = Object.entries(data.neighborhood)
+        .map(([model, stats]) => ({ model, ...stats }))
+        .sort((a, b) => b.success_rate - a.success_rate);
+
+      if (nbrs.length === 0) {
+        results.innerHTML = '<p style="color:var(--text3);font-size:.85rem;padding:8px">No neighbors found for this query region.</p>';
+        return;
+      }
+
+      results.innerHTML = nbrs.map((n, i) => {
+        const pct = Math.round(n.success_rate * 100);
+        const color = MODEL_COLORS[i % MODEL_COLORS.length];
+        return `<div class="nbr-bar">
+          <span class="nbr-name" title="${esc(n.model)}">${esc(shortModel(n.model))}</span>
+          <div class="nbr-track"><div class="nbr-fill" style="width:${pct}%;background:${color}"></div></div>
+          <span class="nbr-pct">${pct}%</span>
+        </div>`;
+      }).join('');
+    }
+
+    /* ── Init ── */
+    async function init() {
+      const [lb, events] = await Promise.all([fetchLeaderboard(), fetchDisplacements()]);
+      leaderboardData = lb;
+      if (!leaderboardData) {
+        document.getElementById('elo-body').innerHTML = '<tr><td colspan="9" class="empty"><span class="icon">🏆</span><p>Could not load leaderboard. Is the server running?</p></td></tr>';
+        return;
+      }
+      renderSignal(leaderboardData);
+      renderEloTable(leaderboardData);
+      renderRadar(leaderboardData);
+      renderHeatmap(leaderboardData);
+      renderDisplacementFeed(leaderboardData, events);
+    }
+
+    // Wait for Chart.js
+    if (typeof Chart !== 'undefined') {
+      init();
+    } else {
+      const s = document.querySelector('script[src*="chart.js"]');
+      if (s) s.addEventListener('load', init);
+      else window.addEventListener('load', init);
+    }
+
+    // Auto-refresh every 30s
+    setInterval(async () => {
+      const [data, events] = await Promise.all([fetchLeaderboard(), fetchDisplacements()]);
+      if (data) {
+        leaderboardData = data;
+        renderSignal(data);
+        renderEloTable(data);
+        renderRadar(data);
+        renderHeatmap(data);
+        renderDisplacementFeed(data, events);
+      }
+    }, 30000);
+    </script>
+  </body>
+</html>

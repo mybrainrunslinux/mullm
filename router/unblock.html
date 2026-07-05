@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mu|LLM — Unblock</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;--bg4:#243044;
+  --border:#1e2d3d;--border2:#2a3a4d;
+  --green:#22c55e;--teal:#14b8a6;--blue:#3b82f6;--amber:#f59e0b;
+  --coral:#ef6c4c;--red:#ef4444;--orange:#f97316;--yellow:#eab308;--purple:#a78bfa;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,sans-serif;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);padding:0;margin:0}
+.logo{font-weight:700;font-size:14px;display:flex;align-items:center;gap:0;text-decoration:none;border:none!important;padding:0!important}
+.logo-mu{color:var(--amber);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px;font-family:var(--mono)}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{display:flex;gap:8px;padding:16px 24px;font-size:11px;font-family:var(--mono);align-items:center;flex-wrap:wrap}
+.nav a{color:var(--text3);text-decoration:none;padding:4px 12px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s}
+.nav a:hover,.nav a.active{color:var(--teal);border-color:var(--teal)}
+
+.header{padding:0 24px 16px;display:flex;align-items:center;gap:12px}
+.header h1{font-family:var(--mono);font-size:16px;color:var(--teal);letter-spacing:2px}
+.header .count{font-family:var(--mono);font-size:12px;color:var(--text3);background:var(--bg3);padding:2px 10px;border-radius:10px}
+
+/* Session grid — 2.5D isometric feel */
+.session-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:16px;padding:0 24px 24px;perspective:800px;
+}
+.session-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+  padding:16px;position:relative;transition:all 0.3s;
+  transform:rotateX(2deg);transform-origin:center bottom;
+}
+.session-card:hover{transform:rotateX(0deg) translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,0.4)}
+.session-card.red{border-color:var(--red)}
+.session-card.orange{border-color:var(--orange)}
+.session-card.yellow{border-color:var(--yellow)}
+.session-card.green{border-color:var(--green)}
+
+/* Status indicator dot */
+.indicator{
+  width:14px;height:14px;border-radius:50%;position:absolute;top:16px;right:16px;
+  cursor:pointer;transition:all 0.3s;
+}
+.indicator.red{background:var(--red);box-shadow:0 0 12px var(--red);animation:pulse-red 1.5s infinite}
+.indicator.orange{background:var(--orange);box-shadow:0 0 8px var(--orange);animation:pulse-orange 2s infinite}
+.indicator.yellow{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+.indicator.green{background:var(--green)}
+@keyframes pulse-red{0%,100%{box-shadow:0 0 8px var(--red)}50%{box-shadow:0 0 20px var(--red)}}
+@keyframes pulse-orange{0%,100%{box-shadow:0 0 6px var(--orange)}50%{box-shadow:0 0 16px var(--orange)}}
+
+.session-id{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px}
+.session-summary{font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.4}
+.session-meta{font-family:var(--mono);font-size:10px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap}
+.session-meta .pill{padding:1px 6px;border-radius:3px;font-weight:700}
+.session-status{font-family:var(--mono);font-size:11px;margin-top:8px;padding:6px 10px;border-radius:6px;background:var(--bg3)}
+.session-status.red{color:var(--red)}
+.session-status.orange{color:var(--orange)}
+.session-status.yellow{color:var(--yellow)}
+
+/* Unblock modal */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;
+  display:none;align-items:center;justify-content:center;
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:16px;
+  padding:24px;min-width:320px;max-width:90vw;max-height:80vh;overflow-y:auto;
+  box-shadow:0 24px 48px rgba(0,0,0,0.5);animation:modalIn 0.2s ease-out;
+}
+@keyframes modalIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+.modal h3{font-size:16px;margin-bottom:4px}
+.modal .modal-summary{font-size:13px;color:var(--text2);margin-bottom:16px}
+.modal .options{display:flex;flex-direction:column;gap:8px}
+.modal .option-btn{
+  padding:12px 16px;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;
+  transition:all 0.2s;text-align:left;font-family:var(--sans);
+}
+.modal .option-btn:hover{border-color:var(--teal);color:var(--teal);background:var(--bg4)}
+.modal .text-input{
+  width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:8px;color:var(--text);font-size:13px;font-family:var(--sans);
+  margin-top:8px;resize:none;
+}
+.modal .text-input:focus{border-color:var(--teal);outline:none}
+.modal .submit-row{display:flex;gap:8px;margin-top:12px}
+.modal .submit-btn{
+  padding:10px 20px;background:var(--teal);border:none;border-radius:8px;
+  color:#000;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;
+}
+.modal .submit-btn:hover{background:var(--green)}
+.modal .cancel-btn{
+  padding:10px 20px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  color:var(--text3);font-size:13px;cursor:pointer;
+}
+.mic-btn:hover{border-color:var(--teal)!important;color:var(--teal)!important}
+.mic-btn:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+.intake-btn:hover{background:var(--blue)!important}
+
+.empty{text-align:center;padding:60px 24px;color:var(--text3);font-family:var(--mono);font-size:13px}
+.empty .icon{font-size:48px;margin-bottom:16px;opacity:0.3}
+.empty .guide{text-align:left;display:inline-block;max-width:420px;margin-top:20px;padding:16px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:10px}
+.empty .guide h4{font-size:12px;color:var(--text2);margin-bottom:8px;font-family:var(--mono);letter-spacing:1px}
+.empty .guide ul{list-style:none;padding:0;margin:0 0 12px}
+.empty .guide li{font-size:11px;color:var(--text3);padding:3px 0;line-height:1.5}
+.empty .guide li::before{content:'›';color:var(--teal);margin-right:8px;font-weight:700}
+.empty .tip{font-size:10px;color:var(--text3);margin-top:12px;opacity:0.7}
+.empty .tip code{color:var(--teal);background:var(--bg3);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:10px}
+
+.auto-refresh{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--text3)}
+.auto-refresh .pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:pulse-dot 2s infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;box-shadow:0 0 4px var(--teal)}50%{opacity:0.3;box-shadow:none}}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="/" class="logo"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot"></a>
+  <a href="/chat">Chat</a>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/performance">Performance</a>
+  <a href="/demo">Demo</a>
+  <a href="/unblock" class="active">Unblock</a>
+  <a href="/intake">Intake</a>
+  <a href="/games">Games</a>
+</div>
+
+<!-- Activity Status Bar -->
+<div id="activityBar" style="padding:8px 24px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;min-height:36px">
+  <span style="color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:1px">AGENT STATUS</span>
+  <div id="activityDots" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+</div>
+
+<div class="header">
+  <h1>UNBLOCK</h1>
+  <span class="count" id="sessionCount">0 sessions</span>
+  <span class="auto-refresh"><span class="pulse-dot"></span>Refreshes 3s</span>
+  <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+    <button id="notifBtn" onclick="enableNotifications();this.textContent=Notification.permission==='granted'?'🔔✓':'🔔✗';this.style.color=Notification.permission==='granted'?'var(--green)':'var(--coral)';this.style.borderColor=this.style.color" style="padding:4px 8px;background:var(--bg3);border:1px solid var(--text3);border-radius:4px;color:var(--text3);font-size:12px;cursor:pointer;min-height:32px;min-width:32px" title="Enable notifications for stalled/critical">🔔</button>
+    <button id="dismissAllBtn" onclick="dismissAllResolved()" style="display:none;padding:4px 8px;background:var(--bg3);border:1px solid var(--amber);border-radius:4px;color:var(--amber);font-size:12px;cursor:pointer;min-height:32px;min-width:32px" title="Dismiss resolved">✕</button>
+  </div>
+</div>
+
+<div class="session-grid" id="sessionGrid">
+  <div class="empty" id="emptyState">
+    <div class="icon">&#9898;</div>
+    No sessions need attention right now.
+    <div class="guide">
+      <h4>SESSIONS APPEAR HERE WHEN:</h4>
+      <ul>
+        <li>An orchestrator task needs clarification on file targets or approach</li>
+        <li>A code-gen task encounters ambiguous requirements</li>
+        <li>A query is running slow and could be escalated to cloud</li>
+        <li>Tests or operations need cost approval before proceeding</li>
+        <li>Cache or storage maintenance needs a decision</li>
+        <li>A subagent hits a permission block or needs human review</li>
+        <li>An architect agent needs plan approval before executing</li>
+      </ul>
+    </div>
+    <div class="tip">Tip: Agents self-register via <code>POST /api/agents/blocked</code> &middot; <code>?demo=true</code> for examples</div>
+  </div>
+</div>
+
+<!-- Global Task Input — always visible, no card click needed -->
+<div style="padding:0 24px 16px">
+  <div style="display:flex;gap:8px;align-items:center;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 14px">
+    <button id="globalMicBtn" onclick="toggleGlobalMic()" title="Hold to speak — routes via muLLM classifier" style="width:38px;height:38px;border-radius:50%;border:2px solid var(--border2);background:var(--bg3);color:var(--text3);font-size:16px;cursor:pointer;transition:all 0.2s;flex-shrink:0" aria-label="Voice input">&#127908;</button>
+    <input type="text" id="globalTaskInput" placeholder="Type or speak a task to route to agents..." style="flex:1;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:14px;outline:none" onkeydown="if(event.key==='Enter')globalRouteTask()">
+    <button onclick="globalRouteTask()" title="Classify via muLLM and route to best agent" style="padding:8px 16px;background:var(--purple);border:none;border-radius:8px;color:#fff;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.2s;white-space:nowrap">&#9889; Route</button>
+  </div>
+  <div id="globalIntakeStatus" style="display:none;font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:4px;padding:4px 8px;background:var(--bg3);border-radius:4px"></div>
+</div>
+
+<!-- Agent Management -->
+<div class="header" style="padding-top:8px">
+  <h1 style="font-size:14px">REGISTERED AGENTS</h1>
+  <span class="count" id="agentCount">0 agents</span>
+</div>
+<div id="agentGrid" class="session-grid" style="padding:0 24px 24px">
+  <div style="text-align:center;padding:20px;color:var(--text3);font-family:var(--mono);font-size:11px">Loading agents...</div>
+</div>
+
+<!-- Unblock Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3 id="modalTitle">Unblock Session</h3>
+    <div class="modal-summary" id="modalSummary"></div>
+    <div class="options" id="modalOptions"></div>
+    <div class="input-row" style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+      <textarea class="text-input" id="modalText" rows="2" placeholder="Or type a custom response..." style="display:none;flex:1;margin-top:0"></textarea>
+      <button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Hold to speak — routes via muLLM classifier" style="display:none;width:42px;height:42px;border-radius:50%;border:2px solid var(--border2);background:var(--bg3);color:var(--text3);font-size:18px;cursor:pointer;transition:all 0.2s;flex-shrink:0" aria-label="Voice input">&#127908;</button>
+    </div>
+    <div id="intakeStatus" style="display:none;font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:4px;padding:4px 8px;background:var(--bg3);border-radius:4px"></div>
+    <div class="submit-row">
+      <button class="submit-btn" id="modalSubmit" onclick="submitUnblock()">&#9632; Submit</button>
+      <button class="intake-btn" id="intakeBtn" onclick="routeViaIntake()" style="display:none;padding:10px 20px;background:var(--purple);border:none;border-radius:8px;color:#000;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s" title="Classify via muLLM and route to best agent">&#9889; Route to Agent</button>
+      <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = location.origin;
+let currentSessionId = null;
+let selectedChoice = '';
+let prevSessionIds = new Set();
+let lastSessionCount = 0;
+
+// ── Sound notification (subtle chime on new card) ──
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playChime() {
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  } catch(e) {}
+}
+
+const demoMode = new URLSearchParams(location.search).get('demo') === 'true';
+const DEMO_SESSIONS = [
+  {session_id:'orch-file-target-001',request_id:'demo-1',color:'red',status:'waiting for clarification',summary:'Orchestrator found 3 target files for \u2018add dark mode toggle\u2019. Which should be primary? router/chat.html (3,200 lines), router/dashboard.html (2,100 lines), or config/settings.py (200 lines)?',tier:'local',elapsed_s:8,options:['chat.html','dashboard.html','settings.py','All three']},
+  {session_id:'codegen-ws-002',request_id:'demo-2',color:'orange',status:'needs clarification',summary:'Code-gen for \u2018add WebSocket support\u2019: Should I add ws:// endpoint alongside existing SSE /events stream, or replace SSE entirely?',tier:'local',elapsed_s:14,options:['Add alongside SSE','Replace SSE','Skip WebSocket']},
+  {session_id:'test-seed-003',request_id:'demo-3',color:'yellow',status:'awaiting cost approval',summary:'Playwright test for dashboard wants to send 5 real queries to seed test data. This will cost ~$0.003 if routed to cloud. Proceed?',tier:'cloud_cheap',elapsed_s:3,options:['Yes run tests','Use local only','Skip seeding']},
+  {session_id:'split-compare-004',request_id:'demo-4',color:'orange',status:'split routing — 1 subtask slow',summary:'Split routing decomposed \u2018compare Redis vs Memcached performance\u2019 into 4 subtasks. 2 completed (local), 1 running (local, 23s), 1 waiting. Continue waiting or escalate slow task to cloud?',tier:'local',elapsed_s:23,options:['Keep waiting','Escalate to cloud','Cancel slow task']},
+  {session_id:'cache-prune-005',request_id:'demo-5',color:'yellow',status:'maintenance decision needed',summary:'Cache has grown to 847 entries (12MB). 23% of entries haven\u2019t been hit in 30+ days. Should I prune stale entries?',tier:'local',elapsed_s:1,options:['Prune stale','Keep all','Show me the stale entries first']},
+];
+
+async function refresh() {
+  try {
+    // Skip refresh while user is actively queuing multi-select options
+    // Otherwise the DOM rebuild destroys queued button states
+    const hasActiveQueue = Object.values(_queues).some(q => q && q.length > 0);
+    if (hasActiveQueue) return;
+
+    if (demoMode) {
+      renderSessions({sessions: DEMO_SESSIONS, count: DEMO_SESSIONS.length});
+      return;
+    }
+    const r = await fetch(API + '/api/sessions');
+    const d = await r.json();
+    updateActivityBar(d.sessions || []);
+    checkNotifications(d.sessions || []);
+    renderSessions(d);
+  } catch (e) {
+    console.warn('Session fetch failed:', e);
+  }
+}
+
+function renderSessions(d) {
+  try {
+    const grid = document.getElementById('sessionGrid');
+    const empty = document.getElementById('emptyState');
+    // Filter out heartbeat-only sessions from card grid (they show as dots in activity bar)
+    const cardSessions = d.sessions.filter(s => !s.is_heartbeat && !s.session_id?.startsWith('heartbeat-'));
+    const cardCount = cardSessions.length;
+    document.getElementById('sessionCount').textContent = cardCount + ' session' + (cardCount !== 1 ? 's' : '');
+
+    // Detect new sessions → chime + auto-scroll
+    const currentIds = new Set(cardSessions.map(s => s.session_id));
+    const newIds = [...currentIds].filter(id => !prevSessionIds.has(id));
+    if (newIds.length > 0 && prevSessionIds.size > 0) {
+      playChime();
+      requestAnimationFrame(() => {
+        const firstNew = document.getElementById('card-' + newIds[0].replace(/[^a-z0-9]/gi, ''));
+        if (firstNew) firstNew.scrollIntoView({behavior:'smooth',block:'center'});
+      });
+    }
+    prevSessionIds = currentIds;
+
+    // Show/hide dismiss-all button
+    const resolvedCount = cardSessions.filter(s => s.resolved || s.status?.startsWith('resolved')).length;
+    const dismissBtn = document.getElementById('dismissAllBtn');
+    if (dismissBtn) dismissBtn.style.display = resolvedCount > 0 ? 'inline-block' : 'none';
+
+    if (cardSessions.length === 0) {
+      grid.innerHTML = '';
+      grid.appendChild(empty.cloneNode(true));
+      return;
+    }
+
+    // Sort: red first, then orange, yellow, green (resolved last)
+    const colorOrder = {red: 0, orange: 1, yellow: 2, green: 3};
+    cardSessions.sort((a, b) => {
+      const aResolved = a.resolved ? 10 : 0;
+      const bResolved = b.resolved ? 10 : 0;
+      return (aResolved + (colorOrder[a.color] ?? 4)) - (bResolved + (colorOrder[b.color] ?? 4));
+    });
+
+    // Preserve expanded cards across re-render
+    const expandedIds = new Set();
+    grid.querySelectorAll('[data-expanded="1"]').forEach(el => expandedIds.add(el.id));
+
+    grid.innerHTML = cardSessions.map(s => {
+      const hasOptions = s.options && s.options.length > 0;
+      const elapsed = s.elapsed_s > 60 ? Math.round(s.elapsed_s / 60) + 'm' : Math.round(s.elapsed_s) + 's';
+      const tierColors = {cache:'var(--green)',local:'var(--teal)',cloud_cheap:'var(--amber)',cloud_full:'var(--coral)'};
+      const tc = tierColors[s.tier] || 'var(--text3)';
+
+      // Quick action buttons — tap to queue, auto-submit after 2s idle
+      let quickBtns = '';
+      if (hasOptions) {
+        quickBtns = s.options.map((o, i) => {
+          const colors = ['var(--green)','var(--teal)','var(--blue)','var(--purple)','var(--amber)'];
+          const c = colors[i % colors.length];
+          return `<button class="qopt" data-sid="${s.session_id}" data-choice="${o.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();queueOption(this)" style="padding:6px 12px;background:var(--bg4);border:1px solid ${c};border-radius:6px;color:${c};font-size:10px;cursor:pointer;font-family:var(--mono);transition:all .2s;position:relative" onmouseover="if(!this.dataset.queued)this.style.background='${c}',this.style.color='#000'" onmouseout="if(!this.dataset.queued)this.style.background='var(--bg4)',this.style.color='${c}'">${o}</button>`;
+        }).join('');
+      }
+      // Submit queue button (hidden until 2+ selections)
+      quickBtns += `<button class="qsubmit" data-sid="${s.session_id}" onclick="event.stopPropagation();submitQueue('${s.session_id}')" style="display:none;padding:6px 10px;background:var(--green);border:1px solid var(--green);border-radius:6px;color:#000;font-size:10px;cursor:pointer;font-family:var(--mono);font-weight:700" title="Submit selections">&#9654;</button>`;
+      quickBtns += `<button onclick="event.stopPropagation();quickUnblock('${s.session_id}','skip')" style="padding:6px 10px;background:var(--bg4);border:1px solid var(--amber);border-radius:6px;color:var(--amber);font-size:10px;cursor:pointer;font-family:var(--mono)" title="Skip → tomorrow">SKIP</button>`;
+      quickBtns += `<button onclick="event.stopPropagation();quickUnblock('${s.session_id}','cancel')" style="padding:6px 10px;background:var(--bg4);border:1px solid var(--coral);border-radius:6px;color:var(--coral);font-size:10px;cursor:pointer;font-family:var(--mono)" title="Cancel">&#10005;</button>`;
+
+      // Agent-specific metadata row
+      const isAgent = s.session_id && s.session_id.startsWith('agent-');
+      let agentMeta = '';
+      if (isAgent) {
+        const sevColors = {low:'var(--text3)',medium:'var(--amber)',high:'var(--orange)',critical:'var(--red)'};
+        const sevC = sevColors[s.severity] || 'var(--text3)';
+        agentMeta = `<div style="font-family:var(--mono);font-size:9px;margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span style="padding:1px 6px;border-radius:3px;background:var(--bg4);color:var(--purple)">${s.agent_type || 'agent'}</span>
+          <span style="padding:1px 6px;border-radius:3px;background:var(--bg4);color:${sevC}">${s.severity || 'medium'}</span>
+          ${s.parent_id ? '<span style="color:var(--text3)">parent: '+s.parent_id.slice(0,8)+'</span>' : ''}
+          ${s.context ? '<div style="margin-top:4px;font-size:9px;color:var(--text3);width:100%;line-height:1.5">'+s.context.replace(/"/g,'&quot;')+'</div>' : ''}
+        </div>`;
+      }
+
+      const isResolved = s.resolved || s.status?.startsWith('resolved');
+      const resolvedBanner = isResolved
+        ? `<div style="margin-top:8px;padding:8px 12px;background:var(--green);color:#000;border-radius:6px;font-family:var(--mono);font-size:11px;font-weight:700">&#10003; ${s.resolved_choice ? 'Choice: ' + s.resolved_choice : 'Resolved'}</div>`
+        : '';
+      const cardOpacity = isResolved ? 'opacity:0.6;' : '';
+
+      const cardId = 'card-' + s.session_id.replace(/[^a-z0-9]/gi, '');
+      // Store session data in a lookup map instead of inline JSON (which breaks HTML attributes)
+      window._sessionData = window._sessionData || {};
+      window._sessionData[cardId] = s;
+      return `<div class="session-card ${s.color}" id="${cardId}" style="${cardOpacity}" onclick="toggleCardExpand('${cardId}')">
+        <div class="indicator ${s.color}" title="Click to expand"></div>
+        <div class="session-id">${s.session_id.slice(0, 30)} <span style="color:var(--teal);font-size:9px;opacity:0.6">${isResolved ? 'RESOLVED' : 'CLICK TO EXPAND'}</span></div>
+        <div class="session-summary" style="line-height:1.5">${s.summary || 'No preview'}</div>
+        <div class="session-meta">
+          <span class="pill" style="background:${tc};color:#000">${s.tier || '?'}</span>
+          <span>${elapsed}</span>
+          <span style="margin-left:auto;font-size:8px;color:var(--text3)">${s.created_at ? new Date(s.created_at * 1000).toLocaleTimeString() : ''}</span>
+        </div>
+        <div class="session-status ${s.color}">${s.status === 'blocked: working' ? '&#9679; WORKING' : s.status === 'blocked: idle' ? '&#9675; IDLE — ready for tasks' : s.status === 'blocked: user_request' ? '&#9889; TASK ROUTED' : s.status}</div>
+        ${agentMeta}
+        ${resolvedBanner}
+        ${isResolved ? '' : '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' + quickBtns + '</div>'}
+      </div>`;
+    }).join('');
+
+    // Re-expand cards that were expanded before re-render
+    expandedIds.forEach(id => {
+      const card = document.getElementById(id);
+      if (card) toggleCardExpand(id);
+    });
+
+    // Re-apply queued selections after re-render
+    for (const [sid, items] of Object.entries(_queues)) {
+      if (!items || items.length === 0) continue;
+      items.forEach((q, i) => {
+        const btn = document.querySelector(`.qopt[data-sid="${sid}"][data-choice="${q.choice.replace(/"/g,'&quot;')}"]`);
+        if (btn) {
+          btn.dataset.queued = '1';
+          btn.style.background = 'rgba(20,184,166,0.2)';
+          btn.style.color = 'var(--teal)';
+          btn.style.borderColor = 'var(--teal)';
+          if (!btn.querySelector('.q-badge')) {
+            const badge = document.createElement('span');
+            badge.className = 'q-badge';
+            badge.textContent = i + 1;
+            badge.style.cssText = 'position:absolute;top:-6px;right:-6px;background:var(--teal);color:#000;border-radius:50%;width:16px;height:16px;font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:700';
+            btn.appendChild(badge);
+          }
+        }
+      });
+      const submitBtn = document.querySelector(`.qsubmit[data-sid="${sid}"]`);
+      if (submitBtn) {
+        submitBtn.style.display = 'inline-block';
+        submitBtn.textContent = '▶';
+      }
+    }
+  } catch (e) {
+    console.warn('Session fetch failed:', e);
+  }
+}
+
+function toggleCardExpand(cardId) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  const sessionJson = (window._sessionData || {})[cardId];
+  const existing = card.querySelector('.card-expand');
+  if (existing) {
+    existing.remove();
+    return;
+  }
+  let s = sessionJson;
+  if (!s) return;
+  if (typeof s === 'string') { try { s = JSON.parse(s); } catch(e) { return; } }
+  const statusLabel = s.color === 'red' ? 'NEEDS ANSWER' : s.color === 'orange' ? 'NEEDS GUIDANCE' : s.color === 'yellow' ? 'INFO' : 'OK';
+  const statusColor = s.color === 'red' ? 'var(--red)' : s.color === 'orange' ? 'var(--orange)' : s.color === 'yellow' ? 'var(--yellow)' : 'var(--green)';
+  const div = document.createElement('div');
+  div.className = 'card-expand';
+  div.style.cssText = 'margin-top:10px;padding:12px;background:var(--bg3);border-radius:8px;border-left:3px solid ' + statusColor + ';font-size:12px;line-height:1.6;color:var(--text)';
+  div.innerHTML = `
+    <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:4px;background:${statusColor};color:#000;font-weight:700">${statusLabel}</span>
+      <span style="font-family:var(--mono);font-size:9px;color:var(--text3)">${s.session_id}</span>
+      <button onclick="event.stopPropagation();this.closest('.session-card').dataset.expanded='';this.closest('.card-expand').remove()" style="margin-left:auto;background:none;border:1px solid var(--text3);border-radius:4px;color:var(--text3);cursor:pointer;padding:2px 8px;font-size:10px;font-family:var(--mono)">✕ Close</button>
+    </div>
+    <div style="margin-bottom:8px;white-space:pre-wrap;word-break:break-word">${s.summary || ''}</div>
+    ${s.context ? '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;white-space:pre-wrap;word-break:break-word;padding:8px;background:var(--bg2);border-radius:6px">' + s.context + '</div>' : ''}
+    <div style="font-size:9px;color:var(--text3)">Status: ${s.status || '?'} · ${s.agent_type || ''} ${s.severity ? '· ' + s.severity : ''}</div>
+  `;
+  div.onclick = function(e) { e.stopPropagation(); };
+  // Mark card as expanded so re-render preserves it
+  card.dataset.expanded = '1';
+  card.appendChild(div);
+}
+
+async function dismissAllResolved() {
+  try {
+    const r = await fetch(API + '/api/sessions');
+    const d = await r.json();
+    const resolved = d.sessions.filter(s => s.resolved || s.status?.startsWith('resolved'));
+    for (const s of resolved) {
+      await fetch(API + '/api/sessions/' + encodeURIComponent(s.session_id) + '/dismiss', {method: 'POST'}).catch(() => {});
+    }
+    showToast('Dismissed ' + resolved.length + ' resolved session' + (resolved.length !== 1 ? 's' : ''), 'var(--amber)');
+    refresh();
+  } catch(e) {
+    console.warn('Dismiss failed:', e);
+  }
+}
+
+function showToast(msg, color) {
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:60px;right:20px;padding:12px 20px;background:' + (color || 'var(--green)') + ';color:#000;border-radius:8px;font-family:var(--mono);font-size:11px;z-index:300;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+function openModal(sessionId, sessionJson) {
+  let s = sessionJson;
+  if (typeof s === 'string') { try { s = JSON.parse(s); } catch(e) { console.error('Modal parse error:', e); return; } }
+  if (!s) return;
+  currentSessionId = sessionId;
+  selectedChoice = '';
+
+  // Agent-aware modal title and status
+  const isAgent = s.session_id?.startsWith('agent-');
+  const agentName = s.agent_type || s.request_id || sessionId.slice(0, 16);
+  const isWorking = s.status === 'blocked: working';
+  const isIdle = s.status === 'blocked: idle';
+  document.getElementById('modalTitle').textContent = isAgent ? agentName : 'Unblock: ' + sessionId.slice(0, 16);
+
+  // Show the question/context prominently
+  const summaryEl = document.getElementById('modalSummary');
+  const statusLabel = isWorking ? 'WORKING' : isIdle ? 'IDLE — READY' : s.color === 'red' ? 'NEEDS ANSWER' : s.color === 'orange' ? 'NEEDS GUIDANCE' : s.color === 'yellow' ? 'RUNNING SLOW' : 'IN PROGRESS';
+  const statusColor = isWorking ? 'var(--teal)' : isIdle ? 'var(--text3)' : s.color === 'red' ? 'var(--red)' : s.color === 'orange' ? 'var(--orange)' : s.color === 'yellow' ? 'var(--yellow)' : 'var(--green)';
+  summaryEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:4px;background:${statusColor};color:#000;font-weight:700">${statusLabel}</span>
+      ${isAgent ? '<span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:4px;background:var(--bg4);color:var(--purple)">'+agentName+'</span>' : ''}
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${s.elapsed_s ? (s.elapsed_s > 60 ? Math.round(s.elapsed_s/60)+'m ago' : Math.round(s.elapsed_s)+'s ago') : ''}</span>
+    </div>
+    <div style="font-size:14px;color:var(--text);line-height:1.6;padding:12px;background:var(--bg3);border-radius:8px;border-left:3px solid ${statusColor};margin-bottom:4px">${s.summary || (isIdle ? 'This agent is idle and ready for tasks. Type or speak a task below.' : 'This session needs your input.')}</div>
+    ${s.context ? '<div style="font-size:11px;color:var(--text2);margin-top:4px;padding:8px;background:var(--bg4);border-radius:6px">'+s.context+'</div>' : ''}
+    ${s.parent_id ? '<div style="font-size:9px;color:var(--text3);margin-top:4px">Parent: '+s.parent_id+'</div>' : ''}
+  `;
+
+  const optionsDiv = document.getElementById('modalOptions');
+  const textInput = document.getElementById('modalText');
+
+  if (s.options && s.options.length > 0) {
+    optionsDiv.innerHTML = s.options.map(o =>
+      `<button class="option-btn" onclick="selectOption(this,'${o.replace(/'/g, "\\'")}')">${o}</button>`
+    ).join('');
+    optionsDiv.style.display = 'flex';
+    textInput.style.display = 'block';
+  } else {
+    optionsDiv.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px;font-style:italic">No predefined options — type a response below.</div>';
+    optionsDiv.style.display = 'flex';
+    textInput.style.display = 'block';
+    textInput.placeholder = 'Type your response...';
+  }
+  // Show mic + route button
+  document.getElementById('micBtn').style.display = 'block';
+  document.getElementById('intakeBtn').style.display = 'block';
+  document.getElementById('intakeStatus').style.display = 'none';
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function selectOption(btn, choice) {
+  document.querySelectorAll('.option-btn').forEach(b => {
+    b.style.borderColor = 'var(--border2)';
+    b.style.color = 'var(--text)';
+  });
+  btn.style.borderColor = 'var(--teal)';
+  btn.style.color = 'var(--teal)';
+  selectedChoice = choice;
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  currentSessionId = null;
+}
+
+async function submitUnblock() {
+  const text = document.getElementById('modalText').value.trim();
+  const choice = selectedChoice || text;
+  if (!choice) return;
+
+  if (demoMode) {
+    // Demo mode: just show success, remove the session from demo list
+    closeModal();
+    const idx = DEMO_SESSIONS.findIndex(s => s.session_id === currentSessionId);
+    if (idx >= 0) DEMO_SESSIONS.splice(idx, 1);
+    // Show toast-like feedback
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:60px;right:20px;padding:12px 20px;background:var(--green);color:#000;border-radius:8px;font-family:var(--mono);font-size:11px;z-index:300;animation:fadeIn 0.2s';
+    toast.textContent = 'Unblocked: ' + choice;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+    refresh();
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/api/sessions/' + encodeURIComponent(currentSessionId) + '/unblock', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'choice=' + encodeURIComponent(choice),
+    });
+    const d = await r.json();
+    closeModal();
+    showToast('Sent: ' + choice, 'var(--green)');
+    refresh();
+  } catch (e) {
+    console.warn('Unblock failed:', e);
+    showToast('Failed: ' + e.message, 'var(--coral)');
+  }
+}
+
+// Multi-select queue: tap options to number them, auto-submit after 2s idle
+const _queues = {};  // sessionId → [{choice, order}]
+let _queueTimer = null;
+
+function queueOption(btn) {
+  const sid = btn.dataset.sid;
+  const choice = btn.dataset.choice;
+  if (!_queues[sid]) _queues[sid] = [];
+
+  // Toggle: if already queued, remove it
+  const existing = _queues[sid].findIndex(q => q.choice === choice);
+  if (existing >= 0) {
+    _queues[sid].splice(existing, 1);
+    btn.dataset.queued = '';
+    btn.style.background = 'var(--bg4)';
+    btn.querySelector('.q-badge')?.remove();
+    // Renumber remaining
+    _queues[sid].forEach((q, i) => {
+      const b = document.querySelector(`.qopt[data-sid="${sid}"][data-choice="${q.choice.replace(/"/g,'\\"')}"]`);
+      if (b) { const badge = b.querySelector('.q-badge'); if (badge) badge.textContent = i + 1; }
+    });
+  } else {
+    _queues[sid].push({ choice });
+    btn.dataset.queued = '1';
+    btn.style.background = 'rgba(20,184,166,0.2)';
+    btn.style.color = 'var(--teal)';
+    btn.style.borderColor = 'var(--teal)';
+    const badge = document.createElement('span');
+    badge.className = 'q-badge';
+    badge.textContent = _queues[sid].length;
+    badge.style.cssText = 'position:absolute;top:-6px;right:-6px;background:var(--teal);color:#000;border-radius:50%;width:16px;height:16px;font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:700';
+    btn.appendChild(badge);
+  }
+
+  // Show submit ▶ only when 2+ items queued
+  const submitBtn = document.querySelector(`.qsubmit[data-sid="${sid}"]`);
+  if (submitBtn) submitBtn.style.display = _queues[sid].length > 1 ? 'inline-block' : 'none';
+
+  // Single tap: submit immediately after 1.5s (same as old UX)
+  // Multi tap: wait 3.5s for more taps
+  clearTimeout(_queueTimer);
+  if (_queues[sid].length > 0) {
+    const delay = _queues[sid].length === 1 ? 1500 : 3500;  // fast for single, slow for multi
+    _queueTimer = setTimeout(() => submitQueue(sid), delay);
+  }
+}
+
+function submitQueue(sid) {
+  clearTimeout(_queueTimer);
+  const queue = _queues[sid] || [];
+  if (queue.length === 0) return;
+  const combined = queue.map((q, i) => `${i + 1}. ${q.choice}`).join(', ');
+  delete _queues[sid];
+  quickUnblock(sid, combined);
+}
+
+function quickUnblock(sessionId, choice) {
+  if (demoMode) {
+    const idx = DEMO_SESSIONS.findIndex(s => s.session_id === sessionId);
+    if (idx >= 0) DEMO_SESSIONS.splice(idx, 1);
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:60px;right:20px;padding:12px 20px;background:var(--green);color:#000;border-radius:8px;font-family:var(--mono);font-size:11px;z-index:300';
+    toast.textContent = (choice === 'cancel' ? 'Cancelled' : choice === 'skip' ? 'Skipped' : 'Unblocked') + ': ' + sessionId.slice(0, 16);
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+    refresh();
+    return;
+  }
+  fetch(API + '/api/sessions/' + encodeURIComponent(sessionId) + '/unblock', {
+    method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'choice=' + encodeURIComponent(choice),
+  }).then(r => r.json()).then(d => {
+    showToast((choice === 'cancel' ? 'Cancelled' : choice === 'skip' ? 'Skipped' : 'Sent') + ': ' + choice, d.choice ? 'var(--green)' : 'var(--amber)');
+    refresh();
+  }).catch(() => { showToast('Failed to send — retrying...', 'var(--coral)'); });
+}
+
+function showToast(msg, color) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;top:60px;right:20px;padding:12px 20px;background:' + (color||'var(--green)') + ';color:#000;border-radius:8px;font-family:var(--mono);font-size:11px;font-weight:700;z-index:300;transition:opacity .3s;box-shadow:0 4px 16px rgba(0,0,0,.3);display:flex;align-items:center;gap:8px';
+  t.innerHTML = msg + ' <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#000;cursor:pointer;font-size:14px;padding:0 4px;opacity:0.6">✕</button>';
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 10000);
+}
+
+// SSE for real-time updates
+const evtSource = new EventSource(API + '/events');
+evtSource.onmessage = (e) => {
+  try {
+    const d = JSON.parse(e.data);
+    if (d.type === 'session_waiting' || d.type === 'session_unblocked' || d.type === 'query_complete') {
+      refresh();
+    }
+  } catch {}
+};
+
+// ── Notifications ──────────────────────────────────
+let _notifEnabled = localStorage.getItem('mullm_notif') === '1';
+const _notifiedIds = new Set();
+
+function enableNotifications() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') { _notifEnabled = true; localStorage.setItem('mullm_notif','1'); return; }
+  Notification.requestPermission().then(p => {
+    _notifEnabled = p === 'granted';
+    localStorage.setItem('mullm_notif', _notifEnabled ? '1' : '0');
+  });
+}
+
+function fireNotification(title, body, tag) {
+  if (!_notifEnabled || Notification.permission !== 'granted') return;
+  if (_notifiedIds.has(tag)) return;
+  _notifiedIds.add(tag);
+  try {
+    const n = new Notification(title, { body: body.slice(0, 150), tag, requireInteraction: true, silent: false });
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    setTimeout(() => _notifiedIds.delete(tag), 300000); // allow re-notify after 5min
+  } catch(e) {}
+}
+
+// Check for stalled heartbeats and high-severity cards on each refresh
+function checkNotifications(sessions) {
+  if (!sessions) return;
+  const now = Date.now() / 1000;
+  for (const s of sessions) {
+    const isHeartbeat = s.is_heartbeat || (s.session_id || '').startsWith('heartbeat-');
+    if (isHeartbeat) {
+      const staleSec = now - (s.updated_at || now);
+      if (staleSec > 120) {
+        fireNotification('muLLM STALLED', 'Agent has been idle for ' + Math.round(staleSec/60) + ' minutes. May need terminal attention.', 'stalled-' + s.agent_id);
+      }
+    }
+    if ((s.severity === 'high' || s.severity === 'critical') && !s.resolved) {
+      fireNotification('muLLM: ' + (s.agent_type || 'Agent'), s.summary || 'Needs attention', 'blocker-' + s.session_id);
+    }
+  }
+}
+
+// Auto-enable on page load if previously enabled
+if (_notifEnabled && 'Notification' in window && Notification.permission !== 'granted') {
+  enableNotifications();
+}
+
+function updateActivityBar(sessions) {
+  const bar = document.getElementById('activityDots');
+  if (!bar) return;
+  // Also fetch heartbeat dots
+  fetch(API + '/api/agents').then(r => r.json()).then(d => {
+    const agents = d.agents || [];
+    if (agents.length > 0 && (!sessions || sessions.length === 0)) {
+      // Show registered agents as dots even when no session cards
+      bar.innerHTML = agents.slice(0, 20).map(a =>
+        `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:var(--bg3);font-size:9px;font-family:var(--mono)">` +
+        `<span style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse-dot 2s infinite"></span>` +
+        `<span style="color:var(--text2)">${(a.name || a.agent_id || '').slice(0,15)}</span></span>`
+      ).join('');
+    }
+  }).catch(() => {});
+
+  if (!sessions || sessions.length === 0) {
+    if (!bar.innerHTML || bar.innerHTML.includes('No active')) {
+      bar.innerHTML = '<span style="color:var(--text3)">Waiting for agent activity...</span>';
+    }
+    return;
+  }
+  const now = Date.now() / 1000;
+  // Filter out heartbeat sessions from card grid — show them ONLY as dots
+  const heartbeats = sessions.filter(s => s.is_heartbeat || s.session_id?.startsWith('heartbeat-'));
+  const nonHeartbeats = sessions.filter(s => !s.is_heartbeat && !s.session_id?.startsWith('heartbeat-'));
+  // Build dots from both heartbeats and real sessions
+  const allForDots = [...heartbeats, ...nonHeartbeats];
+  bar.innerHTML = allForDots.map(s => {
+    const isResolved = s.resolved || s.status?.startsWith('resolved');
+    const isBlocked = s.status?.startsWith('blocked') || s.color === 'red' || s.color === 'orange';
+    const isWorking = s.status === 'blocked: working';
+    const isIdle = s.status === 'blocked: idle';
+    const isHeartbeat = s.is_heartbeat || s.session_id?.startsWith('heartbeat-');
+    const waitTime = s.elapsed_s || 0;
+    const staleSec = now - (s.updated_at || now);
+
+    let dotColor, statusText, pulse;
+    if (isHeartbeat) {
+      // Heartbeat dot: green if recent, orange if 45-90s, red+STALLED if >90s
+      if (staleSec > 90) {
+        dotColor = 'var(--red)'; statusText = 'STALLED ' + Math.round(staleSec) + 's'; pulse = 'animation:pulse-dot 0.5s infinite;';
+      } else if (staleSec > 45) {
+        dotColor = 'var(--orange)'; statusText = 'slow ' + Math.round(staleSec) + 's'; pulse = 'animation:pulse-dot 1s infinite;';
+      } else {
+        dotColor = 'var(--teal)'; statusText = s.status || 'working'; pulse = 'animation:pulse-dot 2s infinite;';
+      }
+    } else if (isResolved) {
+      dotColor = 'var(--green)'; statusText = 'done'; pulse = '';
+    } else if (isWorking) {
+      dotColor = 'var(--teal)'; statusText = 'working'; pulse = 'animation:pulse-dot 2s infinite;';
+    } else if (isIdle) {
+      dotColor = 'var(--text3)'; statusText = 'idle'; pulse = '';
+    } else if (isBlocked && waitTime > 30) {
+      dotColor = 'var(--red)'; statusText = 'BLOCKED ' + Math.round(waitTime) + 's'; pulse = 'animation:pulse-dot 0.5s infinite;';
+    } else if (isBlocked) {
+      dotColor = 'var(--orange)'; statusText = 'waiting ' + Math.round(waitTime) + 's'; pulse = 'animation:pulse-dot 1s infinite;';
+    } else {
+      dotColor = 'var(--green)'; statusText = 'working'; pulse = '';
+    }
+
+    const label = isHeartbeat ? (s.request_id || s.agent_type || 'agent').slice(0, 15) : (s.agent_type || s.session_id || '').slice(0, 15);
+    return `<div style="display:flex;align-items:center;gap:4px;padding:2px 8px;background:var(--bg3);border-radius:4px;border:1px solid ${dotColor}30" title="${s.summary || s.session_id}">
+      <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};display:inline-block;flex-shrink:0;${pulse}"></span>
+      <span style="color:${dotColor};font-size:9px;white-space:nowrap">${label}</span>
+      <span style="color:var(--text3);font-size:8px">${statusText}</span>
+    </div>`;
+  }).join('');
+}
+
+refresh();
+setInterval(refresh, 3000);
+
+// ── Voice Input (Web Speech API) ──────────────────────────────
+let micActive = false;
+let recognition = null;
+
+function toggleMic() {
+  const btn = document.getElementById('micBtn');
+  const textEl = document.getElementById('modalText');
+  if (micActive && recognition) {
+    recognition.stop();
+    micActive = false;
+    btn.style.borderColor = 'var(--border2)';
+    btn.style.background = 'var(--bg3)';
+    btn.style.color = 'var(--text3)';
+    return;
+  }
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Speech recognition not supported in this browser. Use Chrome or Edge.');
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
+
+  micActive = true;
+  btn.style.borderColor = 'var(--red)';
+  btn.style.background = 'rgba(239,68,68,0.15)';
+  btn.style.color = 'var(--red)';
+
+  recognition.onresult = (e) => {
+    let transcript = '';
+    for (let i = 0; i < e.results.length; i++) {
+      transcript += e.results[i][0].transcript;
+    }
+    textEl.value = transcript;
+  };
+  recognition.onend = () => {
+    micActive = false;
+    btn.style.borderColor = 'var(--border2)';
+    btn.style.background = 'var(--bg3)';
+    btn.style.color = 'var(--text3)';
+  };
+  recognition.onerror = (e) => {
+    console.warn('Speech error:', e.error);
+    micActive = false;
+    btn.style.borderColor = 'var(--border2)';
+    btn.style.background = 'var(--bg3)';
+    btn.style.color = 'var(--text3)';
+  };
+  recognition.start();
+}
+
+// ── Intake Agent: classify via muLLM and route to best agent ──
+async function routeViaIntake() {
+  const text = document.getElementById('modalText').value.trim();
+  if (!text) return;
+  const statusEl = document.getElementById('intakeStatus');
+  const routeBtn = document.getElementById('intakeBtn');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<span style="color:var(--amber)">Classifying via muLLM...</span>';
+  routeBtn.disabled = true;
+
+  try {
+    // Step 1: fast classify via muLLM /classify (no execution, instant, $0)
+    const classifyRes = await fetch(API + '/classify', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({content: text})
+    });
+    const classifyData = await classifyRes.json();
+    const category = classifyData.category || 'general';
+    const tier = classifyData.tier || 'local';
+
+    // Step 2: map category to best agent
+    // Dynamic session prefix — find highest s##- prefix from registered agents
+    const SP = window._sessionPrefix || 's23';
+    const agentMap = {
+      'code': SP + '-perf-optimizer',
+      'code_debug': SP + '-perf-optimizer',
+      'code_review': SP + '-summarizer',
+      'ui': SP + '-frontend-architect',
+      'frontend': SP + '-frontend-architect',
+      'game': SP + '-game-dev-1',
+      'game_3d': SP + '-game-dev-1',
+      'test': SP + '-qa-coverage',
+      'qa': SP + '-qa-coverage',
+      'architecture': SP + '-perf-optimizer',
+      'performance': SP + '-perf-optimizer',
+      'search': SP + '-mullm-delegator',
+      'lookup': SP + '-mullm-delegator',
+    };
+    const targetAgent = agentMap[category] || SP + '-orchestrator';
+
+    // Step 3a: Post as blocked card (visible on /unblock dashboard)
+    await fetch(API + '/api/agents/blocked', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        agent_id: targetAgent + '-task',
+        agent_type: 'intake-routed',
+        parent_id: 'peter',
+        block_reason: 'user_request',
+        summary: text,
+        context: 'Classified as: ' + category + ' (tier: ' + tier + '). Routed to: ' + targetAgent,
+        options: ['Accept', 'Redirect', 'Dismiss'],
+        severity: 'medium',
+        auto_timeout_s: 1800,
+      })
+    });
+
+    // Step 3b: Also delegate to agent task queue (persistent, readable by orchestrator)
+    await fetch(API + '/api/agents/' + encodeURIComponent(targetAgent) + '/task', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'content=' + encodeURIComponent(text) + '&tier=' + encodeURIComponent(tier),
+    });
+
+    // Step 3c: Write to intake task log file (Claude can poll this)
+    await fetch(API + '/api/intake/log', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        text: text,
+        category: category,
+        tier: tier,
+        target_agent: targetAgent,
+        timestamp: new Date().toISOString(),
+      })
+    }).catch(() => {}); // best-effort
+
+    statusEl.innerHTML = `<span style="color:var(--green)">Routed to <b>${targetAgent}</b></span> <span style="color:var(--text3)">(category: ${category}, tier: ${tier})</span>`;
+
+    // Also submit as unblock response to current card if applicable
+    if (currentSessionId) {
+      await fetch(API + '/api/sessions/' + currentSessionId + '/unblock', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'choice=' + encodeURIComponent('[INTAKE -> ' + targetAgent + '] ' + text)
+      });
+    }
+
+    setTimeout(() => { closeModal(); }, 1500);
+  } catch (err) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Routing failed: ${err.message}</span>`;
+  } finally {
+    routeBtn.disabled = false;
+  }
+}
+
+// ── Agent Management ──
+async function refreshAgents() {
+  try {
+    const r = await fetch(API + '/api/agents');
+    const d = await r.json();
+    const agents = d.agents || [];
+    document.getElementById('agentCount').textContent = agents.length + ' agent' + (agents.length !== 1 ? 's' : '');
+    // Remember which detail panels are open so we don't collapse them on refresh
+    const openPanels = new Set();
+    document.querySelectorAll('[id^="agent-detail-"]').forEach(el => {
+      if (el.style.display !== 'none') openPanels.add(el.id);
+    });
+    const grid = document.getElementById('agentGrid');
+    if (agents.length === 0) {
+      grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-family:var(--mono);font-size:11px">No agents registered.<br><span style="font-size:10px;margin-top:4px;display:block">Register with: POST /api/agents/register?agent_id=xxx&endpoint=url</span></div>';
+      return;
+    }
+    grid.innerHTML = agents.map(a => {
+      const paused = a.paused;
+      const isPrimary = a.agent_id === 'mullm-primary';
+      const age = Math.round((Date.now()/1000 - (a.registered_at||0)) / 60);
+      const caps = (a.capabilities || []).join(', ') || 'general';
+      const detailId = 'agent-detail-' + a.agent_id.replace(/[^a-z0-9]/gi,'_');
+      const primaryLinks = isPrimary ? `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        <a href="/mcp" style="font-size:9px;padding:3px 8px;background:var(--bg4);border:1px solid var(--teal);border-radius:4px;color:var(--teal);text-decoration:none;font-family:var(--mono)">MCP Docs</a>
+        <a href="/a2a" style="font-size:9px;padding:3px 8px;background:var(--bg4);border:1px solid var(--blue);border-radius:4px;color:var(--blue);text-decoration:none;font-family:var(--mono)">A2A Docs</a>
+        <a href="/rpc" style="font-size:9px;padding:3px 8px;background:var(--bg4);border:1px solid var(--purple);border-radius:4px;color:var(--purple);text-decoration:none;font-family:var(--mono)">RPC Docs</a>
+      </div>` : '';
+      const detailHtml = `<div id="${detailId}" style="display:none;margin-top:8px;padding:8px;background:var(--bg3);border-radius:6px;font-family:var(--mono);font-size:9px;line-height:1.6">
+        <div><span style="color:var(--text3)">Endpoint:</span> <span style="color:var(--teal)">${a.endpoint || '—'}</span></div>
+        <div><span style="color:var(--text3)">Capabilities:</span> <span style="color:var(--green)">${caps || 'none'}</span></div>
+        <div><span style="color:var(--text3)">Agent ID:</span> ${a.agent_id}</div>
+        <div><span style="color:var(--text3)">Registered:</span> ${new Date((a.registered_at||0)*1000).toLocaleString()}</div>
+        ${!isPrimary ? `<div style="margin-top:6px;padding:4px 6px;background:var(--bg2);border-radius:4px;font-size:8px;color:var(--text3);word-break:break-all">curl -sk -X POST "${a.endpoint}/api/agents/${a.agent_id}/task?content=hello&tier=local"</div>` : ''}
+        ${primaryLinks}
+      </div>`;
+      return `<div class="session-card ${paused ? 'yellow' : 'green'}" style="cursor:pointer" onclick="const d=document.getElementById('${detailId}');d.style.display=d.style.display==='none'?'block':'none'">
+        <div class="indicator ${paused ? 'yellow' : 'green'}" title="${paused ? 'Paused' : 'Active'}"></div>
+        <div class="session-id">${a.agent_id} <span style="font-size:8px;color:var(--text3)">CLICK FOR DETAILS</span></div>
+        <div class="session-summary" style="font-size:14px;font-weight:600">${a.name || a.agent_id}</div>
+        <div class="session-meta">
+          <span class="pill" style="background:var(--teal);color:#000">A2A</span>
+          <span>${age}m ago</span>
+          <span style="color:var(--text3)">${caps}</span>
+        </div>
+        <div class="session-status ${paused ? 'yellow' : 'green'}">${paused ? 'PAUSED' : 'ACTIVE'}</div>
+        ${detailHtml}
+        ${isPrimary ? '' : `<div style="display:flex;gap:6px;margin-top:8px" onclick="event.stopPropagation()">
+          <button onclick="toggleAgent('${a.agent_id}')" style="padding:6px 12px;background:var(--bg4);border:1px solid ${paused ? 'var(--green)' : 'var(--amber)'};border-radius:6px;color:${paused ? 'var(--green)' : 'var(--amber)'};font-size:10px;cursor:pointer;font-family:var(--mono)">${paused ? '▶ RESUME' : '⏸ PAUSE'}</button>
+          <button onclick="deleteAgent('${a.agent_id}')" style="padding:6px 12px;background:var(--bg4);border:1px solid var(--coral);border-radius:6px;color:var(--coral);font-size:10px;cursor:pointer;font-family:var(--mono)">🗑 DELETE</button>
+        </div>`}
+      </div>`;
+    }).join('');
+    // Restore previously open panels
+    openPanels.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'block';
+    });
+  } catch (e) { console.warn('Agent fetch failed:', e); }
+}
+
+async function toggleAgent(id) {
+  await fetch(API + '/api/agents/' + encodeURIComponent(id) + '/pause', { method: 'POST' });
+  refreshAgents();
+}
+
+async function deleteAgent(id) {
+  if (!confirm('Unregister agent: ' + id + '?')) return;
+  await fetch(API + '/api/agents/' + encodeURIComponent(id), { method: 'DELETE' });
+  refreshAgents();
+}
+
+refreshAgents();
+setInterval(refreshAgents, 5000);
+
+// ── Auto-detect session prefix from registered agents ──
+(async function detectSessionPrefix() {
+  try {
+    const r = await fetch(API + '/api/agents');
+    const d = await r.json();
+    const ids = (d.agents || []).map(a => a.agent_id);
+    const prefixes = ids.map(id => {
+      const m = id.match(/^(s\d+)-/);
+      return m ? parseInt(m[1].slice(1)) : 0;
+    }).filter(n => n > 0);
+    if (prefixes.length > 0) {
+      window._sessionPrefix = 's' + Math.max(...prefixes);
+    }
+  } catch(e) {}
+})();
+
+// ── Global Task Input (outside modal) ──
+let globalMicActive = false;
+let globalRecognition = null;
+
+function toggleGlobalMic() {
+  const btn = document.getElementById('globalMicBtn');
+  const input = document.getElementById('globalTaskInput');
+  if (globalMicActive && globalRecognition) {
+    globalRecognition.stop();
+    globalMicActive = false;
+    btn.style.borderColor = 'var(--border2)';
+    btn.style.background = 'var(--bg3)';
+    btn.style.color = 'var(--text3)';
+    return;
+  }
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Speech recognition not supported. Use Chrome or Edge.');
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  globalRecognition = new SR();
+  globalRecognition.continuous = false;
+  globalRecognition.interimResults = true;
+  globalRecognition.lang = 'en-US';
+  globalMicActive = true;
+  btn.style.borderColor = 'var(--red)';
+  btn.style.background = 'rgba(239,68,68,0.15)';
+  btn.style.color = 'var(--red)';
+  globalRecognition.onresult = (e) => {
+    let t = '';
+    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    input.value = t;
+  };
+  globalRecognition.onend = () => {
+    globalMicActive = false;
+    btn.style.borderColor = 'var(--border2)';
+    btn.style.background = 'var(--bg3)';
+    btn.style.color = 'var(--text3)';
+  };
+  globalRecognition.onerror = () => {
+    globalMicActive = false;
+    btn.style.borderColor = 'var(--border2)';
+    btn.style.background = 'var(--bg3)';
+    btn.style.color = 'var(--text3)';
+  };
+  globalRecognition.start();
+}
+
+async function globalRouteTask() {
+  const text = document.getElementById('globalTaskInput').value.trim();
+  if (!text) return;
+  const statusEl = document.getElementById('globalIntakeStatus');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<span style="color:var(--amber)">Classifying via muLLM...</span>';
+
+  try {
+    const classifyRes = await fetch(API + '/classify', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({content: text})
+    });
+    const classifyData = await classifyRes.json();
+    const category = classifyData.category || 'general';
+    const tier = classifyData.tier || 'local';
+
+    const SP = window._sessionPrefix || 's23';
+    const agentMap = {
+      'code': SP + '-perf-optimizer',
+      'ui': SP + '-frontend-architect',
+      'frontend': SP + '-frontend-architect',
+      'game': SP + '-game-dev-1',
+      'test': SP + '-qa-coverage',
+      'qa': SP + '-qa-coverage',
+      'lookup': SP + '-mullm-delegator',
+      'creative': SP + '-game-dev-1',
+    };
+    const targetAgent = agentMap[category] || SP + '-orchestrator';
+
+    // Post to blocked cards (visible on dashboard)
+    await fetch(API + '/api/agents/blocked', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        agent_id: targetAgent + '-task',
+        agent_type: 'user-routed',
+        parent_id: 'peter',
+        block_reason: 'user_request',
+        summary: text,
+        context: 'Classified as: ' + category + ' (tier: ' + tier + '). Routed to: ' + targetAgent,
+        options: ['Accept', 'Redirect', 'Dismiss'],
+        severity: 'medium',
+        auto_timeout_s: 1800,
+      })
+    });
+
+    // Write to persistent intake log (orchestrator polls this)
+    await fetch(API + '/api/intake/log', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        text: text, category: category, tier: tier,
+        target_agent: targetAgent, timestamp: new Date().toISOString(),
+      })
+    }).catch(() => {});
+
+    statusEl.innerHTML = `<span style="color:var(--green)">&#10003; Routed to <b>${targetAgent}</b></span> <span style="color:var(--text3)">(${category})</span>`;
+    document.getElementById('globalTaskInput').value = '';
+    setTimeout(() => { statusEl.style.display = 'none'; refreshSessions(); }, 3000);
+  } catch (err) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Routing failed: ${err.message}</span>`;
+  }
+}
+
+// ── Intake Queue Panel ───────────────────────────────────────
+async function refreshIntakeQueue() {
+  try {
+    const r = await fetch(API + '/api/intake/queue?limit=20');
+    const d = await r.json();
+    renderIntakeQueue(d.items || []);
+  } catch(e) {}
+}
+
+function renderIntakeQueue(items) {
+  const list = document.getElementById('intakeQueueList');
+  const badge = document.getElementById('intakeQueueCount');
+  if (!list) return;
+  const pending = items.filter(i => i.status === 'pending');
+  badge.textContent = pending.length;
+  badge.style.background = pending.length > 0 ? 'var(--orange)' : 'var(--bg3)';
+
+  if (items.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-family:var(--mono);font-size:11px">No pending intake items.</div>';
+    return;
+  }
+  list.innerHTML = items.slice(0, 10).map(item => {
+    const age = item.created_at ? (Math.round(Date.now()/1000 - item.created_at) + 's ago') : '';
+    const isPending = item.status === 'pending';
+    const agentOpts = `<option value="${item.suggested_agent||'orchestrator'}">${item.suggested_agent||'orchestrator'} (suggested)</option><option value="mullm">mullm</option><option value="claude">claude</option><option value="orchestrator">orchestrator</option>`;
+    return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px">
+      <div style="font-size:12px;color:var(--text);margin-bottom:6px;line-height:1.4">${item.text ? item.text.slice(0,100) + (item.text.length > 100 ? '…' : '') : ''}</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-family:var(--mono);font-size:9px;color:var(--text3)">
+        <span style="padding:1px 6px;background:var(--bg4);border-radius:3px;color:var(--purple)">${item.classified_intent||'?'}</span>
+        <span>${item.tier||'?'}</span><span style="margin-left:auto">${age}</span>
+      </div>
+      ${isPending ? `<div style="display:flex;gap:6px;margin-top:8px;align-items:center">
+        <select id="iq-sel-${item.id}" style="flex:1;background:var(--bg4);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:10px;padding:4px 6px">${agentOpts}</select>
+        <button onclick="assignIntakeItem('${item.id}')" style="padding:4px 10px;background:var(--purple);border:none;border-radius:5px;color:#fff;font-size:10px;cursor:pointer;font-family:var(--mono)">Assign</button>
+      </div>` : `<div style="font-family:var(--mono);font-size:9px;color:var(--green);margin-top:4px">&#10003; ${item.assigned_agent||'assigned'}</div>`}
+    </div>`;
+  }).join('');
+}
+
+async function assignIntakeItem(itemId) {
+  const sel = document.getElementById('iq-sel-' + itemId);
+  if (!sel) return;
+  const agentId = sel.value;
+  try {
+    const r = await fetch(API + '/api/intake/' + encodeURIComponent(itemId) + '/assign', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({agent_id: agentId}),
+    });
+    const d = await r.json();
+    if (d.status === 'assigned') {
+      showToast('Assigned to ' + agentId, 'var(--green)');
+      refreshIntakeQueue();
+    }
+  } catch(e) { showToast('Assign failed: ' + e.message, 'var(--coral)'); }
+}
+
+refreshIntakeQueue();
+setInterval(refreshIntakeQueue, 5000);
+</script>
+
+<!-- Intake Queue Panel -->
+<div style="padding:0 24px 32px">
+  <div class="header" style="padding-top:8px;padding-bottom:8px">
+    <h1 style="font-size:14px">INTAKE QUEUE</h1>
+    <span class="count" id="intakeQueueCount" style="background:var(--bg3)">0</span>
+    <a href="/intake" style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--teal);text-decoration:none;padding:4px 10px;border:1px solid var(--teal);border-radius:4px">Open Full Intake &#8594;</a>
+  </div>
+  <div id="intakeQueueList" style="max-width:100%">
+    <div style="text-align:center;padding:20px;color:var(--text3);font-family:var(--mono);font-size:11px">Loading...</div>
+  </div>
+</div>
+
+</body>
+</html>

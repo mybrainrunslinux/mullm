@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mu|LLM — Cost Control</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --neon:#00e5ff;--neon2:#7c4dff;--neon3:#00e676;--warn:#ff6d00;--crit:#ff1744;
+  --bg:#020810;--bg2:#0a1628;--bg3:#0f1f38;
+  --glow:0 0 20px rgba(0,229,255,0.3);
+  --mono:'JetBrains Mono','Fira Code',monospace;
+}
+body{font-family:var(--mono);background:var(--bg);color:var(--neon);margin:0;overflow-x:hidden;min-height:100vh}
+*::-webkit-scrollbar{width:6px;height:6px}
+*::-webkit-scrollbar-track{background:rgba(0,229,255,0.03);border-radius:3px}
+*::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.15);border-radius:3px}
+*::-webkit-scrollbar-thumb:hover{background:rgba(0,229,255,0.3)}
+
+/* Grid scanlines */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,255,0.015) 2px,rgba(0,229,255,0.015) 4px);
+}
+
+.logo{font-weight:700;font-size:14px;display:flex;align-items:center;gap:0;text-decoration:none;border:none!important;padding:0!important}
+.logo-mu{color:var(--warn);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:rgba(0,229,255,0.3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400}
+.logo-llm{color:var(--neon);letter-spacing:1px}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;padding:10px 20px;font-size:10px;z-index:100;background:rgba(2,8,16,0.9);backdrop-filter:blur(12px);border-bottom:1px solid rgba(0,229,255,0.1);align-items:center}
+.nav a{color:rgba(0,229,255,0.4);text-decoration:none;padding:4px 12px;border:1px solid rgba(0,229,255,0.1);border-radius:4px;transition:all 0.3s;letter-spacing:1px}
+.nav a:hover,.nav a.active{color:var(--neon);border-color:var(--neon);box-shadow:var(--glow);text-shadow:0 0 10px var(--neon)}
+
+/* Header */
+.deck-header{
+  text-align:center;padding:60px 20px 20px;position:relative;z-index:1;
+}
+.deck-header h1{font-size:28px;letter-spacing:6px;text-transform:uppercase;
+  text-shadow:0 0 30px var(--neon),0 0 60px rgba(0,229,255,0.3);margin-bottom:4px}
+.deck-header .subtitle{font-size:10px;color:rgba(0,229,255,0.4);letter-spacing:4px}
+
+/* Main grid */
+.deck{
+  display:grid;grid-template-columns:280px 1fr 280px;grid-template-rows:auto auto auto;
+  gap:12px;padding:12px 20px;max-width:1400px;margin:0 auto;position:relative;z-index:1;
+}
+@media(max-width:1000px){.deck{grid-template-columns:1fr;}}
+
+/* Panels */
+.panel{
+  background:linear-gradient(135deg,rgba(10,22,40,0.9),rgba(15,31,56,0.7));
+  border:1px solid rgba(0,229,255,0.15);border-radius:12px;
+  padding:16px;position:relative;overflow:hidden;
+  box-shadow:inset 0 1px 0 rgba(0,229,255,0.1),0 4px 24px rgba(0,0,0,0.5);
+}
+.panel::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--neon),transparent);opacity:0.3;
+}
+.panel-title{
+  font-size:9px;letter-spacing:3px;text-transform:uppercase;
+  color:rgba(0,229,255,0.5);margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;
+}
+.panel-title .dot{width:6px;height:6px;border-radius:50%;background:var(--neon3);box-shadow:0 0 8px var(--neon3)}
+.panel-title .dot.warn{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+.panel-title .dot.crit{background:var(--crit);box-shadow:0 0 8px var(--crit)}
+
+/* Gauges */
+.gauge{margin-bottom:12px}
+.gauge-label{font-size:8px;color:rgba(0,229,255,0.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;display:flex;justify-content:space-between}
+.gauge-bar{height:6px;background:rgba(0,229,255,0.08);border-radius:3px;overflow:hidden}
+.gauge-fill{height:100%;border-radius:3px;transition:width 1s ease;position:relative}
+.gauge-fill::after{content:'';position:absolute;right:0;top:0;bottom:0;width:20px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3))}
+.gauge-fill.neon{background:linear-gradient(90deg,var(--neon),var(--neon2))}
+.gauge-fill.green{background:linear-gradient(90deg,var(--neon3),#00c853)}
+.gauge-fill.warn{background:linear-gradient(90deg,var(--warn),#ff9100)}
+.gauge-fill.crit{background:linear-gradient(90deg,var(--crit),#d50000)}
+
+/* Big numbers */
+.metric{text-align:center;margin-bottom:12px}
+.metric .value{font-size:28px;font-weight:700;text-shadow:0 0 20px currentColor}
+.metric .label{font-size:8px;color:rgba(0,229,255,0.4);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+
+/* Status lights */
+.lights{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.light{width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,229,255,0.2);transition:all 0.5s}
+.light.on{background:var(--neon3);box-shadow:0 0 10px var(--neon3);border-color:var(--neon3)}
+.light.warn{background:var(--warn);box-shadow:0 0 10px var(--warn);border-color:var(--warn)}
+.light.crit{background:var(--crit);box-shadow:0 0 10px var(--crit);border-color:var(--crit);animation:blink-crit 0.5s infinite}
+@keyframes blink-crit{50%{opacity:0.3}}
+
+/* Agent nodes */
+.agent-grid{display:flex;flex-direction:column;gap:8px}
+.agent-node{
+  display:flex;align-items:center;gap:8px;padding:8px;
+  border:1px solid rgba(0,229,255,0.1);border-radius:6px;
+  background:rgba(0,229,255,0.03);transition:all 0.3s;cursor:default;
+}
+.agent-node:hover{border-color:var(--neon);box-shadow:var(--glow)}
+.agent-node .status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.agent-node .name{font-size:10px;flex:1}
+.agent-node .cap{font-size:8px;color:rgba(0,229,255,0.3)}
+
+/* Trace feed */
+.feed{max-height:200px;overflow-y:auto;font-size:9px;line-height:1.6}
+.feed-entry{border-bottom:1px solid rgba(0,229,255,0.05);padding:3px 0;display:flex;gap:8px}
+.feed-entry .time{color:rgba(0,229,255,0.3);width:50px;flex-shrink:0}
+.feed-entry .tier{width:50px;flex-shrink:0}
+.feed-entry .query{color:rgba(0,229,255,0.6);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Holographic overlay effect */
+.holo-border{
+  position:absolute;inset:-1px;border-radius:12px;pointer-events:none;
+  background:conic-gradient(from 0deg,transparent,var(--neon),transparent,var(--neon2),transparent);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  padding:1px;opacity:0;transition:opacity 0.5s;
+}
+.panel:hover .holo-border{opacity:0.4}
+
+/* Cost display */
+.cost-display{font-size:11px;color:var(--neon3);text-align:center;margin-top:8px}
+.cost-display .amount{font-size:22px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/" class="logo"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot"></a>
+  <a href="/chat">Chat</a>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/performance">Perf</a>
+  <a href="/demo">Demo</a>
+  <a href="/unblock">Unblock</a>
+  <a href="/wacky">Wacky</a>
+  <a href="/cost" class="active">Cost</a>
+  <a href="/games">Games</a>
+</div>
+
+<div class="deck-header">
+  <h1>COST CONTROL</h1>
+  <div class="subtitle">MU|LLM ENGINEERING CONTROL CENTER</div>
+</div>
+
+<div class="deck">
+  <!-- Left Column: System Status -->
+  <div>
+    <div class="panel">
+      <div class="holo-border"></div>
+      <div class="panel-title"><span class="dot" id="sysDot"></span> SYSTEM STATUS</div>
+      <div class="metric"><div class="value" id="sysUptime" style="color:var(--neon)">—</div><div class="label">Uptime</div></div>
+      <div class="gauge"><div class="gauge-label"><span>CPU</span><span id="cpuPct">—</span></div><div class="gauge-bar"><div class="gauge-fill neon" id="cpuBar" style="width:0%"></div></div></div>
+      <div class="gauge"><div class="gauge-label"><span>VRAM</span><span id="vramPct">—</span></div><div class="gauge-bar"><div class="gauge-fill neon" id="vramBar" style="width:0%"></div></div></div>
+      <div class="gauge"><div class="gauge-label"><span>RAM</span><span id="ramPct">—</span></div><div class="gauge-bar"><div class="gauge-fill green" id="ramBar" style="width:0%"></div></div></div>
+      <div class="lights" id="modelLights" title="Loaded models — green=active"></div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="holo-border"></div>
+      <div class="panel-title"><span class="dot"></span> BUDGET CONTROL</div>
+      <div class="gauge"><div class="gauge-label"><span>DAILY</span><span id="budgetDaily">—</span></div><div class="gauge-bar"><div class="gauge-fill green" id="budgetDailyBar" style="width:0%"></div></div></div>
+      <div class="gauge"><div class="gauge-label"><span>WEEKLY</span><span id="budgetWeekly">—</span></div><div class="gauge-bar"><div class="gauge-fill green" id="budgetWeeklyBar" style="width:0%"></div></div></div>
+      <div class="cost-display">COST/HR <span class="amount" id="costHr">—</span></div>
+      <div style="margin-top:8px;display:flex;gap:4px">
+        <button onclick="setBudget('local')" style="flex:1;padding:6px;background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.2);border-radius:4px;color:var(--neon);font-family:var(--mono);font-size:8px;cursor:pointer;letter-spacing:1px" title="Force local-only mode (no cloud spend)">LOCAL ONLY</button>
+        <button onclick="setBudget('normal')" style="flex:1;padding:6px;background:rgba(0,230,118,0.05);border:1px solid rgba(0,230,118,0.2);border-radius:4px;color:var(--neon3);font-family:var(--mono);font-size:8px;cursor:pointer;letter-spacing:1px" title="Resume normal routing">RESUME</button>
+        <button onclick="setBudget('unlimited')" style="flex:1;padding:6px;background:rgba(255,109,0,0.05);border:1px solid rgba(255,109,0,0.2);border-radius:4px;color:var(--warn);font-family:var(--mono);font-size:8px;cursor:pointer;letter-spacing:1px" title="Admin override — remove daily limit">OVERRIDE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center: Main Display -->
+  <div>
+    <div class="panel" style="min-height:200px">
+      <div class="holo-border"></div>
+      <div class="panel-title"><span class="dot"></span> ROUTING MATRIX</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+        <div class="metric"><div class="value" style="color:var(--neon3)" id="mCache">—</div><div class="label">Cache</div></div>
+        <div class="metric"><div class="value" style="color:var(--neon)" id="mLocal">—</div><div class="label">Local</div></div>
+        <div class="metric"><div class="value" style="color:var(--warn)" id="mCloud">—</div><div class="label">Cloud</div></div>
+      </div>
+      <div class="gauge"><div class="gauge-label"><span>CACHE HIT RATE</span><span id="cacheRatePct">—</span></div><div class="gauge-bar"><div class="gauge-fill green" id="cacheRateBar" style="width:0%"></div></div></div>
+      <div class="gauge"><div class="gauge-label"><span>LOCAL RATE</span><span id="localRatePct">—</span></div><div class="gauge-bar"><div class="gauge-fill neon" id="localRateBar" style="width:0%"></div></div></div>
+      <div class="gauge"><div class="gauge-label"><span>SAVINGS</span><span id="savingsPct">—</span></div><div class="gauge-bar"><div class="gauge-fill green" id="savingsBar" style="width:0%"></div></div></div>
+      <div class="metric" style="margin-top:16px"><div class="value" style="color:var(--neon3);font-size:36px" id="totalSaved">—</div><div class="label">Total saved</div></div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="holo-border"></div>
+      <div class="panel-title"><span class="dot"></span> LIVE QUERY FEED</div>
+      <div class="feed" id="queryFeed"><div style="color:rgba(0,229,255,0.3)">Waiting for queries...</div></div>
+    </div>
+  </div>
+
+  <!-- Right Column: Agents & Performance -->
+  <div>
+    <div class="panel">
+      <div class="holo-border"></div>
+      <div class="panel-title"><span class="dot"></span> LATENCY</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+        <div class="metric"><div class="value" style="font-size:20px" id="latP50">—</div><div class="label">P50</div></div>
+        <div class="metric"><div class="value" style="font-size:20px;color:var(--warn)" id="latP95">—</div><div class="label">P95</div></div>
+      </div>
+      <div class="gauge"><div class="gauge-label"><span>ERROR RATE</span><span id="errRatePct">—</span></div><div class="gauge-bar"><div class="gauge-fill green" id="errRateBar" style="width:0%"></div></div></div>
+      <div class="metric"><div class="value" style="font-size:16px" id="qps">—</div><div class="label">QPS</div></div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="holo-border"></div>
+      <div class="panel-title"><span class="dot" id="agentDot"></span> AGENTS</div>
+      <div class="agent-grid" id="agentGrid">
+        <div style="font-size:9px;color:rgba(0,229,255,0.3)">No agents registered</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="holo-border"></div>
+      <div class="panel-title"><span class="dot"></span> MODELS LOADED</div>
+      <div id="modelList" style="font-size:9px;line-height:1.8;color:rgba(0,229,255,0.5)">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = location.origin;
+const TC = {cache:'var(--neon3)',local:'var(--neon)',local_multi:'var(--neon2)',cloud_cheap:'var(--warn)',cloud_full:'var(--crit)'};
+
+function fmt(ms) {
+  if (ms < 1000) return Math.round(ms) + 'ms';
+  return (ms/1000).toFixed(1) + 's';
+}
+
+async function refresh() {
+  try {
+    const [perf, dash, sys, budget, agents] = await Promise.all([
+      fetch(API+'/api/performance?trace=1').then(r=>r.json()),
+      fetch(API+'/api/dashboard?bench=blend').then(r=>r.json()),
+      fetch(API+'/api/system').then(r=>r.json()).catch(()=>({})),
+      fetch(API+'/api/budget').then(r=>r.json()).catch(()=>({})),
+      fetch(API+'/api/agents').then(r=>r.json()).catch(()=>({agents:[]})),
+    ]);
+
+    // System
+    const up = perf.uptime_seconds;
+    document.getElementById('sysUptime').textContent = up > 3600 ? Math.floor(up/3600)+'h '+Math.round((up%3600)/60)+'m' : Math.round(up/60)+'m';
+    document.getElementById('sysDot').className = 'dot' + (perf.error_rate > 5 ? ' crit' : perf.error_rate > 1 ? ' warn' : '');
+
+    if (sys.cpu_pct != null) {
+      document.getElementById('cpuPct').textContent = sys.cpu_pct + '%';
+      document.getElementById('cpuBar').style.width = sys.cpu_pct + '%';
+      document.getElementById('cpuBar').className = 'gauge-fill ' + (sys.cpu_pct > 80 ? 'crit' : sys.cpu_pct > 50 ? 'warn' : 'neon');
+    }
+    if (sys.gpu && (sys.gpu.memory_used_mb || sys.gpu.vram_used_mb)) {
+      const usedMb = Number(sys.gpu.memory_used_mb ?? sys.gpu.vram_used_mb ?? 0);
+      const totalMb = Number(sys.gpu.memory_total_mb ?? sys.gpu.vram_total_mb ?? 0);
+      const inferredOnly = (sys.gpu.name || '') === 'Ollama models';
+      const capacityKnown = totalMb > 0 && !inferredOnly;
+      const vramUsed = (usedMb / 1024).toFixed(1);
+      const vramTotal = (totalMb / 1024).toFixed(0);
+      const vramPct = capacityKnown ? Number(sys.gpu.memory_pct ?? ((usedMb / totalMb) * 100)) : 0;
+      document.getElementById('vramPct').textContent = capacityKnown ? vramUsed + '/' + vramTotal + 'GB' : vramUsed + 'GB loaded';
+      document.getElementById('vramBar').style.width = Math.max(0, Math.min(vramPct, 100)) + '%';
+      document.getElementById('vramBar').className = 'gauge-fill ' + (vramPct > 90 ? 'warn' : 'neon');
+    }
+    if (sys.memory_used_gb != null) {
+      document.getElementById('ramPct').textContent = sys.memory_used_gb.toFixed(0) + '/' + sys.memory_total_gb.toFixed(0) + 'GB';
+      document.getElementById('ramBar').style.width = sys.memory_pct + '%';
+    }
+
+    // Model lights — green=loaded, dim=available
+    const models = (sys.ollama_models || []).slice(0, 14);
+    const loadedCount = models.filter(m => m.loaded).length;
+    document.getElementById('modelLights').innerHTML = models.map(m =>
+      `<div class="light ${m.loaded ? 'on' : ''}" title="${m.name} (${m.size_gb}GB)${m.loaded ? ' — IN VRAM' : ' — downloaded'}" style="${m.loaded ? '' : 'opacity:0.2;background:var(--dim)'}"></div>`
+    ).join('');
+    document.getElementById('modelList').innerHTML =
+      `<div style="margin-bottom:4px;color:var(--neon);font-size:8px;letter-spacing:1px">${loadedCount} LOADED / ${models.length} AVAILABLE</div>` +
+      models.map(m =>
+        `<div style="display:flex;justify-content:space-between;opacity:${m.loaded ? '1' : '0.35'}"><span>${m.loaded ? '●' : '○'} ${m.name.split('/').pop().split(':')[0].slice(0,20)}</span><span style="color:${m.loaded ? 'var(--neon3)' : 'var(--dim)'}">${m.size_gb}G</span></div>`
+      ).join('') || '<div>No models</div>';
+
+    // Routing matrix
+    const td = perf.tier_distribution || {};
+    document.getElementById('mCache').textContent = (td.cache || 0).toLocaleString();
+    document.getElementById('mLocal').textContent = ((td.local||0) + (td.local_multi||0)).toLocaleString();
+    document.getElementById('mCloud').textContent = ((td.cloud_cheap||0) + (td.cloud_full||0)).toLocaleString();
+
+    document.getElementById('cacheRatePct').textContent = perf.cache_hit_rate + '%';
+    document.getElementById('cacheRateBar').style.width = perf.cache_hit_rate + '%';
+    document.getElementById('localRatePct').textContent = dash.local_rate + '%';
+    document.getElementById('localRateBar').style.width = dash.local_rate + '%';
+    document.getElementById('savingsPct').textContent = dash.savings_pct + '%';
+    document.getElementById('savingsBar').style.width = Math.min(dash.savings_pct, 100) + '%';
+    document.getElementById('totalSaved').textContent = '$' + dash.savings.toFixed(2);
+
+    // Latency
+    document.getElementById('latP50').textContent = fmt(perf.latency_p50);
+    document.getElementById('latP50').style.color = perf.latency_p50 < 500 ? 'var(--neon3)' : perf.latency_p50 < 2000 ? 'var(--warn)' : 'var(--crit)';
+    document.getElementById('latP95').textContent = fmt(perf.latency_p95);
+    document.getElementById('errRatePct').textContent = perf.error_rate + '%';
+    document.getElementById('errRateBar').style.width = Math.min(perf.error_rate * 10, 100) + '%';
+    document.getElementById('errRateBar').className = 'gauge-fill ' + (perf.error_rate > 5 ? 'crit' : perf.error_rate > 1 ? 'warn' : 'green');
+    document.getElementById('qps').textContent = perf.throughput_qps;
+    document.getElementById('costHr').textContent = '$' + perf.cost_per_hour.toFixed(4);
+
+    // Budget
+    if (budget.daily_spend != null) {
+      document.getElementById('budgetDaily').textContent = '$' + budget.daily_spend.toFixed(2) + ' / $' + budget.daily_limit;
+      document.getElementById('budgetDailyBar').style.width = Math.min(budget.daily_pct, 100) + '%';
+      document.getElementById('budgetDailyBar').className = 'gauge-fill ' + (budget.daily_pct > 80 ? 'warn' : 'green');
+      document.getElementById('budgetWeekly').textContent = '$' + budget.weekly_spend.toFixed(2) + ' / $' + budget.weekly_limit;
+      document.getElementById('budgetWeeklyBar').style.width = Math.min(budget.weekly_pct, 100) + '%';
+    }
+
+    // Agents
+    const agentList = agents.agents || [];
+    document.getElementById('agentDot').className = 'dot' + (agentList.length > 0 ? '' : ' warn');
+    const isPrimary = id => id === 'mullm-primary';
+    // Remember open detail panels
+    const _openAgents = new Set();
+    document.querySelectorAll('[id^="sp-agent-det-"]').forEach(el => {
+      if (el.style.display !== 'none') _openAgents.add(el.id);
+    });
+    document.getElementById('agentGrid').innerHTML = agentList.length > 0 ?
+      agentList.map(a => {
+        const paused = a.paused;
+        const dotColor = paused ? 'var(--warn)' : 'var(--neon3)';
+        const statusIcon = paused ? '<span style="font-size:8px;color:var(--warn)" title="Paused">⏸</span>' :
+          `<div class="status" style="background:${dotColor};box-shadow:0 0 6px ${dotColor}"></div>`;
+        const caps = (a.capabilities||[]).join(', ');
+        const detId = 'sp-agent-det-' + a.agent_id.replace(/[^a-z0-9]/gi,'_');
+        const toggleHtml = isPrimary(a.agent_id) ? '' :
+          `<div style="display:flex;gap:4px;margin-top:4px" onclick="event.stopPropagation()">
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:8px;color:${paused ? 'var(--warn)' : 'var(--neon3)'}">
+              <input type="checkbox" ${paused ? '' : 'checked'} onchange="toggleSpaceAgent('${a.agent_id}')" style="accent-color:var(--neon3);width:12px;height:12px">
+              ${paused ? 'OFF' : 'ON'}
+            </label>
+            <button onclick="deleteSpaceAgent('${a.agent_id}')" title="Unregister" style="background:none;border:none;color:var(--crit);cursor:pointer;font-size:10px;opacity:0.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">🗑</button>
+          </div>`;
+        const detailHtml = `<div id="${detId}" style="display:none;margin-top:4px;padding:4px 6px;background:rgba(0,0,0,0.3);border-radius:4px;font-size:8px;line-height:1.6;color:rgba(0,229,255,0.6)">
+          <div>Endpoint: <span style="color:var(--neon)">${a.endpoint || '—'}</span></div>
+          <div>ID: ${a.agent_id}</div>
+          <div>Caps: ${caps || 'none'}</div>
+          ${!isPrimary(a.agent_id) ? `<div style="margin-top:2px;word-break:break-all;color:var(--dim);font-size:7px">curl -sk -X POST "${a.endpoint}/api/agents/${a.agent_id}/task?content=hello"</div>` : `<div style="margin-top:2px"><a href="/mcp" style="color:var(--neon);font-size:7px">MCP</a> · <a href="/a2a" style="color:var(--neon);font-size:7px">A2A</a> · <a href="/rpc" style="color:var(--neon);font-size:7px">RPC</a></div>`}
+        </div>`;
+        return `<div class="agent-node" style="${paused ? 'opacity:0.4' : ''};cursor:pointer" onclick="const d=document.getElementById('${detId}');d.style.display=d.style.display==='none'?'block':'none'">${statusIcon}<div class="name">${a.name || a.agent_id} <span style="font-size:7px;opacity:0.4">▼</span></div><div class="cap">${caps}</div>${detailHtml}${toggleHtml}</div>`;
+      }).join('') :
+      '<div style="font-size:9px;color:rgba(0,229,255,0.3)">No agents registered<br><span style="font-size:8px">POST /api/agents/register to add</span></div>';
+    // Restore open panels
+    _openAgents.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'block'; });
+
+    // Query trace feed
+    if (perf.query_trace && perf.query_trace.length > 0) {
+      document.getElementById('queryFeed').innerHTML = perf.query_trace.slice(-20).reverse().map(q => {
+        const t = new Date(q.t * 1000).toLocaleTimeString();
+        const col = TC[q.tier] || 'var(--neon)';
+        return `<div class="feed-entry"><span class="time">${t}</span><span class="tier" style="color:${col}">${q.tier}</span><span class="query">${q.q}</span><span style="width:50px;text-align:right">${fmt(q.ms)}</span></div>`;
+      }).join('');
+    }
+
+  } catch(e) {
+    document.getElementById('sysDot').className = 'dot crit';
+  }
+}
+
+// SSE real-time updates
+const evtSource = new EventSource(API + '/events');
+evtSource.onmessage = (e) => {
+  try {
+    const d = JSON.parse(e.data);
+    if (d.type === 'query_complete') refresh();
+  } catch {}
+};
+
+async function setBudget(mode) {
+  if (mode === 'local') {
+    await fetch(API + '/api/sessions/budget/state', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'color=yellow&status=local-only&summary=Budget+forced+local-only+from+Cost+Control'});
+    document.getElementById('budgetDailyBar').className = 'gauge-fill warn';
+  } else if (mode === 'unlimited') {
+    const cap = parseFloat(prompt('Set daily budget cap ($):', '10'));
+    if (!isNaN(cap) && cap > 0) {
+      const r = await fetch(API + '/api/budget/cap?cap=' + cap, {method:'POST'});
+      const d = await r.json();
+      alert('Budget cap updated: $' + d.new_cap + ' (remaining: $' + d.remaining.toFixed(2) + ')');
+    }
+  } else if (mode === 'normal') {
+    await fetch(API + '/api/budget/cap?cap=5', {method:'POST'});
+  }
+  refresh();
+}
+
+refresh();
+setInterval(refresh, 5000);
+
+async function toggleSpaceAgent(id) {
+  await fetch(API + '/api/agents/' + encodeURIComponent(id) + '/pause', { method: 'POST' });
+  refresh();
+}
+async function deleteSpaceAgent(id) {
+  if (!confirm('Unregister ' + id + '?')) return;
+  await fetch(API + '/api/agents/' + encodeURIComponent(id), { method: 'DELETE' });
+  refresh();
+}
+</script>
+</body>
+</html>

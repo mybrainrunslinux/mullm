@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stick Footgolf</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: monospace; }
+        #loading { position: fixed; inset: 0; background: #222; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 100; transition: opacity 0.5s; }
+        #hud { position: fixed; top: 10px; left: 10px; color: #fff; text-shadow: 1px 1px 0 #000; pointer-events: none; }
+        #help { position: fixed; top: 10px; right: 10px; color: #fff; text-shadow: 1px 1px 0 #000; pointer-events: none; opacity: 0.8; }
+        .hidden { opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading...</div>
+    <div id="hud">
+        <div id="score">Hole: 1/3 | Score: 0</div>
+        <div id="message"></div>
+    </div>
+    <div id="help">
+        <strong>Controls:</strong><br>
+        <span style="color:#ff6">WASD/Arrows</span> Move<br>
+        <span style="color:#ff6">Space</span> Swing leg<br>
+        <span style="color:#ff6">H</span> Help<br>
+        <span style="color:#ff6">R</span> Reset ball
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "/static/three/three.module.js",
+            "three/addons/": "/static/three/addons/"
+        }
+    }
+    </script>
+    <script>/*
+        const headMat = new THREE.MeshBasicMaterial({ color: 0xffccaa });
+        
+        // Create head (circle)
+        const headGeo = new THREE.SphereGeometry(0.25, 16, 16);
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.set(0, 0.5, 0);
+        playerGroup.add(head);
+        
+        // Create body lines
+        const bodyGeo = new THREE.BufferGeometry();
+        const bodyPositions = [
+            // Torso
+            0, 0.5, 0, 0, 0, 0,
+            // Left arm
+            0, 0.3, 0, -0.3, 0.3, 0,
+            // Right arm
+            0, 0.3, 0, 0.3, 0.3, 0,
+            // Left leg (swinging)
+            0, 0, 0, -0.25, -0.3, 0,
+            // Right leg (static)
+            0, 0, 0, 0.25, -0.3, 0,
+        ];
+        bodyGeo.setAttribute('position', new THREE.Float32BufferAttribute(bodyPositions, 3));
+        const bodyLines = new THREE.Line(bodyGeo, stickMat);
+        playerGroup.add(bodyLines);
+        
+        // Create ball (sphere)
+        const ballGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const ballMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        ball = new THREE.Mesh(ballGeo, ballMat);
+        ball.position.set(0.4, 0.15, 0);
+        playerGroup.add(ball);
+        
+        return { head, bodyLines, ball };
+    }
+
+    // --- Leg Swing Animation ---
+    let legSwingAngle = 0;
+    let legSwingSpeed = 0.05;
+    let legSwingOffset = 0;
+
+    function updateLegSwing() {
+        // Pendulum-style swing using sine wave
+        legSwingAngle = Math.sin(Date.now() * legSwingSpeed + legSwingOffset) * 0.3;
+        legPivot.rotation.x = legSwingAngle;
+    }
+
+    // --- Initialize Stick Figure ---
+    const stickFigure = createStickFigure();
+    const legPivot = new THREE.Group();
+    legPivot.position.set(0, 0, 0);
+    playerGroup.add(legPivot);
+    stickFigure.bodyLines.add(legPivot);
+    // Kick state tracking
+    let legSwingAngle = 0;
+    let legSwingSpeed = 0.05;
+    let legSwingPhase = 0;
+    let legSwingDirection = 1;
+    let legSwingActive = true;
+    let legSwingCooldown = 0;
+    let lastLegAngle = 0;
+
+    function updateLegSwing() {
+        if (!legSwingActive) {
+            // Cooldown before next swing
+            legSwingCooldown--;
+            if (legSwingCooldown <= 0) {
+                legSwingActive = true;
+                legSwingCooldown = 60;
+                legSwingPhase = 0;
+            }
+            return;
+        }
+
+        // Pendulum swing physics
+        legSwingPhase += legSwingSpeed * legSwingDirection;
+        if (legSwingPhase > Math.PI * 2) {
+            legSwingPhase = 0;
+            legSwingDirection = -legSwingDirection;
+        }
+
+        // Smooth angle interpolation
+        legSwingAngle = Math.sin(legSwingPhase) * 0.5;
+        lastLegAngle = legSwingAngle;
+
+        // Apply to visual
+        legPivot.rotation.x = legSwingAngle;
+    }
+        // --- Terrain System ---
+        const terrain = {
+            holes: [
+                { name: 'Easy', type: 'flat', y: 0, color: 0x2d5a27 },
+                { name: 'Medium', type: 'hill', y: 0.5, color: 0x3d6a37 },
+                { name: 'Hard', type: 'water', y: -0.5, color: 0x1a4a27 }
+            ],
+            currentHole: 0,
+            trees: [],
+            grassTexture: null
+        };
+
+        // Procedural grass texture
+        function createGrassTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            // Base green
+            ctx.fillStyle = '#2d5a27';
+            ctx.fillRect(0, 0, 512, 512);
+            
+            // Add noise
+            for (let i = 0; i < 10000; i++) {
+    // --- Camera Follow System ---
+    const cameraOffset = new THREE.Vector3(0, 2, 4);
+    const cameraLerpSpeed = 0.15;
+    let cameraTarget = null;
+    let slowMotionFactor = 1.0;
+    let windForce = 0;
+
+    // Difficulty configuration
+    const difficulty = {
+        holeSize: 0.3,           // 0.3 = big hole, 0.05 = tiny hole
+        helpfulPhysics: 0.15,    // 0.15 = helpful, 0.01 = neutral, -0.1 = harsh
+        windStrength: 0.02       // 0.02 = light wind, 0.1 = strong wind
+    };
+
+    // Calculate camera target position
+    function updateCameraTarget() {
+        if (ballResting) {
+            // When ball is resting, follow player
+            cameraTarget = playerGroup.position.clone().add(cameraOffset);
+        } else {
+            // When ball is in air, follow ball
+            cameraTarget = ball.position.clone().add(cameraOffset);
+        }
+    }
+
+    // Apply slow motion effect near hole
+    function applySlowMotion() {
+        const distToHole = ball.position.length();
+        const nearHoleThreshold = difficulty.holeSize * 2.5;
+        
+        // Slow motion when close to hole (near-miss effect)
+        if (distToHole < nearHoleThreshold) {
+            const slowFactor = 1.0 - (distToHole / nearHoleThreshold) * 0.5;
+            slowMotionFactor = Math.max(0.3, slowFactor);
+        } else {
+            slowMotionFactor = 1.0;
+        }
+    }
+
+    // Apply wind force based on difficulty
+    function applyWind() {
+        if (difficulty.windStrength > 0) {
+            // Random wind direction
+            const windDir = new THREE.Vector3(
+                Math.random() - 0.5,
+                0,
+                Math.random() - 0.5
+            ).normalize().multiplyScalar(difficulty.windStrength);
+            
+            // Only apply wind when ball is in air
+            if (!ballResting) {
+                ballVelocity.add(windDir);
+            }
+        }
+    }
+
+    // --- Rendering ---
+    function render() {
+        // Update positions
+        updatePlayerMovement();
+        updateLegSwing();
+        applyGravity();
+        applyFriction();
+        checkCollisions();
+        updateBall();
+
+        // --- NEW: Camera System ---
+        updateCameraTarget();
+        applySlowMotion();
+        applyWind();
+
+        // Smooth camera interpolation
+        camera.position.lerp(cameraTarget, cameraLerpSpeed);
+        camera.lookAt(ball.position);
+
+        // Animate leg
+        legPivot.rotation.x = legSwingAngle;
+
+        // Update controls
+        controls.update();
+
+        // Render
+        renderer.render(scene, camera);
+    }
+            // Mobile tap-to-kick detection
+            if (ballResting && ball.position.distanceTo(playerGroup.position) < 1.5) {
+                // Check if tap occurred within kicking range
+                if (lastTapPos && ball.position.distanceTo(lastTapPos) < 2.0) {
+                    // Apply kick velocity based on tap position
+                    const kickDir = ball.position.clone().sub(lastTapPos).normalize();
+                    ballVelocity.copy(kickDir.multiplyScalar(0.8 + Math.random() * 0.2));
+                    ballResting = false;
+                    playSound('kick');
+                    lastTapPos = null;
+                }
+            }
+
+            // Track last tap position for mobile kicking
+            if (ballResting) {
+*/</script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Scene Setup ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+        camera.position.set(0, 15, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.maxPolarAngle = Math.PI / 2 - 0.1;
+
+        // --- Lighting ---
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        hemiLight.position.set(0, 20, 0);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 20;
+        dirLight.shadow.camera.bottom = -20;
+        dirLight.shadow.camera.left = -20;
+        dirLight.shadow.camera.right = 20;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        // --- Ground ---
+        const groundGeo = new THREE.PlaneGeometry(100, 100);
+        const groundMat = new THREE.MeshStandardMaterial({ 
+            color: 0x228B22, 
+            roughness: 0.8,
+            side: THREE.DoubleSide
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // --- Course Objects (Colorful obstacles) ---
+        const obstacles = [];
+        const obstacleGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
+        const obstacleMat = new THREE.MeshStandardMaterial({ color: 0xff6600 });
+        
+        for (let i = 0; i < 15; i++) {
+            const mesh = new THREE.Mesh(obstacleGeo, obstacleMat.clone());
+            mesh.position.set(
+                (Math.random() - 0.5) * 60,
+                0.75,
+                (Math.random() - 0.5) * 60
+            );
+            mesh.rotation.y = Math.random() * Math.PI;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+            obstacles.push(mesh);
+        }
+
+        // --- Player (Stick Figure with Pendulum Leg) ---
+        const playerGroup = new THREE.Group();
+        
+        // Body
+        const bodyGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.5, 8);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3366ff });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 1.5;
+        body.castShadow = true;
+        playerGroup.add(body);
+
+        // Head
+        const headGeo = new THREE.SphereGeometry(0.25, 8, 8);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xffccaa });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.y = 2.25;
+        head.castShadow = true;
+        playerGroup.add(head);
+
+        // Pendulum Leg (animated)
+        const legPivot = new THREE.Group();
+        legPivot.position.set(0, 0.75, 0);
+        playerGroup.add(legPivot);
+
+        const legGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8);
+        const legMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.y = 0.6;
+        leg.castShadow = true;
+        legPivot.add(leg);
+
+        // Foot
+        const footGeo = new THREE.SphereGeometry(0.15, 8, 8);
+        const footMat = new THREE.MeshStandardMaterial({ color: 0x666666 });
+        const foot = new THREE.Mesh(footGeo, footMat);
+        foot.position.y = 0.15;
+        foot.castShadow = true;
+        legPivot.add(foot);
+
+        playerGroup.position.set(0, 0, 0);
+        scene.add(playerGroup);
+
+        // --- Ball ---
+        const ballGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const ballMat = new THREE.MeshStandardMaterial({ 
+            color: 0xff0000, 
+            roughness: 0.4,
+            metalness: 0.1
+        });
+        const ball = new THREE.Mesh(ballGeo, ballMat);
+        ball.position.set(0, 0.15, 0);
+        ball.castShadow = true;
+        scene.add(ball);
+
+        // --- Game State ---
+        let ballVelocity = new THREE.Vector3();
+        let ballFriction = 0.985;
+        let ballBounce = 0.7;
+        let ballResting = false;
+        let ballRestingTime = 0;
+        let hole = 1;
+        let score = 0;
+        let swingCooldown = 0;
+        let swingActive = false;
+        let swingAngle = 0;
+        let swingSpeed = 0.3;
+        let swingMaxAngle = 1.5;
+        let legSwingAngle = 0;
+        let legSwingSpeed = 0.15;
+        let legSwingMax = 0.8;
+        let legSwingDir = 1;
+        let gameActive = true;
+        let helpVisible = false;
+
+        // --- Input Handling ---
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key.toLowerCase() === 'h') {
+                helpVisible = !helpVisible;
+                document.getElementById('help').style.opacity = helpVisible ? 1 : 0.8;
+            }
+            if (e.key.toLowerCase() === 'r' && ballResting) {
+                resetBall();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // --- Physics Functions ---
+        function applyGravity() {
+            if (!ballResting) {
+                ballVelocity.y -= 0.015;
+            }
+        }
+
+        function applyFriction() {
+            if (!ballResting) {
+                ballVelocity.multiplyScalar(ballFriction);
+            }
+        }
+
+        function checkCollisions() {
+            // Ground
+            if (ball.position.y <= 0.15) {
+                ball.position.y = 0.15;
+                ballVelocity.y = 0;
+                if (ballVelocity.length() < 0.1) {
+                    ballResting = true;
+                    ballRestingTime = 0;
+                }
+            }
+
+            // Obstacles
+            for (const obs of obstacles) {
+                const dist = ball.position.distanceTo(obs.position);
+                if (dist < 0.65) {
+                    // Simple bounce
+                    const normal = new THREE.Vector3().subVectors(ball.position, obs.position).normalize();
+                    ballVelocity.reflect(normal);
+                    ballVelocity.multiplyScalar(0.6);
+                    ball.position.add(normal.multiplyScalar(0.1));
+                }
+            }
+
+            // Player collision (push ball away)
+            const pPos = playerGroup.position;
+            const pDist = ball.position.distanceTo(pPos);
+            if (pDist < 0.5) {
+                const normal = new THREE.Vector3().subVectors(ball.position, pPos).normalize();
+                ballVelocity.add(normal.multiplyScalar(0.1));
+                ball.position.add(normal.multiplyScalar(0.05));
+            }
+        }
+
+        function updateLegSwing() {
+            if (swingActive) {
+                swingAngle += swingSpeed * legSwingDir;
+                if (swingAngle >= swingMaxAngle || swingAngle <= -swingMaxAngle) {
+                    swingAngle = swingMaxAngle;
+                    swingActive = false;
+                    swingCooldown = 60;
+                }
+            } else if (swingCooldown > 0) {
+                swingCooldown--;
+            }
+
+            // Pendulum leg animation
+            if (swingActive) {
+                legSwingAngle = swingAngle;
+            } else if (legSwingAngle > 0) {
+                legSwingAngle += legSwingSpeed * legSwingDir;
+                if (legSwingAngle >= legSwingMax) {
+                    legSwingAngle = legSwingMax;
+                    legSwingDir = -1;
+                } else if (legSwingAngle <= -legSwingMax) {
+                    legSwingAngle = -legSwingMax;
+                    legSwingDir = 1;
+                }
+            }
+        }
+
+        function updatePlayerMovement() {
+            const speed = 0.15;
+            const forward = new THREE.Vector3(0, 0, 1);
+            const right = new THREE.Vector3(1, 0, 0);
+            const up = new THREE.Vector3(0, 1, 0);
+
+            if (keys['w'] || keys['arrowup']) forward.add(up);
+            if (keys['s'] || keys['arrowdown']) forward.sub(up);
+            if (keys['a'] || keys['arrowleft']) right.add(up);
+            if (keys['d'] || keys['arrowright']) right.sub(up);
+
+            if (forward.lengthSq() > 0 || right.lengthSq() > 0) {
+                const moveDir = forward.clone().add(right).normalize();
+                playerGroup.position.add(moveDir.multiplyScalar(speed));
+            }
+
+            // Keep player on ground
+            playerGroup.position.y = Math.max(0, playerGroup.position.y);
+        }
+
+        function updateBall() {
+            if (!ballResting) {
+                ball.position.add(ballVelocity);
+                ballVelocity.y = Math.max(0, ballVelocity.y);
+            }
+
+            // Check if ball is far from player (ready to kick)
+            if (ballResting && ball.position.distanceTo(playerGroup.position) > 1.5) {
+                ballResting = false;
+            }
+
+            // Check if ball is near player (can kick)
+            if (!ballResting && ball.position.distanceTo(playerGroup.position) < 1.5) {
+                ballResting = true;
+                ballRestingTime = 0;
+            }
+
+            // Check hole (simple: near origin)
+            if (ball.position.length() < 0.3 && ballResting) {
+                holeComplete();
+            }
+        }
+
+        function resetBall() {
+            ball.position.set(0, 0.15, 0);
+            ballVelocity.set(0, 0, 0);
+            ballResting = true;
+            ballRestingTime = 0;
+            showMessage("Ball reset!");
+        }
+
+        function holeComplete() {
+            hole++;
+            score++;
+            showMessage(`Hole ${hole} complete!`);
+            if (hole > 3) {
+                showMessage("Game Over! Final Score: " + score);
+                gameActive = false;
+            } else {
+                resetBall();
+            }
+        }
+
+        function showMessage(msg) {
+            const el = document.getElementById('message');
+            el.textContent = msg;
+            el.style.opacity = 1;
+            setTimeout(() => { el.style.opacity = 0; }, 2000);
+        }
+
+        // --- Rendering ---
+        function render() {
+            // Update positions
+            updatePlayerMovement();
+            updateLegSwing();
+            applyGravity();
+            applyFriction();
+            checkCollisions();
+            updateBall();
+
+            // Animate leg
+            legPivot.rotation.x = legSwingAngle;
+
+            // Update controls
+            controls.update();
+
+            // Render
+            renderer.render(scene, camera);
+        }
+
+        // --- Game Loop ---
+        function loop() {
+            requestAnimationFrame(loop);
+            render();
+        }
+
+        // --- Initialization ---
+        function init() {
+            // Hide loading screen after render
+            setTimeout(() => {
+                const loading = document.getElementById('loading');
+                loading.style.opacity = 0;
+                setTimeout(() => loading.remove(), 500);
+            }, 500);
+
+            // Start game loop
+            loop();
+        }
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

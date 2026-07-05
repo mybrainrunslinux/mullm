@@ -1,0 +1,1773 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — Terrain Builder</title>
+  <meta name="description" content="Generate real-world heightmap terrain GLBs from USGS, OpenTopography, and Mapbox DEM data." />
+  <meta name="theme-color" content="#0a0a1a" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.json" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    /* ── Reset & Tokens ──────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:      #0a0a1a;
+      --bg2:     #0f0f2a;
+      --bg3:     #141428;
+      --border:  #1e1e3a;
+      --teal:    #00bfa5;
+      --teal-dim:#007a6a;
+      --coral:   #ff6b6b;
+      --coral-dim:#9a3030;
+      --amber:   #f59e0b;
+      --purple:  #a78bfa;
+      --green:   #22c55e;
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --text3:   #5a6a7a;
+      --mono:    "JetBrains Mono", "Fira Code", monospace;
+      --sans:    "Inter", -apple-system, sans-serif;
+      color-scheme: dark;
+    }
+    [data-theme="light"] {
+      --bg:     #f0f4ff;
+      --bg2:    #e8edf8;
+      --bg3:    #dce3f0;
+      --border: #c5cfe0;
+      --teal:   #007a6a;
+      --teal-dim:#004d42;
+      --coral:  #c0392b;
+      --text:   #0f1730;
+      --text2:  #3a4a5e;
+      --text3:  #6a7a8e;
+      color-scheme: light;
+    }
+
+    /* ── Accessibility ── */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--teal); color: #000;
+      padding: 8px 16px; z-index: 10000;
+      font-weight: 600; border-radius: 0 0 8px 0;
+      transition: top 0.2s; font-family: var(--mono); font-size: 13px;
+    }
+    .skip-link:focus { top: 0; }
+    *:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+    /* ── Typography ── */
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); overflow-x: hidden;
+      line-height: 1.6;
+    }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: rgba(10, 10, 26, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px; display: flex;
+      align-items: center; gap: 14px;
+      font-family: var(--mono); font-size: 13px;
+      position: sticky; top: 0; z-index: 200;
+      flex-wrap: wrap;
+    }
+    .logo {
+      font-weight: 700; font-size: 14px; letter-spacing: 1px;
+      color: var(--teal); text-decoration: none;
+      text-shadow: 0 0 12px rgba(0,191,165,0.4);
+      display: flex; align-items: center; gap: 0;
+    }
+    .logo-mu {
+      color: var(--amber);
+      text-shadow: 0 0 12px rgba(245,158,11,0.3);
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 18px; font-style: italic; line-height: 14px;
+    }
+    .logo-pipe {
+      color: var(--text3); font-size: 20px; line-height: 14px;
+      margin: 0 -1px; font-weight: 400; opacity: 0.5; position: relative; top: -1px;
+    }
+    .logo-llm { color: var(--teal); letter-spacing: 1px; }
+    .topbar-spacer { flex: 1; }
+    .nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+    .nav-link {
+      padding: 4px 10px; border-radius: 6px; font-size: .82rem;
+      color: var(--text2); transition: all .15s; text-decoration: none;
+    }
+    .nav-link:hover { background: var(--bg3); color: var(--text); }
+    .nav-link.active {
+      background: linear-gradient(135deg, var(--teal), #00796b);
+      color: #000; font-weight: 600;
+    }
+    .theme-toggle {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text2); padding: 4px 10px; border-radius: 6px;
+      font-size: .82rem; transition: all .15s;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--teal); }
+
+    /* ── Tooltip ── */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 10px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: .75rem; color: var(--text); white-space: nowrap;
+      z-index: 9999; pointer-events: none; font-family: var(--mono);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    [data-tooltip][data-tip-wide]:hover::after,
+    [data-tooltip][data-tip-wide]:focus-visible::after {
+      white-space: normal; width: 240px; text-align: left;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      position: relative; overflow: hidden;
+      min-height: clamp(200px, 30vh, 320px);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 40px 24px;
+      background: linear-gradient(135deg, #0a0a1a 0%, #0a100a 40%, #0a1410 100%);
+    }
+    #hero-canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .hero-content { position: relative; z-index: 2; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 100px; padding: 4px 14px;
+      font-family: var(--mono); font-size: .72rem;
+      color: var(--green); letter-spacing: 1.5px;
+      text-transform: uppercase; margin-bottom: 18px;
+    }
+    .hero-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 6px var(--green);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .hero-title {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 800; letter-spacing: -1px;
+      background: linear-gradient(135deg, #fff 0%, var(--green) 50%, var(--teal) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1.15; margin-bottom: 12px;
+    }
+    .hero-sub {
+      font-size: clamp(0.85rem, 2vw, 1rem); color: var(--text2);
+      max-width: 520px; margin: 0 auto;
+    }
+
+    /* ── Section Layout ── */
+    .section { padding: 32px 24px; max-width: 1400px; margin: 0 auto; }
+    .section-title {
+      font-family: var(--mono); font-size: .72rem; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--text3); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .section-title::after {
+      content: ""; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ── Main Builder Layout ── */
+    .builder-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px; align-items: start;
+    }
+    @media (max-width: 1024px) {
+      .builder-layout { grid-template-columns: 1fr; }
+    }
+
+    /* ── Control Panel ── */
+    .control-panel {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px;
+      position: sticky; top: 72px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    /* ── Form Groups ── */
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label {
+      font-family: var(--mono); font-size: .72rem;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--text3);
+    }
+    .form-input {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text); padding: 8px 12px; border-radius: 8px;
+      font-size: .9rem; font-family: var(--mono);
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    .form-input:focus { border-color: var(--teal); outline: none; }
+    .form-input::placeholder { color: var(--text3); }
+
+    .coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .form-select {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text); padding: 8px 12px; border-radius: 8px;
+      font-size: .85rem; font-family: var(--mono);
+      transition: border-color 0.15s; width: 100%;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+    .form-select:focus { border-color: var(--teal); outline: none; }
+
+    /* ── Geocode Search ── */
+    .geocode-wrap { position: relative; }
+    .geocode-input-row { display: flex; gap: 6px; }
+    .geocode-input-row .form-input { flex: 1; }
+    .btn-geocode {
+      background: var(--teal); color: #000; font-weight: 700;
+      border: none; border-radius: 8px; padding: 8px 12px;
+      font-size: .82rem; font-family: var(--mono);
+      transition: opacity .15s; white-space: nowrap; min-width: 44px;
+    }
+    .btn-geocode:hover { opacity: .85; }
+    .btn-geocode:disabled { opacity: .4; cursor: not-allowed; }
+    .geocode-results {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--bg2); border: 1px solid var(--teal);
+      border-radius: 8px; z-index: 500;
+      max-height: 200px; overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+    .geocode-result-item {
+      padding: 8px 12px; cursor: pointer; font-size: .82rem;
+      border-bottom: 1px solid var(--border); transition: background .1s;
+      font-family: var(--mono); color: var(--text2); line-height: 1.3;
+    }
+    .geocode-result-item:last-child { border-bottom: none; }
+    .geocode-result-item:hover, .geocode-result-item:focus { background: var(--bg3); color: var(--text); outline: none; }
+    .geocode-result-item strong { color: var(--teal); font-weight: 700; }
+
+    /* ── Radius Slider ── */
+    .slider-wrap { display: flex; flex-direction: column; gap: 8px; }
+    .slider-row { display: flex; align-items: center; gap: 10px; }
+    .range-slider {
+      flex: 1; -webkit-appearance: none; appearance: none;
+      height: 4px; border-radius: 2px;
+      background: linear-gradient(to right, var(--teal) 0%, var(--teal) var(--pct, 10%), var(--border) var(--pct, 10%));
+    }
+    .range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px;
+      border-radius: 50%; background: var(--teal);
+      box-shadow: 0 0 6px rgba(0,191,165,0.5); cursor: pointer;
+    }
+    .range-slider::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--teal); border: none; cursor: pointer;
+    }
+    .range-val {
+      font-family: var(--mono); font-size: .85rem;
+      color: var(--teal); min-width: 52px; text-align: right;
+    }
+
+    /* ── Preset Cards ── */
+    .preset-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .preset-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; flex-direction: column; gap: 2px;
+      position: relative;
+    }
+    .preset-card:hover { border-color: var(--teal); }
+    .preset-card.selected {
+      border-color: var(--teal);
+      background: rgba(0,191,165,0.08);
+      box-shadow: 0 0 0 1px var(--teal) inset;
+    }
+    .preset-card input[type="radio"] {
+      position: absolute; opacity: 0; pointer-events: none;
+    }
+    .preset-icon { font-size: 1.3rem; line-height: 1; }
+    .preset-name {
+      font-family: var(--mono); font-size: .8rem; font-weight: 700;
+      color: var(--text);
+    }
+    .preset-desc {
+      font-size: .72rem; color: var(--text3); line-height: 1.4;
+    }
+    .preset-grid-tag {
+      font-family: var(--mono); font-size: .65rem;
+      color: var(--teal); margin-top: 2px;
+    }
+
+    /* ── Source Badge ── */
+    .source-status {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .source-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    }
+    .source-dot.green { background: var(--green); box-shadow: 0 0 5px var(--green); }
+    .source-dot.amber { background: var(--amber); box-shadow: 0 0 5px var(--amber); }
+    .source-dot.red   { background: var(--coral); box-shadow: 0 0 5px var(--coral); }
+    .source-meta {
+      font-family: var(--mono); font-size: .7rem; color: var(--text3);
+    }
+
+    /* ── OSM Toggles ── */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0;
+    }
+    .toggle-label { font-size: .85rem; color: var(--text2); }
+    .toggle {
+      position: relative; width: 40px; height: 22px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 11px;
+      transition: background 0.2s;
+    }
+    .toggle-track::before {
+      content: ""; position: absolute;
+      width: 16px; height: 16px; border-radius: 50%;
+      top: 2px; left: 2px;
+      background: var(--text3); transition: all 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: rgba(0,191,165,0.2); border-color: var(--teal); }
+    .toggle input:checked + .toggle-track::before {
+      background: var(--teal); transform: translateX(18px);
+    }
+    .toggle input:focus-visible + .toggle-track {
+      outline: 2px solid var(--teal); outline-offset: 2px;
+    }
+
+    /* ── Buttons ── */
+    .btn-generate {
+      background: linear-gradient(135deg, var(--green), #15803d);
+      color: #000; font-weight: 700; font-size: 1rem;
+      padding: 12px 24px; border: none; border-radius: 10px;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 48px; width: 100%;
+    }
+    .btn-generate:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(34,197,94,0.35);
+    }
+    .btn-generate:disabled {
+      opacity: 0.5; cursor: not-allowed; transform: none;
+    }
+    .btn-secondary {
+      background: var(--bg3); color: var(--text);
+      font-weight: 600; font-size: .85rem;
+      padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: all 0.15s; min-height: 38px; min-width: 44px;
+    }
+    .btn-secondary:hover { border-color: var(--teal); color: var(--teal); }
+    .btn-accent {
+      background: rgba(0,191,165,0.12); color: var(--teal);
+      font-weight: 600; font-size: .85rem;
+      padding: 8px 16px; border: 1px solid rgba(0,191,165,0.3); border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: all 0.15s; min-height: 38px;
+    }
+    .btn-accent:hover { background: rgba(0,191,165,0.2); }
+
+    /* ── Progress Bar ── */
+    .progress-wrap {
+      display: none; flex-direction: column; gap: 6px;
+    }
+    .progress-wrap.active { display: flex; }
+    .progress-bar-bg {
+      height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; background: linear-gradient(90deg, var(--green), var(--teal));
+      border-radius: 2px; width: 0%;
+      transition: width 0.4s ease;
+      animation: shimmer 1.5s infinite linear;
+      background-size: 200% 100%;
+      background-image: linear-gradient(90deg, var(--green) 0%, var(--teal) 40%, var(--green) 100%);
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .progress-text {
+      font-family: var(--mono); font-size: .72rem;
+      color: var(--text3);
+    }
+
+    /* ── Preview Pane ── */
+    .preview-pane {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; overflow: visible;
+      display: flex; flex-direction: column; min-height: 480px;
+    }
+    .preview-toolbar {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg3); flex-wrap: wrap;
+      border-radius: 16px 16px 0 0;
+      overflow: visible;
+    }
+    .preview-title {
+      font-family: var(--mono); font-size: .78rem;
+      color: var(--text2); font-weight: 600;
+    }
+    .preview-spacer { flex: 1; }
+    #preview-canvas {
+      flex: 1; display: block; width: 100%;
+      min-height: 440px; background: #060612;
+    }
+    .preview-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; padding: 48px 24px; text-align: center;
+    }
+    .preview-empty-icon {
+      font-size: 3rem; opacity: 0.3;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .preview-empty-text {
+      color: var(--text3); font-size: .9rem; max-width: 280px;
+    }
+
+    /* ── Info Card ── */
+    .info-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 20px;
+      display: none;
+    }
+    .info-card.active { display: block; }
+    .info-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px; margin-top: 12px;
+    }
+    .info-stat { display: flex; flex-direction: column; gap: 2px; }
+    .info-stat-label {
+      font-family: var(--mono); font-size: .65rem;
+      text-transform: uppercase; letter-spacing: 1.5px; color: var(--text3);
+    }
+    .info-stat-value {
+      font-family: var(--mono); font-size: 1rem;
+      font-weight: 700; color: var(--text);
+    }
+    .info-stat-unit { font-size: .7rem; color: var(--text3); }
+
+    /* ── Example Locations ── */
+    .examples-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .example-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .example-card:hover {
+      border-color: var(--green);
+      box-shadow: 0 4px 20px rgba(34,197,94,0.12);
+      transform: translateY(-2px);
+    }
+    .example-card:focus-visible {
+      outline: 2px solid var(--green); outline-offset: 2px;
+    }
+    .example-name {
+      font-weight: 700; font-size: .9rem; color: var(--text);
+    }
+    .example-desc {
+      font-size: .75rem; color: var(--text3); line-height: 1.4;
+    }
+    .example-preset {
+      font-family: var(--mono); font-size: .65rem;
+      color: var(--green); margin-top: 4px;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .example-coords {
+      font-family: var(--mono); font-size: .68rem; color: var(--text3);
+    }
+
+    /* ── Sources Status Grid ── */
+    .sources-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .source-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+      transition: border-color 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .source-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--card-accent, var(--teal)), transparent);
+    }
+    .source-card-name {
+      font-weight: 700; font-size: .9rem; color: var(--text);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .source-card-desc {
+      font-size: .75rem; color: var(--text3); margin-top: 4px; line-height: 1.4;
+    }
+    .source-card-meta {
+      margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .source-tag {
+      font-family: var(--mono); font-size: .65rem;
+      background: var(--bg3); border: 1px solid var(--border);
+      padding: 2px 8px; border-radius: 100px; color: var(--text3);
+    }
+
+    /* ── Export Bar ── */
+    .export-bar {
+      padding: 12px 16px; border-top: 1px solid var(--border);
+      display: none; gap: 10px; flex-wrap: wrap;
+      background: var(--bg3);
+    }
+    .export-bar.active { display: flex; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px;
+      font-family: var(--mono); font-size: .8rem; color: var(--text);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      transform: translateY(80px); opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-width: 320px;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { border-color: var(--green); }
+    #toast.error { border-color: var(--coral); }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, .hero-badge-dot, .preview-empty-icon,
+      .progress-bar-fill, .source-dot {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to main content</a>
+
+<!-- Topbar -->
+<nav class="topbar" role="navigation" aria-label="Main navigation">
+  <a href="/" class="logo" aria-label="muLLM home">
+    <span class="logo-mu">m&#956;</span><span class="logo-pipe">&#x2502;</span><span class="logo-llm">LLM</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="nav-links">
+    <a href="/3d" class="nav-link" data-tooltip="3D Asset Pipeline">3D</a>
+    <a href="/scene" class="nav-link" data-tooltip="Scene Builder">Scene</a>
+    <a href="/terrain" class="nav-link active" data-tooltip="Terrain Generator" aria-current="page">Terrain</a>
+    <a href="/comfyui" class="nav-link" data-tooltip="ComfyUI Pipeline">ComfyUI</a>
+    <a href="/chat" class="nav-link">Chat</a>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()" data-tooltip="Toggle light/dark theme" aria-label="Toggle theme">
+    <span id="theme-icon">light</span>
+  </button>
+</nav>
+
+<!-- Hero -->
+<header class="hero" role="banner">
+  <canvas id="hero-canvas" aria-hidden="true"></canvas>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="hero-badge-dot" aria-hidden="true"></span>
+      Real DEM Data
+    </div>
+    <h1 class="hero-title">Terrain Builder</h1>
+    <p class="hero-sub">
+      Generate game-ready terrain GLBs from real-world DEM data — USGS, OpenTopography, Mapbox.
+      Pick any spot on Earth, choose your fidelity, export.
+    </p>
+  </div>
+</header>
+
+<!-- Main content -->
+<main id="main">
+
+  <!-- Builder Section -->
+  <div class="section">
+    <div class="section-title" id="builder-heading">Builder</div>
+
+    <div class="builder-layout" aria-labelledby="builder-heading">
+
+      <!-- Left: Controls -->
+      <aside class="control-panel" aria-label="Terrain generation controls">
+
+        <!-- Geocode Search + Quick Presets -->
+        <div class="form-group">
+          <label for="geocode-input" class="form-label">Search Address / Landmark</label>
+          <div class="geocode-wrap">
+            <div class="geocode-input-row">
+              <input type="text" id="geocode-input" class="form-input"
+                     placeholder="Las Vegas Strip, Grand Canyon, Mordor…"
+                     autocomplete="off" aria-autocomplete="list"
+                     aria-controls="geocode-results" aria-expanded="false" />
+              <button class="btn-geocode" id="geocode-btn" onclick="geocodeSearch()" aria-label="Search">&#128269;</button>
+            </div>
+            <div id="geocode-results" class="geocode-results" role="listbox"
+                 aria-label="Location search results" style="display:none;"></div>
+          </div>
+          <select id="quick-location" class="form-select" style="margin-top:6px;"
+                  onchange="applyQuickLocation(this.value)" aria-label="Quick location presets">
+            <option value="">— Quick Locations —</option>
+            <optgroup label="Game Dev Favorites">
+              <option value="36.1147,-115.1728,8,game">Las Vegas Strip, NV</option>
+              <option value="40.7580,-73.9855,6,game">Manhattan, NYC</option>
+              <option value="37.7749,-122.4194,10,game">San Francisco, CA</option>
+              <option value="34.0522,-118.2437,12,game">Los Angeles, CA</option>
+              <option value="36.0544,-112.1401,20,realistic">Grand Canyon, AZ</option>
+              <option value="37.8651,-119.5383,15,realistic">Yosemite, CA</option>
+              <option value="34.9592,-116.2227,25,game">Mojave Desert, CA</option>
+              <option value="46.5763,8.0054,10,survey">Swiss Alps (Eiger)</option>
+              <option value="64.8014,-18.3274,15,realistic">Iceland Highlands</option>
+              <option value="62.0079,-6.7888,8,realistic">Faroe Islands</option>
+            </optgroup>
+            <optgroup label="Fantasy / Fictional (procedural)">
+              <option value="64.7658,-17.5278,20,realistic,Mordor (Mount Doom area, Iceland)">Mordor (Iceland proxy)</option>
+              <option value="42.6481,18.1042,8,realistic,King&#39;s Landing (Dubrovnik coast)">King's Landing (Dubrovnik)</option>
+              <option value="37.9354,-4.7380,12,game,Andalusian hills (Spain)">Andalusia — ASOIAF Dorne proxy</option>
+              <option value="63.4305,20.2748,10,realistic,Northern Scandinavia">The North / Westeros North</option>
+              <option value="27.9881,86.9250,15,survey,Nepal Himalayas">Middle-earth High Mountains (Nepal)</option>
+            </optgroup>
+            <optgroup label="Urban / Sci-Fi">
+              <option value="35.6762,139.6503,8,game">Tokyo (sci-fi urban)</option>
+              <option value="22.3193,114.1694,6,game">Hong Kong (vertical city)</option>
+              <option value="48.8566,2.3522,8,game">Paris (classic European)</option>
+              <option value="51.5074,-0.1278,8,game">London</option>
+              <option value="55.7558,37.6173,10,game">Moscow (brutalist)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Lat/Lng (manual) -->
+        <div class="form-group">
+          <div class="form-label" id="loc-label">Coordinates</div>
+          <div class="coord-row" role="group" aria-labelledby="loc-label">
+            <div class="form-group">
+              <label for="lat-input" class="form-label">Latitude</label>
+              <input type="number" id="lat-input" class="form-input"
+                     placeholder="36.0544" value="36.0544"
+                     min="-90" max="90" step="0.0001"
+                     aria-describedby="lat-hint" />
+              <span id="lat-hint" class="form-label" style="font-size:.65rem">-90 to 90</span>
+            </div>
+            <div class="form-group">
+              <label for="lng-input" class="form-label">Longitude</label>
+              <input type="number" id="lng-input" class="form-input"
+                     placeholder="-112.1401" value="-112.1401"
+                     min="-180" max="180" step="0.0001"
+                     aria-describedby="lng-hint" />
+              <span id="lng-hint" class="form-label" style="font-size:.65rem">-180 to 180</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Radius Slider -->
+        <div class="form-group">
+          <label for="radius-slider" class="form-label">Radius</label>
+          <div class="slider-row">
+            <input type="range" id="radius-slider" class="range-slider"
+                   min="1" max="100" value="20" step="1"
+                   aria-valuemin="1" aria-valuemax="100" aria-valuenow="20"
+                   aria-label="Terrain radius in kilometres" />
+            <span class="range-val" id="radius-val" aria-live="polite">20 km</span>
+          </div>
+        </div>
+
+        <!-- Data Source -->
+        <div class="form-group">
+          <label for="source-select" class="form-label">Data Source</label>
+          <select id="source-select" class="form-select" aria-describedby="source-status-text">
+            <option value="usgs">USGS National Map (free, CONUS)</option>
+            <option value="opentopography">OpenTopography (key req., global)</option>
+            <option value="mapbox">Mapbox Terrain-DEM (key req., global)</option>
+            <option value="procedural">Procedural (no data, always works)</option>
+          </select>
+          <div class="source-status" id="source-status-row" aria-live="polite">
+            <span class="source-dot amber" id="source-dot" aria-hidden="true"></span>
+            <span class="source-meta" id="source-status-text">Checking availability...</span>
+          </div>
+        </div>
+
+        <!-- Preset -->
+        <div class="form-group">
+          <div class="form-label" id="preset-label">Quality Preset</div>
+          <div class="preset-grid" role="radiogroup" aria-labelledby="preset-label">
+            <label class="preset-card" id="preset-arcade">
+              <input type="radio" name="preset" value="arcade" aria-label="Arcade preset" />
+              <span class="preset-icon" aria-hidden="true">&#127918;</span>
+              <span class="preset-name">Arcade</span>
+              <span class="preset-desc">Procedural, low-poly stylized</span>
+              <span class="preset-grid-tag">32x32</span>
+            </label>
+            <label class="preset-card selected" id="preset-game">
+              <input type="radio" name="preset" value="game" checked aria-label="Game preset" />
+              <span class="preset-icon" aria-hidden="true">&#128506;</span>
+              <span class="preset-name">Game</span>
+              <span class="preset-desc">Real DEM, PBR-ready</span>
+              <span class="preset-grid-tag">128x128</span>
+            </label>
+            <label class="preset-card" id="preset-realistic">
+              <input type="radio" name="preset" value="realistic" aria-label="Realistic preset" />
+              <span class="preset-icon" aria-hidden="true">&#127956;</span>
+              <span class="preset-name">Realistic</span>
+              <span class="preset-desc">High-fidelity normals, splat</span>
+              <span class="preset-grid-tag">512x512</span>
+            </label>
+            <label class="preset-card" id="preset-survey">
+              <input type="radio" name="preset" value="survey" aria-label="Survey preset" />
+              <span class="preset-icon" aria-hidden="true">&#128208;</span>
+              <span class="preset-name">Survey</span>
+              <span class="preset-desc">Max resolution, GIS metadata</span>
+              <span class="preset-grid-tag">1024x1024</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- OSM Overlays -->
+        <div class="form-group">
+          <div class="toggle-row">
+            <span class="form-label">OSM Overlays</span>
+            <label class="toggle" data-tooltip="Fetch OpenStreetMap data for overlay">
+              <input type="checkbox" id="osm-toggle" />
+              <span class="toggle-track" aria-hidden="true"></span>
+            </label>
+          </div>
+          <div id="osm-options" style="padding-left: 4px; display: none;">
+            <div class="toggle-row">
+              <label class="toggle-label" for="osm-buildings-toggle">Buildings</label>
+              <label class="toggle" data-tooltip="Include building footprints as 3D boxes">
+                <input type="checkbox" id="osm-buildings-toggle" checked />
+                <span class="toggle-track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="toggle-row">
+              <label class="toggle-label" for="osm-roads-toggle">Roads</label>
+              <label class="toggle" data-tooltip="Include road network as line segments">
+                <input type="checkbox" id="osm-roads-toggle" checked />
+                <span class="toggle-track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="toggle-row">
+              <label class="toggle-label" for="osm-water-toggle">Water</label>
+              <label class="toggle" data-tooltip="Include water bodies as blue planes">
+                <input type="checkbox" id="osm-water-toggle" checked />
+                <span class="toggle-track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="toggle-row">
+              <label class="toggle-label" for="osm-contours-toggle">Contour Lines</label>
+              <label class="toggle" data-tooltip="Derive elevation contours from the heightmap (no network call)">
+                <input type="checkbox" id="osm-contours-toggle" checked />
+                <span class="toggle-track" aria-hidden="true"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-wrap" id="progress-wrap" role="status" aria-live="polite">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progress-fill"></div>
+          </div>
+          <span class="progress-text" id="progress-text">Fetching heightmap...</span>
+        </div>
+
+        <!-- Generate button -->
+        <button class="btn-generate" id="generate-btn"
+                onclick="generateTerrain()"
+                data-tooltip="Generate GLB from selected source and preset"
+                aria-describedby="progress-wrap">
+          <span id="gen-icon">&#9650;</span>
+          <span id="gen-label">Generate Terrain</span>
+        </button>
+
+      </aside>
+
+      <!-- Right: Preview + Info -->
+      <div style="display:flex; flex-direction:column; gap:16px;">
+
+        <!-- Preview canvas -->
+        <div class="preview-pane" aria-label="3D terrain preview">
+          <div class="preview-toolbar">
+            <span class="preview-title">3D Preview</span>
+            <span class="preview-spacer"></span>
+            <button class="btn-secondary" onclick="resetCamera()"
+                    data-tooltip="Reset camera to default position" style="font-size:.75rem; padding:4px 10px;">
+              Reset view
+            </button>
+            <button class="btn-secondary" onclick="toggleWireframe()"
+                    id="wireframe-btn" data-tooltip="Toggle wireframe overlay"
+                    style="font-size:.75rem; padding:4px 10px;">
+              Wireframe
+            </button>
+          </div>
+          <div id="preview-empty" class="preview-empty" aria-label="Empty preview state">
+            <canvas id="map-preview-canvas" width="400" height="300"
+                    style="display:none; width:100%; height:280px; border-radius:8px; cursor:crosshair;"
+                    aria-label="2D map preview of selected location"></canvas>
+            <div id="map-preview-label" style="display:none; font-family:var(--mono); font-size:.7rem; color:var(--text3); margin-top:4px; text-align:center;"></div>
+            <span id="preview-empty-icon" class="preview-empty-icon" aria-hidden="true">&#127956;</span>
+            <p id="preview-empty-text" class="preview-empty-text">
+              Set a location and hit <strong>Generate Terrain</strong> to build your heightmap.
+            </p>
+          </div>
+          <canvas id="preview-canvas" style="display:none;"
+                  aria-label="Three.js terrain preview, interactive 3D viewer"></canvas>
+        </div>
+
+        <!-- Info card -->
+        <div class="info-card" id="info-card" aria-label="Generated terrain statistics">
+          <div class="section-title">Generated Info</div>
+          <div class="info-grid" id="info-grid"></div>
+        </div>
+
+        <!-- Export bar -->
+        <div class="export-bar" id="export-bar" aria-label="Export options">
+          <button class="btn-accent" id="download-btn" onclick="downloadGlb()"
+                  data-tooltip="Download the generated GLB file">
+            &#8595; Download GLB
+          </button>
+          <button class="btn-secondary" id="scene-btn" onclick="sendToScene()"
+                  data-tooltip="Send this terrain to the Scene Builder as a placed asset"
+                  data-tip-wide>
+            &#8594; Send to Scene
+          </button>
+          <button class="btn-secondary" onclick="copyStats()"
+                  data-tooltip="Copy terrain stats to clipboard">
+            Copy Stats
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Example Locations -->
+  <div class="section">
+    <div class="section-title" id="examples-heading">Example Locations</div>
+    <div class="examples-grid" id="examples-grid" role="list" aria-labelledby="examples-heading">
+      <!-- Populated by JS -->
+      <p style="color:var(--text3); font-size:.85rem; font-family:var(--mono);">Loading locations...</p>
+    </div>
+  </div>
+
+  <!-- Data Sources Status -->
+  <div class="section">
+    <div class="section-title" id="sources-heading">Data Sources</div>
+    <div class="sources-grid" id="sources-grid" role="list" aria-labelledby="sources-heading">
+      <p style="color:var(--text3); font-size:.85rem; font-family:var(--mono);">Checking sources...</p>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast" role="alert" aria-live="assertive"></div>
+
+<!-- Regular script — no CDN dependency, runs even if Three.js CDN is blocked -->
+<script>
+/* ── State ─────────────────────────────────────────────────── */
+let lastGlbUrl = null;
+let lastResult = null;
+let _toastTimer = null;
+
+/* ── Theme ─────────────────────────────────────────────────── */
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-icon').textContent = t === 'light' ? 'dark' : 'light';
+  localStorage.setItem('mullm-theme', t);
+}
+window.toggleTheme = () => applyTheme(
+  document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light'
+);
+applyTheme(localStorage.getItem('mullm-theme') || 'dark');
+
+/* ── Toast ──────────────────────────────────────────────────── */
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = ''; }, 3500);
+}
+window.toast = toast;
+
+/* ── Radius slider ──────────────────────────────────────────── */
+const radiusSlider = document.getElementById('radius-slider');
+const radiusVal = document.getElementById('radius-val');
+function updateSlider() {
+  const pct = (radiusSlider.value - 1) / 99 * 100;
+  radiusSlider.style.setProperty('--pct', pct + '%');
+  radiusSlider.setAttribute('aria-valuenow', radiusSlider.value);
+  radiusVal.textContent = radiusSlider.value + ' km';
+}
+radiusSlider.addEventListener('input', updateSlider);
+updateSlider();
+
+/* ── Preset card selection ──────────────────────────────────── */
+document.querySelectorAll('.preset-card input[type="radio"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+    radio.closest('.preset-card').classList.add('selected');
+  });
+});
+
+/* ── OSM toggle ─────────────────────────────────────────────── */
+document.getElementById('osm-toggle').addEventListener('change', e => {
+  document.getElementById('osm-options').style.display = e.target.checked ? 'block' : 'none';
+});
+
+/* ── Hero canvas (topographic wave) ────────────────────────── */
+(function heroAnim() {
+  try {
+  const cv = document.getElementById('hero-canvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return;
+  let w, h, frame = 0;
+  function resize() { w = cv.width = cv.offsetWidth; h = cv.height = cv.offsetHeight; }
+  resize();
+  new ResizeObserver(resize).observe(cv);
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    const lines = 18;
+    for (let i = 0; i < lines; i++) {
+      const y0 = (h * 0.3) + (i / lines) * (h * 0.65);
+      ctx.beginPath();
+      const alpha = 0.06 + 0.04 * (i / lines);
+      ctx.strokeStyle = `rgba(34,197,94,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.moveTo(0, y0);
+      for (let x = 0; x <= w; x += 4) {
+        const noise =
+          Math.sin(x * 0.012 + frame * 0.018 + i * 0.4) * 18 +
+          Math.sin(x * 0.025 + frame * 0.011 - i * 0.3) * 10 +
+          Math.sin(x * 0.007 + frame * 0.007 + i * 0.8) * 28;
+        ctx.lineTo(x, y0 + noise);
+      }
+      ctx.stroke();
+    }
+    frame++;
+    requestAnimationFrame(draw);
+  }
+  draw();
+  } catch(e) { /* hero canvas optional — never crash the page */ }
+})();
+
+/* ── Source availability update ────────────────────────────── */
+const SOURCE_HINTS = {
+  usgs: 'Free, no key required. CONUS coverage only.',
+  opentopography: 'Needs OPENTOPOGRAPHY_API_KEY env var. Global 30m.',
+  mapbox: 'Needs MAPBOX_TOKEN env var. Global, zoom-level tiles.',
+  procedural: 'Always available. Synthetic noise, no real data.',
+};
+let _sourcesData = null;
+
+async function loadSources() {
+  try {
+    const r = await fetch('/api/terrain/sources');
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    _sourcesData = data.sources;
+    renderSourcesGrid(data.sources);
+    updateSourceStatus();
+  } catch(e) {
+    const grid = document.getElementById('sources-grid');
+    if (grid) grid.innerHTML =
+      '<p style="color:var(--coral);font-family:var(--mono);font-size:.8rem;">Could not reach terrain API: ' + e.message + '</p>';
+    const txt = document.getElementById('source-status-text');
+    if (txt) txt.textContent = 'API unavailable — procedural mode still works';
+  }
+}
+
+function updateSourceStatus() {
+  const dot = document.getElementById('source-dot');
+  const txt = document.getElementById('source-status-text');
+  if (!dot || !txt) return;
+  const sel = document.getElementById('source-select')?.value || 'usgs';
+  if (!_sourcesData) {
+    // Use the hardcoded hints while data is loading
+    const hint = SOURCE_HINTS[sel] || sel;
+    dot.className = 'source-dot amber';
+    txt.textContent = hint;
+    return;
+  }
+  const src = _sourcesData.find(s => s.id === sel);
+  if (!src) {
+    txt.textContent = sel === 'procedural' ? 'Always available — synthetic noise' : 'Source info unavailable';
+    dot.className = 'source-dot amber';
+    return;
+  }
+  const avail = src.available;
+  dot.className = 'source-dot ' + (avail ? 'green' : (src.requires_key ? 'amber' : 'red'));
+  txt.textContent = avail
+    ? `${src.resolution} — ${src.coverage}`
+    : (src.reason || 'Unavailable');
+}
+document.getElementById('source-select').addEventListener('change', updateSourceStatus);
+
+function renderSourcesGrid(sources) {
+  const accentMap = {
+    usgs: 'var(--teal)', opentopography: 'var(--green)',
+    mapbox: 'var(--purple)', osm: 'var(--amber)',
+    cesiumion: 'var(--coral)', felt: 'var(--coral)',
+  };
+  const el = document.getElementById('sources-grid');
+  el.innerHTML = sources.map(s => `
+    <div class="source-card" style="--card-accent:${accentMap[s.id] || 'var(--teal)'}"
+         role="listitem">
+      <div class="source-card-name">
+        <span class="source-dot ${s.available ? 'green' : (s.requires_key ? 'amber' : 'red')}"
+              aria-label="${s.available ? 'available' : 'unavailable'}"></span>
+        ${escHtml(s.name)}
+      </div>
+      <p class="source-card-desc">${escHtml(s.description)}</p>
+      <div class="source-card-meta">
+        <span class="source-tag">${escHtml(s.resolution)}</span>
+        <span class="source-tag">${escHtml(s.coverage)}</span>
+        <span class="source-tag">${escHtml(s.cost)}</span>
+        ${s.requires_key ? `<span class="source-tag" style="color:var(--amber)">${escHtml(s.key_env || '')}</span>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ── Example locations ──────────────────────────────────────── */
+async function loadExamples() {
+  try {
+    const r = await fetch('/api/terrain/examples');
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    renderExamples(data.locations);
+  } catch {
+    try {
+      const r2 = await fetch('/api/terrain/presets');
+      if (r2.ok) renderExamples(null);
+    } catch { /* ignore */ }
+  }
+}
+
+function renderExamples(locations) {
+  const fallback = [
+    { name: 'Iceland Highlands', description: 'Volcanic plateau, dramatic ridgelines', lat: 64.8014, lng: -18.3274, radius_km: 15, recommended_preset: 'realistic' },
+    { name: 'Grand Canyon', description: 'Deep gorge, 1600m vertical relief', lat: 36.0544, lng: -112.1401, radius_km: 20, recommended_preset: 'realistic' },
+    { name: 'Swiss Alps (Eiger)', description: '3970m peak, dense contours', lat: 46.5763, lng: 8.0054, radius_km: 10, recommended_preset: 'survey' },
+    { name: 'Mojave (Mars analog)', description: 'Basins, volcanic buttes, Mars stand-in', lat: 34.9592, lng: -116.2227, radius_km: 25, recommended_preset: 'game' },
+    { name: 'Faroe Islands', description: 'Coastal cliffs, sea stacks, dramatic fog', lat: 62.0079, lng: -6.7888, radius_km: 8, recommended_preset: 'realistic' },
+    { name: 'Rub al Khali Dunes', description: 'Smooth undulating dune ridges', lat: 22.7673, lng: 51.7011, radius_km: 30, recommended_preset: 'arcade' },
+  ];
+  const list = locations || fallback;
+  const grid = document.getElementById('examples-grid');
+  grid.innerHTML = list.map((loc, i) => `
+    <button class="example-card" role="listitem" tabindex="0"
+            onclick="applyLocation(${loc.lat}, ${loc.lng}, ${loc.radius_km}, '${loc.recommended_preset}')"
+            data-tooltip="${loc.recommended_preset} preset recommended"
+            aria-label="Load ${escHtml(loc.name)} terrain example">
+      <span class="example-name">${escHtml(loc.name)}</span>
+      <span class="example-desc">${escHtml(loc.description)}</span>
+      <span class="example-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</span>
+      <span class="example-preset">${escHtml(loc.recommended_preset)}</span>
+    </button>
+  `).join('');
+}
+
+window.applyLocation = function(lat, lng, radius_km, preset) {
+  document.getElementById('lat-input').value = lat;
+  document.getElementById('lng-input').value = lng;
+  radiusSlider.value = radius_km;
+  updateSlider();
+  // Select preset
+  const radio = document.querySelector(`input[name="preset"][value="${preset}"]`);
+  if (radio) {
+    radio.checked = true;
+    document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+    radio.closest('.preset-card').classList.add('selected');
+  }
+  showMapPreview(lat, lng, radius_km);
+  toast('Loaded: ' + lat.toFixed(4) + ', ' + lng.toFixed(4), 'success');
+  document.getElementById('generate-btn').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+/* ── Utility ────────────────────────────────────────────────── */
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Geocoding (Nominatim) ──────────────────────────────────── */
+let _geocodeTimer = null;
+window.geocodeSearch = async function(auto) {
+  auto = auto || false;
+  const geocodeInput = document.getElementById('geocode-input');
+  const geocodeResults = document.getElementById('geocode-results');
+  const q = geocodeInput ? geocodeInput.value.trim() : '';
+  if (!q) return;
+  const btn = document.getElementById('geocode-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const r = await fetch('/api/geocode?limit=6&q=' + encodeURIComponent(q));
+    const hits = await r.json();
+    if (!hits.length) { toast('No results for "' + q + '"', 'error'); return; }
+    if (!auto && hits.length === 1) { _applyGeocode(hits[0]); return; }
+    const res = document.getElementById('geocode-results');
+    if (!res) return;
+    res._hits = hits;
+    res.innerHTML = hits.map((h, i) => {
+      const name = h.display_name.split(',').slice(0, 3).join(', ');
+      return '<div class="geocode-result-item" role="option" tabindex="0" onclick="applyGeocodeIdx(' + i + ')" onkeydown="if(event.key===\'Enter\')applyGeocodeIdx(' + i + ')">'
+        + '<strong>' + escHtml(h.name || name.split(',')[0]) + '</strong><br>'
+        + '<span style="font-size:.7rem">' + escHtml(name) + '</span></div>';
+    }).join('');
+    res.style.display = 'block';
+    if (geocodeInput) geocodeInput.setAttribute('aria-expanded', 'true');
+  } catch(e) {
+    toast('Geocode error: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '\u{1F50D}'; }
+  }
+};
+window.applyGeocodeIdx = function(i) {
+  const res = document.getElementById('geocode-results');
+  if (res && res._hits && res._hits[i]) _applyGeocode(res._hits[i]);
+};
+function _applyGeocode(h) {
+  const lat = parseFloat(h.lat), lng = parseFloat(h.lon);
+  document.getElementById('lat-input').value = lat.toFixed(6);
+  document.getElementById('lng-input').value = lng.toFixed(6);
+  const inp = document.getElementById('geocode-input');
+  if (inp) inp.value = h.display_name.split(',').slice(0, 2).join(', ');
+  const res = document.getElementById('geocode-results');
+  if (res) { res.style.display = 'none'; res.innerHTML = ''; }
+  toast('Jumped to: ' + h.display_name.split(',')[0], 'success');
+  showMapPreview(lat, lng, parseInt(radiusSlider.value, 10));
+}
+(function() {
+  document.addEventListener('DOMContentLoaded', function() {
+    const inp = document.getElementById('geocode-input');
+    if (inp) {
+      inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); window.geocodeSearch(); } });
+      inp.addEventListener('input', function() {
+        clearTimeout(_geocodeTimer);
+        if (inp.value.trim().length < 3) { var r = document.getElementById('geocode-results'); if (r) r.style.display = 'none'; return; }
+        _geocodeTimer = setTimeout(function() { window.geocodeSearch(true); }, 600);
+      });
+    }
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.geocode-wrap')) {
+        var r = document.getElementById('geocode-results');
+        if (r) { r.style.display = 'none'; r.innerHTML = ''; }
+      }
+    });
+  });
+})();
+
+window.applyQuickLocation = function(val) {
+  if (!val) return;
+  var parts = val.split(',');
+  var lat = parseFloat(parts[0]);
+  var lng = parseFloat(parts[1]);
+  var radius = parseInt(parts[2], 10) || 20;
+  var preset = parts[3] || 'game';
+  document.getElementById('lat-input').value = lat;
+  document.getElementById('lng-input').value = lng;
+  radiusSlider.value = radius;
+  updateSlider();
+  var radio = document.querySelector('input[name="preset"][value="' + preset + '"]');
+  if (radio) {
+    radio.checked = true;
+    document.querySelectorAll('.preset-card').forEach(function(c) { c.classList.remove('selected'); });
+    radio.closest('.preset-card').classList.add('selected');
+  }
+  document.getElementById('quick-location').value = '';
+  toast('Loaded: ' + lat.toFixed(4) + ', ' + lng.toFixed(4), 'success');
+};
+
+/* ── Generate terrain ───────────────────────────────────────── */
+window.generateTerrain = async function() {
+  var lat = parseFloat(document.getElementById('lat-input').value);
+  var lng = parseFloat(document.getElementById('lng-input').value);
+  var radius_km = parseInt(radiusSlider.value, 10);
+  var source = document.getElementById('source-select').value;
+  var preset = (document.querySelector('input[name="preset"]:checked') || {}).value || 'game';
+  var osm_overlay = document.getElementById('osm-toggle').checked;
+  var osm_buildings = document.getElementById('osm-buildings-toggle').checked;
+  var osm_roads = document.getElementById('osm-roads-toggle').checked;
+  var osm_water = document.getElementById('osm-water-toggle').checked;
+  var osm_contours = document.getElementById('osm-contours-toggle').checked;
+
+  if (isNaN(lat) || lat < -90 || lat > 90) { toast('Latitude must be -90 to 90', 'error'); return; }
+  if (isNaN(lng) || lng < -180 || lng > 180) { toast('Longitude must be -180 to 180', 'error'); return; }
+
+  var btn = document.getElementById('generate-btn');
+  var progWrap = document.getElementById('progress-wrap');
+  var progFill = document.getElementById('progress-fill');
+  var progText = document.getElementById('progress-text');
+
+  btn.disabled = true;
+  document.getElementById('gen-icon').textContent = '...';
+  document.getElementById('gen-label').textContent = 'Generating...';
+  progWrap.classList.add('active');
+
+  var steps = [[10,'Fetching heightmap...'],[35,'Processing DEM data...'],[60,'Building mesh geometry...'],[80,'Assembling GLB...'],[95,'Saving asset...']];
+  var si = 0;
+  var stepTimer = setInterval(function() {
+    if (si < steps.length) { progFill.style.width = steps[si][0] + '%'; progText.textContent = steps[si][1]; si++; }
+  }, 400);
+
+  try {
+    var resp = await fetch('/api/terrain/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: lat, lng: lng, radius_km: radius_km, source: source, preset: preset,
+        osm_overlay: osm_overlay, osm_buildings: osm_buildings, osm_roads: osm_roads,
+        osm_water: osm_water, osm_contours: osm_contours }),
+    });
+    clearInterval(stepTimer);
+    var data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.detail || data.error || 'Generation failed');
+
+    progFill.style.width = '100%';
+    progText.textContent = 'Done in ' + data.elapsed_s + 's';
+    setTimeout(function() { progWrap.classList.remove('active'); progFill.style.width = '0'; }, 2000);
+
+    lastResult = data;
+    lastGlbUrl = data.glb_url;
+
+    document.getElementById('preview-empty').style.display = 'none';
+    document.getElementById('preview-canvas').style.display = 'block';
+    // rAF gives browser one frame to reflow so canvas has correct clientWidth/clientHeight
+    requestAnimationFrame(function() {
+      if (typeof window.loadTerrainGlb === 'function') {
+        window.loadTerrainGlb(data.glb_url, data);
+      } else {
+        toast('3D preview unavailable — Three.js CDN blocked. GLB ready to download.', 'warn');
+      }
+    });
+    renderInfoCard(data);
+    document.getElementById('export-bar').classList.add('active');
+    var fallbackNote = data.fallback_used ? ' (procedural fallback)' : '';
+    toast('Terrain generated: ' + data.grid + 'x' + data.grid + ', ' + data.glb_size_kb + 'KB' + fallbackNote, 'success');
+  } catch(err) {
+    clearInterval(stepTimer);
+    progFill.style.width = '0';
+    progText.textContent = 'Failed';
+    setTimeout(function() { progWrap.classList.remove('active'); }, 1500);
+    toast('Error: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('gen-icon').textContent = '▲';
+    document.getElementById('gen-label').textContent = 'Generate Terrain';
+  }
+};
+
+function renderInfoCard(data) {
+  var card = document.getElementById('info-card');
+  card.classList.add('active');
+  var grid = document.getElementById('info-grid');
+  var stats = [
+    { label: 'Grid', value: data.grid + '\xD7' + data.grid },
+    { label: 'Source', value: data.source },
+    { label: 'Preset', value: data.preset },
+    { label: 'GLB Size', value: data.glb_size_kb + ' KB' },
+    { label: 'Min Elevation', value: (data.min_elevation_m != null ? data.min_elevation_m.toFixed(0) : '—') + ' m' },
+    { label: 'Max Elevation', value: (data.max_elevation_m != null ? data.max_elevation_m.toFixed(0) : '—') + ' m' },
+    { label: 'Height Range', value: (data.height_range_m != null ? data.height_range_m.toFixed(0) : '—') + ' m' },
+    { label: 'X Extent', value: (data.x_size_m / 1000).toFixed(1) + ' km' },
+    { label: 'Elapsed', value: data.elapsed_s + 's' },
+    { label: 'Vertices', value: (data.grid * data.grid).toLocaleString() },
+  ];
+  if (data.overlay && data.overlay.counts) {
+    stats.push({ label: 'Buildings', value: data.overlay.counts.buildings });
+    stats.push({ label: 'Roads', value: data.overlay.counts.roads });
+    stats.push({ label: 'Water', value: data.overlay.counts.water });
+    if (data.overlay.counts.contour_lines != null) stats.push({ label: 'Contour Lines', value: data.overlay.counts.contour_lines });
+  }
+  grid.innerHTML = stats.map(function(s) {
+    return '<div class="info-stat"><span class="info-stat-label">' + escHtml(String(s.label)) + '</span><span class="info-stat-value">' + escHtml(String(s.value)) + '</span></div>';
+  }).join('');
+}
+
+window.downloadGlb = function() {
+  if (!lastGlbUrl) { toast('No terrain generated yet', 'error'); return; }
+  var a = document.createElement('a');
+  a.href = lastGlbUrl;
+  a.download = 'terrain-' + ((lastResult && lastResult.preset) || 'game') + '.glb';
+  a.click();
+  toast('Download started', 'success');
+};
+
+window.sendToScene = async function() {
+  if (!lastGlbUrl || !lastResult) { toast('No terrain generated yet', 'error'); return; }
+  try {
+    await fetch('/api/scene/action', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'place ' + lastResult.asset_name + ' at 0 0 0', selected: '' }) });
+    toast('Terrain sent to Scene Builder', 'success');
+  } catch(e) { toast('Failed to send to scene: ' + e.message, 'error'); }
+};
+
+window.copyStats = function() {
+  if (!lastResult) { toast('Nothing to copy', 'error'); return; }
+  var s = lastResult;
+  var text = ['Terrain GLB: ' + s.asset_name,
+    'Source: ' + s.source + ' | Preset: ' + s.preset + ' | Grid: ' + s.grid + 'x' + s.grid,
+    'Lat/Lng: ' + s.lat + ', ' + s.lng + ' | Radius: ' + s.radius_km + 'km',
+    'Elevation: ' + (s.min_elevation_m != null ? s.min_elevation_m.toFixed(0) : '?') + 'm – ' + (s.max_elevation_m != null ? s.max_elevation_m.toFixed(0) : '?') + 'm',
+    'Size: ' + s.glb_size_kb + 'KB | Generated in ' + s.elapsed_s + 's',
+    'URL: ' + window.location.origin + s.glb_url,
+  ].join('\n');
+  navigator.clipboard.writeText(text).then(
+    function() { toast('Stats copied to clipboard', 'success'); },
+    function() { toast('Copy failed', 'error'); }
+  );
+};
+
+/* ── 2D Map Preview (OSM tiles) ─────────────────────────────── */
+function showMapPreview(lat, lng, radiusKm) {
+  var cv = document.getElementById('map-preview-canvas');
+  var label = document.getElementById('map-preview-label');
+  var icon = document.getElementById('preview-empty-icon');
+  var txt = document.getElementById('preview-empty-text');
+  if (!cv) return;
+
+  // Pick zoom level based on radius
+  var zoom = radiusKm <= 5 ? 13 : radiusKm <= 20 ? 11 : radiusKm <= 50 ? 10 : 9;
+
+  // Tile math
+  var n = Math.pow(2, zoom);
+  var xtile = Math.floor((lng + 180) / 360 * n);
+  var ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+
+  // Draw 3x3 tile grid centred on the location
+  var TILE = 256;
+  var COLS = 3, ROWS = 3;
+  cv.width  = TILE * COLS;
+  cv.height = TILE * ROWS;
+  var ctx = cv.getContext('2d');
+  ctx.fillStyle = '#141428';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  var loaded = 0, total = COLS * ROWS;
+  for (var dx = -1; dx <= 1; dx++) {
+    for (var dy = -1; dy <= 1; dy++) {
+      (function(x, y, col, row) {
+        var tx = ((xtile + x) % n + n) % n;
+        var ty = Math.max(0, Math.min(n - 1, ytile + y));
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+          ctx.drawImage(img, col * TILE, row * TILE, TILE, TILE);
+          loaded++;
+          if (loaded === total) _drawMapCrosshair(ctx, cv.width / 2, cv.height / 2);
+        };
+        img.onerror = function() { loaded++; };
+        // Use tile.openstreetmap.org (free, attribution required)
+        img.src = 'https://tile.openstreetmap.org/' + zoom + '/' + tx + '/' + ty + '.png';
+      })(dx, dy, dx + 1, dy + 1);
+    }
+  }
+
+  cv.style.display = 'block';
+  if (label) {
+    label.style.display = 'block';
+    label.textContent = lat.toFixed(4) + ', ' + lng.toFixed(4) + '  |  zoom ' + zoom + '  |  © OpenStreetMap contributors';
+  }
+  if (icon) icon.style.display = 'none';
+  if (txt) txt.style.display = 'none';
+}
+
+function _drawMapCrosshair(ctx, cx, cy) {
+  // Radius circle
+  ctx.save();
+  ctx.strokeStyle = 'rgba(34,197,94,0.7)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, 48, 0, Math.PI * 2);
+  ctx.stroke();
+  // Crosshair lines
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(34,197,94,0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx - 12, cy); ctx.lineTo(cx + 12, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - 12); ctx.lineTo(cx, cy + 12); ctx.stroke();
+  // Centre dot
+  ctx.fillStyle = '#22c55e';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Show map preview whenever lat/lng changes
+function _updateMapPreviewFromInputs() {
+  var lat = parseFloat(document.getElementById('lat-input').value);
+  var lng = parseFloat(document.getElementById('lng-input').value);
+  var r = parseInt(radiusSlider.value, 10);
+  if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+    showMapPreview(lat, lng, r);
+  }
+}
+(function() {
+  ['lat-input','lng-input'].forEach(function(id) {
+    document.getElementById(id).addEventListener('change', _updateMapPreviewFromInputs);
+    document.getElementById(id).addEventListener('input', function() {
+      clearTimeout(_updateMapPreviewFromInputs._t);
+      _updateMapPreviewFromInputs._t = setTimeout(_updateMapPreviewFromInputs, 400);
+    });
+  });
+  radiusSlider.addEventListener('change', _updateMapPreviewFromInputs);
+  // Show default location on load
+  setTimeout(_updateMapPreviewFromInputs, 100);
+})();
+
+/* ── Init ───────────────────────────────────────────────────── */
+loadSources();
+loadExamples();
+</script>
+
+<!-- Module script — Three.js preview, CDN-dependent, loads asynchronously -->
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+let renderer, scene, camera, controls, terrainMesh, wireframeOverlay;
+let overlayGroup = null;
+let wireframeOn = false;
+
+function initThree() {
+  if (renderer) return;
+  try {
+  const cv = document.getElementById('preview-canvas');
+  if (!cv) return;
+  renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x060612);
+  renderer.setSize(cv.clientWidth, cv.clientHeight);
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x060612, 500, 8000);
+
+  camera = new THREE.PerspectiveCamera(55, cv.clientWidth / cv.clientHeight, 1, 50000);
+  camera.position.set(0, 800, 1200);
+
+  controls = new OrbitControls(camera, cv);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.minDistance = 50;
+  controls.maxDistance = 20000;
+  controls.maxPolarAngle = Math.PI / 2.05;
+
+  // Lighting
+  scene.add(new THREE.AmbientLight(0x223322, 0.8));
+  const sun = new THREE.DirectionalLight(0xffeedd, 1.4);
+  sun.position.set(1200, 2000, 800);
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x2244aa, 0.3);
+  fill.position.set(-800, 600, -400);
+  scene.add(fill);
+
+  new ResizeObserver(() => {
+    if (!renderer) return;
+    renderer.setSize(cv.clientWidth, cv.clientHeight);
+    camera.aspect = cv.clientWidth / cv.clientHeight;
+    camera.updateProjectionMatrix();
+  }).observe(cv);
+
+  (function loop() {
+    requestAnimationFrame(loop);
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+  } catch(e) { console.warn('THREE.js init failed:', e); }
+}
+
+window.loadTerrainGlb = function loadTerrainGlb(url, lastResultData) {
+  initThree();
+  if (terrainMesh) { scene.remove(terrainMesh); terrainMesh = null; }
+  if (wireframeOverlay) { scene.remove(wireframeOverlay); wireframeOverlay = null; }
+  if (overlayGroup) { scene.remove(overlayGroup); overlayGroup = null; }
+
+  const loader = new GLTFLoader();
+  loader.load(url, gltf => {
+    terrainMesh = gltf.scene;
+    // Apply PBR material
+    terrainMesh.traverse(child => {
+      if (child.isMesh) {
+        child.material = new THREE.MeshStandardMaterial({
+          roughness: 0.88,
+          metalness: 0.0,
+          vertexColors: true,
+        });
+        child.castShadow = false;
+        child.receiveShadow = false;
+      }
+    });
+
+    // Centre on origin
+    const box = new THREE.Box3().setFromObject(terrainMesh);
+    const centre = box.getCenter(new THREE.Vector3());
+    terrainMesh.position.sub(centre);
+
+    // Fit camera
+    const size = box.getSize(new THREE.Vector3()).length();
+    camera.position.set(0, size * 0.4, size * 0.65);
+    controls.target.set(0, 0, 0);
+    controls.minDistance = size * 0.05;
+    controls.maxDistance = size * 3;
+    controls.update();
+
+    scene.add(terrainMesh);
+
+    // Grid helper
+    const gridHelper = new THREE.GridHelper(size * 1.4, 20, 0x1a2a1a, 0x1a2a1a);
+    gridHelper.position.y = box.min.y - centre.y;
+    scene.add(gridHelper);
+
+    if (wireframeOn) applyWireframe(true);
+
+    // Draw OSM overlay after terrain is placed
+    if (lastResult?.overlay) {
+      drawOsmOverlay(lastResult.overlay, lastResult, centre);
+    }
+  }, undefined, err => {
+    toast('Failed to load GLB preview: ' + err.message, 'error');
+  });
+}
+
+/* ── OSM + Contour 3D overlay ───────────────────────────────── */
+/**
+ * drawOsmOverlay — renders buildings, roads, water, and contour lines
+ * as THREE.js scene objects mapped to the terrain coordinate system.
+ *
+ * Coordinate mapping:
+ *   lat/lng from Overpass → world X/Z centred at (lat, lng) with radius_km extent.
+ *   Y elevation is approximated as the terrain floor + a fixed offset (flat overlay).
+ *   Contour lines already carry world-space X/Y/Z from the Python generator.
+ */
+function drawOsmOverlay(overlay, result, terrainCentre) {
+  if (overlayGroup) { scene.remove(overlayGroup); overlayGroup = null; }
+  overlayGroup = new THREE.Group();
+
+  const lat0 = result.lat;
+  const lng0 = result.lng;
+  const x_size_m = result.x_size_m;
+  const z_size_m = result.z_size_m;
+  const floorY = -(terrainCentre?.y ?? 0);  // approximate terrain base Y after centering
+
+  // Convert geographic coords to local X/Z
+  function geoToXZ(lng, lat) {
+    const cosLat = Math.cos(lat0 * Math.PI / 180);
+    const dLng = (lng - lng0) * 111000 * cosLat;  // metres east
+    const dLat = (lat - lat0) * 111000;            // metres north
+    return { x: dLng, z: -dLat };  // Z is inverted (south = +Z in WebGL)
+  }
+
+  // ── Buildings: wireframe boxes ────────────────────────────────
+  const buildingMat = new THREE.LineBasicMaterial({
+    color: 0xff6b6b,  // coral
+    opacity: 0.7,
+    transparent: true,
+  });
+  const BUILDING_HEIGHT = x_size_m * 0.004;  // scale height to area size
+
+  (overlay.buildings || []).slice(0, 200).forEach(b => {
+    if (!b.coords || b.coords.length < 3) return;
+    // Find footprint centroid and bounding box
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    const pts = b.coords.map(([lng, lat]) => {
+      const { x, z } = geoToXZ(lng, lat);
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+      return { x, z };
+    });
+    const bw = Math.max(1, maxX - minX);
+    const bz = Math.max(1, maxZ - minZ);
+    const cx = (minX + maxX) / 2;
+    const cz = (minZ + maxZ) / 2;
+    const geom = new THREE.BoxGeometry(bw, BUILDING_HEIGHT, bz);
+    const edges = new THREE.EdgesGeometry(geom);
+    const box3d = new THREE.LineSegments(edges, buildingMat.clone());
+    box3d.position.set(cx, floorY + BUILDING_HEIGHT / 2, cz);
+    overlayGroup.add(box3d);
+  });
+
+  // ── Roads: line segments ─────────────────────────────────────
+  const ROAD_COLORS = {
+    motorway: 0xf59e0b,    // amber
+    trunk: 0xf97316,       // orange
+    primary: 0xfbbf24,
+    secondary: 0xa78bfa,   // purple
+    tertiary: 0x94a3b8,
+    residential: 0x5a6a7a,
+    path: 0x3a4a5e,
+    footway: 0x3a4a5e,
+    default: 0x4a5a6a,
+  };
+
+  const roadsByType = {};
+  (overlay.roads || []).slice(0, 300).forEach(r => {
+    if (!r.coords || r.coords.length < 2) return;
+    const type = r.highway || 'default';
+    const key = ROAD_COLORS[type] != null ? type : 'default';
+    if (!roadsByType[key]) roadsByType[key] = [];
+    const pts = r.coords.map(([lng, lat]) => {
+      const { x, z } = geoToXZ(lng, lat);
+      return new THREE.Vector3(x, floorY + 2, z);
+    });
+    for (let i = 0; i < pts.length - 1; i++) {
+      roadsByType[key].push(pts[i], pts[i + 1]);
+    }
+  });
+
+  Object.entries(roadsByType).forEach(([type, verts]) => {
+    if (!verts.length) return;
+    const geom = new THREE.BufferGeometry().setFromPoints(verts);
+    const mat = new THREE.LineBasicMaterial({
+      color: ROAD_COLORS[type] ?? ROAD_COLORS.default,
+      opacity: 0.8,
+      transparent: true,
+    });
+    overlayGroup.add(new THREE.LineSegments(geom, mat));
+  });
+
+  // ── Water: transparent blue planes ───────────────────────────
+  const waterMat = new THREE.MeshBasicMaterial({
+    color: 0x22d3ee,
+    opacity: 0.25,
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+
+  (overlay.water || []).slice(0, 50).forEach(w => {
+    if (!w.coords || w.coords.length < 3) return;
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    w.coords.forEach(([lng, lat]) => {
+      const { x, z } = geoToXZ(lng, lat);
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+    });
+    const pw = Math.max(1, maxX - minX);
+    const pz = Math.max(1, maxZ - minZ);
+    const geom = new THREE.PlaneGeometry(pw, pz);
+    const plane = new THREE.Mesh(geom, waterMat.clone());
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.set((minX + maxX) / 2, floorY + 1, (minZ + maxZ) / 2);
+    overlayGroup.add(plane);
+
+    // Edge outline
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0x22d3ee, opacity: 0.5, transparent: true });
+    const pts = w.coords.map(([lng, lat]) => {
+      const { x, z } = geoToXZ(lng, lat);
+      return new THREE.Vector3(x, floorY + 1.5, z);
+    });
+    if (pts.length > 1) {
+      pts.push(pts[0].clone());  // close the loop
+      const geom2 = new THREE.BufferGeometry().setFromPoints(pts);
+      overlayGroup.add(new THREE.Line(geom2, edgeMat));
+    }
+  });
+
+  // ── Contour lines: pre-computed world-space polylines ────────
+  // Format from Python: [[x, y, z], [x, y, z], ...]
+  const contourMat = new THREE.LineBasicMaterial({
+    color: 0xa78bfa,  // purple
+    opacity: 0.5,
+    transparent: true,
+  });
+
+  (overlay.contour_lines || []).forEach(polyline => {
+    if (!polyline || polyline.length < 2) return;
+    const pts = polyline.map(([x, y, z]) => new THREE.Vector3(x, y - (terrainCentre?.y ?? 0), z));
+    const geom = new THREE.BufferGeometry().setFromPoints(pts);
+    overlayGroup.add(new THREE.Line(geom, contourMat));
+  });
+
+  scene.add(overlayGroup);
+
+  // Summary toast if any overlay content was added
+  const counts = overlay.counts || {};
+  const parts = [];
+  if (counts.buildings > 0) parts.push(`${counts.buildings} buildings`);
+  if (counts.roads > 0) parts.push(`${counts.roads} roads`);
+  if (counts.water > 0) parts.push(`${counts.water} water`);
+  if (counts.contour_lines > 0) parts.push(`${counts.contour_lines} contours`);
+  if (parts.length) toast('Overlay: ' + parts.join(', '), 'success');
+}
+
+function applyWireframe(on) {
+  if (!terrainMesh) return;
+  if (on) {
+    if (wireframeOverlay) { scene.remove(wireframeOverlay); }
+    const geom = terrainMesh.children[0]?.geometry;
+    if (!geom) return;
+    const wf = new THREE.WireframeGeometry(geom);
+    const mat = new THREE.LineBasicMaterial({ color: 0x00bfa5, opacity: 0.3, transparent: true });
+    wireframeOverlay = new THREE.LineSegments(wf, mat);
+    wireframeOverlay.position.copy(terrainMesh.children[0]?.position || new THREE.Vector3());
+    scene.add(wireframeOverlay);
+  } else {
+    if (wireframeOverlay) { scene.remove(wireframeOverlay); wireframeOverlay = null; }
+  }
+}
+
+window.resetCamera = function() {
+  if (!controls || !terrainMesh) return;
+  const box = new THREE.Box3().setFromObject(terrainMesh);
+  const size = box.getSize(new THREE.Vector3()).length();
+  camera.position.set(0, size * 0.4, size * 0.65);
+  controls.target.set(0, 0, 0);
+  controls.update();
+};
+
+window.toggleWireframe = function() {
+  wireframeOn = !wireframeOn;
+  applyWireframe(wireframeOn);
+  document.getElementById('wireframe-btn').style.color = wireframeOn ? 'var(--teal)' : '';
+};
+
+</script>
+</body>
+</html>

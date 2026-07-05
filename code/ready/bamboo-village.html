@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bamboo Village</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a2a1a;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;color:#fff;user-select:none}
+canvas{display:block}
+#ui{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+#ui>*{pointer-events:auto}
+#title-screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 70%,rgba(40,80,40,.5),rgba(10,15,10,.95));z-index:100}
+#title-screen h1{font-size:clamp(2rem,6vw,4rem);color:#88cc66;text-shadow:0 0 30px rgba(100,200,80,.5);margin-bottom:.3em}
+#title-screen p{color:#aac8aa;font-size:clamp(.85rem,1.8vw,1.05rem);text-align:center;max-width:420px;padding:0 1em;margin-bottom:1.5em;line-height:1.5}
+.btn{padding:.7em 2em;font-size:1.1rem;border:2px solid #88cc66;background:rgba(100,200,80,.1);color:#fff;border-radius:8px;cursor:pointer;transition:all .2s}
+.btn:hover,.btn:focus{background:rgba(100,200,80,.3);outline:none;box-shadow:0 0 20px rgba(100,200,80,.5)}
+#hud{position:absolute;top:10px;left:10px;right:10px;display:none;justify-content:space-between;font-size:clamp(.7rem,1.4vw,.85rem);z-index:10}
+.hud-panel{background:rgba(0,0,0,.5);padding:8px 14px;border-radius:8px;border:1px solid rgba(100,200,80,.25);backdrop-filter:blur(3px)}
+#palette{position:absolute;left:10px;top:50%;transform:translateY(-50%);display:none;flex-direction:column;gap:6px;z-index:15}
+.pal-btn{width:clamp(44px,8vw,56px);height:clamp(44px,8vw,56px);border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;border-radius:8px;cursor:pointer;font-size:clamp(1.2rem,2.5vw,1.6rem);display:flex;align-items:center;justify-content:center;transition:all .2s}
+.pal-btn:hover,.pal-btn:focus{border-color:#88cc66;background:rgba(100,200,80,.2);outline:none}
+.pal-btn.active{border-color:#88cc66;background:rgba(100,200,80,.3);box-shadow:0 0 10px rgba(100,200,80,.4)}
+#season-indicator{position:absolute;top:50%;right:10px;transform:translateY(-50%);display:none;z-index:10;background:rgba(0,0,0,.4);padding:8px 12px;border-radius:8px;text-align:center;font-size:clamp(.7rem,1.4vw,.85rem)}
+#tooltip{position:absolute;background:rgba(0,0,0,.85);color:#fff;padding:6px 10px;border-radius:5px;font-size:.8rem;pointer-events:none;display:none;z-index:200;max-width:200px;border:1px solid rgba(100,200,80,.4)}
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="title-screen">
+    <h1>Bamboo Village</h1>
+    <p>Build a serene Japanese village. Place tea houses, shrines, and gardens. Watch as villagers walk between buildings, seasons change, and lanterns glow at night. Earn harmony for balanced design.</p>
+    <button class="btn" id="start-btn" title="Begin building your village" aria-label="Start building">Begin Building</button>
+  </div>
+  <div id="hud">
+    <div class="hud-panel">
+      <div>Harmony: <span id="harmony" style="color:#ffcc66">0</span></div>
+      <div>Buildings: <span id="building-count">0</span></div>
+    </div>
+    <div class="hud-panel" style="text-align:center">
+      <div id="time-display">Dawn</div>
+      <div id="season-display" style="color:#88cc66">Spring</div>
+    </div>
+    <div class="hud-panel" style="text-align:right">
+      <div>Villagers: <span id="villager-count">0</span></div>
+      <div id="tip-text" style="color:#aaa;font-size:.75em">Click grid to place</div>
+    </div>
+  </div>
+  <div id="palette">
+    <button class="pal-btn active" data-type="teahouse" title="Tea House: place of rest (+3 harmony)" aria-label="Select Tea House">&#127861;</button>
+    <button class="pal-btn" data-type="shrine" title="Shrine: spiritual center (+5 harmony)" aria-label="Select Shrine">&#9961;</button>
+    <button class="pal-btn" data-type="dojo" title="Dojo: training hall (+3 harmony)" aria-label="Select Dojo">&#129354;</button>
+    <button class="pal-btn" data-type="garden" title="Garden: zen garden (+4 harmony)" aria-label="Select Garden">&#127804;</button>
+    <button class="pal-btn" data-type="bamboo" title="Bamboo Grove: natural beauty (+2 harmony)" aria-label="Select Bamboo">&#127795;</button>
+    <button class="pal-btn" data-type="pond" title="Lotus Pond: water feature (+4 harmony)" aria-label="Select Pond">&#128031;</button>
+    <button class="pal-btn" data-type="cherry" title="Cherry Tree: seasonal beauty (+3 harmony)" aria-label="Select Cherry Tree">&#127800;</button>
+    <button class="pal-btn" data-type="path" title="Stone Path: connects buildings (+1 harmony)" aria-label="Select Path">&#129521;</button>
+  </div>
+  <div id="season-indicator">
+    <div id="season-icon" style="font-size:2rem">&#127800;</div>
+    <div id="season-name">Spring</div>
+  </div>
+</div>
+<div id="tooltip" role="tooltip"></div>
+
+<script type="module">
+import * as THREE from '/static/three/three.module.js';
+'use strict';
+
+const GRID=20,CELL=1.5;
+const BUILDINGS={
+  teahouse:{name:'Tea House',color:0x8B4513,height:1.2,harmony:3,roofColor:0x444444,villagers:2},
+  shrine:{name:'Shrine',color:0xcc2222,height:1.5,harmony:5,roofColor:0x333333,villagers:1},
+  dojo:{name:'Dojo',color:0x886644,height:1.0,harmony:3,roofColor:0x555555,villagers:3},
+  garden:{name:'Zen Garden',color:0xccbb88,height:0.1,harmony:4,roofColor:null,villagers:0},
+  bamboo:{name:'Bamboo Grove',color:0x44aa44,height:2.0,harmony:2,roofColor:null,villagers:0},
+  pond:{name:'Lotus Pond',color:0x2266aa,height:-0.15,harmony:4,roofColor:null,villagers:0},
+  cherry:{name:'Cherry Tree',color:0x885533,height:1.8,harmony:3,roofColor:null,villagers:0},
+  path:{name:'Stone Path',color:0x999988,height:0.02,harmony:1,roofColor:null,villagers:0}
+};
+
+let scene,camera,renderer,raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2();
+let grid=Array(GRID).fill(null).map(()=>Array(GRID).fill(null));
+let gridMeshes=Array(GRID).fill(null).map(()=>Array(GRID).fill(null));
+let gameState='title',selectedType='teahouse';
+let harmony=0,buildingCount=0,villagerCount=0;
+let timeOfDay=0,season=0,seasonTimer=0;
+let seasons=['Spring','Summer','Autumn','Winter'];
+let villagers=[],lanterns=[],particles=[];
+let sunLight,moonLight,ambLight;
+let groundPlane;
+let camAngle=Math.PI/4,camDist=20,camHeight=15,isDragging=false,lastTouch={x:0,y:0};
+
+function initScene(){
+  scene=new THREE.Scene();
+  scene.fog=new THREE.Fog(0x88aa88,30,60);
+
+  camera=new THREE.PerspectiveCamera(50,window.innerWidth/window.innerHeight,.1,100);
+  updateCamera();
+
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1;
+  document.body.prepend(renderer.domElement);
+
+  // Lights
+  ambLight=new THREE.AmbientLight(0x556655,.4);
+  scene.add(ambLight);
+
+  sunLight=new THREE.DirectionalLight(0xffeedd,.8);
+  sunLight.position.set(10,15,10);
+  sunLight.castShadow=true;
+  sunLight.shadow.mapSize.set(2048,2048);
+  sunLight.shadow.camera.left=-20;sunLight.shadow.camera.right=20;
+  sunLight.shadow.camera.top=20;sunLight.shadow.camera.bottom=-20;
+  scene.add(sunLight);
+
+  moonLight=new THREE.DirectionalLight(0x4466aa,.0);
+  moonLight.position.set(-5,10,-5);
+  scene.add(moonLight);
+
+  // Ground
+  const groundGeo=new THREE.PlaneGeometry(GRID*CELL+10,GRID*CELL+10);
+  const groundMat=new THREE.MeshStandardMaterial({color:0x5a8a3a,roughness:.9});
+  groundPlane=new THREE.Mesh(groundGeo,groundMat);
+  groundPlane.rotation.x=-Math.PI/2;
+  groundPlane.receiveShadow=true;
+  scene.add(groundPlane);
+
+  // Grid overlay
+  const gridHelper=new THREE.GridHelper(GRID*CELL,GRID,0x447733,0x336622);
+  gridHelper.position.y=0.01;
+  gridHelper.material.transparent=true;
+  gridHelper.material.opacity=.3;
+  scene.add(gridHelper);
+
+  // Surrounding hills
+  for(let i=0;i<8;i++){
+    const angle=(i/8)*Math.PI*2;
+    const r=GRID*CELL*.7+Math.random()*5;
+    const hill=new THREE.Mesh(
+      new THREE.SphereGeometry(3+Math.random()*4,8,6,0,Math.PI*2,0,Math.PI/2),
+      new THREE.MeshStandardMaterial({color:0x4a7a2a,roughness:.9})
+    );
+    hill.position.set(Math.cos(angle)*r,0,Math.sin(angle)*r);
+    hill.receiveShadow=true;
+    scene.add(hill);
+  }
+
+  // Water feature in distance
+  const waterGeo=new THREE.PlaneGeometry(30,15);
+  const waterMat=new THREE.MeshStandardMaterial({color:0x2255aa,transparent:true,opacity:.6,metalness:.3,roughness:.2});
+  const water=new THREE.Mesh(waterGeo,waterMat);
+  water.rotation.x=-Math.PI/2;water.position.set(25,-.1,0);
+  scene.add(water);
+}
+
+function updateCamera(){
+  const cx=Math.cos(camAngle)*camDist;
+  const cz=Math.sin(camAngle)*camDist;
+  camera.position.set(cx,camHeight,cz);
+  camera.lookAt(0,0,0);
+}
+
+function gridToWorld(gx,gz){
+  return new THREE.Vector3(
+    (gx-GRID/2+.5)*CELL,
+    0,
+    (gz-GRID/2+.5)*CELL
+  );
+}
+
+function worldToGrid(x,z){
+  return{
+    gx:Math.floor(x/CELL+GRID/2),
+    gz:Math.floor(z/CELL+GRID/2)
+  };
+}
+
+function placeBuilding(gx,gz,type){
+  if(gx<0||gx>=GRID||gz<0||gz>=GRID)return;
+  if(grid[gx][gz])return; // already occupied
+
+  const info=BUILDINGS[type];
+  const pos=gridToWorld(gx,gz);
+  const group=new THREE.Group();
+  group.position.copy(pos);
+
+  if(type==='path'){
+    const pMesh=new THREE.Mesh(
+      new THREE.PlaneGeometry(CELL*.9,CELL*.9),
+      new THREE.MeshStandardMaterial({color:info.color,roughness:.85})
+    );
+    pMesh.rotation.x=-Math.PI/2;pMesh.position.y=.02;pMesh.receiveShadow=true;
+    group.add(pMesh);
+    // Stone details
+    for(let i=0;i<5;i++){
+      const stone=new THREE.Mesh(
+        new THREE.CylinderGeometry(.08+Math.random()*.06,.1+Math.random()*.06,.03,6),
+        new THREE.MeshStandardMaterial({color:0x888877,roughness:.9})
+      );
+      stone.position.set((Math.random()-.5)*.8,.03,(Math.random()-.5)*.8);
+      group.add(stone);
+    }
+  }else if(type==='pond'){
+    const pondMesh=new THREE.Mesh(
+      new THREE.CircleGeometry(CELL*.4,16),
+      new THREE.MeshStandardMaterial({color:0x2266aa,transparent:true,opacity:.7,metalness:.2,roughness:.1})
+    );
+    pondMesh.rotation.x=-Math.PI/2;pondMesh.position.y=.01;
+    group.add(pondMesh);
+    // Lily pads
+    for(let i=0;i<3;i++){
+      const lily=new THREE.Mesh(
+        new THREE.CircleGeometry(.06,8),
+        new THREE.MeshStandardMaterial({color:0x44aa44})
+      );
+      lily.rotation.x=-Math.PI/2;
+      lily.position.set((Math.random()-.5)*.4,.02,(Math.random()-.5)*.4);
+      group.add(lily);
+    }
+  }else if(type==='bamboo'){
+    for(let i=0;i<6;i++){
+      const height=1.5+Math.random()*1;
+      const stalk=new THREE.Mesh(
+        new THREE.CylinderGeometry(.03,.04,height,6),
+        new THREE.MeshStandardMaterial({color:0x55aa44,roughness:.6})
+      );
+      stalk.position.set((Math.random()-.5)*.5,height/2,(Math.random()-.5)*.5);
+      stalk.castShadow=true;
+      group.add(stalk);
+      // Leaves
+      const leaves=new THREE.Mesh(
+        new THREE.SphereGeometry(.2+Math.random()*.15,6,6),
+        new THREE.MeshStandardMaterial({color:0x33882a,transparent:true,opacity:.8})
+      );
+      leaves.position.set(stalk.position.x,height,stalk.position.z);
+      group.add(leaves);
+    }
+  }else if(type==='cherry'){
+    const trunk=new THREE.Mesh(
+      new THREE.CylinderGeometry(.06,.08,1,6),
+      new THREE.MeshStandardMaterial({color:0x553322})
+    );
+    trunk.position.y=.5;trunk.castShadow=true;
+    group.add(trunk);
+    const canopy=new THREE.Mesh(
+      new THREE.SphereGeometry(.6,8,8),
+      new THREE.MeshStandardMaterial({color:season===0?0xff88aa:season===1?0x44aa44:season===2?0xff6622:0x886655,transparent:true,opacity:.85})
+    );
+    canopy.position.y=1.3;canopy.castShadow=true;
+    group.add(canopy);
+    group.userData.canopy=canopy;
+  }else if(type==='garden'){
+    const base=new THREE.Mesh(
+      new THREE.PlaneGeometry(CELL*.9,CELL*.9),
+      new THREE.MeshStandardMaterial({color:0xccbb88,roughness:.95})
+    );
+    base.rotation.x=-Math.PI/2;base.position.y=.02;base.receiveShadow=true;
+    group.add(base);
+    // Raked lines
+    for(let i=-3;i<=3;i++){
+      const line=new THREE.Mesh(
+        new THREE.BoxGeometry(CELL*.8,.01,.02),
+        new THREE.MeshStandardMaterial({color:0xbbaa77})
+      );
+      line.position.set(0,.03,i*.1);
+      group.add(line);
+    }
+    // Rocks
+    for(let i=0;i<2;i++){
+      const rock=new THREE.Mesh(
+        new THREE.DodecahedronGeometry(.08+Math.random()*.06,0),
+        new THREE.MeshStandardMaterial({color:0x666655,roughness:.9})
+      );
+      rock.position.set((Math.random()-.5)*.4,.06,(Math.random()-.5)*.4);
+      group.add(rock);
+    }
+  }else{
+    // Building with roof
+    const w=CELL*.6,d=CELL*.5,h=info.height;
+    const walls=new THREE.Mesh(
+      new THREE.BoxGeometry(w,h,d),
+      new THREE.MeshStandardMaterial({color:info.color,roughness:.7})
+    );
+    walls.position.y=h/2;walls.castShadow=true;walls.receiveShadow=true;
+    group.add(walls);
+
+    // Roof
+    if(info.roofColor){
+      const roofGeo=new THREE.ConeGeometry(w*.8,h*.4,4);
+      const roofMat=new THREE.MeshStandardMaterial({color:info.roofColor,roughness:.6});
+      const roof=new THREE.Mesh(roofGeo,roofMat);
+      roof.position.y=h+h*.15;roof.rotation.y=Math.PI/4;roof.castShadow=true;
+      group.add(roof);
+    }
+
+    // Door
+    const door=new THREE.Mesh(
+      new THREE.PlaneGeometry(w*.3,h*.5),
+      new THREE.MeshStandardMaterial({color:0x332211})
+    );
+    door.position.set(0,h*.25,d/2+.01);
+    group.add(door);
+
+    // Lantern
+    const lanternGeo=new THREE.BoxGeometry(.1,.15,.1);
+    const lanternMat=new THREE.MeshStandardMaterial({color:0xffccaa,emissive:0xff8844,emissiveIntensity:0});
+    const lantern=new THREE.Mesh(lanternGeo,lanternMat);
+    lantern.position.set(w/2+.1,h*.6,d/2);
+    group.add(lantern);
+
+    const lanternLight=new THREE.PointLight(0xff8844,0,3);
+    lanternLight.position.copy(lantern.position);
+    group.add(lanternLight);
+    lanterns.push({mesh:lantern,light:lanternLight});
+  }
+
+  scene.add(group);
+  grid[gx][gz]=type;
+  gridMeshes[gx][gz]=group;
+  group.userData.type=type;
+
+  // Update stats
+  harmony+=info.harmony;
+  buildingCount++;
+
+  // Adjacency bonus
+  const neighbors=[[gx-1,gz],[gx+1,gz],[gx,gz-1],[gx,gz+1]];
+  neighbors.forEach(([nx,nz])=>{
+    if(nx>=0&&nx<GRID&&nz>=0&&nz<GRID&&grid[nx][nz]){
+      harmony+=1; // adjacency bonus
+    }
+  });
+
+  // Spawn villagers
+  if(info.villagers>0){
+    for(let i=0;i<info.villagers;i++){
+      spawnVillager(pos);
+    }
+  }
+
+  updateHUD();
+
+  // Spawn petal particles for cherry
+  if(type==='cherry'&&season===0){
+    spawnPetals(pos);
+  }
+}
+
+function spawnVillager(pos){
+  const vGroup=new THREE.Group();
+  // Body
+  const body=new THREE.Mesh(
+    new THREE.CylinderGeometry(.04,.06,.2,6),
+    new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(Math.random(),.3,.5)})
+  );
+  body.position.y=.15;
+  vGroup.add(body);
+  // Head
+  const head=new THREE.Mesh(
+    new THREE.SphereGeometry(.04,6,6),
+    new THREE.MeshStandardMaterial({color:0xddbb99})
+  );
+  head.position.y=.3;
+  vGroup.add(head);
+
+  vGroup.position.copy(pos);
+  vGroup.position.y=0;
+
+  vGroup.userData={
+    target:pos.clone(),
+    speed:.3+Math.random()*.3,
+    waitTimer:1+Math.random()*3,
+    homePos:pos.clone()
+  };
+
+  scene.add(vGroup);
+  villagers.push(vGroup);
+  villagerCount++;
+}
+
+function spawnPetals(pos){
+  for(let i=0;i<8;i++){
+    const pGeo=new THREE.PlaneGeometry(.03,.03);
+    const pMat=new THREE.MeshBasicMaterial({color:0xffaacc,transparent:true,opacity:.8,side:THREE.DoubleSide});
+    const petal=new THREE.Mesh(pGeo,pMat);
+    petal.position.copy(pos);
+    petal.position.y=1.5+Math.random();
+    petal.userData={vel:new THREE.Vector3((Math.random()-.5)*.02,-.01-.01*Math.random(),(Math.random()-.5)*.02),life:3+Math.random()*2};
+    scene.add(petal);
+    particles.push(petal);
+  }
+}
+
+function updateHUD(){
+  document.getElementById('harmony').textContent=harmony;
+  document.getElementById('building-count').textContent=buildingCount;
+  document.getElementById('villager-count').textContent=villagerCount;
+}
+
+function startGame(){
+  document.getElementById('title-screen').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('palette').style.display='flex';
+  document.getElementById('season-indicator').style.display='block';
+  gameState='playing';
+}
+
+// Palette selection
+document.querySelectorAll('.pal-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.pal-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedType=btn.dataset.type;
+  });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&gameState==='title'){startGame();return}
+  const types=['teahouse','shrine','dojo','garden','bamboo','pond','cherry','path'];
+  const num=parseInt(e.key);
+  if(num>=1&&num<=8){
+    selectedType=types[num-1];
+    document.querySelectorAll('.pal-btn').forEach((b,i)=>{
+      b.classList.toggle('active',i===num-1);
+    });
+  }
+  // Camera rotation
+  if(e.key==='a'||e.key==='ArrowLeft')camAngle+=.1;
+  if(e.key==='d'||e.key==='ArrowRight')camAngle-=.1;
+  if(e.key==='w'||e.key==='ArrowUp')camDist=Math.max(10,camDist-1);
+  if(e.key==='s'||e.key==='ArrowDown')camDist=Math.min(35,camDist+1);
+});
+
+// Click to place
+function handleClick(e){
+  if(gameState!=='playing')return;
+  const rect=renderer.domElement.getBoundingClientRect();
+  const cx=e.clientX||e.changedTouches?.[0]?.clientX;
+  const cy=e.clientY||e.changedTouches?.[0]?.clientY;
+  if(!cx)return;
+
+  mouse.x=((cx-rect.left)/rect.width)*2-1;
+  mouse.y=-((cy-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+
+  const hits=raycaster.intersectObject(groundPlane);
+  if(hits.length>0){
+    const p=hits[0].point;
+    const{gx,gz}=worldToGrid(p.x,p.z);
+    placeBuilding(gx,gz,selectedType);
+  }
+}
+
+renderer=null; // will be set in initScene
+document.getElementById('start-btn').addEventListener('click',startGame);
+
+// Touch/mouse for camera rotation
+let camDragging=false,camLastX=0;
+document.addEventListener('mousedown',e=>{
+  if(e.button===2||e.button===1){camDragging=true;camLastX=e.clientX;e.preventDefault()}
+  else handleClick(e);
+});
+document.addEventListener('mousemove',e=>{
+  if(camDragging){camAngle+=(e.clientX-camLastX)*.005;camLastX=e.clientX}
+  // Tooltip
+  const tt=document.getElementById('tooltip');
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  if(el&&el.title){tt.textContent=el.title;tt.style.display='block';
+    tt.style.left=Math.min(e.clientX+10,window.innerWidth-210)+'px';tt.style.top=(e.clientY-30)+'px'}
+  else{tt.style.display='none'}
+});
+document.addEventListener('mouseup',()=>camDragging=false);
+document.addEventListener('contextmenu',e=>e.preventDefault());
+
+// Touch handling
+let touchCount=0;
+document.addEventListener('touchstart',e=>{
+  touchCount=e.touches.length;
+  if(e.touches.length===1){lastTouch.x=e.touches[0].clientX;lastTouch.y=e.touches[0].clientY}
+},{passive:true});
+document.addEventListener('touchmove',e=>{
+  if(touchCount===2){
+    // Two finger rotate
+    camAngle+=(e.touches[0].clientX-lastTouch.x)*.005;
+    lastTouch.x=e.touches[0].clientX;
+  }
+},{passive:true});
+document.addEventListener('touchend',e=>{
+  if(touchCount===1&&e.changedTouches.length===1){
+    const dx=e.changedTouches[0].clientX-lastTouch.x;
+    const dy=e.changedTouches[0].clientY-lastTouch.y;
+    if(Math.abs(dx)<10&&Math.abs(dy)<10)handleClick(e);
+  }
+  touchCount=0;
+});
+
+// Mouse wheel zoom
+document.addEventListener('wheel',e=>{
+  camDist=Math.max(10,Math.min(35,camDist+e.deltaY*.01));
+  e.preventDefault();
+},{passive:false});
+
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+// Main loop
+initScene();
+const clock=new THREE.Clock();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.05);
+
+  if(gameState==='playing'){
+    // Time of day
+    timeOfDay+=dt*.02;
+    if(timeOfDay>1)timeOfDay=0;
+
+    const sunAngle=timeOfDay*Math.PI*2;
+    const isDay=timeOfDay<.4||timeOfDay>.8;
+    const isNight=timeOfDay>.45&&timeOfDay<.75;
+
+    sunLight.position.set(Math.cos(sunAngle)*15,Math.sin(sunAngle)*15+5,10);
+    sunLight.intensity=isDay?.8:isNight?0:.4;
+    moonLight.intensity=isNight?.3:0;
+    ambLight.intensity=isDay?.4:isNight?.15:.25;
+
+    // Sky color
+    if(isDay){
+      scene.fog.color.setHSL(.3,.3,.4);
+      scene.background=scene.fog.color;
+    }else if(isNight){
+      scene.fog.color.setHSL(.65,.2,.05);
+      scene.background=scene.fog.color;
+    }else{
+      scene.fog.color.setHSL(.05,.4,.25);
+      scene.background=scene.fog.color;
+    }
+
+    // Time display
+    const hours=Math.floor(timeOfDay*24);
+    const timeNames=['Night','Night','Night','Night','Dawn','Dawn','Morning','Morning','Morning','Day','Day','Day','Noon','Day','Day','Afternoon','Afternoon','Sunset','Dusk','Evening','Night','Night','Night','Night'];
+    document.getElementById('time-display').textContent=timeNames[hours];
+
+    // Lanterns glow at night
+    const lanternIntensity=isNight?1:isDay?0:.5;
+    lanterns.forEach(l=>{
+      l.mesh.material.emissiveIntensity=lanternIntensity;
+      l.light.intensity=lanternIntensity*.5;
+    });
+
+    // Seasons
+    seasonTimer+=dt;
+    if(seasonTimer>30){
+      seasonTimer=0;
+      season=(season+1)%4;
+      document.getElementById('season-display').textContent=seasons[season];
+      document.getElementById('season-name').textContent=seasons[season];
+      const icons=['&#127800;','&#9728;','&#127810;','&#10052;'];
+      document.getElementById('season-icon').innerHTML=icons[season];
+
+      // Update cherry trees
+      const cherryColors=[0xff88aa,0x44aa44,0xff6622,0x886655];
+      for(let gx=0;gx<GRID;gx++){
+        for(let gz=0;gz<GRID;gz++){
+          const m=gridMeshes[gx][gz];
+          if(m&&m.userData.type==='cherry'&&m.userData.canopy){
+            m.userData.canopy.material.color.setHex(cherryColors[season]);
+          }
+        }
+      }
+
+      // Ground color
+      const groundColors=[0x5a8a3a,0x6a9a3a,0x8a7a3a,0x7a8a5a];
+      groundPlane.material.color.setHex(groundColors[season]);
+
+      // Petals in spring
+      if(season===0){
+        for(let gx=0;gx<GRID;gx++)for(let gz=0;gz<GRID;gz++){
+          if(grid[gx][gz]==='cherry')spawnPetals(gridToWorld(gx,gz));
+        }
+      }
+    }
+
+    // Update villagers
+    villagers.forEach(v=>{
+      const d=v.userData;
+      d.waitTimer-=dt;
+      if(d.waitTimer<=0){
+        // Pick new target from occupied cells
+        const occupied=[];
+        for(let gx=0;gx<GRID;gx++)for(let gz=0;gz<GRID;gz++){
+          if(grid[gx][gz]&&grid[gx][gz]!=='pond')occupied.push(gridToWorld(gx,gz));
+        }
+        if(occupied.length>0){
+          d.target=occupied[Math.floor(Math.random()*occupied.length)].clone();
+          d.target.y=0;
+        }
+        d.waitTimer=3+Math.random()*5;
+      }
+
+      // Move toward target
+      const dx=d.target.x-v.position.x;
+      const dz=d.target.z-v.position.z;
+      const dist=Math.sqrt(dx*dx+dz*dz);
+      if(dist>.2){
+        v.position.x+=dx/dist*d.speed*dt;
+        v.position.z+=dz/dist*d.speed*dt;
+        v.rotation.y=Math.atan2(dx,dz);
+      }
+    });
+
+    // Particles
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i];
+      p.userData.life-=dt;
+      p.position.add(p.userData.vel);
+      p.rotation.x+=dt;p.rotation.z+=dt*.5;
+      p.material.opacity=Math.max(0,p.userData.life/3);
+      if(p.userData.life<=0||p.position.y<0){scene.remove(p);particles.splice(i,1)}
+    }
+
+    // Continual petals in spring
+    if(season===0&&Math.random()<.02){
+      for(let gx=0;gx<GRID;gx++)for(let gz=0;gz<GRID;gz++){
+        if(grid[gx][gz]==='cherry'&&Math.random()<.05)spawnPetals(gridToWorld(gx,gz));
+      }
+    }
+  }
+
+  updateCamera();
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>

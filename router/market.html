@@ -1,0 +1,1416 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — Game Market Research</title>
+  <meta name="description" content="Game market research powered by local AI — analyze concepts, competitors, release timing, and quality gates." />
+  <meta name="theme-color" content="#0a0a1a" />
+  <style>
+    /* ── Design Tokens ─────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:      #0a0a1a;
+      --bg2:     #0f0f24;
+      --bg3:     #141430;
+      --bg4:     #1a1a3a;
+      --border:  #1e1e3a;
+      --border2: #2a2a48;
+      --teal:    #00bfa5;
+      --teal-dim:#007a6a;
+      --coral:   #ff6b6b;
+      --coral-dim:#9a3030;
+      --amber:   #f59e0b;
+      --amber-dim:#a06800;
+      --purple:  #a78bfa;
+      --purple-dim:#5b3ea8;
+      --green:   #22c55e;
+      --green-dim:#146632;
+      --red:     #ef4444;
+      --blue:    #3b82f6;
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --text3:   #5a6a7a;
+      --mono:    "JetBrains Mono", "Fira Code", "Courier New", monospace;
+      --sans:    "Inter", -apple-system, system-ui, sans-serif;
+      --radius:  10px;
+      --shadow:  0 4px 24px rgba(0,0,0,0.5);
+      color-scheme: dark;
+    }
+
+    /* ── Accessibility ── */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--teal); color: #000;
+      padding: 8px 16px; z-index: 10000;
+      font-weight: 600; border-radius: 0 0 8px 0;
+      transition: top 0.2s; font-size: 13px;
+    }
+    .skip-link:focus { top: 0; }
+    *:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+    /* ── Base ── */
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); overflow-x: hidden;
+      line-height: 1.6; min-height: 100vh;
+    }
+    button { font-family: inherit; cursor: pointer; }
+    a { color: var(--teal); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: rgba(10,10,26,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      display: flex; align-items: center; gap: 12px;
+      position: sticky; top: 0; z-index: 200;
+      flex-wrap: wrap;
+    }
+    .logo {
+      font-family: var(--mono); font-weight: 700; font-size: 14px;
+      letter-spacing: 1px; color: var(--teal);
+      text-decoration: none;
+      text-shadow: 0 0 12px rgba(0,191,165,0.4);
+      display: flex; align-items: center; gap: 0;
+    }
+    .logo-mu {
+      color: var(--amber);
+      text-shadow: 0 0 12px rgba(245,158,11,0.3);
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 18px; font-style: italic; line-height: 14px;
+    }
+    .logo-pipe { color: var(--text3); font-size: 20px; line-height: 14px; margin: 0 -1px; opacity: 0.5; }
+    .logo-llm { color: var(--teal); letter-spacing: 1px; }
+    .topbar-spacer { flex: 1; }
+    .nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+    .nav-link {
+      padding: 4px 10px; border-radius: 6px; font-size: 0.82rem;
+      color: var(--text2); transition: all 0.15s; text-decoration: none;
+      font-family: var(--mono);
+    }
+    .nav-link:hover { background: var(--bg3); color: var(--text); }
+    .nav-link.active {
+      background: linear-gradient(135deg, var(--teal), #00796b);
+      color: #000; font-weight: 600;
+    }
+
+    /* ── Tooltip ── */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 10px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: 0.75rem; color: var(--text); white-space: nowrap;
+      z-index: 9999; pointer-events: none; font-family: var(--mono);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, #0a0a1a 0%, #0e0e28 40%, #0a0e1a 100%);
+      padding: clamp(2rem, 5vw, 4rem) 20px clamp(1.5rem, 3vw, 2.5rem);
+      text-align: center; position: relative; overflow: hidden;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,191,165,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(0,191,165,0.1); border: 1px solid rgba(0,191,165,0.25);
+      border-radius: 100px; padding: 4px 14px;
+      font-family: var(--mono); font-size: 0.7rem;
+      color: var(--teal); letter-spacing: 1.5px;
+      text-transform: uppercase; margin-bottom: 14px;
+    }
+    .hero-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--teal); box-shadow: 0 0 6px var(--teal);
+      animation: pulse-dot 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .hero-title {
+      font-size: clamp(1.75rem, 4vw, 3rem);
+      font-weight: 800; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, var(--teal) 50%, var(--amber) 100%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 10px; line-height: 1.2;
+    }
+    .hero-sub {
+      font-size: clamp(0.9rem, 2vw, 1.05rem);
+      color: var(--text2); max-width: 520px; margin: 0 auto;
+    }
+
+    /* ── Main layout ── */
+    .main {
+      max-width: 1280px; margin: 0 auto;
+      padding: 1.5rem 20px 4rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+      gap: 1.25rem;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; }
+    }
+
+    /* ── Panel ── */
+    .panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+    .panel + .panel { margin-top: 1rem; }
+    .panel-title {
+      font-size: 0.72rem; font-weight: 700;
+      color: var(--amber); text-transform: uppercase;
+      letter-spacing: 0.1em; margin-bottom: 1rem;
+      font-family: var(--mono);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .panel-title-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; opacity: 0.6;
+    }
+
+    /* ── Form controls ── */
+    label {
+      display: block; font-size: 0.78rem;
+      font-weight: 600; color: var(--text2);
+      margin-bottom: 4px; letter-spacing: 0.03em;
+    }
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 7px; color: var(--text);
+      padding: 0.55rem 0.75rem;
+      font-size: 0.9rem; font-family: var(--sans);
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--teal-dim);
+      box-shadow: 0 0 0 3px rgba(0,191,165,0.1);
+    }
+    input::placeholder, textarea::placeholder { color: var(--text3); }
+    textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6a7a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+    .field { margin-bottom: 0.85rem; }
+    .field:last-child { margin-bottom: 0; }
+
+    /* ── Tag input ── */
+    .tag-wrap {
+      display: flex; flex-wrap: wrap; gap: 5px;
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 7px; padding: 6px 8px; min-height: 40px;
+      align-items: center; cursor: text; transition: border-color 0.15s;
+    }
+    .tag-wrap:focus-within {
+      border-color: var(--teal-dim);
+      box-shadow: 0 0 0 3px rgba(0,191,165,0.1);
+    }
+    .tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(0,191,165,0.12); color: var(--teal);
+      border: 1px solid rgba(0,191,165,0.25);
+      border-radius: 5px; padding: 2px 7px;
+      font-size: 0.78rem; font-weight: 600;
+    }
+    .tag-remove {
+      background: none; border: none; color: inherit;
+      opacity: 0.5; cursor: pointer; padding: 0; line-height: 1;
+      font-size: 0.9rem; display: flex; align-items: center;
+    }
+    .tag-remove:hover { opacity: 1; }
+    .tag-input {
+      flex: 1; min-width: 80px;
+      background: none; border: none; outline: none;
+      color: var(--text); font-size: 0.85rem; padding: 0;
+    }
+
+    /* ── Similar games list ── */
+    .game-rows { display: flex; flex-direction: column; gap: 5px; }
+    .game-row { display: flex; gap: 6px; align-items: center; }
+    .game-row input { flex: 1; }
+    .btn-remove {
+      background: none; border: 1px solid var(--border);
+      border-radius: 5px; color: var(--text3); cursor: pointer;
+      font-size: 0.9rem; width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .btn-remove:hover { border-color: var(--red); color: var(--red); }
+    .btn-add {
+      background: none; border: 1px dashed var(--border2);
+      border-radius: 6px; color: var(--text3); cursor: pointer;
+      font-size: 0.8rem; padding: 0.35rem 0.7rem;
+      margin-top: 4px; transition: all 0.15s;
+    }
+    .btn-add:hover { border-color: var(--amber-dim); color: var(--amber); }
+
+    /* ── Two-column form grid ── */
+    .form-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem 1rem;
+    }
+    @media (max-width: 500px) {
+      .form-grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Action buttons ── */
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.6rem; margin-top: 0.5rem;
+    }
+    .btn-action {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 4px;
+      padding: 0.75rem 0.5rem;
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      background: var(--bg3);
+      color: var(--text2);
+      cursor: pointer; font-size: 0.8rem;
+      font-weight: 600; font-family: var(--mono);
+      transition: all 0.15s;
+      min-height: 60px;
+      text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .btn-action:hover:not(:disabled) {
+      border-color: var(--color, var(--teal));
+      color: var(--color, var(--teal));
+      background: var(--bg4);
+      transform: translateY(-1px);
+    }
+    .btn-action:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-action.loading { border-color: var(--color, var(--teal)); }
+    .btn-action .btn-icon { font-size: 1.2rem; line-height: 1; }
+    .btn-action .btn-label { line-height: 1.2; }
+    .btn-action .btn-sub { font-size: 0.65rem; opacity: 0.6; font-weight: 400; }
+
+    .btn-report {
+      width: 100%; padding: 0.75rem 1.5rem;
+      background: linear-gradient(135deg, var(--teal), var(--teal-dim));
+      color: #000; border: none; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; transition: all 0.2s;
+      margin-top: 0.5rem; font-family: var(--mono);
+      letter-spacing: 0.03em;
+    }
+    .btn-report:hover:not(:disabled) {
+      filter: brightness(1.1); transform: translateY(-1px);
+    }
+    .btn-report:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── Right column stickiness ── */
+    .right-col { position: sticky; top: 80px; }
+    @media (max-width: 900px) { .right-col { position: static; } }
+
+    /* ── Results panel ── */
+    .results-empty {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 3rem 1rem;
+      color: var(--text3); text-align: center; gap: 10px;
+    }
+    .results-empty-icon { font-size: 2.5rem; opacity: 0.3; }
+    .results-empty-text { font-size: 0.85rem; line-height: 1.5; }
+    .results-empty-hint { font-size: 0.75rem; color: var(--text3); font-family: var(--mono); }
+
+    .result-section {
+      display: none;
+      flex-direction: column; gap: 1rem;
+    }
+    .result-section.visible { display: flex; }
+
+    .result-header {
+      display: flex; align-items: center; gap: 8px;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .result-title {
+      font-size: 0.85rem; font-weight: 700;
+      color: var(--text); font-family: var(--mono);
+    }
+    .result-badge {
+      font-size: 0.65rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 100px; font-family: var(--mono);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .result-badge.teal { background: rgba(0,191,165,0.15); color: var(--teal); border: 1px solid rgba(0,191,165,0.25); }
+    .result-badge.amber { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+    .result-badge.purple { background: rgba(167,139,250,0.15); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+    .result-badge.coral { background: rgba(255,107,107,0.15); color: var(--coral); border: 1px solid rgba(255,107,107,0.25); }
+    .result-badge.green { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .result-header .spinner { margin-left: auto; }
+
+    /* Markdown output */
+    .md-output {
+      font-size: 0.875rem; line-height: 1.75;
+      color: var(--text); max-height: 60vh;
+      overflow-y: auto; padding-right: 4px;
+      user-select: text;
+    }
+    .md-output::-webkit-scrollbar { width: 4px; }
+    .md-output::-webkit-scrollbar-track { background: transparent; }
+    .md-output::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+    .md-output h1, .md-output h2 {
+      font-size: 1rem; font-weight: 700; color: var(--teal);
+      margin: 1.25em 0 0.5em; padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .md-output h3 {
+      font-size: 0.9rem; font-weight: 700; color: var(--amber);
+      margin: 1em 0 0.35em;
+    }
+    .md-output h4 { font-size: 0.85rem; font-weight: 600; color: var(--text2); margin: 0.75em 0 0.25em; }
+    .md-output p { margin-bottom: 0.6em; }
+    .md-output ul, .md-output ol { margin: 0.4em 0 0.8em 1.2em; }
+    .md-output li { margin-bottom: 0.25em; }
+    .md-output strong { color: var(--text); font-weight: 700; }
+    .md-output em { color: var(--text2); }
+    .md-output code {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 4px; padding: 1px 5px;
+      font-family: var(--mono); font-size: 0.8em;
+      color: var(--teal);
+    }
+    .md-output pre {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 7px; padding: 0.75rem; overflow-x: auto;
+      margin: 0.5em 0;
+    }
+    .md-output pre code { background: none; border: none; padding: 0; }
+    .md-output table {
+      border-collapse: collapse; width: 100%;
+      font-size: 0.8rem; margin: 0.75em 0;
+    }
+    .md-output th {
+      background: var(--bg3); color: var(--text2);
+      padding: 6px 10px; text-align: left;
+      border: 1px solid var(--border); font-weight: 700; font-size: 0.72rem;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .md-output td {
+      padding: 6px 10px; border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .md-output tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    .md-output blockquote {
+      border-left: 3px solid var(--amber-dim); padding-left: 0.75rem;
+      color: var(--text2); margin: 0.5em 0;
+    }
+
+    /* ── TAM Dashboard ── */
+    .tam-dashboard { display: none; }
+    .tam-dashboard.visible { display: block; }
+    .tam-title {
+      font-size: 0.72rem; font-weight: 700; color: var(--purple);
+      text-transform: uppercase; letter-spacing: 0.1em;
+      font-family: var(--mono); margin-bottom: 0.75rem;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .tam-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem; margin-bottom: 1rem;
+    }
+    @media (max-width: 500px) { .tam-grid { grid-template-columns: 1fr 1fr; } }
+    .tam-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 7px; padding: 0.65rem 0.75rem;
+      text-align: center;
+    }
+    .tam-card-value {
+      font-size: 1.1rem; font-weight: 800;
+      color: var(--text); font-family: var(--mono);
+      line-height: 1.2;
+    }
+    .tam-card-label {
+      font-size: 0.65rem; color: var(--text3);
+      text-transform: uppercase; letter-spacing: 0.07em;
+      margin-top: 2px;
+    }
+    .scenario-bars { display: flex; flex-direction: column; gap: 8px; }
+    .scenario-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .scenario-label {
+      font-size: 0.72rem; color: var(--text3); font-family: var(--mono);
+      width: 80px; flex-shrink: 0;
+    }
+    .scenario-bar-wrap {
+      flex: 1; background: var(--bg3); border-radius: 4px; height: 8px;
+      overflow: hidden;
+    }
+    .scenario-bar {
+      height: 100%; border-radius: 4px;
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+    .scenario-bar.pessimistic { background: var(--coral-dim); }
+    .scenario-bar.base { background: var(--amber); }
+    .scenario-bar.optimistic { background: var(--green); }
+    .scenario-value {
+      font-size: 0.75rem; font-weight: 700; color: var(--text);
+      font-family: var(--mono); width: 60px; text-align: right; flex-shrink: 0;
+    }
+
+    /* ── Risk Matrix ── */
+    .risk-matrix { display: none; }
+    .risk-matrix.visible { display: block; }
+    .risk-title {
+      font-size: 0.72rem; font-weight: 700; color: var(--coral);
+      text-transform: uppercase; letter-spacing: 0.1em;
+      font-family: var(--mono); margin-bottom: 0.75rem;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .risk-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .risk-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 7px; padding: 0.6rem 0.75rem;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .risk-card-title {
+      font-size: 0.78rem; font-weight: 700; color: var(--text);
+    }
+    .risk-pill-row { display: flex; gap: 5px; }
+    .risk-pill {
+      font-size: 0.62rem; font-weight: 700; padding: 1px 6px;
+      border-radius: 4px; font-family: var(--mono);
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .risk-pill.high { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
+    .risk-pill.medium { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+    .risk-pill.low { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+    .risk-card-desc { font-size: 0.75rem; color: var(--text2); line-height: 1.4; }
+
+    /* ── Result tabs ── */
+    .result-tabs {
+      display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 1rem;
+    }
+    .result-tab {
+      padding: 5px 12px; border-radius: 6px;
+      font-size: 0.75rem; font-weight: 600; font-family: var(--mono);
+      border: 1px solid var(--border); background: none;
+      color: var(--text3); cursor: pointer; transition: all 0.15s;
+    }
+    .result-tab:hover { border-color: var(--border2); color: var(--text2); }
+    .result-tab.active {
+      background: var(--bg3); border-color: var(--border2);
+      color: var(--text);
+    }
+
+    /* ── Export button ── */
+    .btn-export {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 0.4rem 0.9rem;
+      background: none; border: 1px solid var(--border2);
+      border-radius: 6px; color: var(--text2);
+      font-size: 0.75rem; font-family: var(--mono);
+      cursor: pointer; transition: all 0.15s; font-weight: 600;
+    }
+    .btn-export:hover { border-color: var(--teal-dim); color: var(--teal); }
+
+    /* ── Error state ── */
+    .error-box {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 7px; padding: 0.75rem 1rem;
+      font-size: 0.82rem; color: #fca5a5;
+      line-height: 1.5; font-family: var(--mono);
+    }
+
+    /* ── Loading skeleton ── */
+    .skeleton-lines { display: flex; flex-direction: column; gap: 8px; padding: 0.5rem 0; }
+    .skel {
+      background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 4px; height: 12px;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .skel.w80 { width: 80%; }
+    .skel.w60 { width: 60%; }
+    .skel.w90 { width: 90%; }
+    .skel.w70 { width: 70%; }
+    .skel.h24 { height: 24px; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; padding: 2rem 20px;
+      font-size: 0.75rem; color: var(--text3); font-family: var(--mono);
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to content</a>
+
+<!-- Topbar -->
+<nav class="topbar" aria-label="Main navigation">
+  <a href="/" class="logo" aria-label="muLLM home">
+    <span class="logo-mu">m&#956;</span><span class="logo-pipe">|</span><span class="logo-llm">LLM</span>
+  </a>
+  <div class="topbar-spacer"></div>
+  <div class="nav-links">
+    <a href="/chat" class="nav-link" data-tooltip="Chat interface">Chat</a>
+    <a href="/research" class="nav-link" data-tooltip="Research mode">Research</a>
+    <a href="/bench" class="nav-link" data-tooltip="Benchmarks">Bench</a>
+    <a href="/games" class="nav-link" data-tooltip="Game studio">Games</a>
+    <a href="/market" class="nav-link active" aria-current="page" data-tooltip="Game market research">Market</a>
+    <a href="/dashboard" class="nav-link" data-tooltip="Dashboard">Dashboard</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<header class="hero" role="banner">
+  <div class="hero-badge">
+    <span class="hero-badge-dot" aria-hidden="true"></span>
+    Game Market Intelligence
+  </div>
+  <h1 class="hero-title">Game Market Research</h1>
+  <p class="hero-sub">Analyze market viability, release timing, competitors, and quality gates — powered by your local AI.</p>
+</header>
+
+<main id="main-content" class="main">
+
+  <!-- ── Left Column: Input ── -->
+  <div class="left-col">
+
+    <!-- Concept panel -->
+    <section class="panel" aria-labelledby="concept-heading">
+      <h2 id="concept-heading" class="panel-title">
+        <span class="panel-title-dot" aria-hidden="true"></span>
+        Game Concept
+      </h2>
+
+      <div class="field">
+        <label for="game-title">Working Title</label>
+        <input type="text" id="game-title" placeholder="e.g. Ironclad Legions" maxlength="200" />
+      </div>
+
+      <div class="field">
+        <label for="game-concept">Elevator Pitch <span style="color:var(--coral)">*</span></label>
+        <textarea id="game-concept" placeholder="Describe your game concept in 1–3 sentences. What is it? Who is it for? What makes it different?" rows="4" maxlength="2000" required></textarea>
+      </div>
+
+      <div class="field">
+        <label>Genre Tags</label>
+        <div class="tag-wrap" id="genre-wrap" role="group" aria-label="Genre tags">
+          <input type="text" class="tag-input" id="genre-input" placeholder="Type a genre tag and press Enter" aria-label="Add genre tag" maxlength="50" />
+        </div>
+        <div style="font-size:0.7rem;color:var(--text3);margin-top:3px;">e.g. roguelike &nbsp;deckbuilder &nbsp;strategy &nbsp;platformer</div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="field">
+          <label for="budget-select">Budget Tier</label>
+          <select id="budget-select" aria-label="Select budget tier">
+            <option value="indie_solo">Solo Indie (&lt;$10K)</option>
+            <option value="indie_small">Small Team (&lt;$100K)</option>
+            <option value="indie_funded" selected>Funded Indie (&gt;$100K)</option>
+            <option value="aa">AA Studio (&gt;$1M)</option>
+            <option value="aaa">AAA Studio (&gt;$10M)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="price-input">Target Price (USD)</label>
+          <input type="number" id="price-input" value="14.99" min="0" max="999" step="0.01" />
+        </div>
+        <div class="field">
+          <label for="months-input">Months Until Launch</label>
+          <input type="number" id="months-input" value="12" min="0" max="120" step="1" />
+        </div>
+        <div class="field">
+          <label for="hours-input">Expected Playtime (hrs)</label>
+          <input type="number" id="hours-input" value="10" min="0" max="10000" step="0.5" />
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:0.25rem;">
+        <label>Target Platforms</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;" role="group" aria-label="Target platforms">
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;margin-bottom:0;font-weight:400;color:var(--text2);">
+            <input type="checkbox" value="pc" id="plat-pc" checked style="width:auto;accent-color:var(--teal);" /> PC
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;margin-bottom:0;font-weight:400;color:var(--text2);">
+            <input type="checkbox" value="android" id="plat-android" style="width:auto;accent-color:var(--teal);" /> Android
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;margin-bottom:0;font-weight:400;color:var(--text2);">
+            <input type="checkbox" value="ios" id="plat-ios" style="width:auto;accent-color:var(--teal);" /> iOS
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;margin-bottom:0;font-weight:400;color:var(--text2);">
+            <input type="checkbox" value="switch" id="plat-switch" style="width:auto;accent-color:var(--teal);" /> Switch
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;margin-bottom:0;font-weight:400;color:var(--text2);">
+            <input type="checkbox" value="ps5" id="plat-ps5" style="width:auto;accent-color:var(--teal);" /> PS5
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;margin-bottom:0;font-weight:400;color:var(--text2);">
+            <input type="checkbox" value="xbox" id="plat-xbox" style="width:auto;accent-color:var(--teal);" /> Xbox
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Similar games panel -->
+    <section class="panel" aria-labelledby="comps-heading">
+      <h2 id="comps-heading" class="panel-title">
+        <span class="panel-title-dot" aria-hidden="true"></span>
+        Comparable Games
+      </h2>
+      <div class="game-rows" id="game-rows" role="list" aria-label="Comparable games list"></div>
+      <button class="btn-add" id="btn-add-game" type="button" aria-label="Add comparable game">+ Add comparable game</button>
+    </section>
+
+    <!-- Actions panel -->
+    <section class="panel" aria-labelledby="actions-heading">
+      <h2 id="actions-heading" class="panel-title">
+        <span class="panel-title-dot" aria-hidden="true"></span>
+        Research Actions
+      </h2>
+
+      <div class="action-grid">
+        <button class="btn-action" id="btn-analyze" data-action="analyze" data-tooltip="Full TAM, revenue projections, platform fit" style="--color: var(--teal)">
+          <span class="btn-icon" aria-hidden="true">&#128202;</span>
+          <span class="btn-label">Analyze</span>
+          <span class="btn-sub">Market fit + TAM</span>
+        </button>
+        <button class="btn-action" id="btn-timing" data-action="timing" data-tooltip="Steam Next Fest, release window, algorithm tips" style="--color: var(--amber)">
+          <span class="btn-icon" aria-hidden="true">&#128197;</span>
+          <span class="btn-label">Steam Timing</span>
+          <span class="btn-sub">Release window</span>
+        </button>
+        <button class="btn-action" id="btn-competitors" data-action="competitors" data-tooltip="Find similar games, estimate their revenue" style="--color: var(--purple)">
+          <span class="btn-icon" aria-hidden="true">&#127775;</span>
+          <span class="btn-label">Competitors</span>
+          <span class="btn-sub">Revenue estimates</span>
+        </button>
+        <button class="btn-action" id="btn-qa" data-action="qa" data-tooltip="Quality gate: is this game ready to ship?" style="--color: var(--green)">
+          <span class="btn-icon" aria-hidden="true">&#9989;</span>
+          <span class="btn-label">Quality Gate</span>
+          <span class="btn-sub">Ship readiness</span>
+        </button>
+        <button class="btn-action" id="btn-pivot" data-action="pivot" data-tooltip="Honest pivot-or-proceed analysis" style="--color: var(--coral)">
+          <span class="btn-icon" aria-hidden="true">&#8634;</span>
+          <span class="btn-label">Pivot Analysis</span>
+          <span class="btn-sub">Continue or pivot?</span>
+        </button>
+      </div>
+
+      <button class="btn-report" id="btn-report" type="button" aria-label="Generate full market research report">
+        Generate Full Report
+      </button>
+    </section>
+
+  </div>
+
+  <!-- ── Right Column: Results ── -->
+  <div class="right-col">
+
+    <!-- TAM dashboard (populated by analyze) -->
+    <div class="panel tam-dashboard" id="tam-dashboard" aria-labelledby="tam-heading">
+      <div class="tam-title" id="tam-heading">
+        <span aria-hidden="true">&#9685;</span> Market Overview
+      </div>
+      <div class="tam-grid" id="tam-grid" aria-label="Market metrics"></div>
+      <div style="font-size:0.72rem;color:var(--text3);font-family:var(--mono);margin-bottom:0.6rem;">Revenue Scenarios (Year 1)</div>
+      <div class="scenario-bars" id="scenario-bars" aria-label="Revenue scenario bars"></div>
+    </div>
+
+    <!-- Risk matrix (populated by analyze) -->
+    <div class="panel risk-matrix" id="risk-matrix" aria-labelledby="risk-heading">
+      <div class="risk-title" id="risk-heading">
+        <span aria-hidden="true">&#9888;</span> Risk Matrix
+      </div>
+      <div class="risk-grid" id="risk-grid" aria-label="Risk assessment grid"></div>
+    </div>
+
+    <!-- Results panel -->
+    <section class="panel" aria-labelledby="results-heading">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.75rem;flex-wrap:wrap;">
+        <h2 id="results-heading" class="panel-title" style="margin-bottom:0;">
+          <span class="panel-title-dot" aria-hidden="true"></span>
+          Results
+        </h2>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+          <button class="btn-export" id="btn-export" style="display:none;" aria-label="Export report as Markdown">
+            <span aria-hidden="true">&#8659;</span> Export MD
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab bar (shown when results exist) -->
+      <div class="result-tabs" id="result-tabs" role="tablist" aria-label="Research results tabs" style="display:none;"></div>
+
+      <!-- Empty state -->
+      <div class="results-empty" id="results-empty" aria-live="polite">
+        <div class="results-empty-icon" aria-hidden="true">&#128202;</div>
+        <div class="results-empty-text">Fill in your game concept and click a research action to get started.</div>
+        <div class="results-empty-hint">All analysis is free — powered by your local model.</div>
+      </div>
+
+      <!-- Active result display -->
+      <div id="result-display"></div>
+
+    </section>
+  </div>
+
+</main>
+
+<footer>
+  <span style="color:var(--teal);font-style:italic;">&#956;</span>|LLM Game Market Research &mdash; local AI, no cloud costs &mdash; <a href="/chat" style="color:var(--text3);">chat</a> &bull; <a href="/bench" style="color:var(--text3);">bench</a>
+</footer>
+
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  genres: [],
+  results: {},      // { actionKey: { title, badge, badgeClass, text, ts } }
+  activeTab: null,
+  loading: null,    // currently running action key
+};
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+const genreWrap    = document.getElementById('genre-wrap');
+const genreInput   = document.getElementById('genre-input');
+const gameRows     = document.getElementById('game-rows');
+const btnAddGame   = document.getElementById('btn-add-game');
+const tamDashboard = document.getElementById('tam-dashboard');
+const tamGrid      = document.getElementById('tam-grid');
+const scenarioBars = document.getElementById('scenario-bars');
+const riskMatrix   = document.getElementById('risk-matrix');
+const riskGrid     = document.getElementById('risk-grid');
+const resultTabs   = document.getElementById('result-tabs');
+const resultsEmpty = document.getElementById('results-empty');
+const resultDisplay= document.getElementById('result-display');
+const btnExport    = document.getElementById('btn-export');
+
+// ── Genre tag input ──────────────────────────────────────────────────────────
+genreInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = genreInput.value.trim().replace(/,/g,'');
+    if (val && !state.genres.includes(val) && state.genres.length < 10) {
+      addGenreTag(val);
+      genreInput.value = '';
+    }
+  } else if (e.key === 'Backspace' && genreInput.value === '' && state.genres.length > 0) {
+    removeGenreTag(state.genres[state.genres.length - 1]);
+  }
+});
+genreWrap.addEventListener('click', () => genreInput.focus());
+
+function addGenreTag(val) {
+  state.genres.push(val);
+  renderGenreTags();
+}
+
+function removeGenreTag(val) {
+  state.genres = state.genres.filter(g => g !== val);
+  renderGenreTags();
+}
+
+function renderGenreTags() {
+  // Remove existing tag elements (not the input)
+  genreWrap.querySelectorAll('.tag').forEach(el => el.remove());
+  state.genres.forEach(g => {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.innerHTML = `${escHtml(g)}<button class="tag-remove" aria-label="Remove ${escHtml(g)} tag" tabindex="0">&times;</button>`;
+    tag.querySelector('.tag-remove').addEventListener('click', () => removeGenreTag(g));
+    genreWrap.insertBefore(tag, genreInput);
+  });
+}
+
+// ── Comparable games ─────────────────────────────────────────────────────────
+function addGameRow(value = '') {
+  const row = document.createElement('div');
+  row.className = 'game-row';
+  row.setAttribute('role', 'listitem');
+  const idx = Date.now();
+  row.innerHTML = `
+    <input type="text" placeholder="e.g. Slay the Spire" value="${escHtml(value)}" maxlength="200" aria-label="Comparable game name" />
+    <button class="btn-remove" aria-label="Remove game" type="button">&#10005;</button>
+  `;
+  row.querySelector('.btn-remove').addEventListener('click', () => row.remove());
+  gameRows.appendChild(row);
+}
+
+btnAddGame.addEventListener('click', () => addGameRow());
+
+// Add 2 starter rows
+addGameRow();
+addGameRow();
+
+// ── Collect form data ─────────────────────────────────────────────────────────
+function collectConcept() {
+  return {
+    concept:   document.getElementById('game-concept').value.trim(),
+    title:     document.getElementById('game-title').value.trim(),
+    genre:     [...state.genres],
+    target_platforms: [...document.querySelectorAll('[id^=plat-]:checked')].map(cb => cb.value),
+    budget:    document.getElementById('budget-select').value,
+    similar_games: [...gameRows.querySelectorAll('input')].map(i => i.value.trim()).filter(Boolean),
+    target_price_usd: parseFloat(document.getElementById('price-input').value) || 14.99,
+    development_months_remaining: parseInt(document.getElementById('months-input').value, 10) || 12,
+    game_length_hours: parseFloat(document.getElementById('hours-input').value) || 10,
+  };
+}
+
+function validateConcept() {
+  const data = collectConcept();
+  if (!data.concept || data.concept.length < 10) {
+    document.getElementById('game-concept').focus();
+    return null;
+  }
+  if (data.target_platforms.length === 0) data.target_platforms = ['pc'];
+  return data;
+}
+
+// ── API calls ────────────────────────────────────────────────────────────────
+async function callApi(path, body) {
+  const resp = await fetch(`/api/market/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    let detail = `HTTP ${resp.status}`;
+    try { const err = await resp.json(); detail = err.detail || detail; } catch {}
+    throw new Error(detail);
+  }
+  return resp.json();
+}
+
+async function callReport(concept) {
+  const resp = await fetch(`/api/market/report?concept=${encodeURIComponent(concept)}`);
+  if (!resp.ok) {
+    let detail = `HTTP ${resp.status}`;
+    try { const err = await resp.json(); detail = err.detail || detail; } catch {}
+    throw new Error(detail);
+  }
+  return resp.json();
+}
+
+// ── Action wiring ─────────────────────────────────────────────────────────────
+const ACTIONS = {
+  analyze: {
+    title: 'Market Analysis',
+    badge: 'TAM + Projections',
+    badgeClass: 'teal',
+    build: data => ({
+      path: 'analyze',
+      body: {
+        concept: data.concept,
+        title: data.title,
+        genre: data.genre,
+        target_platforms: data.target_platforms,
+        budget: data.budget,
+        similar_games: data.similar_games,
+        target_price_usd: data.target_price_usd,
+        development_months_remaining: data.development_months_remaining,
+      },
+      key: 'analysis',
+    }),
+    postProcess: (result) => tryParseTamAndRisks(result.analysis),
+  },
+  timing: {
+    title: 'Steam Release Timing',
+    badge: 'Launch Window',
+    badgeClass: 'amber',
+    build: data => ({
+      path: 'steam-timing',
+      body: {
+        concept: data.concept,
+        genre: data.genre,
+        target_platforms: data.target_platforms,
+        budget: data.budget,
+        development_months_remaining: data.development_months_remaining,
+      },
+      key: 'timing_analysis',
+    }),
+  },
+  competitors: {
+    title: 'Competitor Landscape',
+    badge: 'Revenue Intel',
+    badgeClass: 'purple',
+    build: data => ({
+      path: 'competitors',
+      body: {
+        concept: data.concept,
+        genre: data.genre,
+        similar_games: data.similar_games,
+        target_platforms: data.target_platforms,
+        target_price_usd: data.target_price_usd,
+      },
+      key: 'competitor_analysis',
+    }),
+  },
+  qa: {
+    title: 'Quality Gate',
+    badge: 'Ship Readiness',
+    badgeClass: 'green',
+    build: data => ({
+      path: 'qa',
+      body: {
+        concept: data.concept,
+        genre: data.genre,
+        target_platforms: data.target_platforms,
+        target_price_usd: data.target_price_usd,
+        game_length_hours: data.game_length_hours,
+        has_multiplayer: false,
+        is_early_access: false,
+      },
+      key: 'qa_report',
+    }),
+  },
+  pivot: {
+    title: 'Pivot Analysis',
+    badge: 'Continue or Pivot?',
+    badgeClass: 'coral',
+    build: data => ({
+      path: 'pivot',
+      body: {
+        concept: data.concept,
+        genre: data.genre,
+        budget: data.budget,
+        development_months_remaining: data.development_months_remaining,
+        similar_games: data.similar_games,
+        pain_points: '',
+      },
+      key: 'pivot_analysis',
+    }),
+  },
+};
+
+document.querySelectorAll('[data-action]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const action = btn.dataset.action;
+    const cfg = ACTIONS[action];
+    if (!cfg || state.loading) return;
+    const data = validateConcept();
+    if (!data) {
+      showConceptError();
+      return;
+    }
+    await runAction(action, cfg, data);
+  });
+});
+
+document.getElementById('btn-report').addEventListener('click', async () => {
+  if (state.loading) return;
+  const data = validateConcept();
+  if (!data) { showConceptError(); return; }
+  await runReport(data.concept);
+});
+
+async function runAction(actionKey, cfg, data) {
+  state.loading = actionKey;
+  setAllButtonsDisabled(true);
+  setButtonLoading(actionKey, true);
+  showLoading(cfg.title);
+
+  try {
+    const { path, body, key } = cfg.build(data);
+    const result = await callApi(path, body);
+    const text = result[key] || JSON.stringify(result);
+    state.results[actionKey] = {
+      title: cfg.title,
+      badge: cfg.badge,
+      badgeClass: cfg.badgeClass,
+      text,
+      ts: Date.now(),
+    };
+    if (cfg.postProcess) cfg.postProcess(result);
+    showResult(actionKey);
+  } catch (err) {
+    showError(err.message || 'Unknown error');
+  } finally {
+    state.loading = null;
+    setAllButtonsDisabled(false);
+    setButtonLoading(actionKey, false);
+  }
+}
+
+async function runReport(concept) {
+  state.loading = 'report';
+  setAllButtonsDisabled(true);
+  document.getElementById('btn-report').disabled = true;
+  showLoading('Full Market Report');
+
+  try {
+    const result = await callReport(concept);
+    const text = result.report || JSON.stringify(result);
+    state.results['report'] = {
+      title: 'Full Market Report',
+      badge: 'Complete Analysis',
+      badgeClass: 'teal',
+      text,
+      ts: Date.now(),
+    };
+    showResult('report');
+  } catch (err) {
+    showError(err.message || 'Unknown error');
+  } finally {
+    state.loading = null;
+    setAllButtonsDisabled(false);
+    document.getElementById('btn-report').disabled = false;
+  }
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function setAllButtonsDisabled(val) {
+  document.querySelectorAll('.btn-action, .btn-report').forEach(b => {
+    b.disabled = val;
+  });
+}
+
+function setButtonLoading(actionKey, loading) {
+  const btn = document.getElementById(`btn-${actionKey}`);
+  if (!btn) return;
+  if (loading) {
+    btn.classList.add('loading');
+    const icon = btn.querySelector('.btn-icon');
+    if (icon) icon.dataset.origIcon = icon.innerHTML;
+    if (icon) icon.innerHTML = '<span class="spinner" style="display:inline-block;"></span>';
+  } else {
+    btn.classList.remove('loading');
+    const icon = btn.querySelector('.btn-icon');
+    if (icon && icon.dataset.origIcon) {
+      icon.innerHTML = icon.dataset.origIcon;
+    }
+  }
+}
+
+function showConceptError() {
+  const ta = document.getElementById('game-concept');
+  ta.style.borderColor = 'var(--red)';
+  ta.focus();
+  ta.setAttribute('aria-invalid', 'true');
+  setTimeout(() => {
+    ta.style.borderColor = '';
+    ta.removeAttribute('aria-invalid');
+  }, 2000);
+}
+
+function showLoading(title) {
+  resultsEmpty.style.display = 'none';
+  resultDisplay.innerHTML = `
+    <div class="result-header">
+      <span class="result-title">${escHtml(title)}</span>
+      <div class="spinner" role="status" aria-label="Loading analysis..."></div>
+    </div>
+    <div class="skeleton-lines" aria-hidden="true">
+      <div class="skel h24 w60"></div>
+      <div class="skel w90"></div>
+      <div class="skel w80"></div>
+      <div class="skel w70"></div>
+      <div class="skel w90"></div>
+      <div class="skel w60"></div>
+      <div class="skel w80"></div>
+    </div>
+  `;
+}
+
+function showError(msg) {
+  resultsEmpty.style.display = 'none';
+  resultDisplay.innerHTML = `
+    <div class="result-header">
+      <span class="result-title" style="color:var(--coral)">Error</span>
+    </div>
+    <div class="error-box" role="alert">${escHtml(msg)}</div>
+  `;
+}
+
+function showResult(key) {
+  const r = state.results[key];
+  if (!r) return;
+  state.activeTab = key;
+  renderTabs();
+  renderResultContent(r);
+  btnExport.style.display = 'inline-flex';
+}
+
+function renderTabs() {
+  const keys = Object.keys(state.results);
+  if (keys.length <= 1) {
+    resultTabs.style.display = 'none';
+    return;
+  }
+  resultTabs.style.display = 'flex';
+  resultTabs.innerHTML = '';
+  keys.forEach(key => {
+    const r = state.results[key];
+    const btn = document.createElement('button');
+    btn.className = 'result-tab' + (key === state.activeTab ? ' active' : '');
+    btn.textContent = r.title;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', key === state.activeTab ? 'true' : 'false');
+    btn.addEventListener('click', () => {
+      state.activeTab = key;
+      renderTabs();
+      renderResultContent(state.results[key]);
+    });
+    resultTabs.appendChild(btn);
+  });
+}
+
+function renderResultContent(r) {
+  resultsEmpty.style.display = 'none';
+  resultDisplay.innerHTML = `
+    <div class="result-header">
+      <span class="result-title">${escHtml(r.title)}</span>
+      <span class="result-badge ${escHtml(r.badgeClass)}">${escHtml(r.badge)}</span>
+    </div>
+    <div class="md-output" id="md-out">${renderMarkdown(r.text)}</div>
+  `;
+}
+
+// ── TAM & Risk parsing ───────────────────────────────────────────────────────
+// Attempt to extract numbers from the analysis text to populate the
+// TAM dashboard and risk matrix. Falls back gracefully if parsing fails.
+function tryParseTamAndRisks(text) {
+  if (!text) return;
+
+  // Extract revenue scenarios using regexes
+  const pessMatch = text.match(/pessimist\w*[^\d]*\$?([\d,.]+[KkMmBb]?)/i);
+  const baseMatch  = text.match(/base case[^\d]*\$?([\d,.]+[KkMmBb]?)/i)
+                  || text.match(/median[^\d]*\$?([\d,.]+[KkMmBb]?)/i);
+  const optMatch   = text.match(/optimist\w*[^\d]*\$?([\d,.]+[KkMmBb]?)/i);
+
+  const scenarios = [
+    { label: 'Pessimistic', cls: 'pessimistic', raw: pessMatch?.[1] || null },
+    { label: 'Base Case',   cls: 'base',        raw: baseMatch?.[1]  || null },
+    { label: 'Optimistic',  cls: 'optimistic',  raw: optMatch?.[1]   || null },
+  ];
+
+  const vals = scenarios.map(s => parseMoneyStr(s.raw));
+  const maxVal = Math.max(...vals.filter(v => v !== null), 1);
+
+  // Build TAM metric cards from first numbers mentioned
+  const tamSection = text.match(/(?:TAM|Total Addressable Market)[^:]*:?\s*\$?([\d,.]+[KkMmBb]?)/i);
+  const samSection = text.match(/(?:SAM|Serviceable Addressable Market)[^:]*:?\s*\$?([\d,.]+[KkMmBb]?)/i);
+  const yr1Section = text.match(/year\s*1[^$]*\$?([\d,.]+[KkMmBb]?)/i);
+
+  const tamCards = [
+    { label: 'Genre TAM',  value: tamSection?.[1] || '—' },
+    { label: 'Addressable', value: samSection?.[1] || '—' },
+    { label: 'Year 1 Est.', value: yr1Section?.[1] || '—' },
+  ];
+
+  if (tamCards.some(c => c.value !== '—')) {
+    tamGrid.innerHTML = tamCards.map(c => `
+      <div class="tam-card">
+        <div class="tam-card-value">${escHtml(c.value.startsWith('$') ? c.value : '$' + c.value)}</div>
+        <div class="tam-card-label">${escHtml(c.label)}</div>
+      </div>
+    `).join('');
+
+    scenarioBars.innerHTML = scenarios.map((s, i) => {
+      const v = vals[i];
+      const pct = v !== null ? Math.round((v / maxVal) * 100) : 0;
+      const displayVal = s.raw ? ('$' + s.raw) : '—';
+      return `
+        <div class="scenario-row">
+          <div class="scenario-label">${escHtml(s.label)}</div>
+          <div class="scenario-bar-wrap">
+            <div class="scenario-bar ${s.cls}" style="width:${pct}%" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${s.label}: ${displayVal}"></div>
+          </div>
+          <div class="scenario-value">${escHtml(displayVal)}</div>
+        </div>
+      `;
+    }).join('');
+
+    tamDashboard.classList.add('visible');
+  }
+
+  // Extract risks — look for "HIGH" / "MEDIUM" / "LOW" near risk names
+  const riskPattern = /[-*•]\s*([^:\n]{5,60}):\s*(High|Medium|Low)[^\n]*(High|Medium|Low)/gi;
+  const risks = [];
+  let m;
+  while ((m = riskPattern.exec(text)) !== null && risks.length < 4) {
+    risks.push({ name: m[1].trim(), likelihood: m[2], impact: m[3] });
+  }
+
+  // Fallback: look for numbered risk items
+  if (risks.length === 0) {
+    const riskLines = text.match(/\d+\.\s+\*{0,2}([^:\n*]{5,60})\*{0,2}[^\n]*(High|Medium|Low)[^\n]*(High|Medium|Low)/gi) || [];
+    riskLines.slice(0, 4).forEach(line => {
+      const nm = line.match(/\d+\.\s+\*{0,2}([^:\n*]{5,60})/);
+      const li = line.match(/(High|Medium|Low)/gi);
+      if (nm && li && li.length >= 2) {
+        risks.push({ name: nm[1].trim(), likelihood: li[0], impact: li[1] });
+      }
+    });
+  }
+
+  if (risks.length > 0) {
+    riskGrid.innerHTML = risks.map(r => `
+      <div class="risk-card">
+        <div class="risk-card-title">${escHtml(r.name)}</div>
+        <div class="risk-pill-row">
+          <span class="risk-pill ${r.likelihood.toLowerCase()}" title="Likelihood">L: ${escHtml(r.likelihood)}</span>
+          <span class="risk-pill ${r.impact.toLowerCase()}" title="Impact">I: ${escHtml(r.impact)}</span>
+        </div>
+      </div>
+    `).join('');
+    riskMatrix.classList.add('visible');
+  }
+}
+
+function parseMoneyStr(raw) {
+  if (!raw) return null;
+  const s = raw.replace(/,/g, '').toLowerCase();
+  const num = parseFloat(s);
+  if (isNaN(num)) return null;
+  if (s.endsWith('b')) return num * 1e9;
+  if (s.endsWith('m')) return num * 1e6;
+  if (s.endsWith('k')) return num * 1e3;
+  return num;
+}
+
+// ── Markdown renderer (lightweight, no external dep) ────────────────────────
+function renderMarkdown(text) {
+  if (!text) return '';
+  let h = escHtml(text);
+
+  // Tables — before other processing
+  h = h.replace(/((?:\|[^\n]+\|\n)+)/g, match => {
+    const lines = match.trim().split('\n');
+    let out = '<table>';
+    let inHead = true;
+    lines.forEach((line, i) => {
+      if (/^\s*\|[\s-|]+\|\s*$/.test(line)) { inHead = false; return; }
+      const cells = line.split('|').filter((_, ci, a) => ci > 0 && ci < a.length - 1);
+      const tag = inHead ? 'th' : 'td';
+      out += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+    });
+    out += '</table>';
+    return out;
+  });
+
+  // Code blocks
+  h = h.replace(/```[\s\S]*?```/g, m => {
+    const inner = m.replace(/^```[^\n]*\n?/, '').replace(/```$/, '');
+    return `<pre><code>${inner}</code></pre>`;
+  });
+
+  // Inline code
+  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headers
+  h = h.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  h = h.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  h = h.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Bold / italic
+  h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  h = h.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  h = h.replace(/_([^_]+)_/g, '<em>$1</em>');
+
+  // HR
+  h = h.replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:1em 0;">');
+
+  // Blockquote
+  h = h.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Unordered lists
+  h = h.replace(/((?:^[-*•] .+\n?)+)/gm, match => {
+    const items = match.trim().split('\n').filter(Boolean);
+    return '<ul>' + items.map(l => `<li>${l.replace(/^[-*•] /, '').trim()}</li>`).join('') + '</ul>';
+  });
+
+  // Ordered lists
+  h = h.replace(/((?:^\d+\. .+\n?)+)/gm, match => {
+    const items = match.trim().split('\n').filter(Boolean);
+    return '<ol>' + items.map(l => `<li>${l.replace(/^\d+\. /, '').trim()}</li>`).join('') + '</ol>';
+  });
+
+  // Paragraphs — double newlines
+  h = h.replace(/\n{2,}/g, '</p><p>');
+  h = '<p>' + h + '</p>';
+
+  // Single newlines within paragraphs
+  h = h.replace(/<\/p><p>/g, '</p>\n<p>');
+  h = h.replace(/\n(?!<)/g, '<br>');
+
+  // Clean up empty paragraphs
+  h = h.replace(/<p>\s*<\/p>/g, '');
+  h = h.replace(/<p>(<h[1-6]>)/g, '$1');
+  h = h.replace(/(<\/h[1-6]>)<\/p>/g, '$1');
+  h = h.replace(/<p>(<ul>|<ol>|<pre>|<table>|<blockquote>|<hr)/g, '$1');
+  h = h.replace(/(\/ul>|\/ol>|\/pre>|\/table>|\/blockquote>)<\/p>/g, '$1');
+
+  return h;
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+btnExport.addEventListener('click', () => {
+  const key = state.activeTab;
+  if (!key || !state.results[key]) return;
+  const r = state.results[key];
+  const ts = new Date(r.ts).toISOString().slice(0, 10);
+  const filename = `market-${key}-${ts}.md`;
+  const content = `# ${r.title}\n\n_Generated by muLLM Game Market Research — ${new Date(r.ts).toLocaleString()}_\n\n---\n\n${r.text}`;
+  const blob = new Blob([content], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+</script>
+</body>
+</html>

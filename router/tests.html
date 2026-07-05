@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>μ|LLM — Test Results</title>
+<style>
+  :root {
+    --amber: #f59e0b;
+    --amber-dim: #d97706;
+    --amber-faint: rgba(245,158,11,0.08);
+    --slate-900: #0f172a;
+    --slate-800: #1e293b;
+    --slate-700: #334155;
+    --slate-600: #475569;
+    --slate-400: #94a3b8;
+    --slate-200: #e2e8f0;
+    --green: #22c55e;
+    --green-dim: #16a34a;
+    --green-faint: rgba(34,197,94,0.10);
+    --red: #ef4444;
+    --red-faint: rgba(239,68,68,0.10);
+    --yellow: #eab308;
+    --yellow-faint: rgba(234,179,8,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--slate-900);
+    color: var(--slate-200);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+  header {
+    background: var(--slate-800);
+    border-bottom: 1px solid var(--slate-700);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header .logo {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--amber);
+    letter-spacing: -0.5px;
+  }
+  header nav { margin-left: auto; display: flex; gap: 20px; }
+  header nav a {
+    color: var(--slate-400);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color 0.15s;
+  }
+  header nav a:hover, header nav a.active { color: var(--amber); }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 28px 24px; }
+
+  /* Run selector */
+  .run-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .run-selector label { color: var(--slate-400); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .run-selector select {
+    background: var(--slate-800);
+    border: 1px solid var(--slate-700);
+    color: var(--slate-200);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+    flex: 1;
+    max-width: 420px;
+  }
+  .run-selector select:focus { border-color: var(--amber); }
+  .badge-latest {
+    background: var(--amber-faint);
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Summary card */
+  .summary-card {
+    background: var(--slate-800);
+    border: 1px solid var(--slate-700);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .summary-card.all-pass { border-color: var(--green-dim); }
+  .summary-card.has-fail  { border-color: var(--red); }
+
+  .big-status {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .big-status.pass { background: var(--green-faint); }
+  .big-status.fail { background: var(--red-faint); }
+
+  .summary-meta { flex: 1; }
+  .summary-meta .run-title {
+    font-size: 16px; font-weight: 600; margin-bottom: 4px;
+  }
+  .summary-meta .run-title.pass { color: var(--green); }
+  .summary-meta .run-title.fail { color: var(--red); }
+  .summary-meta .run-sub { color: var(--slate-400); font-size: 12px; }
+
+  .summary-counts {
+    display: flex; gap: 16px; align-items: center;
+  }
+  .count-pill {
+    display: flex; flex-direction: column; align-items: center;
+    background: var(--slate-900); border-radius: 8px;
+    padding: 8px 16px; min-width: 60px;
+  }
+  .count-pill .num { font-size: 22px; font-weight: 700; }
+  .count-pill .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate-400); margin-top: 2px; }
+  .count-pill.pass .num { color: var(--green); }
+  .count-pill.fail .num { color: var(--red); }
+  .count-pill.skip .num { color: var(--yellow); }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 4px; border-radius: 2px;
+    background: var(--slate-700);
+    margin-bottom: 20px;
+    overflow: hidden;
+    display: flex;
+  }
+  .progress-bar .seg-pass { background: var(--green); }
+  .progress-bar .seg-fail { background: var(--red); }
+  .progress-bar .seg-skip { background: var(--yellow); }
+
+  /* Test list */
+  .test-list { display: flex; flex-direction: column; gap: 4px; }
+  .test-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--slate-800); border: 1px solid var(--slate-700);
+    border-radius: 7px; padding: 10px 14px;
+    transition: border-color 0.1s;
+  }
+  .test-row:hover { border-color: var(--slate-600); }
+  .test-row.pass { border-left: 3px solid var(--green); }
+  .test-row.fail { border-left: 3px solid var(--red); background: var(--red-faint); }
+  .test-row.skipped { border-left: 3px solid var(--yellow); }
+
+  .test-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    margin-top: 5px; flex-shrink: 0;
+  }
+  .test-dot.pass   { background: var(--green); }
+  .test-dot.fail   { background: var(--red); }
+  .test-dot.skipped { background: var(--yellow); }
+
+  .test-info { flex: 1; min-width: 0; }
+  .test-name {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; color: var(--slate-200);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .test-class { color: var(--slate-400); }
+  .test-msg {
+    font-family: monospace; font-size: 11px; color: #fca5a5;
+    margin-top: 6px; white-space: pre-wrap; word-break: break-word;
+    background: rgba(239,68,68,0.06); border-radius: 4px;
+    padding: 6px 8px;
+  }
+  .test-dur { color: var(--slate-400); font-size: 11px; flex-shrink: 0; padding-top: 1px; }
+
+  /* History strip */
+  .history-strip {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--slate-700);
+  }
+  .history-strip h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate-400); margin-bottom: 12px; }
+  .history-dots { display: flex; flex-wrap: wrap; gap: 6px; }
+  .history-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 10px; font-weight: 700;
+    border: 2px solid transparent;
+    transition: border-color 0.15s, transform 0.1s;
+    title: '';
+  }
+  .history-dot:hover { transform: scale(1.15); }
+  .history-dot.pass { background: var(--green-faint); color: var(--green); }
+  .history-dot.fail { background: var(--red-faint); color: var(--red); }
+  .history-dot.selected { border-color: var(--amber); }
+
+  .empty-state {
+    text-align: center; padding: 60px 24px;
+    color: var(--slate-400);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+
+  .spinner { display: flex; justify-content: center; padding: 40px; }
+  .spinner::after {
+    content: ''; width: 32px; height: 32px; border-radius: 50%;
+    border: 3px solid var(--slate-700); border-top-color: var(--amber);
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">μ|LLM</span>
+  <nav>
+    <a href="/chat">Chat</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/tests" class="active">Tests</a>
+    <a href="/setup">Setup</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="run-selector">
+    <label>Run</label>
+    <select id="runSelect"></select>
+    <span class="badge-latest" id="latestBadge" style="display:none">latest</span>
+  </div>
+  <div id="main"></div>
+</div>
+
+<script>
+const BASE = window.location.origin;
+let runs = [];
+let selectedIdx = 0;
+
+async function load() {
+  document.getElementById('main').innerHTML = '<div class="spinner"></div>';
+  try {
+    const r = await fetch(`${BASE}/api/test-runs`);
+    runs = await r.json();
+  } catch(e) {
+    document.getElementById('main').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load test runs.<br><small>${e}</small></p></div>`;
+    return;
+  }
+
+  if (!runs.length) {
+    document.getElementById('main').innerHTML =
+      `<div class="empty-state"><div class="icon">🧪</div>
+       <p>No test runs recorded yet.<br>Run <code>python -m pytest tests/integration/test_full_stack.py -v</code> to generate the first record.</p></div>`;
+    return;
+  }
+
+  // Populate selector (newest first — runs are appended chronologically)
+  const sel = document.getElementById('runSelect');
+  sel.innerHTML = '';
+  [...runs].reverse().forEach((run, i) => {
+    const dt = new Date(run.ts * 1000).toLocaleString();
+    const status = run.failed > 0 ? '✗' : '✓';
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${status}  ${dt}  —  ${run.passed}/${run.total} passed  (${run.git_sha})`;
+    sel.appendChild(opt);
+  });
+
+  sel.addEventListener('change', () => { selectedIdx = +sel.value; render(); });
+  selectedIdx = 0;
+  render();
+}
+
+function render() {
+  const reversed = [...runs].reverse();
+  const run = reversed[selectedIdx];
+  const isLatest = selectedIdx === 0;
+  document.getElementById('latestBadge').style.display = isLatest ? '' : 'none';
+
+  const allPass = run.failed === 0;
+  const dt = new Date(run.ts * 1000).toLocaleString();
+
+  // Progress bar widths
+  const total = run.total || 1;
+  const pw = pct => Math.round(p / total * 100);
+
+  document.getElementById('main').innerHTML = `
+    <div class="summary-card ${allPass ? 'all-pass' : 'has-fail'}">
+      <div class="big-status ${allPass ? 'pass' : 'fail'}">${allPass ? '✓' : '✗'}</div>
+      <div class="summary-meta">
+        <div class="run-title ${allPass ? 'pass' : 'fail'}">
+          ${allPass ? 'All tests passed' : `${run.failed} test${run.failed > 1 ? 's' : ''} failed`}
+        </div>
+        <div class="run-sub">${dt} · ${run.duration_s}s · sha <code>${run.git_sha}</code></div>
+      </div>
+      <div class="summary-counts">
+        <div class="count-pill pass"><span class="num">${run.passed}</span><span class="lbl">passed</span></div>
+        <div class="count-pill fail"><span class="num">${run.failed}</span><span class="lbl">failed</span></div>
+        <div class="count-pill skip"><span class="num">${run.skipped}</span><span class="lbl">skipped</span></div>
+      </div>
+    </div>
+
+    <div class="progress-bar">
+      <div class="seg-pass" style="width:${Math.round(run.passed/total*100)}%"></div>
+      <div class="seg-fail" style="width:${Math.round(run.failed/total*100)}%"></div>
+      <div class="seg-skip" style="width:${Math.round(run.skipped/total*100)}%"></div>
+    </div>
+
+    <div class="test-list" id="testList"></div>
+
+    <div class="history-strip">
+      <h3>All runs (${runs.length})</h3>
+      <div class="history-dots" id="historyDots"></div>
+    </div>
+  `;
+
+  // Render test rows
+  const list = document.getElementById('testList');
+  run.tests.forEach(t => {
+    const parts = t.name.split('::');
+    const cls   = parts.slice(0, -1).join('::');
+    const name  = parts[parts.length - 1];
+    const dur   = t.duration_s >= 1 ? `${t.duration_s}s` : `${Math.round(t.duration_s * 1000)}ms`;
+    const msgHtml = t.message ? `<div class="test-msg">${escHtml(t.message)}</div>` : '';
+    const row = document.createElement('div');
+    row.className = `test-row ${t.outcome}`;
+    row.innerHTML = `
+      <div class="test-dot ${t.outcome}"></div>
+      <div class="test-info">
+        <div class="test-name"><span class="test-class">${escHtml(cls)}::</span>${escHtml(name)}</div>
+        ${msgHtml}
+      </div>
+      <div class="test-dur">${dur}</div>
+    `;
+    list.appendChild(row);
+  });
+
+  // History dots
+  const dots = document.getElementById('historyDots');
+  [...runs].reverse().forEach((r, i) => {
+    const dot = document.createElement('div');
+    dot.className = `history-dot ${r.failed > 0 ? 'fail' : 'pass'}${i === selectedIdx ? ' selected' : ''}`;
+    dot.title = `${new Date(r.ts * 1000).toLocaleString()} — ${r.passed}/${r.total} passed`;
+    dot.textContent = r.failed > 0 ? r.failed : '✓';
+    dot.addEventListener('click', () => {
+      selectedIdx = i;
+      document.getElementById('runSelect').value = i;
+      render();
+    });
+    dots.appendChild(dot);
+  });
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,1616 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>mu|LLM — Texture Studio</title>
+  <meta name="description" content="3D asset retexturing studio — load GLB models and apply procedural textures." />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a1a;
+      --bg2: #111827;
+      --bg3: #1a2332;
+      --border: #1e2d3d;
+      --teal: #00bfa5;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --green: #22c55e;
+      --text: #e2e8f0;
+      --text2: #94a3b8;
+      --panel-w: 280px;
+      color-scheme: dark;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", "Inter", system-ui, sans-serif;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+
+    /* ── Skip link ── */
+    #skip-link {
+      position: absolute;
+      top: -40px;
+      left: 8px;
+      background: var(--teal);
+      color: #0a0a1a;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      z-index: 9999;
+      transition: top 0.2s;
+    }
+    #skip-link:focus { top: 8px; }
+
+    /* ── Top nav ── */
+    #topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 42px;
+      background: rgba(10,10,26,0.92);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px;
+      z-index: 1000;
+      backdrop-filter: blur(8px);
+    }
+    .nav-logo {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      color: var(--teal);
+      text-decoration: none;
+      margin-right: 8px;
+    }
+    .nav-link {
+      color: var(--text2);
+      text-decoration: none;
+      font-size: 11px;
+      font-family: "JetBrains Mono", monospace;
+      padding: 3px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .nav-link:hover, .nav-link.active {
+      color: var(--teal);
+      border-color: var(--teal);
+    }
+    .nav-spacer { flex: 1; }
+
+    /* ── Layout shell ── */
+    #studio {
+      position: fixed;
+      top: 42px; left: 0; right: 0; bottom: 0;
+      display: flex;
+    }
+
+    /* ── Left panel ── */
+    #panel {
+      width: var(--panel-w);
+      min-width: var(--panel-w);
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    #panel::-webkit-scrollbar { width: 4px; }
+    #panel::-webkit-scrollbar-track { background: transparent; }
+    #panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .panel-section {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-title {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 10px;
+    }
+
+    /* Asset selector */
+    #asset-select {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      padding: 7px 30px 7px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+    #asset-select:focus { border-color: var(--teal); }
+    #asset-select:hover { border-color: var(--teal); }
+
+    /* Texture presets grid */
+    #texture-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .tex-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 8px 4px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--text);
+      font-size: 10px;
+      font-family: "JetBrains Mono", monospace;
+      text-align: center;
+      line-height: 1.3;
+      min-height: 44px;
+      position: relative;
+    }
+    .tex-btn:hover {
+      border-color: var(--teal);
+      background: rgba(0,191,165,0.06);
+      transform: translateY(-1px);
+    }
+    .tex-btn.active {
+      border-color: var(--teal);
+      background: rgba(0,191,165,0.12);
+      box-shadow: 0 0 8px rgba(0,191,165,0.25);
+    }
+    .tex-btn:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 2px;
+    }
+    .tex-swatch {
+      width: 36px;
+      height: 22px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+      display: block;
+    }
+
+    /* Sliders */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .slider-label {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: var(--text2);
+      width: 74px;
+      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .slider-val {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: var(--teal);
+      width: 34px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    input[type="range"] {
+      flex: 1;
+      height: 4px;
+      appearance: none;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      accent-color: var(--teal);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--teal);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    input[type="range"]:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+    /* Color picker row */
+    .color-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .color-row label {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: var(--text2);
+      flex: 1;
+    }
+    input[type="color"] {
+      width: 44px;
+      height: 28px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--bg3);
+      cursor: pointer;
+      padding: 2px;
+    }
+    input[type="color"]:focus-visible { outline: 2px solid var(--teal); }
+
+    /* ── Viewport ── */
+    #viewport {
+      flex: 1;
+      position: relative;
+      background: #05050f;
+      overflow: hidden;
+    }
+    #three-canvas {
+      display: block;
+      width: 100%;
+      height: calc(100% - 38px);
+    }
+
+    /* Loading overlay */
+    #loader {
+      position: absolute;
+      inset: 0 0 38px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5,5,15,0.88);
+      z-index: 10;
+      gap: 14px;
+    }
+    #loader.hidden { display: none; }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; border-top-color: var(--teal); }
+      .tex-btn { transition: none; }
+      .tex-btn:hover { transform: none; }
+      input[type="range"]::-webkit-slider-thumb { transition: none; }
+    }
+    #loader-text {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      color: var(--text2);
+    }
+    #loader-hint {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: var(--text2);
+      opacity: 0.5;
+    }
+
+    /* Empty state */
+    #empty-state {
+      position: absolute;
+      inset: 0 0 38px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+    #empty-state.hidden { display: none; }
+    .empty-icon { font-size: 52px; opacity: 0.18; line-height: 1; }
+    .empty-text {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      color: var(--text2);
+      opacity: 0.55;
+    }
+
+    /* ── Bottom info bar ── */
+    #bottombar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 38px;
+      background: rgba(10,10,26,0.92);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 14px;
+      backdrop-filter: blur(6px);
+      z-index: 5;
+    }
+    .info-chip {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: var(--text2);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .info-chip span {
+      color: var(--teal);
+      font-weight: 600;
+    }
+    .bottom-spacer { flex: 1; }
+
+    #export-btn {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      color: #0a0a1a;
+      background: var(--teal);
+      border: none;
+      border-radius: 5px;
+      padding: 5px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: opacity 0.15s, transform 0.1s;
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    #export-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    #export-btn:active { transform: translateY(0); }
+    #export-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    #export-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+    #refine-btn {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      color: #0a0a1a;
+      background: var(--amber);
+      border: none;
+      border-radius: 5px;
+      padding: 5px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: opacity 0.15s, transform 0.1s;
+      min-height: 28px;
+      white-space: nowrap;
+    }
+    #refine-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    #refine-btn:active { transform: translateY(0); }
+    #refine-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    #refine-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+    #turntable-btn {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: var(--text2);
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      min-height: 28px;
+      white-space: nowrap;
+    }
+    #turntable-btn:hover { color: var(--teal); border-color: var(--teal); }
+    #turntable-btn.active { color: var(--teal); border-color: var(--teal); background: rgba(0,191,165,0.08); }
+    #turntable-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+    /* ── Retry preview button ── */
+    #retry-btn {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      color: var(--text2);
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: opacity 0.15s, transform 0.1s, color 0.15s, border-color 0.15s;
+      min-height: 28px;
+      white-space: nowrap;
+      display: none;
+    }
+    #retry-btn:hover { color: var(--teal); border-color: var(--teal); transform: translateY(-1px); }
+    #retry-btn:active { transform: translateY(0); }
+    #retry-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    #retry-btn.warn { color: var(--amber); border-color: var(--amber); background: rgba(245,158,11,0.08); }
+
+    /* ── Quick Texture preset buttons ── */
+    .qt-btn {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: var(--text2);
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.15s, transform 0.1s, color 0.15s, border-color 0.15s;
+      min-height: 28px;
+      white-space: nowrap;
+      display: none;
+    }
+    .qt-btn:hover { color: #a78bfa; border-color: #a78bfa55; transform: translateY(-1px); }
+    .qt-btn:active { transform: translateY(0); }
+    .qt-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+    /* Status toast */
+    #toast {
+      position: absolute;
+      bottom: 50px;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      padding: 7px 16px;
+      border-radius: 6px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      white-space: nowrap;
+      z-index: 20;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: var(--green); color: var(--green); }
+    #toast.error { border-color: var(--red); color: var(--red); }
+
+    /* Responsive */
+    @media (max-width: 680px) {
+      :root { --panel-w: 220px; }
+      .info-chip:nth-child(n+4) { display: none; }
+    }
+    @media (max-width: 480px) {
+      #panel {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        width: 100%;
+        min-width: 100%;
+        height: 48%;
+        top: auto;
+        z-index: 100;
+        border-right: none;
+        border-top: 1px solid var(--border);
+      }
+      #studio { flex-direction: column; }
+      #viewport { width: 100%; height: 52%; }
+    }
+  </style>
+</head>
+<body>
+
+<a href="#viewport" id="skip-link">Skip to 3D viewport</a>
+
+<nav id="topbar" role="navigation" aria-label="Main navigation">
+  <a href="/chat" class="nav-logo" aria-label="mu|LLM home">mu|LLM</a>
+  <a href="/chat" class="nav-link">Chat</a>
+  <a href="/dashboard" class="nav-link">Dashboard</a>
+  <a href="/games" class="nav-link">Games</a>
+  <a href="/assets" class="nav-link">Assets</a>
+  <a href="/swords" class="nav-link">Dojo</a>
+  <a href="/textures" class="nav-link active" aria-current="page">Textures</a>
+  <div class="nav-spacer"></div>
+</nav>
+
+<div id="studio" role="main">
+
+  <!-- Left panel -->
+  <aside id="panel" aria-label="Texture controls">
+
+    <!-- Asset selector -->
+    <div class="panel-section">
+      <div class="panel-title">Model</div>
+      <select id="asset-select" aria-label="Select a 3D model to load">
+        <option value="">-- Select a GLB --</option>
+      </select>
+    </div>
+
+    <!-- Texture presets -->
+    <div class="panel-section">
+      <div class="panel-title">Texture Presets</div>
+      <div id="texture-grid" role="group" aria-label="Texture presets">
+        <button class="tex-btn" data-preset="wood"    title="Wood — canvas grain, warm brown tones"       aria-label="Apply wood texture">
+          <canvas class="tex-swatch" id="swatch-wood"    width="36" height="22" aria-hidden="true"></canvas>Wood
+        </button>
+        <button class="tex-btn" data-preset="stone"   title="Stone — block texture, cool grays"           aria-label="Apply stone texture">
+          <canvas class="tex-swatch" id="swatch-stone"   width="36" height="22" aria-hidden="true"></canvas>Stone
+        </button>
+        <button class="tex-btn" data-preset="metal"   title="Metal — brushed steel, silver/dark"          aria-label="Apply metal texture">
+          <canvas class="tex-swatch" id="swatch-metal"   width="36" height="22" aria-hidden="true"></canvas>Metal
+        </button>
+        <button class="tex-btn" data-preset="gold"    title="Gold — polished, warm yellow tones"          aria-label="Apply gold texture">
+          <canvas class="tex-swatch" id="swatch-gold"    width="36" height="22" aria-hidden="true"></canvas>Gold
+        </button>
+        <button class="tex-btn" data-preset="crystal" title="Crystal — iridescent clearcoat, MeshPhysical" aria-label="Apply crystal texture">
+          <canvas class="tex-swatch" id="swatch-crystal" width="36" height="22" aria-hidden="true"></canvas>Crystal
+        </button>
+        <button class="tex-btn" data-preset="leather" title="Leather — canvas grain, dark brown"          aria-label="Apply leather texture">
+          <canvas class="tex-swatch" id="swatch-leather" width="36" height="22" aria-hidden="true"></canvas>Leather
+        </button>
+        <button class="tex-btn" data-preset="bone"    title="Bone — pale cream, ivory tones"              aria-label="Apply bone/ivory texture">
+          <canvas class="tex-swatch" id="swatch-bone"    width="36" height="22" aria-hidden="true"></canvas>Bone
+        </button>
+        <button class="tex-btn" data-preset="fire"    title="Fire — emissive orange/red gradient"         aria-label="Apply fire texture">
+          <canvas class="tex-swatch" id="swatch-fire"    width="36" height="22" aria-hidden="true"></canvas>Fire
+        </button>
+        <button class="tex-btn" data-preset="ice"     title="Ice — translucent blue, transmission"        aria-label="Apply ice texture">
+          <canvas class="tex-swatch" id="swatch-ice"     width="36" height="22" aria-hidden="true"></canvas>Ice
+        </button>
+        <button class="tex-btn" data-preset="custom"  title="Custom color — use the picker below"         aria-label="Apply custom color">
+          <canvas class="tex-swatch" id="swatch-custom"  width="36" height="22" aria-hidden="true"></canvas>Custom
+        </button>
+      </div>
+      <div class="color-row">
+        <label for="custom-color">Custom color</label>
+        <input type="color" id="custom-color" value="#6366f1" aria-label="Custom texture color picker" />
+      </div>
+    </div>
+
+    <!-- Material sliders -->
+    <div class="panel-section">
+      <div class="panel-title">Material</div>
+      <div class="slider-row">
+        <span class="slider-label" title="Surface roughness — 0 mirror, 1 matte">Roughness</span>
+        <input type="range" id="sl-roughness" min="0" max="1" step="0.01" value="0.5"
+               aria-label="Roughness" aria-valuemin="0" aria-valuemax="1" />
+        <span class="slider-val" id="val-roughness" aria-live="polite">0.50</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" title="Metalness — 0 dielectric, 1 full metal">Metalness</span>
+        <input type="range" id="sl-metalness" min="0" max="1" step="0.01" value="0"
+               aria-label="Metalness" aria-valuemin="0" aria-valuemax="1" />
+        <span class="slider-val" id="val-metalness" aria-live="polite">0.00</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" title="Emissive glow — adds light emission">Emissive</span>
+        <input type="range" id="sl-emissive" min="0" max="3" step="0.05" value="0"
+               aria-label="Emissive intensity" aria-valuemin="0" aria-valuemax="3" />
+        <span class="slider-val" id="val-emissive" aria-live="polite">0.00</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" title="Opacity — 1 fully opaque, 0 invisible">Opacity</span>
+        <input type="range" id="sl-opacity" min="0.05" max="1" step="0.01" value="1"
+               aria-label="Opacity" aria-valuemin="0" aria-valuemax="1" />
+        <span class="slider-val" id="val-opacity" aria-live="polite">1.00</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" title="Clearcoat — lacquer layer on physical mat">Clearcoat</span>
+        <input type="range" id="sl-clearcoat" min="0" max="1" step="0.01" value="0"
+               aria-label="Clearcoat" aria-valuemin="0" aria-valuemax="1" />
+        <span class="slider-val" id="val-clearcoat" aria-live="polite">0.00</span>
+      </div>
+    </div>
+
+    <!-- Lighting controls -->
+    <div class="panel-section">
+      <div class="panel-title">Lighting</div>
+      <div class="slider-row">
+        <span class="slider-label" title="Ambient light — base brightness fill">Ambient</span>
+        <input type="range" id="sl-ambient" min="0" max="3" step="0.05" value="0.6"
+               aria-label="Ambient light intensity" />
+        <span class="slider-val" id="val-ambient" aria-live="polite">0.60</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" title="Key light — main directional sun">Key Light</span>
+        <input type="range" id="sl-dirlight" min="0" max="5" step="0.1" value="2"
+               aria-label="Directional light intensity" />
+        <span class="slider-val" id="val-dirlight" aria-live="polite">2.00</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" title="Light rotation angle around model">Angle</span>
+        <input type="range" id="sl-lightangle" min="0" max="360" step="1" value="45"
+               aria-label="Light angle in degrees" />
+        <span class="slider-val" id="val-lightangle" aria-live="polite">45°</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" title="Environment map — HDRI reflection intensity">Env Map</span>
+        <input type="range" id="sl-envmap" min="0" max="2" step="0.05" value="0.5"
+               aria-label="Environment map intensity" />
+        <span class="slider-val" id="val-envmap" aria-live="polite">0.50</span>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Center viewport -->
+  <section id="viewport" aria-label="3D model viewport" tabindex="-1">
+    <canvas id="three-canvas" aria-label="3D model view — drag to orbit, scroll to zoom"></canvas>
+
+    <div id="loader" aria-live="polite" aria-label="Loading state">
+      <div class="spinner" role="status" aria-label="Loading"></div>
+      <div id="loader-text">Initializing...</div>
+      <div id="loader-hint">Drag to orbit · Scroll to zoom · T = turntable</div>
+    </div>
+
+    <div id="empty-state" class="hidden" aria-hidden="true">
+      <div class="empty-icon" aria-hidden="true">&#9651;</div>
+      <div class="empty-text">Select a model to begin</div>
+      <div class="empty-text" id="empty-count" style="font-size:10px;opacity:0.5;margin-top:2px">Loading assets…</div>
+    </div>
+
+    <div id="bottombar" aria-label="Model information and export controls">
+      <div class="info-chip" title="Number of vertices">Verts <span id="info-verts">—</span></div>
+      <div class="info-chip" title="Number of triangular faces">Faces <span id="info-faces">—</span></div>
+      <div class="info-chip" title="Number of material slots">Mats <span id="info-mats">—</span></div>
+      <div class="info-chip" title="File size of the loaded GLB">Size <span id="info-size">—</span></div>
+      <div class="bottom-spacer"></div>
+      <button id="turntable-btn" class="active" aria-pressed="true"
+              title="Toggle auto-rotation — keyboard: T">Turntable ON</button>
+      <button id="export-btn" disabled
+              title="Download retextured GLB — keyboard: E"
+              aria-label="Export retextured GLB file">Export GLB</button>
+      <button id="decimate-btn" disabled
+              title="Optimize — create a shape-preserving compressed variant"
+              aria-label="Optimize model without changing mesh shape">Optimize</button>
+      <button id="refine-btn" disabled
+              title="Meshy Refine — add PBR textures via Meshy AI (~10 credits / ~$0.10)"
+              aria-label="Refine model with Meshy PBR textures">Refine (Meshy)</button>
+      <button id="retry-btn"
+              title="Retry preview generation with same prompt (free)"
+              aria-label="Retry preview generation">↺ Retry 0/4</button>
+      <button class="qt-btn" id="qt-lava"
+              title="Quick Texture: volcanic lava rock style"
+              data-style="volcanic lava rock, glowing magma cracks, dark basalt"
+              aria-label="Quick Texture: Lava">🔥 Lava</button>
+      <button class="qt-btn" id="qt-metal"
+              title="Quick Texture: brushed steel industrial metal style"
+              data-style="brushed steel, industrial metal, riveted panels"
+              aria-label="Quick Texture: Metal">⚙️ Metal</button>
+      <button class="qt-btn" id="qt-cherenkov"
+              title="Quick Texture: Cherenkov blue glow energy field style"
+              data-style="cherenkov blue glow, energy field, crystalline"
+              aria-label="Quick Texture: Cherenkov">✨ Cherenkov</button>
+    </div>
+
+    <div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+  </section>
+
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ── State ─────────────────────────────────────────────────────
+let scene, camera, renderer, controls;
+let currentModel = null;
+let currentAssetName = null;
+let turntableActive = true;
+const TURNTABLE_SPEED = 0.004;
+let currentPreset = null;
+let ambientLight, dirLight, fillLight, pmremGenerator;
+
+// ── Retry preview state ────────────────────────────────────────
+let _retryCount = 0;
+const RETRY_MAX = 4;
+let _currentAssetPrompt = "";   // original prompt from asset JSON
+
+const matProps = { roughness: 0.5, metalness: 0, emissive: 0, opacity: 1, clearcoat: 0 };
+const lightProps = { ambient: 0.6, dirlight: 2, lightangle: 45, envmap: 0.5 };
+
+function updateRetryBtn() {
+  const btn = document.getElementById('retry-btn');
+  if (!btn) return;
+  if (!_currentAssetPrompt) {
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = '';
+  if (_retryCount >= RETRY_MAX) {
+    btn.textContent = '↺ Regenerate (will cost credits)';
+    btn.classList.add('warn');
+    btn.title = 'All free retries used — this will queue a new Meshy generation (~$0.10)';
+  } else {
+    btn.textContent = `↺ Retry ${_retryCount}/${RETRY_MAX}`;
+    btn.classList.remove('warn');
+    btn.title = `Retry preview generation with same prompt (${RETRY_MAX - _retryCount} retries left, free)`;
+  }
+}
+
+function showQuickTextureButtons(visible) {
+  document.querySelectorAll('.qt-btn').forEach(b => {
+    b.style.display = visible ? '' : 'none';
+  });
+}
+
+// ── Three.js init ─────────────────────────────────────────────
+function initThree() {
+  const canvas = document.getElementById('three-canvas');
+  const viewport = document.getElementById('viewport');
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05050f);
+  scene.fog = new THREE.FogExp2(0x05050f, 0.035);
+
+  // Camera
+  const w = viewport.clientWidth || 800;
+  const h = (viewport.clientHeight || 600) - 38;
+  camera = new THREE.PerspectiveCamera(45, w / h, 0.01, 100);
+  camera.position.set(0, 1.2, 3.5);
+
+  // Grid
+  const grid = new THREE.GridHelper(10, 20, 0x1e2d3d, 0x111827);
+  grid.position.y = -0.005;
+  scene.add(grid);
+
+  // Lights
+  ambientLight = new THREE.AmbientLight(0xffffff, lightProps.ambient);
+  scene.add(ambientLight);
+
+  dirLight = new THREE.DirectionalLight(0xfff4e0, lightProps.dirlight);
+  dirLight.position.set(3, 5, 3);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(1024, 1024);
+  dirLight.shadow.camera.near = 0.1;
+  dirLight.shadow.camera.far = 25;
+  dirLight.shadow.camera.left = -4;
+  dirLight.shadow.camera.right = 4;
+  dirLight.shadow.camera.top = 4;
+  dirLight.shadow.camera.bottom = -4;
+  scene.add(dirLight);
+
+  fillLight = new THREE.DirectionalLight(0x8090c0, 0.45);
+  fillLight.position.set(-2, 2, -2);
+  scene.add(fillLight);
+
+  // Orbit controls
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.minDistance = 0.2;
+  controls.maxDistance = 20;
+  controls.target.set(0, 0.5, 0);
+
+  // PBR environment
+  pmremGenerator = new THREE.PMREMGenerator(renderer);
+  pmremGenerator.compileEquirectangularShader();
+  const envScene = new RoomEnvironment();
+  const envTexture = pmremGenerator.fromScene(envScene).texture;
+  scene.environment = envTexture;
+  scene.environmentIntensity = lightProps.envmap;
+
+  // Shadow receiver plane
+  const shadowMat = new THREE.ShadowMaterial({ opacity: 0.22 });
+  const shadowMesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), shadowMat);
+  shadowMesh.rotation.x = -Math.PI / 2;
+  shadowMesh.receiveShadow = true;
+  scene.add(shadowMesh);
+
+  // Resize observer
+  const ro = new ResizeObserver(() => onResize());
+  ro.observe(viewport);
+  onResize();
+
+  renderLoop();
+}
+
+function onResize() {
+  const viewport = document.getElementById('viewport');
+  const w = viewport.clientWidth;
+  const h = viewport.clientHeight - 38;
+  if (!w || !h) return;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false);
+}
+
+function renderLoop() {
+  requestAnimationFrame(renderLoop);
+  if (turntableActive && currentModel) {
+    currentModel.rotation.y += TURNTABLE_SPEED;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// ── Asset list ────────────────────────────────────────────────
+async function loadAssetList() {
+  const select = document.getElementById('asset-select');
+  try {
+    const res = await fetch('/api/3d-assets');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const assets = Array.isArray(data) ? data : (data.assets || []);
+    const countEl = document.getElementById('empty-count');
+    if (countEl) countEl.textContent = `${assets.length} GLB assets available`;
+    select.innerHTML = '<option value="">-- Select a GLB --</option>';
+    assets.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.url;
+      opt.textContent = `${a.name} (${a.size_kb}kb)`;
+      opt.dataset.name = a.name;
+      opt.dataset.size = a.size_kb;
+      opt.dataset.prompt = a.prompt || a.name || '';
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    console.warn('Asset list error:', e);
+    select.innerHTML = '<option value="">Failed to load assets</option>';
+  }
+}
+
+// ── GLB loader ────────────────────────────────────────────────
+async function loadModel(url, name, sizeKb, assetPrompt) {
+  currentAssetName = name.replace(/\.glb$/i, '').replace(/-lowpoly$/, '');
+  _currentAssetPrompt = assetPrompt || currentAssetName || '';
+  const loaderEl = document.getElementById('loader');
+  const emptyEl = document.getElementById('empty-state');
+  const exportBtn = document.getElementById('export-btn');
+
+  loaderEl.classList.remove('hidden');
+  emptyEl.classList.add('hidden');
+  document.getElementById('loader-text').textContent = `Loading ${name}...`;
+  exportBtn.disabled = true;
+
+  // Dispose previous model
+  if (currentModel) {
+    scene.remove(currentModel);
+    currentModel.traverse(o => {
+      if (!o.isMesh) return;
+      o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach(m => m.dispose());
+    });
+    currentModel = null;
+  }
+
+  const loader = new GLTFLoader();
+  try {
+    const gltf = await new Promise((resolve, reject) =>
+      loader.load(url, resolve, undefined, reject)
+    );
+    const model = gltf.scene;
+
+    // Center and normalise scale to ~2 units
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const s = maxDim > 0 ? 2.0 / maxDim : 1;
+    model.scale.setScalar(s);
+    model.position.sub(center.clone().multiplyScalar(s));
+    const box2 = new THREE.Box3().setFromObject(model);
+    model.position.y -= box2.min.y; // sit on grid
+
+    model.traverse(o => {
+      if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+    });
+    scene.add(model);
+    currentModel = model;
+
+    // Re-orbit around model centre
+    const box3 = new THREE.Box3().setFromObject(model);
+    controls.target.copy(box3.getCenter(new THREE.Vector3()));
+    controls.update();
+
+    // Mesh stats
+    let verts = 0, faces = 0;
+    const matSet = new Set();
+    model.traverse(o => {
+      if (!o.isMesh) return;
+      const g = o.geometry;
+      verts += g.attributes.position ? g.attributes.position.count : 0;
+      faces += g.index
+        ? g.index.count / 3
+        : (g.attributes.position ? g.attributes.position.count / 3 : 0);
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => matSet.add(m.uuid));
+    });
+    document.getElementById('info-verts').textContent = verts.toLocaleString();
+    document.getElementById('info-faces').textContent = Math.round(faces).toLocaleString();
+    document.getElementById('info-mats').textContent = matSet.size;
+    document.getElementById('info-size').textContent = sizeKb ? `${sizeKb}kb` : '—';
+
+    exportBtn.disabled = false;
+    document.getElementById('decimate-btn').disabled = false;
+    document.getElementById('refine-btn').disabled = false;
+    if (currentPreset) applyPreset(currentPreset); else applyMaterialProps();
+
+    loaderEl.classList.add('hidden');
+    toast(`Loaded: ${name}`, 'success');
+
+    // Reset retry state and show retry/quick-texture buttons
+    _retryCount = 0;
+    if (!_currentAssetPrompt) _currentAssetPrompt = currentAssetName || "";
+    updateRetryBtn();
+    showQuickTextureButtons(true);
+  } catch (err) {
+    loaderEl.classList.add('hidden');
+    emptyEl.classList.remove('hidden');
+    toast(`Load failed: ${err.message}`, 'error');
+    console.error('GLB load error:', err);
+  }
+}
+
+// ── Procedural texture generators ─────────────────────────────
+// All return an HTMLCanvasElement of the given size.
+
+function makeWoodTexture(size) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  const id = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const x = i % size, y = Math.floor(i / size);
+    const cx = x - size / 2, cy = y - size / 2;
+    const dist = Math.sqrt(cx * cx + cy * cy);
+    const ring = Math.sin(dist * 0.22 + simplex2(x * 0.01, y * 0.01) * 3) * 0.5 + 0.5;
+    const v = clamp(ring + (rng() - 0.5) * 0.06);
+    setPixel(id, i, Math.round(105 + v * 90), Math.round(52 + v * 55), Math.round(18 + v * 22));
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+function makeStoneTexture(size) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  const id = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const x = i % size, y = Math.floor(i / size);
+    const bx = Math.floor(x / 26), by = Math.floor(y / 20);
+    const mortar = (x % 26 < 2 || y % 20 < 2) ? 0.2 : 1;
+    const n = simplex2(x * 0.025, y * 0.025) * 0.25;
+    const alt = ((bx + by) % 2 === 0) ? 0.42 : 0.58;
+    const v = clamp((alt + n) * mortar);
+    const c2 = Math.round(72 + v * 95);
+    setPixel(id, i, c2, c2, Math.round(c2 * 0.93));
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+function makeBrushedMetalTexture(size) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  const id = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const x = i % size, y = Math.floor(i / size);
+    const streak = Math.sin(y * 0.28 + simplex2(x * 0.005, y * 0.005) * 1.5) * 0.5 + 0.5;
+    const v = clamp(streak * 0.55 + 0.22 + (rng() - 0.5) * 0.1);
+    const c2 = Math.round(95 + v * 130);
+    setPixel(id, i, c2, c2, Math.round(c2 * 1.03));
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+function makeGoldTexture(size) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  const id = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const x = i % size, y = Math.floor(i / size);
+    const sheen = Math.sin((x + y) * 0.09 + simplex2(x * 0.02, y * 0.02) * 2) * 0.5 + 0.5;
+    const v = clamp(sheen * 0.55 + 0.3 + (rng() - 0.5) * 0.06);
+    setPixel(id, i, Math.round(175 + v * 70), Math.round(128 + v * 65), Math.round(18 + v * 14));
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+function makeLeatherTexture(size) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  const id = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const x = i % size, y = Math.floor(i / size);
+    const grain = Math.sin(x * 0.38) * Math.sin(y * 0.32) * 0.5 + 0.5;
+    const v = clamp(grain * 0.45 + 0.28 + (rng() - 0.5) * 0.18);
+    setPixel(id, i, Math.round(55 + v * 58), Math.round(26 + v * 22), Math.round(8 + v * 10));
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+function makeBoneTexture(size) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  const id = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const x = i % size, y = Math.floor(i / size);
+    const vein = Math.sin(x * 0.07 + y * 0.04) * 0.07;
+    const v = clamp(0.86 + vein + (rng() - 0.5) * 0.06);
+    setPixel(id, i, Math.round(215 + v * 28), Math.round(200 + v * 22), Math.round(170 + v * 16));
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+function makeFireTexture(size) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  const id = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const x = i % size, y = Math.floor(i / size);
+    const t = 1 - y / size; // 1 = top (cool tip), 0 = bottom (hot base)
+    const n = simplex2(x * 0.04, y * 0.04) * 0.25;
+    const v = clamp(t + n);
+    setPixel(id, i, Math.round(200 + v * 55), Math.round(v * v * 160), Math.round(v * v * 18));
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+function makeIceTexture(size) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  const id = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const x = i % size, y = Math.floor(i / size);
+    const crack = Math.sin(x * 0.13 + simplex2(x * 0.02, y * 0.02) * 3) * 0.5 + 0.5;
+    const v = clamp(crack * 0.35 + 0.55 + (rng() - 0.5) * 0.12);
+    setPixel(id, i, Math.round(175 + v * 65), Math.round(208 + v * 38), Math.round(232 + v * 18));
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+function makeCrystalTexture(size) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, size, size);
+  grad.addColorStop(0,    '#7c3aed');
+  grad.addColorStop(0.3,  '#06b6d4');
+  grad.addColorStop(0.6,  '#10b981');
+  grad.addColorStop(1,    '#ec4899');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  // sparkle highlights
+  for (let k = 0; k < size * 0.04; k++) {
+    const px = Math.random() * size, py = Math.random() * size;
+    ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.65 + 0.1})`;
+    ctx.fillRect(px, py, 2, 2);
+  }
+  return c;
+}
+
+function makeCustomTexture(size, hex) {
+  const c = makeCanvas(size);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = hex;
+  ctx.fillRect(0, 0, size, size);
+  for (let y = 0; y < size; y += 2) {
+    for (let x = 0; x < size; x += 2) {
+      if (Math.random() < 0.15) {
+        ctx.globalAlpha = (Math.random() * 0.12);
+        ctx.fillStyle = Math.random() > 0.5 ? '#ffffff' : '#000000';
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+  return c;
+}
+
+// ── Tiny helpers ──────────────────────────────────────────────
+function makeCanvas(size) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  return c;
+}
+function clamp(v, lo = 0, hi = 1) { return Math.max(lo, Math.min(hi, v)); }
+function rng() { return Math.random(); }
+// Very simple value noise standing in for simplex
+function simplex2(x, y) {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+function setPixel(id, i, r, g, b) {
+  id.data[i * 4]     = r;
+  id.data[i * 4 + 1] = g;
+  id.data[i * 4 + 2] = b;
+  id.data[i * 4 + 3] = 255;
+}
+
+// ── Draw swatches into panel buttons ─────────────────────────
+function drawSwatch(id, canvasFn, ...args) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const src = canvasFn(64, ...args);
+  const ctx = el.getContext('2d');
+  ctx.drawImage(src, 0, 0, 64, 64, 0, 0, 36, 22);
+}
+
+function initSwatches() {
+  drawSwatch('swatch-wood',    makeWoodTexture);
+  drawSwatch('swatch-stone',   makeStoneTexture);
+  drawSwatch('swatch-metal',   makeBrushedMetalTexture);
+  drawSwatch('swatch-gold',    makeGoldTexture);
+  drawSwatch('swatch-crystal', makeCrystalTexture);
+  drawSwatch('swatch-leather', makeLeatherTexture);
+  drawSwatch('swatch-bone',    makeBoneTexture);
+  drawSwatch('swatch-fire',    makeFireTexture);
+  drawSwatch('swatch-ice',     makeIceTexture);
+  const hex = document.getElementById('custom-color').value;
+  drawSwatch('swatch-custom', (sz) => makeCustomTexture(sz, hex));
+}
+
+// ── Preset material definitions ───────────────────────────────
+const PRESETS = {
+  wood:    { makeTexture: makeWoodTexture,         color: 0x7a4420, roughness: 0.85, metalness: 0,    emissive: 0,    opacity: 1,    clearcoat: 0,    usePhy: false },
+  stone:   { makeTexture: makeStoneTexture,        color: 0x808075, roughness: 0.92, metalness: 0,    emissive: 0,    opacity: 1,    clearcoat: 0,    usePhy: false },
+  metal:   { makeTexture: makeBrushedMetalTexture, color: 0xb4b4bc, roughness: 0.22, metalness: 0.92, emissive: 0,    opacity: 1,    clearcoat: 0.2,  usePhy: false },
+  gold:    { makeTexture: makeGoldTexture,         color: 0xd4a820, roughness: 0.08, metalness: 1.0,  emissive: 0,    opacity: 1,    clearcoat: 0.5,  usePhy: false },
+  crystal: { makeTexture: makeCrystalTexture,      color: 0x9030f0, roughness: 0.04, metalness: 0,    emissive: 0.08, opacity: 0.72, clearcoat: 1.0,  usePhy: true,  transmission: 0.5, ior: 1.5  },
+  leather: { makeTexture: makeLeatherTexture,      color: 0x3d1808, roughness: 0.82, metalness: 0,    emissive: 0,    opacity: 1,    clearcoat: 0,    usePhy: false },
+  bone:    { makeTexture: makeBoneTexture,         color: 0xe8dcc5, roughness: 0.72, metalness: 0,    emissive: 0,    opacity: 1,    clearcoat: 0.1,  usePhy: false },
+  fire:    { makeTexture: makeFireTexture,         color: 0xff4400, roughness: 0.55, metalness: 0,    emissive: 1.4,  opacity: 1,    clearcoat: 0,    usePhy: false },
+  ice:     { makeTexture: makeIceTexture,          color: 0x90d8fc, roughness: 0.04, metalness: 0,    emissive: 0,    opacity: 0.78, clearcoat: 0.85, usePhy: true,  transmission: 0.62, ior: 1.31 },
+};
+
+// ── Apply preset to all meshes ────────────────────────────────
+function applyPreset(presetName) {
+  currentPreset = presetName;
+  if (!currentModel) return;
+
+  const isCustom = presetName === 'custom';
+  const preset = PRESETS[presetName];
+
+  // Sync sliders to preset defaults
+  if (!isCustom && preset) syncSliders(preset);
+
+  // Build a shared CanvasTexture (same canvas reused across all meshes for performance)
+  let texCanvas;
+  if (isCustom) {
+    texCanvas = makeCustomTexture(256, document.getElementById('custom-color').value);
+  } else {
+    texCanvas = preset.makeTexture(256);
+  }
+  const tex = new THREE.CanvasTexture(texCanvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+
+  currentModel.traverse(o => {
+    if (!o.isMesh) return;
+    // Dispose old materials
+    const oldMats = Array.isArray(o.material) ? o.material : [o.material];
+    oldMats.forEach(m => m.dispose());
+
+    let mat;
+    if (!isCustom && preset.usePhy) {
+      mat = new THREE.MeshPhysicalMaterial({
+        map: tex,
+        color: preset.color,
+        roughness:   matProps.roughness,
+        metalness:   matProps.metalness,
+        transparent: matProps.opacity < 1,
+        opacity:     matProps.opacity,
+        clearcoat:   matProps.clearcoat,
+        clearcoatRoughness: 0.1,
+        transmission: preset.transmission || 0,
+        ior: preset.ior || 1.5,
+        envMapIntensity: lightProps.envmap,
+      });
+    } else {
+      mat = new THREE.MeshStandardMaterial({
+        map: tex,
+        color: isCustom
+          ? new THREE.Color(document.getElementById('custom-color').value)
+          : preset.color,
+        roughness:   matProps.roughness,
+        metalness:   matProps.metalness,
+        transparent: matProps.opacity < 1,
+        opacity:     matProps.opacity,
+        envMapIntensity: lightProps.envmap,
+      });
+    }
+
+    if (!isCustom && preset && matProps.emissive > 0) {
+      mat.emissive = new THREE.Color(preset.color);
+      mat.emissiveIntensity = matProps.emissive;
+    }
+
+    o.material = mat;
+  });
+}
+
+// ── Apply current matProps to existing materials ──────────────
+function applyMaterialProps() {
+  if (!currentModel) return;
+  currentModel.traverse(o => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    mats.forEach(m => {
+      m.roughness = matProps.roughness;
+      m.metalness = matProps.metalness;
+      m.emissiveIntensity = matProps.emissive;
+      m.opacity = matProps.opacity;
+      m.transparent = matProps.opacity < 1;
+      if (m.clearcoat !== undefined) m.clearcoat = matProps.clearcoat;
+      m.needsUpdate = true;
+    });
+  });
+}
+
+function syncSliders(p) {
+  const pairs = [
+    ['roughness', p.roughness],
+    ['metalness', p.metalness],
+    ['emissive',  p.emissive],
+    ['opacity',   p.opacity],
+    ['clearcoat', p.clearcoat],
+  ];
+  pairs.forEach(([name, val]) => {
+    if (val === undefined) return;
+    document.getElementById(`sl-${name}`).value = val;
+    updateSliderVal(name, val);
+    matProps[name] = val;
+  });
+}
+
+function updateSliderVal(name, val) {
+  const el = document.getElementById(`val-${name}`);
+  if (!el) return;
+  el.textContent = name === 'lightangle' ? `${Math.round(val)}°` : parseFloat(val).toFixed(2);
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+// ── GLB export ────────────────────────────────────────────────
+function exportGLB() {
+  if (!currentModel) return;
+  const btn = document.getElementById('export-btn');
+  btn.disabled = true;
+  btn.textContent = 'Exporting...';
+
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    currentModel,
+    (result) => {
+      const blob = new Blob([result], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const sel = document.getElementById('asset-select');
+      const opt = sel.options[sel.selectedIndex];
+      const base = opt?.dataset.name ?? 'model';
+      a.download = `${base}-${currentPreset ?? 'retextured'}.glb`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      btn.disabled = false;
+      btn.textContent = 'Export GLB';
+      toast('GLB exported!', 'success');
+    },
+    (err) => {
+      btn.disabled = false;
+      btn.textContent = 'Export GLB';
+      toast(`Export failed: ${err.message}`, 'error');
+    },
+    { binary: true }
+  );
+}
+
+// ── Turntable toggle ──────────────────────────────────────────
+function toggleTurntable() {
+  turntableActive = !turntableActive;
+  const btn = document.getElementById('turntable-btn');
+  btn.textContent = turntableActive ? 'Turntable ON' : 'Turntable OFF';
+  btn.classList.toggle('active', turntableActive);
+  btn.setAttribute('aria-pressed', String(turntableActive));
+}
+
+// ── Event wiring ──────────────────────────────────────────────
+function wireEvents() {
+  // Model picker
+  document.getElementById('asset-select').addEventListener('change', e => {
+    const url = e.target.value;
+    if (!url) return;
+    const opt = e.target.options[e.target.selectedIndex];
+    loadModel(url, opt.dataset.name || opt.textContent, opt.dataset.size || '', opt.dataset.prompt || '');
+  });
+
+  // Texture presets
+  document.querySelectorAll('.tex-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tex-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyPreset(btn.dataset.preset);
+      if (!currentModel) toast('Select a model first', '');
+    });
+  });
+
+  // Custom color
+  document.getElementById('custom-color').addEventListener('input', e => {
+    drawSwatch('swatch-custom', (sz) => makeCustomTexture(sz, e.target.value));
+    if (currentPreset === 'custom') applyPreset('custom');
+  });
+
+  // Material sliders
+  ['roughness', 'metalness', 'emissive', 'opacity', 'clearcoat'].forEach(name => {
+    document.getElementById(`sl-${name}`).addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      matProps[name] = v;
+      updateSliderVal(name, v);
+      applyMaterialProps();
+    });
+  });
+
+  // Lighting sliders
+  document.getElementById('sl-ambient').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    lightProps.ambient = v;
+    updateSliderVal('ambient', v);
+    ambientLight.intensity = v;
+  });
+  document.getElementById('sl-dirlight').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    lightProps.dirlight = v;
+    updateSliderVal('dirlight', v);
+    dirLight.intensity = v;
+  });
+  document.getElementById('sl-lightangle').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    lightProps.lightangle = v;
+    updateSliderVal('lightangle', v);
+    const rad = (v * Math.PI) / 180;
+    dirLight.position.set(Math.cos(rad) * 5, 5, Math.sin(rad) * 5);
+  });
+  document.getElementById('sl-envmap').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    lightProps.envmap = v;
+    updateSliderVal('envmap', v);
+    scene.environmentIntensity = v;
+    if (currentModel) {
+      currentModel.traverse(o => {
+        if (!o.isMesh) return;
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+          m.envMapIntensity = v;
+          m.needsUpdate = true;
+        });
+      });
+    }
+  });
+
+  // Export
+  document.getElementById('export-btn').addEventListener('click', exportGLB);
+
+  // Decimate
+  document.getElementById('decimate-btn').addEventListener('click', async () => {
+    if (!currentAssetName) return;
+    const btn = document.getElementById('decimate-btn');
+    btn.disabled = true;
+    btn.textContent = 'Optimizing...';
+    try {
+      const r = await fetch('/api/3d/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: currentAssetName, method: 'auto', shape_preserving: true })
+      });
+      const d = await r.json();
+      if (!r.ok || d.error || d.detail) {
+        showToast('Optimize failed: ' + (d.error || d.detail || r.statusText), 'error');
+      } else if (d.already_exists) {
+        showToast('Optimized variant already exists (' + d.size_after_kb + ' KB)', 'info');
+      } else {
+        showToast('Optimized: ' + d.size_before_kb + 'KB → ' + d.size_after_kb + 'KB (-' + d.reduction_pct + '%), mesh unchanged', 'success');
+      }
+    } catch (e) {
+      showToast('Optimize error: ' + e.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Optimize';
+  });
+
+  // Meshy Refine
+  document.getElementById('refine-btn').addEventListener('click', async () => {
+    if (!currentAssetName) return;
+    const btn = document.getElementById('refine-btn');
+    btn.disabled = true;
+    btn.textContent = 'Refining…';
+    try {
+      const r = await fetch('/api/3d/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: currentAssetName })
+      });
+      const d = await r.json();
+      if (d.error) {
+        toast('Refine failed: ' + d.error, 'error');
+      } else if (d.task_id) {
+        toast(`Refine queued: ${d.task_id} (polls auto)`, 'success');
+        // Poll until done
+        const poll = async (tid) => {
+          const p = await fetch(`/api/3d/status/${tid}`).then(x => x.json());
+          if (p.status === 'SUCCEEDED') {
+            toast('Refine done! Reload to see new textures.', 'success');
+            btn.textContent = 'Refine ✓';
+          } else if (p.status === 'FAILED') {
+            toast('Refine failed: ' + (p.task_error?.message || 'unknown'), 'error');
+            btn.disabled = false;
+            btn.textContent = 'Refine (Meshy)';
+          } else {
+            setTimeout(() => poll(tid), 4000);
+          }
+        };
+        poll(d.task_id);
+      } else {
+        toast('Refine: ' + JSON.stringify(d), '');
+        btn.disabled = false;
+        btn.textContent = 'Refine (Meshy)';
+      }
+    } catch (e) {
+      toast('Refine error: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Refine (Meshy)';
+    }
+  });
+
+  // ── Retry preview ────────────────────────────────────────────
+  document.getElementById('retry-btn').addEventListener('click', async () => {
+    if (!_currentAssetPrompt || _retryCount >= RETRY_MAX) return;
+    _retryCount++;
+    updateRetryBtn();
+    const btn = document.getElementById('retry-btn');
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = '⏳ Queuing…';
+    try {
+      const r = await fetch('/api/3d/text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: _currentAssetPrompt, style: 'realistic' })
+      });
+      const d = await r.json();
+      if (d.error) {
+        toast('Retry failed: ' + d.error, 'error');
+        _retryCount = Math.max(0, _retryCount - 1);
+      } else if (d.task_id) {
+        toast(`Preview re-queued (${d.task_id}) — check 3D page for status`, 'success');
+      } else {
+        toast('Retry queued', 'success');
+      }
+    } catch (e) {
+      toast('Retry error: ' + e.message, 'error');
+      _retryCount = Math.max(0, _retryCount - 1);
+    }
+    updateRetryBtn();
+    btn.disabled = false;
+  });
+
+  // ── Quick Texture presets ─────────────────────────────────────
+  document.querySelectorAll('.qt-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!currentAssetName) return;
+      const styleHint = btn.dataset.style || '';
+      const label = btn.textContent.trim();
+      btn.disabled = true;
+      btn.textContent = '⏳ …';
+      try {
+        const r = await fetch('/api/3d/refine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: currentAssetName,
+            style_override: styleHint
+          })
+        });
+        const d = await r.json();
+        if (d.error) {
+          toast(`${label} refine failed: ${d.error}`, 'error');
+        } else if (d.status === 'already_refined') {
+          toast(`Already refined — ${d.message}`, 'info');
+        } else if (d.task_id) {
+          toast(`${label} refine queued: ${d.task_id}`, 'success');
+          // Poll for completion
+          const poll = async (tid) => {
+            const p = await fetch(`/api/3d/status/${tid}`).then(x => x.json());
+            if (p.status === 'SUCCEEDED') {
+              toast(`${label} refine done! Reload to see new textures.`, 'success');
+              btn.textContent = label + ' ✓';
+              return;
+            } else if (p.status === 'FAILED') {
+              toast(`${label} refine failed: ` + (p.task_error?.message || 'unknown'), 'error');
+            } else {
+              setTimeout(() => poll(tid), 4000);
+              return;
+            }
+            btn.textContent = label;
+            btn.disabled = false;
+          };
+          poll(d.task_id);
+          return;
+        } else {
+          toast(`${label}: ${JSON.stringify(d)}`, '');
+        }
+      } catch (e) {
+        toast(`${label} error: ${e.message}`, 'error');
+      }
+      btn.textContent = label;
+      btn.disabled = false;
+    });
+  });
+
+  // Turntable
+  document.getElementById('turntable-btn').addEventListener('click', toggleTurntable);
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (e.key === 't' || e.key === 'T') toggleTurntable();
+    if ((e.key === 'e' || e.key === 'E') && !document.getElementById('export-btn').disabled) exportGLB();
+  });
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+async function init() {
+  initThree();
+  initSwatches();
+  wireEvents();
+  await loadAssetList();
+
+  // Hide initial loader, show empty state
+  document.getElementById('loader').classList.add('hidden');
+  document.getElementById('empty-state').classList.remove('hidden');
+}
+
+init().catch(err => {
+  console.error('Texture studio init error:', err);
+  document.getElementById('loader-text').textContent = 'Failed to start 3D engine';
+  document.getElementById('loader-hint').textContent = err.message;
+});
+</script>
+
+</body>
+</html>

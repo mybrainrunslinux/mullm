@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Studio — muLLM</title>
+<style>
+  /* ── Design tokens ── */
+  :root {
+    --bg:       #1a1a2e;
+    --panel:    #141420;
+    --border:   #2a2a3e;
+    --gold:     #e8c547;
+    --gold-dim: #a88d30;
+    --text:     #f5f0e8;
+    --muted:    #8888aa;
+    --green:    #4a7c59;
+    --red:      #c94040;
+    --radius:   8px;
+    --gap:      12px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .topbar a.back {
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    border-radius: var(--radius);
+    transition: background .15s;
+  }
+  .topbar a.back:hover, .topbar a.back:focus {
+    background: rgba(232,197,71,.12);
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+  .topbar h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: .04em;
+  }
+  .topbar .tag {
+    font-size: .72rem;
+    color: var(--muted);
+    background: var(--border);
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-left: auto;
+  }
+
+  /* ── Main layout ── */
+  .workspace {
+    display: grid;
+    grid-template-columns: 350px 1fr 280px;
+    gap: 0;
+    height: calc(100vh - 49px);
+    overflow: hidden;
+  }
+
+  .panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+  .panel-center { background: var(--bg); border-right: 1px solid var(--border); }
+
+  /* ── Section headers ── */
+  .section-title {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+
+  /* ── Form controls ── */
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: .82rem;
+    color: var(--muted);
+  }
+  label span.lbl-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  label span.val {
+    color: var(--text);
+    font-weight: 600;
+    font-size: .85rem;
+    min-width: 36px;
+    text-align: right;
+  }
+
+  select, textarea {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    font-size: .88rem;
+    font-family: inherit;
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: border-color .15s;
+  }
+  select:focus, textarea:focus {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+    border-color: var(--gold);
+  }
+  select option { background: var(--panel); }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--gold);
+    cursor: pointer;
+    height: 4px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--border);
+    border-radius: 4px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--gold);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    transition: transform .1s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  input[type="range"]:focus {
+    outline: none;
+  }
+  input[type="range"]:focus-visible {
+    box-shadow: 0 0 0 2px var(--gold);
+  }
+
+  /* ── Tone grid ── */
+  .tone-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+  }
+  .tone-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: .7rem;
+    cursor: pointer;
+    transition: all .15s;
+    line-height: 1.2;
+    min-height: 52px;
+    justify-content: center;
+  }
+  .tone-btn .tone-emoji { font-size: 1.1rem; }
+  .tone-btn .tone-name { font-size: .65rem; text-align: center; }
+  .tone-btn:hover {
+    border-color: var(--gold-dim);
+    color: var(--text);
+    background: rgba(232,197,71,.07);
+  }
+  .tone-btn:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+  .tone-btn.active {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(232,197,71,.13);
+  }
+
+  /* ── Character preset buttons ── */
+  .char-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .char-btn {
+    padding: 8px 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: .78rem;
+    cursor: pointer;
+    transition: all .15s;
+    text-align: center;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .char-btn:hover {
+    border-color: var(--gold-dim);
+    background: rgba(232,197,71,.07);
+    color: var(--gold);
+  }
+  .char-btn:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  /* ── Reset button ── */
+  .btn-reset {
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-size: .82rem;
+    cursor: pointer;
+    transition: all .15s;
+    width: 100%;
+    min-height: 36px;
+  }
+  .btn-reset:hover { border-color: var(--muted); color: var(--text); }
+  .btn-reset:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* ── Center panel ── */
+  .panel-center {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  textarea#script {
+    flex: 1;
+    resize: none;
+    min-height: 160px;
+    font-size: 1rem;
+    line-height: 1.6;
+    padding: 14px;
+    border-radius: var(--radius);
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 12px;
+    font-size: .75rem;
+    color: var(--muted);
+  }
+
+  .action-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .btn-speak {
+    flex: 1;
+    padding: 13px 20px;
+    background: var(--gold);
+    border: none;
+    border-radius: var(--radius);
+    color: #1a1a2e;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: .04em;
+    transition: all .15s;
+    min-height: 48px;
+  }
+  .btn-speak:hover { background: #f0d060; transform: translateY(-1px); }
+  .btn-speak:active { transform: translateY(0); }
+  .btn-speak:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
+  .btn-speak:disabled { background: var(--border); color: var(--muted); cursor: default; transform: none; }
+
+  .btn-rec {
+    padding: 13px 16px;
+    background: transparent;
+    color: #c94040;
+    border: 2px solid #c94040;
+    border-radius: 8px;
+    font-size: .95rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+    font-family: monospace;
+    letter-spacing: .05em;
+  }
+  .btn-rec:hover { background: rgba(201,64,64,.12); }
+  .btn-rec.active { background: #c94040; color: #fff; }
+  @keyframes pulse-rec {
+    0%,100% { opacity: 1; } 50% { opacity: 0.2; }
+  }
+  #rec-player { display: none; }
+  #rec-player.show { display: flex !important; }
+  .btn-stop {
+    padding: 13px 18px;
+    background: transparent;
+    border: 2px solid var(--red);
+    border-radius: var(--radius);
+    color: var(--red);
+    font-size: .95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    min-height: 48px;
+    min-width: 80px;
+  }
+  .btn-stop:hover { background: rgba(201,64,64,.12); }
+  .btn-stop:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+
+  .shortcut-hint {
+    font-size: .7rem;
+    color: var(--muted);
+    text-align: center;
+  }
+  kbd {
+    background: var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: monospace;
+    font-size: .7rem;
+  }
+
+  /* ── History ── */
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .history-item {
+    padding: 7px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: .78rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+  }
+  .history-item:hover { border-color: var(--gold-dim); color: var(--text); }
+  .history-item:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .history-empty {
+    font-size: .78rem;
+    color: var(--muted);
+    font-style: italic;
+    padding: 6px 2px;
+  }
+
+  /* ── Right panel ── */
+  .waveform-wrap {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: #0d0d1a;
+  }
+  canvas#waveform {
+    display: block;
+    width: 100%;
+    height: 100px;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+  .status-badge.idle    { color: var(--muted); border-color: var(--border); }
+  .status-badge.speaking { color: var(--gold); border-color: var(--gold); background: rgba(232,197,71,.1); }
+  .status-badge.paused  { color: #aaa; border-color: #555; background: rgba(255,255,255,.04); }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .status-badge.speaking .status-dot { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .4; transform: scale(.7); }
+  }
+
+  .info-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-size: .78rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .info-box strong { color: var(--text); }
+  .info-row { display: flex; justify-content: space-between; }
+  .info-row .val { color: var(--gold); font-weight: 600; }
+
+  .btn-copy {
+    padding: 9px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-size: .8rem;
+    cursor: pointer;
+    transition: all .15s;
+    width: 100%;
+    min-height: 36px;
+  }
+  .btn-copy:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .btn-copy:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .btn-copy.copied { color: var(--green); border-color: var(--green); }
+
+  .voice-unavail {
+    font-size: .75rem;
+    color: var(--red);
+    padding: 6px;
+    background: rgba(201,64,64,.08);
+    border-radius: 5px;
+    border: 1px solid rgba(201,64,64,.25);
+  }
+
+  /* ── Scrollbars ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+
+  /* ── Mobile / responsive ── */
+  @media (max-width: 768px) {
+    .workspace {
+      grid-template-columns: 1fr;
+      height: auto;
+      overflow: visible;
+    }
+    .panel, .panel-center {
+      border-right: none;
+      border-left: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel:last-child { border-bottom: none; }
+    body { overflow-y: auto; }
+  }
+
+  /* ── Reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: var(--panel);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    padding: 9px 20px;
+    border-radius: 20px;
+    font-size: .82rem;
+    font-weight: 600;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<header class="topbar" role="banner">
+  <a href="/" class="back" aria-label="Back to muLLM dashboard" title="Back to muLLM">&#8592; muLLM</a>
+  <h1>Voice Studio</h1>
+  <span class="tag">Web Speech API</span>
+</header>
+
+<!-- ── Three-column workspace ── -->
+<main class="workspace" role="main">
+
+  <!-- LEFT: Controls -->
+  <aside class="panel" aria-label="Voice controls">
+
+    <!-- Backend + Voice selector -->
+    <section aria-labelledby="voice-heading">
+      <div class="section-title" id="voice-heading">Voice Engine</div>
+      <label>
+        <span>Backend</span>
+        <select id="backend-select" aria-label="Select TTS backend">
+          <option value="browser">Browser (Web Speech API)</option>
+        </select>
+      </label>
+      <div id="backend-status" style="font-size:.75rem;color:#888;margin-top:2px;min-height:1.2em;"></div>
+      <label style="margin-top:8px;">
+        <span>Voice</span>
+        <select id="voice-select" aria-label="Select voice"></select>
+      </label>
+      <label id="format-row" style="margin-top:8px;display:none;">
+        <span>Output format</span>
+        <select id="format-select" aria-label="Output format">
+          <option value="mp3" selected>MP3 (small, universal)</option>
+          <option value="wav">WAV (lossless)</option>
+        </select>
+      </label>
+      <p class="voice-unavail" id="voice-unavail" style="display:none" role="alert">
+        Web Speech API not available in this browser.
+      </p>
+    </section>
+
+    <!-- Sliders -->
+    <section aria-labelledby="sliders-heading">
+      <div class="section-title" id="sliders-heading">Parameters</div>
+
+      <label>
+        <span class="lbl-row">
+          Rate <span class="val" id="rate-val">1.0</span>
+        </span>
+        <input type="range" id="rate" min="0.3" max="2.5" step="0.05" value="1.0"
+               aria-label="Speech rate" aria-valuetext="1.0">
+      </label>
+
+      <label style="margin-top:10px">
+        <span class="lbl-row">
+          Pitch <span class="val" id="pitch-val">1.0</span>
+        </span>
+        <input type="range" id="pitch" min="0.0" max="2.0" step="0.05" value="1.0"
+               aria-label="Speech pitch" aria-valuetext="1.0">
+      </label>
+
+      <label style="margin-top:10px">
+        <span class="lbl-row">
+          Volume <span class="val" id="volume-val">1.0</span>
+        </span>
+        <input type="range" id="volume" min="0.0" max="1.0" step="0.05" value="1.0"
+               aria-label="Speech volume" aria-valuetext="1.0">
+      </label>
+    </section>
+
+    <!-- Emotional tones -->
+    <section aria-labelledby="tones-heading">
+      <div class="section-title" id="tones-heading">Emotional Tone</div>
+      <div class="tone-grid" id="tone-grid" role="radiogroup" aria-label="Emotional tone preset"></div>
+    </section>
+
+    <!-- Character presets -->
+    <section aria-labelledby="chars-heading">
+      <div class="section-title" id="chars-heading">Character Presets</div>
+      <div class="char-grid" id="char-grid"></div>
+    </section>
+
+    <!-- Reset -->
+    <button class="btn-reset" id="btn-reset" aria-label="Reset all controls to defaults">
+      Reset to Defaults
+    </button>
+
+  </aside>
+
+  <!-- CENTER: Script editor -->
+  <section class="panel panel-center" aria-label="Script editor">
+    <div class="section-title">Script</div>
+
+    <textarea id="script" placeholder="Type your dialogue here..."
+              aria-label="Dialogue text to speak"
+              spellcheck="true"></textarea>
+
+    <div class="meta-row">
+      <span id="char-count">0 characters</span>
+      <span id="word-count">0 words</span>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-speak" id="btn-speak" aria-label="Speak text (Ctrl+Enter)">
+        &#9654; SPEAK
+      </button>
+      <button class="btn-stop" id="btn-stop" aria-label="Stop speaking (Escape)">
+        &#9632; STOP
+      </button>
+      <button class="btn-rec" id="btn-rec" title="Toggle recording — captures mic/system audio while speaking" aria-pressed="false">
+        &#9679; REC
+      </button>
+    </div>
+    <div id="rec-status" style="display:none;align-items:center;gap:8px;font-size:.82rem;color:#c94040;font-family:monospace;margin-top:4px;">
+      <span style="animation:pulse-rec .8s ease-in-out infinite;display:inline-block;">&#9679;</span>
+      <span id="rec-label">Recording…</span>
+    </div>
+    <div id="rec-player" style="display:none;margin-top:8px;gap:8px;align-items:center;flex-wrap:wrap;">
+      <audio id="rec-audio" controls style="height:32px;flex:1;min-width:160px;"></audio>
+      <a id="rec-dl" download="voice.webm" style="padding:5px 12px;background:var(--gold,#e8c547);color:#1a1a2e;border-radius:5px;font-size:.82rem;font-weight:bold;text-decoration:none;white-space:nowrap;">&#8595; Download</a>
+    </div>
+    <p id="rec-hint" style="display:none;font-size:.75rem;color:#888;margin-top:4px;line-height:1.4;">
+      Tip: select <strong>Monitor of…</strong> or <strong>Stereo Mix</strong> as your mic input to capture TTS audio directly. Otherwise the mic records ambient sound.
+    </p>
+    <section aria-labelledby="batch-heading" style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+      <div class="section-title" id="batch-heading">Batch Export</div>
+      <textarea id="batch-csv" placeholder="CSV columns: name,text&#10;greeting,Welcome to the dojo.&#10;attack,Incoming attack!" aria-label="Batch TTS CSV" style="min-height:92px;"></textarea>
+      <div class="action-row" style="margin-top:8px;">
+        <button class="btn-copy" id="btn-batch" type="button" aria-label="Generate batch voice snippets">Batch Generate</button>
+        <button class="btn-reset" id="btn-batch-clear" type="button" aria-label="Clear batch results">Clear</button>
+      </div>
+      <div id="batch-status" style="font-size:.78rem;color:#888;min-height:1.2em;margin-top:6px;"></div>
+      <div class="history-list" id="batch-results" role="list" aria-label="Batch generated voice snippets" style="max-height:160px;margin-top:8px;"></div>
+    </section>
+    <p class="shortcut-hint">
+      <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to speak &nbsp;&#8226;&nbsp; <kbd>Esc</kbd> to stop
+    </p>
+
+    <!-- History -->
+    <div>
+      <div class="section-title">History</div>
+      <div class="history-list" id="history-list" role="list" aria-label="Recently spoken texts"></div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Visualizer + info -->
+  <aside class="panel" aria-label="Visualizer and settings summary">
+
+    <section aria-labelledby="viz-heading">
+      <div class="section-title" id="viz-heading">Waveform</div>
+      <div class="waveform-wrap">
+        <canvas id="waveform" width="280" height="100" aria-label="Speech waveform visualization" role="img"></canvas>
+      </div>
+    </section>
+
+    <section aria-labelledby="status-heading">
+      <div class="section-title" id="status-heading">Status</div>
+      <div id="status-badge" class="status-badge idle" role="status" aria-live="polite">
+        <span class="status-dot"></span>
+        <span id="status-text">IDLE</span>
+      </div>
+    </section>
+
+    <section aria-labelledby="info-heading">
+      <div class="section-title" id="info-heading">Current Settings</div>
+      <div class="info-box" id="info-box">
+        <div class="info-row"><span>Voice</span><span class="val" id="info-voice">—</span></div>
+        <div class="info-row"><span>Tone</span><span class="val" id="info-tone">neutral</span></div>
+        <div class="info-row"><span>Rate</span><span class="val" id="info-rate">1.0</span></div>
+        <div class="info-row"><span>Pitch</span><span class="val" id="info-pitch">1.0</span></div>
+        <div class="info-row"><span>Volume</span><span class="val" id="info-vol">1.0</span></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="cloud-tts-heading">
+      <div class="section-title" id="cloud-tts-heading">Cloud TTS</div>
+      <div class="info-box" style="display:flex;flex-direction:column;gap:10px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;" title="ElevenLabs — premium voices (~$0.30/1K chars). Requires ELEVENLABS_API_KEY env var.">
+          <span style="flex:1;font-size:.82rem;">ElevenLabs <span style="color:#c94040;font-size:.72rem;">$$</span></span>
+          <input type="checkbox" id="toggle-elevenlabs" style="width:16px;height:16px;cursor:pointer;" aria-label="Enable ElevenLabs TTS">
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;" title="OpenAI TTS — good quality ($0.015/1K chars). Requires OPENAI_API_KEY env var.">
+          <span style="flex:1;font-size:.82rem;">OpenAI TTS <span style="color:#a88d30;font-size:.72rem;">$</span></span>
+          <input type="checkbox" id="toggle-openai-tts" style="width:16px;height:16px;cursor:pointer;" aria-label="Enable OpenAI TTS">
+        </label>
+        <div id="cloud-tts-status" style="font-size:.72rem;color:#888;min-height:1em;"></div>
+      </div>
+    </section>
+
+    <section>
+      <button class="btn-copy" id="btn-copy" aria-label="Copy current settings as JSON">
+        &#128203; Copy Settings JSON
+      </button>
+    </section>
+
+  </aside>
+</main>
+
+<!-- Toast notification -->
+<div class="toast" id="toast" aria-live="polite" role="status"></div>
+
+<script>
+'use strict';
+
+/* ── Constants ── */
+const TONES = {
+  neutral:    { rate: 1.0,  pitch: 1.0,  vol: 1.0,  transform: null,                                        emoji: "😐", label: "Neutral"    },
+  happy:      { rate: 1.2,  pitch: 1.35, vol: 1.0,  transform: null,                                        emoji: "😊", label: "Happy"      },
+  excited:    { rate: 1.45, pitch: 1.5,  vol: 1.0,  transform: t => t.toUpperCase().replace(/\./g,"!"),     emoji: "🤩", label: "Excited"    },
+  euphoric:   { rate: 1.3,  pitch: 1.6,  vol: 1.0,  transform: null,                                        emoji: "✨", label: "Euphoric"   },
+  angry:      { rate: 1.15, pitch: 0.65, vol: 1.0,  transform: t => t.replace(/\./g,"!").replace(/,/g," —"),emoji: "😠", label: "Angry"      },
+  frightened: { rate: 1.5,  pitch: 1.7,  vol: 0.9,  transform: t => t.replace(/ /g,"... "),                 emoji: "😱", label: "Frightened" },
+  distressed: { rate: 1.25, pitch: 1.45, vol: 0.95, transform: null,                                        emoji: "😰", label: "Distressed" },
+  hurt:       { rate: 0.75, pitch: 0.85, vol: 0.85, transform: t => t.replace(/\./g,"... "),                 emoji: "😢", label: "Hurt"       },
+  tired:      { rate: 0.7,  pitch: 0.8,  vol: 0.8,  transform: t => t.replace(/!/g,"."),                    emoji: "😴", label: "Tired"      },
+  drunk:      { rate: 0.78, pitch: 0.88, vol: 0.9,  transform: t => t.replace(/s /g,"sh ").replace(/th/g,"d"), emoji: "🍺", label: "Drunk"   },
+  outofit:    { rate: 0.55, pitch: 0.7,  vol: 0.75, transform: t => t.replace(/[aeiou]/g, m => Math.random()>.5?m:""), emoji: "😵", label: "Out of It" },
+  raspy:      { rate: 0.85, pitch: 0.55, vol: 0.9,  transform: null,                                        emoji: "🗣️", label: "Raspy"      },
+  whispering: { rate: 0.9,  pitch: 1.1,  vol: 0.3,  transform: t => t.replace(/!/g,".").replace(/\?/g,"?"), emoji: "🤫", label: "Whisper"    },
+  monstrous:  { rate: 0.55, pitch: 0.2,  vol: 1.0,  transform: t => t.replace(/ /g,"... "),                 emoji: "👹", label: "Monstrous"  },
+  robotic:    { rate: 1.0,  pitch: 0.4,  vol: 1.0,  transform: t => t.toUpperCase().replace(/[',\-]/g," "), emoji: "🤖", label: "Robotic"    },
+  childlike:  { rate: 1.3,  pitch: 1.9,  vol: 0.9,  transform: null,                                        emoji: "👶", label: "Childlike"  },
+  elderly:    { rate: 0.65, pitch: 0.75, vol: 0.8,  transform: t => t.replace(/!/g,"."),                    emoji: "👴", label: "Elderly"    },
+  villain:    { rate: 0.9,  pitch: 0.5,  vol: 0.95, transform: t => t.replace(/\./g,"... "),                 emoji: "🦹", label: "Villain"    },
+};
+
+const CHARACTERS = [
+  { name: "Hero",      tone: "excited",    voice: /google us|en-US/i,        sample: "I will protect this realm with my last breath! Stand behind me!" },
+  { name: "Villain",   tone: "villain",    voice: /en-GB|daniel|british/i,   sample: "You've been a worthy adversary. A shame it ends here." },
+  { name: "Elder",     tone: "elderly",    voice: null,                       sample: "Long ago, before your kind walked these lands, the dragons held council here." },
+  { name: "Monster",   tone: "monstrous",  voice: null,                       sample: "Flesh. Warm flesh. It has been... so long." },
+  { name: "Robot",     tone: "robotic",    voice: null,                       sample: "MISSION OBJECTIVE UPDATED. HOSTILE DETECTED. ENGAGING COMBAT PROTOCOL." },
+  { name: "Ghost",     tone: "whispering", voice: null,                       sample: "You shouldn't be here. This place remembers." },
+  { name: "Child",     tone: "childlike",  voice: /samantha|karen|en-AU/i,   sample: "Wait, wait! I found something! Look what I found in the old house!" },
+  { name: "Drunk NPC", tone: "drunk",      voice: null,                       sample: "I ushed to be an adventurer like you, until I took an arrow... somethin somethin..." },
+  { name: "Wounded",   tone: "hurt",       voice: null,                       sample: "I can still fight. Just... give me a moment. I've had worse." },
+];
+
+const STORAGE_KEY = 'mullm_voice_studio';
+const HISTORY_MAX = 8;
+
+/* ── State ── */
+let voices = [];
+let activeTone = 'neutral';
+let isSpeaking = false;
+let waveAnim = null;
+let wavePhase = 0;
+
+/* ── DOM refs ── */
+const voiceSelect  = document.getElementById('voice-select');
+const rateSlider   = document.getElementById('rate');
+const pitchSlider  = document.getElementById('pitch');
+const volumeSlider = document.getElementById('volume');
+const rateVal      = document.getElementById('rate-val');
+const pitchVal     = document.getElementById('pitch-val');
+const volumeVal    = document.getElementById('volume-val');
+const scriptTA     = document.getElementById('script');
+const charCount    = document.getElementById('char-count');
+const wordCount    = document.getElementById('word-count');
+const btnSpeak     = document.getElementById('btn-speak');
+const btnStop      = document.getElementById('btn-stop');
+const btnBatch     = document.getElementById('btn-batch');
+const btnBatchClear = document.getElementById('btn-batch-clear');
+const historyList  = document.getElementById('history-list');
+const batchCsv     = document.getElementById('batch-csv');
+const batchStatus  = document.getElementById('batch-status');
+const batchResults = document.getElementById('batch-results');
+const statusBadge  = document.getElementById('status-badge');
+const statusText   = document.getElementById('status-text');
+const infoVoice    = document.getElementById('info-voice');
+const infoTone     = document.getElementById('info-tone');
+const infoRate     = document.getElementById('info-rate');
+const infoPitch    = document.getElementById('info-pitch');
+const infoVol      = document.getElementById('info-vol');
+const btnCopy      = document.getElementById('btn-copy');
+const btnReset     = document.getElementById('btn-reset');
+const toneGrid     = document.getElementById('tone-grid');
+const charGrid     = document.getElementById('char-grid');
+const waveCanvas   = document.getElementById('waveform');
+const toastEl      = document.getElementById('toast');
+const voiceUnavail = document.getElementById('voice-unavail');
+const waveCtx      = waveCanvas.getContext('2d');
+
+/* ── Resize canvas for HiDPI ── */
+function resizeCanvas() {
+  const rect = waveCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  waveCanvas.width  = rect.width  * dpr;
+  waveCanvas.height = rect.height * dpr;
+  waveCtx.scale(dpr, dpr);
+}
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  drawIdle();
+}, { passive: true });
+
+/* ── LocalStorage ── */
+function saveState() {
+  try {
+    const data = {
+      tone:   activeTone,
+      rate:   rateSlider.value,
+      pitch:  pitchSlider.value,
+      volume: volumeSlider.value,
+      backend: activeBackend,
+      voice:  voiceSelect.value,
+      [`voice_${activeBackend}`]: voiceSelect.value,
+      history: getHistory(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(_) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(_) { return null; }
+}
+
+function getHistory() {
+  const items = historyList.querySelectorAll('.history-item');
+  return Array.from(items).map(el => el.dataset.text).filter(Boolean);
+}
+
+/* ── History ── */
+function addToHistory(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const existing = Array.from(historyList.querySelectorAll('.history-item'));
+  if (existing.length && existing[0].dataset.text === trimmed) return; // dedupe top
+
+  // Remove duplicates
+  existing.forEach(el => { if (el.dataset.text === trimmed) el.remove(); });
+
+  const el = document.createElement('button');
+  el.className = 'history-item';
+  el.dataset.text = trimmed;
+  el.textContent = trimmed.length > 80 ? trimmed.slice(0, 77) + '…' : trimmed;
+  el.setAttribute('role', 'listitem');
+  el.setAttribute('aria-label', 'Replay: ' + trimmed.slice(0, 60));
+  el.addEventListener('click', () => {
+    scriptTA.value = trimmed;
+    updateMeta();
+    speakText(trimmed);
+  });
+
+  historyList.insertBefore(el, historyList.firstChild);
+
+  // Trim to max
+  const all = historyList.querySelectorAll('.history-item');
+  if (all.length > HISTORY_MAX) {
+    all[all.length - 1].remove();
+  }
+
+  // Remove empty placeholder
+  const empty = historyList.querySelector('.history-empty');
+  if (empty) empty.remove();
+
+  saveState();
+}
+
+function renderHistory(items) {
+  historyList.innerHTML = '';
+  if (!items || !items.length) {
+    const p = document.createElement('p');
+    p.className = 'history-empty';
+    p.textContent = 'No history yet.';
+    historyList.appendChild(p);
+    return;
+  }
+  items.forEach(text => {
+    const el = document.createElement('button');
+    el.className = 'history-item';
+    el.dataset.text = text;
+    el.textContent = text.length > 80 ? text.slice(0, 77) + '…' : text;
+    el.setAttribute('role', 'listitem');
+    el.setAttribute('aria-label', 'Replay: ' + text.slice(0, 60));
+    el.addEventListener('click', () => {
+      scriptTA.value = text;
+      updateMeta();
+      speakText(text);
+    });
+    historyList.appendChild(el);
+  });
+}
+
+/* ── Sliders ── */
+function updateSliderDisplays() {
+  const r = parseFloat(rateSlider.value).toFixed(2);
+  const p = parseFloat(pitchSlider.value).toFixed(2);
+  const v = parseFloat(volumeSlider.value).toFixed(2);
+  rateVal.textContent   = r;
+  pitchVal.textContent  = p;
+  volumeVal.textContent = v;
+  rateSlider.setAttribute('aria-valuetext', r);
+  pitchSlider.setAttribute('aria-valuetext', p);
+  volumeSlider.setAttribute('aria-valuetext', v);
+  infoRate.textContent  = r;
+  infoPitch.textContent = p;
+  infoVol.textContent   = v;
+}
+
+[rateSlider, pitchSlider, volumeSlider].forEach(el => {
+  el.addEventListener('input', () => {
+    updateSliderDisplays();
+    saveState();
+  });
+});
+
+/* ── Text area meta ── */
+function updateMeta() {
+  const t = scriptTA.value;
+  charCount.textContent = t.length + ' character' + (t.length !== 1 ? 's' : '');
+  const words = t.trim() ? t.trim().split(/\s+/).length : 0;
+  wordCount.textContent = words + ' word' + (words !== 1 ? 's' : '');
+}
+scriptTA.addEventListener('input', updateMeta);
+
+/* ── Tones ── */
+function buildToneGrid() {
+  toneGrid.innerHTML = '';
+  Object.entries(TONES).forEach(([key, tone]) => {
+    const btn = document.createElement('button');
+    btn.className = 'tone-btn' + (key === activeTone ? ' active' : '');
+    btn.dataset.tone = key;
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', key === activeTone ? 'true' : 'false');
+    btn.setAttribute('aria-label', tone.label + ' tone');
+    btn.title = tone.label;
+    btn.innerHTML = `<span class="tone-emoji" aria-hidden="true">${tone.emoji}</span><span class="tone-name">${tone.label}</span>`;
+    btn.addEventListener('click', () => selectTone(key));
+    toneGrid.appendChild(btn);
+  });
+}
+
+function selectTone(key) {
+  if (!TONES[key]) return;
+  activeTone = key;
+  const tone = TONES[key];
+
+  rateSlider.value   = tone.rate;
+  pitchSlider.value  = tone.pitch;
+  volumeSlider.value = tone.vol;
+  updateSliderDisplays();
+
+  // Update buttons
+  toneGrid.querySelectorAll('.tone-btn').forEach(btn => {
+    const active = btn.dataset.tone === key;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', active ? 'true' : 'false');
+  });
+
+  infoTone.textContent = tone.label;
+  saveState();
+}
+
+/* ── Characters ── */
+function buildCharGrid() {
+  charGrid.innerHTML = '';
+  CHARACTERS.forEach(ch => {
+    const btn = document.createElement('button');
+    btn.className = 'char-btn';
+    btn.textContent = ch.name;
+    btn.setAttribute('aria-label', 'Load ' + ch.name + ' character preset');
+    btn.title = ch.name + ' — ' + (ch.tone in TONES ? TONES[ch.tone].label : ch.tone);
+    btn.addEventListener('click', () => loadCharacter(ch));
+    charGrid.appendChild(btn);
+  });
+}
+
+function loadCharacter(ch) {
+  selectTone(ch.tone);
+  scriptTA.value = ch.sample;
+  updateMeta();
+
+  // Try to match voice
+  if (ch.voice && voices.length) {
+    const match = voices.find(v => ch.voice.test(v.name) || ch.voice.test(v.lang));
+    if (match) {
+      voiceSelect.value = match.name;
+      updateInfoVoice();
+    }
+  }
+
+  showToast(ch.name + ' preset loaded');
+}
+
+/* ── Voices ── */
+function populateVoices() {
+  voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return;
+
+  voiceSelect.innerHTML = '';
+
+  // Group by language
+  const groups = {};
+  voices.forEach(v => {
+    const lang = v.lang.slice(0, 2).toUpperCase();
+    if (!groups[lang]) groups[lang] = [];
+    groups[lang].push(v);
+  });
+
+  // EN first, then alphabetical
+  const sortedLangs = Object.keys(groups).sort((a, b) => {
+    if (a === 'EN') return -1;
+    if (b === 'EN') return  1;
+    return a.localeCompare(b);
+  });
+
+  sortedLangs.forEach(lang => {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = lang;
+    groups[lang].forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = v.name + (v.default ? ' ★' : '');
+      optgroup.appendChild(opt);
+    });
+    voiceSelect.appendChild(optgroup);
+  });
+
+  // Restore saved voice
+  const saved = loadState();
+  if (saved && saved.voice) {
+    const match = voices.find(v => v.name === saved.voice);
+    if (match) voiceSelect.value = saved.voice;
+  }
+
+  updateInfoVoice();
+}
+
+function updateInfoVoice() {
+  const label = voiceSelect.options[voiceSelect.selectedIndex]?.text || voiceSelect.value;
+  infoVoice.textContent = label ? (label.length > 22 ? label.slice(0, 20) + '…' : label) : '—';
+}
+
+voiceSelect.addEventListener('change', () => {
+  updateInfoVoice();
+  saveState();
+});
+
+/* ── Speech synthesis ── */
+function getSelectedVoice() {
+  return voices.find(v => v.name === voiceSelect.value) || null;
+}
+
+function speakText(rawText) {
+  const _inputText = rawText || scriptTA.value;
+  if (!_inputText.trim()) { showToast('Nothing to speak'); return; }
+  // Route to server backend if not browser
+  if (activeBackend !== 'browser') {
+    speakViaServer(_inputText, true);
+    return;
+  }
+  if (!('speechSynthesis' in window)) {
+    showToast('Web Speech API not supported in this browser');
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+
+  const tone = TONES[activeTone] || TONES.neutral;
+  let text = _inputText;
+
+  // Apply tone text transform
+  if (tone.transform) {
+    try { text = tone.transform(text); } catch(_) {}
+  }
+
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate   = parseFloat(rateSlider.value);
+  utt.pitch  = parseFloat(pitchSlider.value);
+  utt.volume = parseFloat(volumeSlider.value);
+
+  const voice = getSelectedVoice();
+  if (voice) utt.voice = voice;
+
+  utt.onstart = () => {
+    isSpeaking = true;
+    setStatus('speaking');
+    startWaveform();
+    if (recMode) startRecording();
+  };
+  utt.onend = () => {
+    isSpeaking = false;
+    setStatus('idle');
+    stopWaveform();
+    stopRecording();
+  };
+  utt.onerror = () => {
+    isSpeaking = false;
+    setStatus('idle');
+    stopWaveform();
+    stopRecording();
+  };
+  utt.onpause = () => setStatus('paused');
+  utt.onresume = () => setStatus('speaking');
+  window.speechSynthesis.speak(utt);
+  addToHistory(rawText || scriptTA.value);
+}
+
+function stopSpeech() {
+  window.speechSynthesis.cancel();
+  stopRecording();
+  isSpeaking = false;
+  setStatus('idle');
+  stopWaveform();
+}
+
+btnSpeak.addEventListener('click', () => speakText());
+btnStop.addEventListener('click', stopSpeech);
+
+/* ── Recording ── */
+const btnRec       = document.getElementById('btn-rec');
+const recStatus    = document.getElementById('rec-status');
+const recLabel     = document.getElementById('rec-label');
+const recPlayer    = document.getElementById('rec-player');
+const recAudio     = document.getElementById('rec-audio');
+const recDl        = document.getElementById('rec-dl');
+const recHint      = document.getElementById('rec-hint');
+let recMode        = false;   // user wants recording
+let mediaRecorder  = null;
+let recChunks      = [];
+let recStream      = null;
+let recBlobUrl     = null;
+
+btnRec.addEventListener('click', async () => {
+  recMode = !recMode;
+  btnRec.classList.toggle('active', recMode);
+  btnRec.setAttribute('aria-pressed', recMode);
+  if (recMode) {
+    // Request mic once to confirm permission
+    try {
+      recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recHint.style.display = 'block';
+    } catch(err) {
+      recMode = false;
+      btnRec.classList.remove('active');
+      btnRec.setAttribute('aria-pressed', 'false');
+      recLabel.textContent = 'Mic permission denied — speak-only mode';
+      recStatus.style.display = 'flex';
+      setTimeout(() => { recStatus.style.display = 'none'; }, 3500);
+    }
+  } else {
+    if (recStream) { recStream.getTracks().forEach(t => t.stop()); recStream = null; }
+    recStatus.style.display = 'none';
+    recHint.style.display = 'none';
+  }
+});
+
+function startRecording() {
+  if (!recMode || !recStream) return;
+  // Re-get a fresh stream each time (track may have ended)
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    recStream = stream;
+    recChunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus' : 'audio/webm';
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recChunks, { type: mimeType });
+      if (recBlobUrl) URL.revokeObjectURL(recBlobUrl);
+      recBlobUrl = URL.createObjectURL(blob);
+      recAudio.src = recBlobUrl;
+      // Build filename: voice_{tone}_{timestamp}.webm
+      const tone = document.querySelector('.tone-btn.active')?.dataset?.tone || 'neutral';
+      const ts   = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+      recDl.href = recBlobUrl;
+      recDl.download = `voice_${tone}_${ts}.webm`;
+      recPlayer.classList.add('show');
+      recStatus.style.display = 'none';
+    };
+    mediaRecorder.start();
+    recStatus.style.display = 'flex';
+    recLabel.textContent = 'Recording…';
+  }).catch(() => {
+    recMode = false; btnRec.classList.remove('active');
+  });
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    if (recStream) { recStream.getTracks().forEach(t => t.stop()); recStream = null; }
+  }
+}
+
+/* ── Keyboard shortcuts ── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    stopSpeech();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    speakText();
+  }
+});
+
+/* ── Status display ── */
+function setStatus(state) {
+  statusBadge.className = 'status-badge ' + state;
+  statusText.textContent = state.toUpperCase();
+}
+
+/* ── Waveform animation ── */
+function drawIdle() {
+  const W = waveCanvas.getBoundingClientRect().width || 248;
+  const H = 100;
+  waveCtx.clearRect(0, 0, W * (window.devicePixelRatio||1), H * (window.devicePixelRatio||1));
+  const scale = window.devicePixelRatio || 1;
+  waveCtx.save();
+  waveCtx.scale(scale, scale);
+  waveCtx.fillStyle = '#0d0d1a';
+  waveCtx.fillRect(0, 0, W, H);
+
+  // Flat center line
+  waveCtx.beginPath();
+  waveCtx.strokeStyle = 'rgba(232,197,71,0.2)';
+  waveCtx.lineWidth = 1.5;
+  waveCtx.moveTo(0, H / 2);
+  waveCtx.lineTo(W, H / 2);
+  waveCtx.stroke();
+  waveCtx.restore();
+}
+
+function drawWave(t) {
+  const W = waveCanvas.getBoundingClientRect().width || 248;
+  const H = 100;
+  const scale = window.devicePixelRatio || 1;
+  waveCtx.clearRect(0, 0, W * scale, H * scale);
+  waveCtx.save();
+  waveCtx.scale(scale, scale);
+  waveCtx.fillStyle = '#0d0d1a';
+  waveCtx.fillRect(0, 0, W, H);
+
+  const rate   = parseFloat(rateSlider.value);
+  const pitch  = parseFloat(pitchSlider.value);
+  const volume = parseFloat(volumeSlider.value);
+
+  // Amplitude modulated by volume, frequency by pitch+rate
+  const amplitude = (H / 2 - 8) * volume;
+  const freq1 = 2 + pitch * 1.5;
+  const freq2 = 1 + rate * 0.8;
+
+  // Draw multiple overlapping sine waves for richness
+  const layers = [
+    { freq: freq1,        amp: amplitude * 0.7,  color: 'rgba(232,197,71,0.9)',  lw: 2.0 },
+    { freq: freq2,        amp: amplitude * 0.35, color: 'rgba(232,197,71,0.4)',  lw: 1.5 },
+    { freq: freq1 * 1.7,  amp: amplitude * 0.2,  color: 'rgba(255,220,100,0.3)', lw: 1.0 },
+  ];
+
+  layers.forEach(({ freq, amp, color, lw }) => {
+    waveCtx.beginPath();
+    waveCtx.strokeStyle = color;
+    waveCtx.lineWidth = lw;
+    for (let x = 0; x <= W; x++) {
+      const normalX = x / W;
+      // Envelope: fade at edges
+      const envelope = Math.sin(normalX * Math.PI);
+      const y = H / 2 + Math.sin(normalX * Math.PI * 2 * freq + t) * amp * envelope;
+      x === 0 ? waveCtx.moveTo(x, y) : waveCtx.lineTo(x, y);
+    }
+    waveCtx.stroke();
+  });
+
+  waveCtx.restore();
+}
+
+function startWaveform() {
+  if (waveAnim) return;
+  const start = performance.now();
+  function frame(now) {
+    const t = (now - start) * 0.004 * parseFloat(rateSlider.value);
+    drawWave(t);
+    waveAnim = requestAnimationFrame(frame);
+  }
+  waveAnim = requestAnimationFrame(frame);
+}
+
+function stopWaveform() {
+  if (waveAnim) { cancelAnimationFrame(waveAnim); waveAnim = null; }
+  drawIdle();
+}
+
+/* ── Copy settings ── */
+btnCopy.addEventListener('click', () => {
+  const settings = {
+    voice:  voiceSelect.value,
+    tone:   activeTone,
+    rate:   parseFloat(rateSlider.value),
+    pitch:  parseFloat(pitchSlider.value),
+    volume: parseFloat(volumeSlider.value),
+  };
+  navigator.clipboard.writeText(JSON.stringify(settings, null, 2))
+    .then(() => {
+      btnCopy.classList.add('copied');
+      btnCopy.textContent = '✓ Copied!';
+      setTimeout(() => {
+        btnCopy.classList.remove('copied');
+        btnCopy.textContent = '⧉ Copy Settings JSON';
+      }, 2000);
+    })
+    .catch(() => showToast('Copy failed — clipboard not available'));
+});
+
+/* ── Reset ── */
+btnReset.addEventListener('click', () => {
+  rateSlider.value   = '1.0';
+  pitchSlider.value  = '1.0';
+  volumeSlider.value = '1.0';
+  updateSliderDisplays();
+  selectTone('neutral');
+  showToast('Reset to defaults');
+});
+
+/* ── Toast ── */
+let toastTimer = null;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2500);
+}
+
+/* ── Check browser support ── */
+if (!('speechSynthesis' in window)) {
+  voiceUnavail.style.display = 'block';
+  btnSpeak.disabled = true;
+  btnSpeak.title = 'Web Speech API not supported';
+}
+
+/* ── Backend detection & server synth ── */
+const backendSel   = document.getElementById('backend-select');
+const backendStatus= document.getElementById('backend-status');
+const formatRow    = document.getElementById('format-row');
+const formatSel    = document.getElementById('format-select');
+
+function extFromContentType(type) {
+  const clean = (type || '').split(';')[0].trim().toLowerCase();
+  if (clean === 'audio/mpeg' || clean === 'audio/mp3') return 'mp3';
+  if (clean === 'audio/wav' || clean === 'audio/wave' || clean === 'audio/x-wav') return 'wav';
+  if (clean === 'audio/webm') return 'webm';
+  return 'bin';
+}
+
+function blobFromBase64(b64, contentType) {
+  const raw = atob(b64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+  return new Blob([bytes], { type: contentType || 'application/octet-stream' });
+}
+let   serverBackends = [];   // [{name, label, available, voices}]
+let   activeBackend  = 'browser';
+
+async function loadBackends() {
+  try {
+    const r = await fetch('/api/tts/backends');
+    const j = await r.json();
+    serverBackends = (j.backends || []).filter(b => b.available && b.name !== 'browser');
+    // Rebuild backend selector
+    backendSel.innerHTML = '';
+    serverBackends.forEach(b => {
+      const o = document.createElement('option');
+      o.value = b.name; o.textContent = b.label;
+      backendSel.appendChild(o);
+    });
+    // Always add browser fallback
+    const ob = document.createElement('option');
+    ob.value = 'browser'; ob.textContent = 'Browser (Web Speech API)';
+    backendSel.appendChild(ob);
+
+    // Default to the best available server backend; browser voices are a fallback.
+    const pref = (loadState() || {}).backend;
+    const defaultB = pref && (pref === 'browser' || serverBackends.find(b => b.name === pref))
+      ? pref
+      : (serverBackends.find(b => b.name === 'kokoro')?.name
+         || serverBackends.find(b => b.name === 'openai')?.name
+         || serverBackends[0]?.name
+         || 'browser');
+    backendSel.value = defaultB;
+    switchBackend(defaultB);
+  } catch(e) {
+    backendStatus.textContent = 'Server offline — using browser voices';
+    backendSel.value = 'browser';
+    switchBackend('browser');
+  }
+}
+
+function switchBackend(name) {
+  activeBackend = name;
+  const isServer = name !== 'browser';
+  formatRow.style.display = isServer ? '' : 'none';
+  if (isServer) {
+    const info = serverBackends.find(b => b.name === name);
+    const deviceLabel = info?.device ? ` · ${info.device}` : '';
+    backendStatus.textContent = info ? `✓ ${info.label}${deviceLabel}` : name;
+    backendStatus.style.color = '#4a7c59';
+    // Populate voices from server backend
+    voiceSelect.innerHTML = '';
+    (info?.voices || []).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.id;
+      o.textContent = v.label || v.id;
+      voiceSelect.appendChild(o);
+    });
+    // Restore saved voice pref for this backend
+    const saved = loadState();
+    const savedVoice = saved?.[`voice_${name}`];
+    if (savedVoice) voiceSelect.value = savedVoice;
+    updateInfoVoice();
+    // Prewarm Kokoro pipeline in background so first Speak is instant
+    if (name === 'kokoro') {
+      backendStatus.textContent = '⏳ Warming up Kokoro…';
+      backendStatus.style.color = '#888';
+      const warmVoice = voiceSelect.value || 'af_heart';
+      fetch('/api/tts/synth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: 'Ready.', backend: 'kokoro', voice: warmVoice, format: 'wav' }),
+      }).then(r => {
+        if (r.ok) {
+          backendStatus.textContent = `✓ Kokoro ready${deviceLabel}`;
+          backendStatus.style.color = '#4a7c59';
+        }
+      }).catch(() => {
+        backendStatus.textContent = `✓ Kokoro (local)${deviceLabel}`;
+        backendStatus.style.color = '#4a7c59';
+      });
+    }
+  } else {
+    backendStatus.textContent = 'Web Speech API — browser voices only';
+    backendStatus.style.color = '#888';
+    populateVoices();
+  }
+  saveState();
+}
+
+backendSel.addEventListener('change', () => switchBackend(backendSel.value));
+voiceSelect.addEventListener('change', () => {
+  if (activeBackend !== 'browser') {
+    // persist per-backend voice selection
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const d = raw ? JSON.parse(raw) : {};
+      d[`voice_${activeBackend}`] = voiceSelect.value;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+    } catch(_) {}
+  }
+});
+
+async function speakViaServer(text, applyTransform) {
+  const tone = TONES[activeTone] || TONES.neutral;
+  const rawText = applyTransform && tone.transform ? tone.transform(text) : text;
+  const fmt = formatSel.value || 'mp3';
+  const body = {
+    text: rawText,
+    voice: voiceSelect.value,
+    backend: activeBackend,
+    rate: parseFloat(rateSlider.value),
+    pitch: parseFloat(pitchSlider.value),
+    volume: parseFloat(volumeSlider.value),
+    format: fmt,
+  };
+  setStatus('speaking');
+  startWaveform();
+  try {
+    const resp = await fetch('/api/tts/synth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) { const e = await resp.json(); throw new Error(e.detail || resp.statusText); }
+    const blob = await resp.blob();
+    const actualExt = extFromContentType(resp.headers.get('Content-Type') || blob.type);
+    const url  = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => {
+      stopWaveform(); setStatus('idle');
+      if (recMode) {
+        // For server TTS, offer direct download (no mic capture needed)
+        const tone = document.querySelector('.tone-btn.active')?.dataset?.tone || 'neutral';
+        const ts   = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+        recDl.href = url; recDl.download = `voice_${tone}_${ts}.${actualExt}`;
+        recAudio.src = url;
+        recPlayer.classList.add('show');
+        recStatus.style.display = 'none';
+      }
+    };
+    audio.onerror = () => { stopWaveform(); setStatus('idle'); };
+    if (recMode) {
+      recStatus.style.display = 'flex';
+      recLabel.textContent = 'Captured via server — click ▶ to preview';
+    }
+    audio.play();
+    addToHistory(text);
+  } catch(err) {
+    stopWaveform(); setStatus('idle');
+    showToast(`Server TTS error: ${err.message}`);
+    backendStatus.textContent = `Error: ${err.message}`;
+    backendStatus.style.color = '#c94040';
+  }
+}
+
+async function generateBatch() {
+  if (activeBackend === 'browser') {
+    showToast('Batch export requires Kokoro, OpenAI, or ElevenLabs backend');
+    return;
+  }
+  const csv = batchCsv.value.trim();
+  if (!csv) {
+    showToast('Paste CSV rows first');
+    return;
+  }
+  const body = {
+    csv,
+    voice: voiceSelect.value,
+    backend: activeBackend,
+    rate: parseFloat(rateSlider.value),
+    format: formatSel.value || 'mp3',
+  };
+  btnBatch.disabled = true;
+  batchStatus.textContent = 'Generating batch...';
+  batchResults.innerHTML = '';
+  try {
+    const resp = await fetch('/api/tts/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || resp.statusText);
+    let okCount = 0;
+    data.items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'history-item';
+      row.style.cursor = 'default';
+      if (!item.ok) {
+        row.textContent = `Row ${item.index}: ${item.error}`;
+        batchResults.appendChild(row);
+        return;
+      }
+      okCount += 1;
+      const blob = blobFromBase64(item.audio_base64, item.content_type);
+      const url = URL.createObjectURL(blob);
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.src = url;
+      audio.style.width = '100%';
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = item.filename;
+      link.textContent = `Download ${item.filename}`;
+      link.style.color = 'var(--gold)';
+      link.style.fontWeight = '700';
+      link.style.textDecoration = 'none';
+      const meta = document.createElement('div');
+      meta.textContent = `${item.content_type} - ${Math.round((item.bytes || 0) / 1024)} KB`;
+      meta.style.fontSize = '.72rem';
+      meta.style.color = 'var(--muted)';
+      row.appendChild(link);
+      row.appendChild(meta);
+      row.appendChild(audio);
+      batchResults.appendChild(row);
+    });
+    batchStatus.textContent = `${okCount}/${data.count} snippets generated`;
+    batchStatus.style.color = okCount ? '#4a7c59' : '#c94040';
+  } catch(err) {
+    batchStatus.textContent = `Batch error: ${err.message}`;
+    batchStatus.style.color = '#c94040';
+  } finally {
+    btnBatch.disabled = false;
+  }
+}
+
+btnBatch.addEventListener('click', generateBatch);
+btnBatchClear.addEventListener('click', () => {
+  batchResults.innerHTML = '';
+  batchStatus.textContent = '';
+});
+
+/* ── Init ── */
+function init() {
+  buildToneGrid();
+  buildCharGrid();
+  resizeCanvas();
+  drawIdle();
+  updateSliderDisplays();
+  updateMeta();
+
+  // Restore saved state
+  const saved = loadState();
+  if (saved) {
+    if (saved.tone && TONES[saved.tone]) selectTone(saved.tone);
+    if (saved.rate)   { rateSlider.value   = saved.rate;   }
+    if (saved.pitch)  { pitchSlider.value  = saved.pitch;  }
+    if (saved.volume) { volumeSlider.value = saved.volume; }
+    updateSliderDisplays();
+    renderHistory(saved.history || []);
+  } else {
+    renderHistory([]);
+  }
+
+  // Browser voices (fallback)
+  if ('speechSynthesis' in window) {
+    populateVoices();
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+  }
+
+  // Detect server backends (async, non-blocking)
+  loadBackends();
+
+  // Cloud TTS toggles
+  initCloudToggles();
+}
+
+/* ── Cloud TTS toggles ── */
+const elTglEL  = document.getElementById('toggle-elevenlabs');
+const elTglOAI = document.getElementById('toggle-openai-tts');
+const elCtSt   = document.getElementById('cloud-tts-status');
+
+async function initCloudToggles() {
+  try {
+    const r = await fetch('/api/setup/toggles');
+    if (!r.ok) return;
+    const d = await r.json();
+    elTglEL.checked  = !!d.tts_elevenlabs;
+    elTglOAI.checked = d.tts_openai !== false;
+  } catch(e) { /* server offline */ }
+}
+
+async function setCloudToggle(key, val) {
+  elCtSt.textContent = 'Saving…';
+  try {
+    await fetch('/api/setup/toggles', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({toggles: {[key]: val}})
+    });
+    elCtSt.textContent = val ? '✓ Enabled — reload backends to apply' : '✓ Disabled';
+    elCtSt.style.color = val ? '#4a7c59' : '#888';
+    setTimeout(() => { elCtSt.textContent = ''; }, 3000);
+    loadBackends();
+  } catch(e) {
+    elCtSt.textContent = 'Error saving toggle';
+    elCtSt.style.color = '#c94040';
+  }
+}
+
+elTglEL .addEventListener('change', () => setCloudToggle('tts_elevenlabs', elTglEL.checked));
+elTglOAI.addEventListener('change', () => setCloudToggle('tts_openai',     elTglOAI.checked));
+
+init();
+</script>
+</body>
+</html>

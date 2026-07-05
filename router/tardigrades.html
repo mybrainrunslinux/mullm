@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>muLLM Research Library</title>
+<style>
+  :root {
+    --bg: #1a0f0a;
+    --amber: #ffb870;
+    --amber-soft: #f4a55a;
+    --cream: #f8e6c8;
+    --ink: #2a1a10;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--cream);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+  #scene {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+  }
+  #scene canvas { display: block; width: 100%; height: 100%; }
+  .hud {
+    position: fixed;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .nav-home {
+    top: 18px; left: 20px;
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    background: rgba(26, 15, 10, 0.72);
+    border: 1px solid rgba(255, 184, 112, 0.35);
+    border-radius: 999px;
+    color: var(--cream);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: all 0.2s ease;
+  }
+  .nav-home:hover, .nav-home:focus-visible {
+    background: rgba(255, 184, 112, 0.18);
+    border-color: var(--amber);
+    outline: none;
+    transform: translateX(-2px);
+  }
+  .nav-home:focus-visible { box-shadow: 0 0 0 3px rgba(255, 184, 112, 0.4); }
+  .nav-home svg { width: 14px; height: 14px; }
+  .title {
+    top: 22px; right: 22px;
+    text-align: right;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 30px rgba(255,170,80,0.3);
+  }
+  .title h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--cream);
+  }
+  .title p {
+    margin: 3px 0 0;
+    font-size: 11px;
+    opacity: 0.7;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  /* Vignette overlay */
+  .vignette {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    background: radial-gradient(ellipse at center,
+      transparent 40%,
+      rgba(20, 10, 5, 0.35) 75%,
+      rgba(12, 6, 3, 0.85) 100%);
+  }
+  /* Accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    .fallback-tardi { animation: none !important; }
+  }
+  /* CSS fallback (no WebGL) */
+  .fallback {
+    position: fixed; inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 24px;
+    text-align: center;
+    background:
+      radial-gradient(ellipse at 50% 40%, #3a2215 0%, #1a0f0a 70%),
+      #1a0f0a;
+  }
+  .fallback.active { display: flex; }
+  .fallback-stage {
+    position: relative;
+    width: min(520px, 92vw);
+    height: min(340px, 58vh);
+    border-radius: 18px;
+    background:
+      linear-gradient(180deg, #2a1810 0%, #3d2416 55%, #1f110a 100%);
+    border: 1px solid rgba(255, 184, 112, 0.2);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), inset 0 0 80px rgba(255,170,80,0.15);
+    overflow: hidden;
+  }
+  .fb-shelf {
+    position: absolute;
+    left: 8%; right: 8%;
+    top: 12%;
+    height: 38%;
+    background: repeating-linear-gradient(
+      90deg,
+      #c25a3b 0 18px, #e08a4a 18px 34px, #5a8a9a 34px 52px,
+      #d8c47a 52px 68px, #8b4a6a 68px 86px, #4a7a5a 86px 104px
+    );
+    border-top: 4px solid #5a2a10;
+    border-bottom: 4px solid #5a2a10;
+    border-radius: 3px;
+    opacity: 0.85;
+  }
+  .fb-shelf::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    top: 115%;
+    height: 40%;
+    background: repeating-linear-gradient(
+      90deg,
+      #4a7a9a 0 16px, #c25a3b 16px 32px, #d8c47a 32px 48px,
+      #8b4a6a 48px 64px, #5a8a5a 64px 80px, #e08a4a 80px 96px
+    );
+    border-top: 4px solid #5a2a10;
+    border-bottom: 4px solid #5a2a10;
+    opacity: 0.75;
+  }
+  .fb-table {
+    position: absolute;
+    left: 6%; right: 6%; bottom: 8%;
+    height: 16%;
+    background: linear-gradient(180deg, #8b4a20 0%, #5a2a10 100%);
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+  }
+  .fallback-tardi {
+    position: absolute;
+    bottom: 23%;
+    width: 74px; height: 48px;
+    border-radius: 60% 60% 50% 50% / 70% 70% 40% 40%;
+    background: radial-gradient(ellipse at 35% 30%, #fff 0%, #b5d8e8 30%, #7ba8c0 100%);
+    box-shadow: inset -4px -6px 10px rgba(40,60,80,0.4), 0 4px 10px rgba(0,0,0,0.4);
+    animation: bob 3.2s ease-in-out infinite;
+  }
+  .fallback-tardi::before {
+    content: "";
+    position: absolute;
+    right: -10px; top: 12px;
+    width: 18px; height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 30% 30%, #fff 0%, #b5d8e8 40%, #7ba8c0 100%);
+  }
+  .fallback-tardi::after {
+    content: "";
+    position: absolute;
+    left: 8px; right: 8px; bottom: -6px;
+    height: 8px;
+    background:
+      radial-gradient(circle at 12% 40%, #7ba8c0 0 4px, transparent 5px),
+      radial-gradient(circle at 32% 40%, #7ba8c0 0 4px, transparent 5px),
+      radial-gradient(circle at 52% 40%, #7ba8c0 0 4px, transparent 5px),
+      radial-gradient(circle at 72% 40%, #7ba8c0 0 4px, transparent 5px),
+      radial-gradient(circle at 92% 40%, #7ba8c0 0 4px, transparent 5px);
+  }
+  .t1 { left: 18%; animation-delay: 0s; }
+  .t2 {
+    left: 44%;
+    background: radial-gradient(ellipse at 35% 30%, #fff 0%, #f0c8d0 30%, #d48898 100%);
+    animation-delay: 0.7s;
+  }
+  .t2::before { background: radial-gradient(ellipse at 30% 30%, #fff 0%, #f0c8d0 40%, #d48898 100%); }
+  .t2::after {
+    background:
+      radial-gradient(circle at 12% 40%, #d48898 0 4px, transparent 5px),
+      radial-gradient(circle at 32% 40%, #d48898 0 4px, transparent 5px),
+      radial-gradient(circle at 52% 40%, #d48898 0 4px, transparent 5px),
+      radial-gradient(circle at 72% 40%, #d48898 0 4px, transparent 5px),
+      radial-gradient(circle at 92% 40%, #d48898 0 4px, transparent 5px);
+  }
+  .t3 {
+    left: 68%;
+    background: radial-gradient(ellipse at 35% 30%, #fff 0%, #c8e8c0 30%, #88b888 100%);
+    animation-delay: 1.4s;
+  }
+  .t3::before { background: radial-gradient(ellipse at 30% 30%, #fff 0%, #c8e8c0 40%, #88b888 100%); }
+  .t3::after {
+    background:
+      radial-gradient(circle at 12% 40%, #88b888 0 4px, transparent 5px),
+      radial-gradient(circle at 32% 40%, #88b888 0 4px, transparent 5px),
+      radial-gradient(circle at 52% 40%, #88b888 0 4px, transparent 5px),
+      radial-gradient(circle at 72% 40%, #88b888 0 4px, transparent 5px),
+      radial-gradient(circle at 92% 40%, #88b888 0 4px, transparent 5px);
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0) scaleY(1); }
+    50% { transform: translateY(-3px) scaleY(1.05); }
+  }
+  .fallback h2 { margin: 18px 0 4px; font-size: 17px; color: var(--amber); }
+  .fallback p { margin: 0; opacity: 0.7; font-size: 13px; max-width: 460px; }
+</style>
+</head>
+<body>
+  <div id="scene" aria-label="Animated 3D scene of cute tardigrades studying in a warm library"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <a class="nav-home hud" href="/" aria-label="Back to muLLM home">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M10 12 L6 8 L10 4"/>
+    </svg>
+    <span>home</span>
+  </a>
+
+  <div class="title hud" role="banner">
+    <h1>muLLM Research Library</h1>
+    <p>tardigrade scholars at work</p>
+  </div>
+
+  <div class="fallback" id="fallback" role="img" aria-label="Three pastel cartoon tardigrades in a cozy library">
+    <div class="fallback-stage">
+      <div class="fb-shelf"></div>
+      <div class="fb-table"></div>
+      <div class="fallback-tardi t1"></div>
+      <div class="fallback-tardi t2"></div>
+      <div class="fallback-tardi t3"></div>
+    </div>
+    <h2>muLLM Research Library</h2>
+    <p>Your browser doesn't support WebGL, so here's a cozy 2D version of our tardigrade scholars.</p>
+  </div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "/static/three/three.module.js",
+    "three/addons/": "/static/three/addons/"
+  }
+}
+</script>
+
+<script type="module">
+  // ---- WebGL detection with CSS fallback ---------------------------------
+  function hasWebGL() {
+    try {
+      const c = document.createElement('canvas');
+      return !!(window.WebGLRenderingContext &&
+        (c.getContext('webgl2') || c.getContext('webgl')));
+    } catch (e) { return false; }
+  }
+  if (!hasWebGL()) {
+    document.getElementById('fallback').classList.add('active');
+    document.getElementById('scene').style.display = 'none';
+  } else {
+    bootScene();
+  }
+
+  async function bootScene() {
+    const THREE = await import('three');
+
+    const container = document.getElementById('scene');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#1a0f0a');
+    scene.fog = new THREE.Fog('#1a0f0a', 14, 38);
+
+    // ---- Camera (slightly angled, semi-isometric) ------------------------
+    const camera = new THREE.PerspectiveCamera(
+      38, window.innerWidth / window.innerHeight, 0.1, 120);
+    camera.position.set(6.5, 5.2, 9.5);
+    camera.lookAt(0, 1.6, 0);
+
+    // ---- Renderer --------------------------------------------------------
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    container.appendChild(renderer.domElement);
+
+    // ---- Lighting (warm cozy candle vibes) --------------------------------
+    const ambient = new THREE.AmbientLight('#5a3a22', 0.55);
+    scene.add(ambient);
+
+    const hemi = new THREE.HemisphereLight('#ffb870', '#2a1208', 0.35);
+    scene.add(hemi);
+
+    // main warm key light (from upper left)
+    const key = new THREE.PointLight('#ffb060', 3.2, 28, 1.6);
+    key.position.set(-3.5, 5.5, 3.5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.bias = -0.0008;
+    key.shadow.radius = 4;
+    scene.add(key);
+
+    // soft fill
+    const fill = new THREE.PointLight('#ff8a40', 1.4, 18, 2);
+    fill.position.set(3.5, 3.0, 2.5);
+    scene.add(fill);
+
+    // rim light from back (small, cool)
+    const rim = new THREE.DirectionalLight('#6a80a0', 0.35);
+    rim.position.set(-2, 4, -4);
+    scene.add(rim);
+
+    // tiny flicker candles (point lights on the table)
+    const candleA = new THREE.PointLight('#ffcc80', 1.1, 6, 2);
+    candleA.position.set(-0.8, 1.7, 0.6);
+    scene.add(candleA);
+    const candleB = new THREE.PointLight('#ffbb70', 0.9, 5, 2);
+    candleB.position.set(1.4, 1.7, -0.2);
+    scene.add(candleB);
+
+    // ---- Shared materials -------------------------------------------------
+    const woodDark = new THREE.MeshStandardMaterial({
+      color: '#4a2a14', roughness: 0.85, metalness: 0.02 });
+    const woodMid = new THREE.MeshStandardMaterial({
+      color: '#6b3a1a', roughness: 0.75, metalness: 0.02 });
+    const woodWarm = new THREE.MeshStandardMaterial({
+      color: '#8b4a20', roughness: 0.7, metalness: 0.03 });
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: '#2a1408', roughness: 0.95, metalness: 0 });
+
+    // ---- Floor ------------------------------------------------------------
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(40, 40),
+      floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // ---- Back wall (subtle) ----------------------------------------------
+    const wall = new THREE.Mesh(
+      new THREE.PlaneGeometry(40, 14),
+      new THREE.MeshStandardMaterial({ color: '#1f0d05', roughness: 1 }));
+    wall.position.set(0, 7, -8);
+    scene.add(wall);
+
+    // ---- Bookshelf builder ------------------------------------------------
+    const bookPalette = [
+      '#c25a3b', '#e08a4a', '#5a8a9a', '#d8c47a',
+      '#8b4a6a', '#4a7a5a', '#b86a3a', '#6b7aa0',
+      '#a84030', '#d8a050', '#3a6080', '#7a5a30',
+    ];
+    function makeBook(h, w, d, color) {
+      const g = new THREE.BoxGeometry(w, h, d);
+      const m = new THREE.MeshStandardMaterial({
+        color, roughness: 0.8, metalness: 0.02 });
+      const mesh = new THREE.Mesh(g, m);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      return mesh;
+    }
+    function makeShelf(width, height, depth, shelves = 4) {
+      const group = new THREE.Group();
+      // frame
+      const frameMat = woodDark;
+      const t = 0.08; // frame thickness
+      const left = new THREE.Mesh(new THREE.BoxGeometry(t, height, depth), frameMat);
+      left.position.x = -width / 2;
+      left.position.y = height / 2;
+      const right = left.clone();
+      right.position.x = width / 2;
+      const back = new THREE.Mesh(
+        new THREE.BoxGeometry(width, height, 0.04),
+        new THREE.MeshStandardMaterial({ color: '#2a1408', roughness: 0.95 }));
+      back.position.set(0, height / 2, -depth / 2 + 0.02);
+      group.add(left, right, back);
+
+      // shelf boards + books
+      const spacing = height / shelves;
+      for (let i = 0; i <= shelves; i++) {
+        const board = new THREE.Mesh(
+          new THREE.BoxGeometry(width, 0.06, depth), woodMid);
+        board.position.y = i * spacing;
+        board.castShadow = true;
+        board.receiveShadow = true;
+        group.add(board);
+        if (i < shelves) {
+          // books
+          let x = -width / 2 + 0.12;
+          const shelfY = i * spacing + 0.03;
+          while (x < width / 2 - 0.12) {
+            const bw = 0.11 + Math.random() * 0.09;
+            const bh = spacing * (0.68 + Math.random() * 0.22);
+            const bd = depth * (0.6 + Math.random() * 0.25);
+            const tilt = Math.random() < 0.12 ? (Math.random() - 0.5) * 0.3 : 0;
+            const col = bookPalette[
+              Math.floor(Math.random() * bookPalette.length)];
+            const book = makeBook(bh, bw, bd, col);
+            book.position.set(x + bw / 2, shelfY + bh / 2, 0);
+            book.rotation.z = tilt;
+            group.add(book);
+            x += bw + 0.008;
+          }
+        }
+      }
+      return group;
+    }
+
+    // place two large shelves in the back
+    const shelfL = makeShelf(5.5, 5.0, 0.6, 4);
+    shelfL.position.set(-3.4, 0, -6.2);
+    scene.add(shelfL);
+    const shelfR = makeShelf(5.5, 5.0, 0.6, 4);
+    shelfR.position.set(3.4, 0, -6.2);
+    scene.add(shelfR);
+
+    // climbing shelf (shorter, closer, side-facing for climber access)
+    const shelfC = makeShelf(2.4, 4.2, 0.55, 4);
+    shelfC.position.set(-5.2, 0, -2.0);
+    shelfC.rotation.y = Math.PI / 2.2;
+    scene.add(shelfC);
+
+    // ---- Table (reading desk) ---------------------------------------------
+    const table = new THREE.Group();
+    const tableTop = new THREE.Mesh(
+      new THREE.BoxGeometry(4.2, 0.18, 2.4), woodWarm);
+    tableTop.position.y = 1.5;
+    tableTop.castShadow = true;
+    tableTop.receiveShadow = true;
+    table.add(tableTop);
+    for (const [x, z] of [[-1.9, -1.05], [1.9, -1.05], [-1.9, 1.05], [1.9, 1.05]]) {
+      const leg = new THREE.Mesh(
+        new THREE.BoxGeometry(0.18, 1.5, 0.18), woodDark);
+      leg.position.set(x, 0.75, z);
+      leg.castShadow = true;
+      table.add(leg);
+    }
+    table.position.set(0.3, 0, 1.0);
+    scene.add(table);
+
+    // ---- Books ON the table -----------------------------------------------
+    // stack for sleeper
+    const stack = new THREE.Group();
+    const stackColors = ['#5a8a9a', '#c25a3b', '#d8c47a', '#8b4a6a'];
+    for (let i = 0; i < 4; i++) {
+      const b = makeBook(0.14, 1.0, 0.7, stackColors[i]);
+      b.position.set(0, 0.07 + i * 0.15, 0);
+      b.rotation.y = (Math.random() - 0.5) * 0.15;
+      stack.add(b);
+    }
+    stack.position.set(1.7, 1.59, 1.2);
+    scene.add(stack);
+
+    // open book (reader's)
+    const openBook = new THREE.Group();
+    const openBase = new THREE.Mesh(
+      new THREE.BoxGeometry(1.1, 0.06, 0.75),
+      new THREE.MeshStandardMaterial({ color: '#6b3a1a', roughness: 0.7 }));
+    openBase.position.y = 0.03;
+    openBook.add(openBase);
+    // pages (two slightly tilted planes)
+    const pageMat = new THREE.MeshStandardMaterial({
+      color: '#f4e6c0', roughness: 0.9, metalness: 0,
+      side: THREE.DoubleSide, emissive: '#3a2a10', emissiveIntensity: 0.08 });
+    const pageL = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.72), pageMat);
+    pageL.rotation.x = -Math.PI / 2;
+    pageL.rotation.z = 0.08;
+    pageL.position.set(-0.27, 0.07, 0);
+    const pageR = pageL.clone();
+    pageR.rotation.z = -0.08;
+    pageR.position.set(0.27, 0.07, 0);
+    openBook.add(pageL, pageR);
+    // tiny ink marks
+    for (let i = 0; i < 6; i++) {
+      const line = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.38, 0.015),
+        new THREE.MeshBasicMaterial({ color: '#3a1f08' }));
+      line.rotation.x = -Math.PI / 2;
+      line.position.set(-0.27, 0.075, -0.26 + i * 0.09);
+      openBook.add(line);
+      const line2 = line.clone();
+      line2.position.x = 0.27;
+      openBook.add(line2);
+    }
+    // the "page flipping" mesh
+    const flipPage = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.72), pageMat);
+    flipPage.position.set(0, 0.08, 0);
+    flipPage.rotation.x = -Math.PI / 2;
+    openBook.add(flipPage);
+
+    openBook.position.set(-1.4, 1.59, 0.9);
+    openBook.rotation.y = 0.15;
+    scene.add(openBook);
+
+    // ---- Candles on table -------------------------------------------------
+    function makeCandle(x, z) {
+      const g = new THREE.Group();
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.08, 0.18, 12),
+        new THREE.MeshStandardMaterial({ color: '#e8d0a0', roughness: 0.6 }));
+      base.position.y = 0.09;
+      const flame = new THREE.Mesh(
+        new THREE.SphereGeometry(0.05, 10, 8),
+        new THREE.MeshBasicMaterial({ color: '#ffd680' }));
+      flame.scale.y = 1.8;
+      flame.position.y = 0.24;
+      const glow = new THREE.Mesh(
+        new THREE.SphereGeometry(0.14, 10, 8),
+        new THREE.MeshBasicMaterial({
+          color: '#ffaa40', transparent: true, opacity: 0.35 }));
+      glow.position.y = 0.24;
+      g.add(base, flame, glow);
+      g.position.set(x, 1.59, z);
+      g.userData.flame = flame;
+      g.userData.glow = glow;
+      return g;
+    }
+    const candleMeshA = makeCandle(-0.8, 0.6);
+    const candleMeshB = makeCandle(1.4, -0.2);
+    scene.add(candleMeshA, candleMeshB);
+
+    // ---- Tardigrade builder ----------------------------------------------
+    // plump barrel body via LatheGeometry
+    function makeTardigradeBody(color) {
+      const pts = [];
+      // profile from nose (top) to tail (bottom), x = radius, y = length
+      const profile = [
+        [0.05, 0.00],
+        [0.22, 0.05],
+        [0.34, 0.12],
+        [0.42, 0.22],
+        [0.46, 0.35],
+        [0.47, 0.50],
+        [0.46, 0.65],
+        [0.42, 0.78],
+        [0.34, 0.88],
+        [0.22, 0.95],
+        [0.08, 1.00],
+      ];
+      for (const [r, y] of profile) pts.push(new THREE.Vector2(r, y));
+      const geo = new THREE.LatheGeometry(pts, 28);
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.45,
+        metalness: 0.0,
+        transparent: true,
+        opacity: 0.92,
+        emissive: color,
+        emissiveIntensity: 0.05,
+      });
+      return new THREE.Mesh(geo, mat);
+    }
+
+    function makeLeg(color) {
+      // stubby leg: small capsule-ish cylinder + claw tip
+      const g = new THREE.Group();
+      const segGeo = new THREE.CylinderGeometry(0.07, 0.09, 0.18, 10);
+      const segMat = new THREE.MeshStandardMaterial({
+        color, roughness: 0.5, metalness: 0,
+        transparent: true, opacity: 0.92 });
+      const seg = new THREE.Mesh(segGeo, segMat);
+      seg.position.y = -0.09;
+      const foot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.085, 10, 8), segMat);
+      foot.position.y = -0.18;
+      // tiny claws (3 dark cones)
+      const clawMat = new THREE.MeshStandardMaterial({
+        color: '#2a1a08', roughness: 0.4 });
+      for (let i = -1; i <= 1; i++) {
+        const claw = new THREE.Mesh(
+          new THREE.ConeGeometry(0.018, 0.05, 6), clawMat);
+        claw.position.set(i * 0.035, -0.23, 0.04);
+        claw.rotation.x = Math.PI;
+        g.add(claw);
+      }
+      g.add(seg, foot);
+      return g;
+    }
+
+    function makeTardigrade(color, opts = {}) {
+      const group = new THREE.Group();
+      // body lying on its side: rotate so "length" axis = X
+      const body = makeTardigradeBody(color);
+      body.rotation.z = Math.PI / 2; // nose now points +X
+      body.scale.set(1.0, 1.3, 1.0); // stretch along length
+      body.castShadow = true;
+      body.receiveShadow = true;
+      group.add(body);
+
+      // proboscis / snout — a little rounded bump at front
+      const snout = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 14, 10),
+        new THREE.MeshStandardMaterial({
+          color, roughness: 0.5, transparent: true, opacity: 0.95,
+          emissive: color, emissiveIntensity: 0.06 }));
+      snout.scale.set(1.2, 0.9, 0.9);
+      snout.position.set(0.72, 0.02, 0);
+      group.add(snout);
+      // proboscis opening (tiny dark dot)
+      const mouth = new THREE.Mesh(
+        new THREE.CircleGeometry(0.035, 10),
+        new THREE.MeshBasicMaterial({ color: '#3a1a08' }));
+      mouth.position.set(0.83, 0.02, 0);
+      mouth.rotation.y = Math.PI / 2;
+      group.add(mouth);
+
+      // tiny dot eyes
+      const eyeMat = new THREE.MeshBasicMaterial({ color: '#1a0a04' });
+      const eyeL = new THREE.Mesh(
+        new THREE.SphereGeometry(0.024, 8, 6), eyeMat);
+      eyeL.position.set(0.58, 0.16, 0.12);
+      const eyeR = eyeL.clone();
+      eyeR.position.z = -0.12;
+      group.add(eyeL, eyeR);
+
+      // 8 legs — 4 pairs along body (x = -0.35..0.5)
+      const legXs = [-0.35, -0.10, 0.15, 0.40];
+      const legs = [];
+      for (const lx of legXs) {
+        const ll = makeLeg(color);
+        ll.position.set(lx, -0.18, 0.3);
+        ll.rotation.x = -0.2;
+        group.add(ll); legs.push(ll);
+        const lr = makeLeg(color);
+        lr.position.set(lx, -0.18, -0.3);
+        lr.rotation.x = 0.2;
+        group.add(lr); legs.push(lr);
+      }
+      group.userData.legs = legs;
+      group.userData.body = body;
+      group.userData.baseColor = color;
+      group.scale.setScalar(opts.scale || 1);
+      return group;
+    }
+
+    // ---- Create tardigrades ----------------------------------------------
+    // 1. Reader — at the table, reading the open book
+    const reader = makeTardigrade('#a8cde0', { scale: 0.85 });
+    reader.position.set(-1.4, 1.82, 0.3);
+    reader.rotation.y = -0.5;
+    scene.add(reader);
+
+    // 2. Climber — going up the side shelf
+    const climber = makeTardigrade('#f0b8c8', { scale: 0.78 });
+    climber.position.set(-4.6, 1.2, -1.8);
+    climber.rotation.y = -Math.PI / 2;
+    climber.rotation.z = Math.PI / 2; // clinging to vertical surface
+    scene.add(climber);
+
+    // 3. Scribbler — at the table with quill
+    const scribbler = makeTardigrade('#b8e0c0', { scale: 0.82 });
+    scribbler.position.set(1.8, 1.82, 0.2);
+    scribbler.rotation.y = Math.PI + 0.3;
+    scene.add(scribbler);
+    // quill (tiny feather cone) held up
+    const quill = new THREE.Group();
+    const quillStem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.012, 0.012, 0.42, 6),
+      new THREE.MeshStandardMaterial({ color: '#f0e0b0' }));
+    quillStem.position.y = 0.21;
+    const quillTip = new THREE.Mesh(
+      new THREE.ConeGeometry(0.02, 0.05, 6),
+      new THREE.MeshStandardMaterial({ color: '#2a1a08' }));
+    quillTip.position.y = -0.03;
+    // feather: flattened cone
+    const feather = new THREE.Mesh(
+      new THREE.ConeGeometry(0.07, 0.28, 6),
+      new THREE.MeshStandardMaterial({ color: '#e8a868' }));
+    feather.scale.z = 0.25;
+    feather.position.y = 0.35;
+    quill.add(quillStem, quillTip, feather);
+    quill.position.set(1.55, 1.92, 0.1);
+    quill.rotation.z = 0.5;
+    scene.add(quill);
+    // scribbler's paper
+    const paper = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.5, 0.65),
+      new THREE.MeshStandardMaterial({
+        color: '#f4e6c0', roughness: 0.9,
+        emissive: '#3a2a10', emissiveIntensity: 0.08 }));
+    paper.rotation.x = -Math.PI / 2;
+    paper.position.set(1.8, 1.595, 0.55);
+    scene.add(paper);
+
+    // 4. Peerer — with magnifying glass, inspecting something on the table
+    const peerer = makeTardigrade('#e8c898', { scale: 0.8 });
+    peerer.position.set(0.3, 1.82, -0.7);
+    peerer.rotation.y = Math.PI / 2 + 0.2;
+    scene.add(peerer);
+    // magnifying glass
+    const mag = new THREE.Group();
+    const handle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.022, 0.022, 0.42, 8),
+      new THREE.MeshStandardMaterial({ color: '#6b3a1a', roughness: 0.7 }));
+    handle.position.y = -0.21;
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.13, 0.022, 10, 24),
+      new THREE.MeshStandardMaterial({ color: '#c8a048', roughness: 0.3, metalness: 0.8 }));
+    rim.rotation.x = Math.PI / 2;
+    const lens = new THREE.Mesh(
+      new THREE.CircleGeometry(0.12, 24),
+      new THREE.MeshStandardMaterial({
+        color: '#b0d8e8', transparent: true, opacity: 0.35,
+        roughness: 0.1, metalness: 0.3, side: THREE.DoubleSide }));
+    lens.rotation.x = Math.PI / 2;
+    mag.add(handle, rim, lens);
+    mag.position.set(0.55, 1.85, -0.45);
+    mag.rotation.z = -0.7;
+    mag.rotation.x = 0.9;
+    scene.add(mag);
+
+    // 5. Sleeper — on the book stack
+    const sleeper = makeTardigrade('#c8b0e0', { scale: 0.82 });
+    sleeper.position.set(1.7, 2.30, 1.2);
+    sleeper.rotation.y = 0.4;
+    sleeper.rotation.z = -0.08;
+    scene.add(sleeper);
+    // Zzz particles above sleeper
+    const zzzGroup = new THREE.Group();
+    const zzzMat = new THREE.MeshBasicMaterial({
+      color: '#ffe8a0', transparent: true, opacity: 0.8 });
+    const zzzMeshes = [];
+    for (let i = 0; i < 3; i++) {
+      const z = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), zzzMat);
+      z.userData.phase = i * 1.2;
+      zzzGroup.add(z);
+      zzzMeshes.push(z);
+    }
+    zzzGroup.position.set(1.9, 2.6, 1.1);
+    scene.add(zzzGroup);
+
+    // ---- Dust particles (god-ray motes) -----------------------------------
+    const DUST_N = 220;
+    const dustGeo = new THREE.BufferGeometry();
+    const dustPos = new Float32Array(DUST_N * 3);
+    const dustSeed = new Float32Array(DUST_N);
+    for (let i = 0; i < DUST_N; i++) {
+      dustPos[i * 3 + 0] = (Math.random() - 0.5) * 14;
+      dustPos[i * 3 + 1] = 0.5 + Math.random() * 6;
+      dustPos[i * 3 + 2] = (Math.random() - 0.5) * 10;
+      dustSeed[i] = Math.random() * 1000;
+    }
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+    const dustMat = new THREE.PointsMaterial({
+      color: '#ffcc80',
+      size: 0.045,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+    });
+    const dust = new THREE.Points(dustGeo, dustMat);
+    scene.add(dust);
+
+    // ---- Animation loop ---------------------------------------------------
+    const clock = new THREE.Clock();
+    const baseReaderPos = reader.position.clone();
+    const baseClimberY = climber.position.y;
+    const baseSleeperY = sleeper.position.y;
+    const baseQuillRot = quill.rotation.z;
+    const basePeererRot = peerer.rotation.z;
+    const baseMagPos = mag.position.clone();
+
+    function animate() {
+      const t = clock.getElapsedTime();
+      const dt = Math.min(clock.getDelta(), 0.05);
+
+      // -- candle flicker --
+      const f1 = 1 + Math.sin(t * 9.1) * 0.12 + Math.sin(t * 23.7) * 0.06;
+      const f2 = 1 + Math.sin(t * 11.3 + 1.5) * 0.14 + Math.sin(t * 27.1) * 0.05;
+      candleA.intensity = 1.1 * f1;
+      candleB.intensity = 0.9 * f2;
+      key.intensity = 3.2 + Math.sin(t * 3.3) * 0.1;
+      candleMeshA.userData.flame.scale.y = 1.8 * f1;
+      candleMeshB.userData.flame.scale.y = 1.8 * f2;
+      candleMeshA.userData.glow.scale.setScalar(1 + (f1 - 1) * 0.8);
+      candleMeshB.userData.glow.scale.setScalar(1 + (f2 - 1) * 0.8);
+
+      // -- reader: gentle bob + page flip --
+      reader.position.y = baseReaderPos.y + Math.sin(t * 1.8) * 0.015;
+      reader.rotation.x = Math.sin(t * 1.3) * 0.03;
+      // Page flip: every ~5s, quick flip from flat to -PI around X
+      const cycle = (t % 5.0) / 5.0;
+      let flipAngle = 0;
+      if (cycle > 0.82) {
+        const p = (cycle - 0.82) / 0.18; // 0..1
+        flipAngle = -Math.PI * p;
+      }
+      flipPage.rotation.x = -Math.PI / 2 + flipAngle;
+      // gently nudge proboscis toward page
+      reader.rotation.z = -0.05 + Math.sin(t * 1.8) * 0.02;
+
+      // -- climber: slow up/down on shelf --
+      const climbCycle = (Math.sin(t * 0.35) + 1) / 2; // 0..1
+      climber.position.y = 0.8 + climbCycle * 2.8;
+      // tiny wiggle
+      climber.rotation.y = -Math.PI / 2 + Math.sin(t * 2.1) * 0.05;
+      // leg wiggle on climber
+      for (let i = 0; i < climber.userData.legs.length; i++) {
+        climber.userData.legs[i].rotation.x =
+          0.2 * Math.sin(t * 4 + i * 0.6);
+      }
+
+      // -- scribbler: quill writing motion --
+      quill.rotation.z = baseQuillRot + Math.sin(t * 5.5) * 0.15;
+      quill.position.x = 1.55 + Math.sin(t * 5.5) * 0.04;
+      quill.position.z = 0.1 + Math.cos(t * 2.7) * 0.05;
+      scribbler.rotation.z = Math.sin(t * 5.5) * 0.04;
+      scribbler.position.y = 1.82 + Math.sin(t * 2.8) * 0.012;
+
+      // -- peerer: tilt side to side studying --
+      peerer.rotation.z = basePeererRot + Math.sin(t * 1.1) * 0.12;
+      mag.position.x = baseMagPos.x + Math.sin(t * 1.1) * 0.06;
+      mag.position.y = baseMagPos.y + Math.sin(t * 2.2) * 0.02;
+
+      // -- sleeper: breathing --
+      const breath = Math.sin(t * 1.4);
+      sleeper.position.y = baseSleeperY + breath * 0.025;
+      sleeper.userData.body.scale.set(
+        1.0 + breath * 0.03, 1.3, 1.0 + breath * 0.03);
+      // Zzz rise
+      for (let i = 0; i < zzzMeshes.length; i++) {
+        const zi = zzzMeshes[i];
+        const tt = (t * 0.6 + zi.userData.phase) % 3.0;
+        zi.position.y = tt * 0.35;
+        zi.position.x = Math.sin(tt * 1.2 + i) * 0.08;
+        zi.material.opacity = Math.max(0, 0.8 * (1 - tt / 3.0));
+        zi.scale.setScalar(0.6 + tt * 0.3);
+      }
+
+      // -- dust drift --
+      const arr = dustGeo.attributes.position.array;
+      for (let i = 0; i < DUST_N; i++) {
+        const idx = i * 3;
+        arr[idx + 1] += dt * (0.05 + Math.sin(t + dustSeed[i]) * 0.02);
+        arr[idx + 0] += dt * Math.sin(t * 0.3 + dustSeed[i]) * 0.04;
+        if (arr[idx + 1] > 6.5) {
+          arr[idx + 1] = 0.4;
+          arr[idx + 0] = (Math.random() - 0.5) * 14;
+          arr[idx + 2] = (Math.random() - 0.5) * 10;
+        }
+      }
+      dustGeo.attributes.position.needsUpdate = true;
+
+      // very subtle camera breathing
+      camera.position.x = 6.5 + Math.sin(t * 0.3) * 0.08;
+      camera.position.y = 5.2 + Math.sin(t * 0.22) * 0.05;
+      camera.lookAt(0, 1.6, 0);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    // ---- Resize ----------------------------------------------------------
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }, { passive: true });
+
+    // Pause when tab hidden (save GPU)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) clock.stop();
+      else clock.start();
+    });
+  }
+</script>
+</body>
+</html>

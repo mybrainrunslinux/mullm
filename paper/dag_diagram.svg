@@ -1,0 +1,485 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 660" width="920" height="660"
+  font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+  font-size="12">
+
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#0a0f14"/>
+    </linearGradient>
+
+    <!-- Node gradients -->
+    <linearGradient id="genGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a4a8a"/>
+      <stop offset="100%" stop-color="#1a3070"/>
+    </linearGradient>
+    <linearGradient id="checkGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5a2020"/>
+      <stop offset="100%" stop-color="#3d1010"/>
+    </linearGradient>
+    <linearGradient id="oracleGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8a6200"/>
+      <stop offset="100%" stop-color="#604400"/>
+    </linearGradient>
+    <linearGradient id="hintGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a1a7a"/>
+      <stop offset="100%" stop-color="#320f5a"/>
+    </linearGradient>
+    <linearGradient id="successGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a5a2a"/>
+      <stop offset="100%" stop-color="#0f3d1a"/>
+    </linearGradient>
+    <linearGradient id="failGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7a1515"/>
+      <stop offset="100%" stop-color="#540d0d"/>
+    </linearGradient>
+    <linearGradient id="cascadeGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0d3d28"/>
+      <stop offset="100%" stop-color="#0a2d1e"/>
+    </linearGradient>
+    <linearGradient id="chainGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1a2040"/>
+      <stop offset="100%" stop-color="#0f1530"/>
+    </linearGradient>
+
+    <!-- Lane background -->
+    <linearGradient id="laneGrad1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#131922"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+
+    <!-- Arrow markers -->
+    <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#4a90d9"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#e53e3e"/>
+    </marker>
+    <marker id="arrow-gold" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#f0b429"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#9f7aea"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#48bb78"/>
+    </marker>
+    <marker id="arrow-gray" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#8b949e"/>
+    </marker>
+    <marker id="arrow-teal" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#38a169"/>
+    </marker>
+
+    <!-- Glow filter for oracle node -->
+    <filter id="goldGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- BACKGROUND                                                  -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect width="920" height="660" fill="url(#bg)"/>
+
+  <!-- Subtle grid lines -->
+  <g opacity="0.04" stroke="#6e7681" stroke-width="0.5">
+    <line x1="0" y1="90"  x2="920" y2="90"/>
+    <line x1="0" y1="280" x2="920" y2="280"/>
+    <line x1="0" y1="400" x2="920" y2="400"/>
+    <line x1="0" y1="490" x2="920" y2="490"/>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- HEADER                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <text x="460" y="26" text-anchor="middle" fill="#e6edf3" font-size="17" font-weight="700"
+    letter-spacing="0.5">Cyclic Oracle DAG — PR-Gauntlet Harness</text>
+  <text x="460" y="45" text-anchor="middle" fill="#8b949e" font-size="11">
+    N issues execute in parallel lanes · each lane cycles through oracle synthesis and escalating hint injection · up to 4 attempts per issue
+  </text>
+
+  <!-- Thin separator -->
+  <line x1="20" y1="54" x2="900" y2="54" stroke="#21262d" stroke-width="1"/>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- LEGEND                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- Legend items at y=68 -->
+  <g font-size="10.5" fill="#8b949e">
+    <!-- Gen -->
+    <rect x="20"  y="59" width="12" height="12" rx="2" fill="#3182ce"/>
+    <text x="36"  y="70">Generate Test</text>
+    <!-- Check Buggy -->
+    <rect x="140" y="59" width="12" height="12" rx="2" fill="#e53e3e"/>
+    <text x="156" y="70">Check Buggy / Oracle</text>
+    <!-- Hint -->
+    <rect x="305" y="59" width="12" height="12" rx="2" fill="#805ad5"/>
+    <text x="321" y="70">Hint Escalation</text>
+    <!-- Oracle pass -->
+    <rect x="445" y="59" width="12" height="12" rx="2" fill="#f0b429"/>
+    <text x="461" y="70">Oracle ✓</text>
+    <!-- Fail -->
+    <rect x="535" y="59" width="12" height="12" rx="2" fill="#9b2335"/>
+    <text x="551" y="70">Fail</text>
+    <!-- Chain -->
+    <rect x="598" y="59" width="12" height="12" rx="2" fill="#2b4c8c"/>
+    <text x="614" y="70">Chain Issues 16–20</text>
+    <!-- Cascade -->
+    <rect x="748" y="59" width="12" height="12" rx="2" fill="#38a169"/>
+    <text x="764" y="70">Phase 2: Cascade Fix</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- PARALLEL EXECUTION LABEL (left margin)                     -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- Vertical bracket -->
+  <line x1="12" y1="93"  x2="12" y2="395" stroke="#30363d" stroke-width="1.5"/>
+  <line x1="12" y1="93"  x2="18" y2="93"  stroke="#30363d" stroke-width="1.5"/>
+  <line x1="12" y1="395" x2="18" y2="395" stroke="#30363d" stroke-width="1.5"/>
+  <text x="8" y="248" text-anchor="middle" fill="#6e7681" font-size="10" transform="rotate(-90,8,248)"
+    letter-spacing="1">PARALLEL EXECUTION</text>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- DETAILED LANE — Issue #1 (y: 88–272)                       -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="22" y="88" width="878" height="186" rx="6" fill="url(#laneGrad1)" stroke="#21262d" stroke-width="1"/>
+
+  <!-- Lane label -->
+  <text x="32" y="103" fill="#6e7681" font-size="10" font-weight="600" letter-spacing="0.5">ISSUE #01</text>
+  <text x="32" y="116" fill="#4a5568" font-size="9">tier 3 — tab switch preserves unsaved edits</text>
+
+  <!-- ─────── NODE POSITIONS for detailed lane ─────── -->
+  <!--
+    Generate Test:  x=80,  y=132, w=104, h=48  cx=132
+    CheckBuggy:     x=232, y=118, w=104, h=36
+    OracleCheck:    x=232, y=168, w=104, h=36
+    HintCheap:      x=390, y=118, w=108, h=36
+    HintFull:       x=390, y=168, w=108, h=36
+    OracleSuccess:  x=560, y=132, w=104, h=48
+    Fail (max):     x=715, y=132, w=90,  h=48
+    Cycle arrow back from Hint → Generate: bezier
+  -->
+
+  <!-- ATTEMPT BADGE -->
+  <text x="82" y="131" fill="#4a5568" font-size="9" letter-spacing="0.5">ATTEMPT 1–4</text>
+
+  <!-- ── Generate Test node ── -->
+  <rect x="68" y="138" width="112" height="52" rx="5" fill="url(#genGrad)" stroke="#3182ce" stroke-width="1.5"/>
+  <text x="124" y="158" text-anchor="middle" fill="#90cdf4" font-size="11" font-weight="600">Generate Test</text>
+  <text x="124" y="172" text-anchor="middle" fill="#63b3ed" font-size="9">cloud_full LLM</text>
+  <!-- Cost annotation -->
+  <text x="124" y="202" text-anchor="middle" fill="#4a5568" font-size="9" font-family="ui-monospace,'SF Mono',Consolas,monospace">$0.018 / test</text>
+
+  <!-- Arrow: Generate → CheckBuggy (right, upper path) -->
+  <path d="M180,156 L228,148" stroke="#4a90d9" stroke-width="1.5" fill="none" marker-end="url(#arrow-blue)"/>
+
+  <!-- ── Check Buggy node ── -->
+  <rect x="228" y="136" width="112" height="38" rx="4" fill="url(#checkGrad)" stroke="#e53e3e" stroke-width="1.5"/>
+  <text x="284" y="151" text-anchor="middle" fill="#fc8181" font-size="10.5" font-weight="600">Check Buggy</text>
+  <text x="284" y="165" text-anchor="middle" fill="#f56565" font-size="9">run on v1-bugged</text>
+
+  <!-- Arrow: Check Buggy → Oracle Check (down) -->
+  <path d="M284,174 L284,182" stroke="#8b949e" stroke-width="1.2" fill="none" marker-end="url(#arrow-gray)"/>
+
+  <!-- "pass→weak" label above CheckBuggy→Hint path -->
+  <text x="340" y="133" text-anchor="middle" fill="#805ad5" font-size="8.5" font-style="italic">weak (passes buggy)</text>
+  <!-- Arrow: Check Buggy pass (weak) → HintCheap -->
+  <path d="M340,155 L388,130" stroke="#9f7aea" stroke-width="1.2" fill="none" stroke-dasharray="4,3" marker-end="url(#arrow-purple)"/>
+
+  <!-- ── Oracle Check node ── -->
+  <rect x="228" y="182" width="112" height="38" rx="4" fill="url(#checkGrad)" stroke="#e07b00" stroke-width="1.5"/>
+  <text x="284" y="197" text-anchor="middle" fill="#fbd38d" font-size="10.5" font-weight="600">Oracle Check</text>
+  <text x="284" y="211" text-anchor="middle" fill="#f6ad55" font-size="9">run on v0-clean</text>
+  <!-- Cost annotation -->
+  <text x="284" y="232" text-anchor="middle" fill="#4a5568" font-size="9" font-family="ui-monospace,'SF Mono',Consolas,monospace">$0.00 (local exec)</text>
+
+  <!-- "fail→strict" label -->
+  <text x="352" y="215" text-anchor="middle" fill="#805ad5" font-size="8.5" font-style="italic">strict (fails clean)</text>
+  <!-- Arrow: Oracle fail (strict) → HintCheap (both failure modes start at cheap) -->
+  <path d="M340,200 L388,140" stroke="#9f7aea" stroke-width="1.2" fill="none" stroke-dasharray="4,3" marker-end="url(#arrow-purple)"/>
+
+  <!-- Arrow: Oracle pass → OracleSuccess -->
+  <path d="M340,196 L558,164" stroke="#f0b429" stroke-width="2" fill="none" marker-end="url(#arrow-gold)"/>
+  <text x="446" y="189" text-anchor="middle" fill="#f0b429" font-size="9" font-style="italic">passes clean ✓</text>
+
+  <!-- ── Hint Escalation: cheap ── -->
+  <rect x="386" y="118" width="118" height="38" rx="4" fill="url(#hintGrad)" stroke="#805ad5" stroke-width="1.5"/>
+  <text x="445" y="133" text-anchor="middle" fill="#d6bcfa" font-size="10.5" font-weight="600">Hint: Cheap</text>
+  <text x="445" y="147" text-anchor="middle" fill="#b794f4" font-size="9">cloud_cheap · $0.006</text>
+
+  <!-- ── Hint Escalation: full ── -->
+  <rect x="386" y="166" width="118" height="38" rx="4" fill="url(#hintGrad)" stroke="#6b46c1" stroke-width="1.8"/>
+  <text x="445" y="181" text-anchor="middle" fill="#e9d8fd" font-size="10.5" font-weight="600">Hint: Full</text>
+  <text x="445" y="195" text-anchor="middle" fill="#d6bcfa" font-size="9">cloud_full · $0.020</text>
+
+  <!-- Cheap → Full escalation arrow (down, within hint column) -->
+  <path d="M445,156 L445,164" stroke="#6b46c1" stroke-width="1.2" fill="none" marker-end="url(#arrow-purple)"/>
+  <text x="468" y="163" fill="#6b46c1" font-size="8">escalate</text>
+
+  <!-- ── Cycle-back arrow: Hint → Generate Test ── -->
+  <!-- Bezier from hint block right-center back up and left to Generate Test top -->
+  <path d="M504,144 Q560,88 180,152"
+    stroke="#9f7aea" stroke-width="1.5" fill="none" stroke-dasharray="5,3"
+    marker-end="url(#arrow-purple)"/>
+  <text x="530" y="94" text-anchor="middle" fill="#805ad5" font-size="9" font-style="italic">retry w/ hint</text>
+  <text x="530" y="105" text-anchor="middle" fill="#553c7b" font-size="8.5">(max 4 attempts)</text>
+
+  <!-- ── Oracle SUCCESS node ── -->
+  <rect x="556" y="136" width="112" height="52" rx="5" fill="url(#oracleGrad)" stroke="#f0b429" stroke-width="2"/>
+  <text x="612" y="157" text-anchor="middle" fill="#f6e05e" font-size="13" font-weight="700">ORACLE ✓</text>
+  <text x="612" y="172" text-anchor="middle" fill="#ecc94b" font-size="9">test discriminates</text>
+  <text x="612" y="183" text-anchor="middle" fill="#ecc94b" font-size="9">buggy vs clean</text>
+
+  <!-- ── FAIL node (max attempts) ── -->
+  <rect x="716" y="136" width="94" height="52" rx="5" fill="url(#failGrad)" stroke="#9b2335" stroke-width="1.5"/>
+  <text x="763" y="157" text-anchor="middle" fill="#feb2b2" font-size="12" font-weight="700">FAIL</text>
+  <text x="763" y="171" text-anchor="middle" fill="#fc8181" font-size="9">no valid oracle</text>
+  <text x="763" y="182" text-anchor="middle" fill="#f56565" font-size="9">after 4 attempts</text>
+
+  <!-- Arrow: Oracle → FAIL when max attempts -->
+  <path d="M668,162 L714,162" stroke="#e53e3e" stroke-width="1.2" fill="none" stroke-dasharray="4,2" marker-end="url(#arrow-red)"/>
+  <text x="691" y="157" text-anchor="middle" fill="#9b2335" font-size="8.5">4× exhausted</text>
+
+  <!-- (Phase 2 connection shown via "oracles collected" arrow at bottom of chain section) -->
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- COMPRESSED LANES 2–5 (y: 280–395)                          -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Lane 2: Issue #05 — mid-cycle, attempt 1 done, checking oracle -->
+  <rect x="22" y="280" width="878" height="28" rx="4" fill="#0f1622" stroke="#1c2333" stroke-width="1"/>
+  <text x="32" y="298" fill="#6e7681" font-size="9.5" font-weight="600">ISSUE #05</text>
+
+  <!-- State dots: GenDone, CheckBuggyDone, OracleChecking... -->
+  <rect x="130" y="285" width="64" height="18" rx="3" fill="#1a3070" stroke="#3182ce" stroke-width="1"/>
+  <text x="162" y="297" text-anchor="middle" fill="#90cdf4" font-size="8.5">Gen ✓</text>
+
+  <path d="M194,294 L204,294" stroke="#4a90d9" stroke-width="1" fill="none" marker-end="url(#arrow-blue)"/>
+
+  <rect x="204" y="285" width="72" height="18" rx="3" fill="#3d1010" stroke="#e53e3e" stroke-width="1"/>
+  <text x="240" y="297" text-anchor="middle" fill="#fc8181" font-size="8.5">Buggy ✓</text>
+
+  <path d="M276,294 L286,294" stroke="#8b949e" stroke-width="1" fill="none" marker-end="url(#arrow-gray)"/>
+
+  <!-- Oracle checking (active — pulsing outline simulated with thicker stroke) -->
+  <rect x="286" y="283" width="84" height="22" rx="3" fill="#604400" stroke="#f0b429" stroke-width="2"/>
+  <text x="328" y="298" text-anchor="middle" fill="#fbd38d" font-size="8.5" font-weight="600">Oracle… ⟳</text>
+
+  <text x="480" y="298" fill="#4a5568" font-size="9" font-style="italic">attempt 1 / 4 · waiting for result</text>
+
+  <!-- Lane 3: Issue #08 — hint injected, retry in progress -->
+  <rect x="22" y="312" width="878" height="28" rx="4" fill="#0f1622" stroke="#1c2333" stroke-width="1"/>
+  <text x="32" y="330" fill="#6e7681" font-size="9.5" font-weight="600">ISSUE #08</text>
+
+  <rect x="130" y="317" width="64" height="18" rx="3" fill="#1a3070" stroke="#3182ce" stroke-width="1"/>
+  <text x="162" y="329" text-anchor="middle" fill="#90cdf4" font-size="8.5">Gen ✓</text>
+  <path d="M194,326 L204,326" stroke="#4a90d9" stroke-width="1" fill="none" marker-end="url(#arrow-blue)"/>
+
+  <rect x="204" y="317" width="72" height="18" rx="3" fill="#3d1010" stroke="#9b2335" stroke-width="1"/>
+  <text x="240" y="329" text-anchor="middle" fill="#f56565" font-size="8.5">Buggy ✗</text>
+  <path d="M276,326 L286,326" stroke="#9f7aea" stroke-width="1" fill="none" stroke-dasharray="3,2" marker-end="url(#arrow-purple)"/>
+
+  <rect x="286" y="315" width="74" height="22" rx="3" fill="#320f5a" stroke="#805ad5" stroke-width="1.5"/>
+  <text x="323" y="330" text-anchor="middle" fill="#d6bcfa" font-size="8.5">Hint ✓</text>
+  <path d="M360,326 L372,326" stroke="#9f7aea" stroke-width="1" fill="none" stroke-dasharray="3,2" marker-end="url(#arrow-purple)"/>
+
+  <!-- Retry arrow looping back -->
+  <rect x="372" y="315" width="80" height="22" rx="3" fill="#1a3070" stroke="#3182ce" stroke-width="1.5"/>
+  <text x="412" y="330" text-anchor="middle" fill="#90cdf4" font-size="8.5" font-weight="600">Gen… ⟳</text>
+
+  <text x="580" y="330" fill="#4a5568" font-size="9" font-style="italic">attempt 2 / 4 · hint injected</text>
+
+  <!-- Lane 4: Issue #12 — oracle SUCCESS -->
+  <rect x="22" y="344" width="878" height="28" rx="4" fill="#0f1622" stroke="#1c2333" stroke-width="1"/>
+  <text x="32" y="362" fill="#6e7681" font-size="9.5" font-weight="600">ISSUE #12</text>
+
+  <rect x="130" y="349" width="56" height="18" rx="3" fill="#1a3070" stroke="#3182ce" stroke-width="1"/>
+  <text x="158" y="361" text-anchor="middle" fill="#90cdf4" font-size="8.5">Gen ✓</text>
+  <path d="M186,358 L196,358" stroke="#4a90d9" stroke-width="1" fill="none" marker-end="url(#arrow-blue)"/>
+
+  <rect x="196" y="349" width="64" height="18" rx="3" fill="#3d1010" stroke="#e53e3e" stroke-width="1"/>
+  <text x="228" y="361" text-anchor="middle" fill="#fc8181" font-size="8.5">Buggy ✓</text>
+  <path d="M260,358 L270,358" stroke="#8b949e" stroke-width="1" fill="none" marker-end="url(#arrow-gray)"/>
+
+  <rect x="270" y="349" width="72" height="18" rx="3" fill="#604400" stroke="#f0b429" stroke-width="1"/>
+  <text x="306" y="361" text-anchor="middle" fill="#fbd38d" font-size="8.5">Oracle ✓</text>
+  <path d="M342,358 L354,358" stroke="#f0b429" stroke-width="1.5" fill="none" marker-end="url(#arrow-gold)"/>
+
+  <!-- Gold success badge -->
+  <rect x="354" y="347" width="90" height="22" rx="4" fill="#604400" stroke="#f0b429" stroke-width="2"/>
+  <text x="399" y="362" text-anchor="middle" fill="#f6e05e" font-size="9.5" font-weight="700">ORACLE ✓</text>
+
+  <text x="574" y="362" fill="#38a169" font-size="9" font-weight="600">resolved · attempt 1</text>
+
+  <!-- Lane 5: Issue #15 — escalated to full hint, attempt 3 -->
+  <rect x="22" y="376" width="878" height="28" rx="4" fill="#0f1622" stroke="#1c2333" stroke-width="1"/>
+  <text x="32" y="394" fill="#6e7681" font-size="9.5" font-weight="600">ISSUE #15</text>
+
+  <rect x="130" y="381" width="56" height="18" rx="3" fill="#1a3070" stroke="#3182ce" stroke-width="1"/>
+  <text x="158" y="393" text-anchor="middle" fill="#90cdf4" font-size="8.5">Gen ✓</text>
+  <path d="M186,390 L196,390" stroke="#4a90d9" stroke-width="1" fill="none" marker-end="url(#arrow-blue)"/>
+
+  <rect x="196" y="381" width="60" height="18" rx="3" fill="#3d1010" stroke="#e53e3e" stroke-width="1"/>
+  <text x="226" y="393" text-anchor="middle" fill="#fc8181" font-size="8.5">Buggy ✗</text>
+  <path d="M256,390 L266,390" stroke="#9f7aea" stroke-width="1" fill="none" stroke-dasharray="3,2" marker-end="url(#arrow-purple)"/>
+
+  <rect x="266" y="381" width="64" height="18" rx="3" fill="#320f5a" stroke="#805ad5" stroke-width="1"/>
+  <text x="298" y="393" text-anchor="middle" fill="#d6bcfa" font-size="8.5">Cheap ✓</text>
+  <path d="M330,390 L340,390" stroke="#6b46c1" stroke-width="1" fill="none" stroke-dasharray="3,2" marker-end="url(#arrow-purple)"/>
+
+  <!-- Full hint (escalated) -->
+  <rect x="340" y="379" width="66" height="22" rx="3" fill="#320f5a" stroke="#6b46c1" stroke-width="2"/>
+  <text x="373" y="394" text-anchor="middle" fill="#e9d8fd" font-size="8.5" font-weight="600">Full… ⟳</text>
+
+  <text x="560" y="394" fill="#4a5568" font-size="9" font-style="italic">attempt 3 / 4 · escalated to cloud_full hint</text>
+
+  <!-- "..." to suggest more lanes -->
+  <text x="32" y="412" fill="#30363d" font-size="11" font-weight="600" letter-spacing="2">· · ·  issues 2–4, 6–11, 13–14 running concurrently (not shown)</text>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- CHAIN BUNDLE — Issues 16–20 (y: 422–488)                  -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="22" y="422" width="878" height="80" rx="6" fill="url(#chainGrad)" stroke="#2b4c8c" stroke-width="1.5"/>
+
+  <!-- Chain label -->
+  <text x="32" y="440" fill="#7090d0" font-size="10" font-weight="700" letter-spacing="0.5">CHAIN ISSUES 16–20  (pre-existing test suite · cascade dependency)</text>
+
+  <!-- Chain: issue sub-rows -->
+  <!-- Row 1: #16 chain-stats -->
+  <rect x="32" y="445" width="145" height="15" rx="3" fill="#1a2a50" stroke="#2b4c8c" stroke-width="1"/>
+  <text x="35" y="456" fill="#7090d0" font-size="8.5">#16 Stats compute once per event</text>
+
+  <!-- Row 2: #17 chain-race -->
+  <rect x="32" y="462" width="145" height="15" rx="3" fill="#1a2a50" stroke="#2b4c8c" stroke-width="1"/>
+  <text x="35" y="473" fill="#7090d0" font-size="8.5">#17 Rapid moves → last column</text>
+
+  <!-- dependency arrows between chain issues — cascade -->
+  <!-- Single shared fix bar -->
+  <rect x="190" y="448" width="180" height="29" rx="4" fill="#0f3d1a" stroke="#38a169" stroke-width="1.5"/>
+  <text x="280" y="460" text-anchor="middle" fill="#9ae6b4" font-size="10" font-weight="600">useSubscription Fix</text>
+  <text x="280" y="473" text-anchor="middle" fill="#68d391" font-size="8.5">cleanup + stableRef + deps=[topic]</text>
+
+  <!-- Cascade flow arrows from fix -->
+  <path d="M370,452 L400,447" stroke="#38a169" stroke-width="1.2" fill="none" marker-end="url(#arrow-teal)"/>
+  <path d="M370,458 L400,458" stroke="#38a169" stroke-width="1.2" fill="none" marker-end="url(#arrow-teal)"/>
+  <path d="M370,464 L400,469" stroke="#38a169" stroke-width="1.2" fill="none" marker-end="url(#arrow-teal)"/>
+  <path d="M370,470 L400,480" stroke="#38a169" stroke-width="1.2" fill="none" marker-end="url(#arrow-teal)"/>
+  <path d="M370,476 L400,491" stroke="#38a169" stroke-width="1.2" fill="none" marker-end="url(#arrow-teal)"/>
+
+  <!-- Issue pass badges (cascade result) -->
+  <rect x="400" y="442" width="70" height="13" rx="2" fill="#1a5a2a" stroke="#38a169" stroke-width="1"/>
+  <text x="435" y="452" text-anchor="middle" fill="#9ae6b4" font-size="8">#16 PASS ✓</text>
+
+  <rect x="400" y="456" width="70" height="13" rx="2" fill="#1a5a2a" stroke="#38a169" stroke-width="1"/>
+  <text x="435" y="466" text-anchor="middle" fill="#9ae6b4" font-size="8">#17 PASS ✓</text>
+
+  <rect x="400" y="470" width="70" height="13" rx="2" fill="#1a5a2a" stroke="#38a169" stroke-width="1"/>
+  <text x="435" y="480" text-anchor="middle" fill="#9ae6b4" font-size="8">#18 PASS ✓</text>
+
+  <rect x="400" y="484" width="70" height="13" rx="2" fill="#1a5a2a" stroke="#38a169" stroke-width="1"/>
+  <text x="435" y="494" text-anchor="middle" fill="#9ae6b4" font-size="8">#19 PASS ✓</text>
+
+  <rect x="400" y="498" width="70" height="13" rx="2" fill="#1a5a2a" stroke="#38a169" stroke-width="1"/>
+  <text x="435" y="508" text-anchor="middle" fill="#9ae6b4" font-size="8">#20 PASS ✓</text>
+
+  <!-- Chain bonus badge -->
+  <rect x="490" y="453" width="100" height="30" rx="4" fill="#0a3d22" stroke="#f0b429" stroke-width="2"/>
+  <text x="540" y="465" text-anchor="middle" fill="#f6e05e" font-size="10" font-weight="700">+10 BONUS</text>
+  <text x="540" y="477" text-anchor="middle" fill="#ecc94b" font-size="8.5">root cause solved</text>
+
+  <!-- Chain description -->
+  <text x="610" y="458" fill="#4a5568" font-size="9">Single root bug in</text>
+  <text x="610" y="470" fill="#7090d0" font-size="9" font-weight="600">useSubscription.ts</text>
+  <text x="610" y="482" fill="#4a5568" font-size="9">cascades through 5 issues</text>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- PHASE 2 CASCADE FIX (y: 510–560)                           -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="22" y="510" width="878" height="52" rx="6" fill="url(#cascadeGrad)" stroke="#38a169" stroke-width="1.5"/>
+
+  <!-- Phase 2 arrow entry from oracle results above -->
+  <path d="M460,488 L460,508" stroke="#38a169" stroke-width="1.5" fill="none" marker-end="url(#arrow-teal)"/>
+  <text x="468" y="505" fill="#38a169" font-size="8.5" font-style="italic">oracles collected</text>
+
+  <text x="32" y="528" fill="#68d391" font-size="10" font-weight="700" letter-spacing="0.5">PHASE 2 — CASCADE FIX</text>
+  <text x="32" y="543" fill="#4a7a5a" font-size="9">muLLM cloud_full receives all oracle tests + failing issues as a single context · generates unified fix · scorer validates all 20 issues</text>
+
+  <!-- Phase 2 sub-steps -->
+  <rect x="260" y="516" width="100" height="24" rx="3" fill="#0f3d28" stroke="#38a169" stroke-width="1.2"/>
+  <text x="310" y="532" text-anchor="middle" fill="#9ae6b4" font-size="9.5" font-weight="600">Collect Oracles</text>
+
+  <path d="M360,528 L374,528" stroke="#38a169" stroke-width="1.2" fill="none" marker-end="url(#arrow-teal)"/>
+
+  <rect x="374" y="516" width="100" height="24" rx="3" fill="#0f3d28" stroke="#38a169" stroke-width="1.2"/>
+  <text x="424" y="532" text-anchor="middle" fill="#9ae6b4" font-size="9.5" font-weight="600">Generate Fix</text>
+
+  <path d="M474,528 L488,528" stroke="#38a169" stroke-width="1.2" fill="none" marker-end="url(#arrow-teal)"/>
+
+  <rect x="488" y="516" width="100" height="24" rx="3" fill="#0f3d28" stroke="#38a169" stroke-width="1.2"/>
+  <text x="538" y="532" text-anchor="middle" fill="#9ae6b4" font-size="9.5" font-weight="600">Apply Patch</text>
+
+  <path d="M588,528 L602,528" stroke="#38a169" stroke-width="1.2" fill="none" marker-end="url(#arrow-teal)"/>
+
+  <rect x="602" y="516" width="104" height="24" rx="3" fill="#1a5a2a" stroke="#f0b429" stroke-width="2"/>
+  <text x="654" y="532" text-anchor="middle" fill="#f6e05e" font-size="9.5" font-weight="700">Score 20/20</text>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- COST SUMMARY BAR (y: 574–640)                              -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <line x1="20" y1="573" x2="900" y2="573" stroke="#21262d" stroke-width="1"/>
+
+  <text x="32" y="592" fill="#6e7681" font-size="10" font-weight="600" letter-spacing="0.5">COST BUDGET PER ISSUE  ·  worst case (4 attempts, full escalation)</text>
+
+  <!-- Cost breakdown inline -->
+  <g font-size="9.5" font-family="ui-monospace,'SF Mono',Consolas,monospace">
+    <rect x="32"  y="600" width="130" height="18" rx="2" fill="#161b22" stroke="#21262d" stroke-width="1"/>
+    <text x="38"  y="613" fill="#90cdf4">4 × Gen:     $0.072</text>
+
+    <rect x="174" y="600" width="130" height="18" rx="2" fill="#161b22" stroke="#21262d" stroke-width="1"/>
+    <text x="180" y="613" fill="#d6bcfa">3 × Cheap:  $0.018</text>
+
+    <rect x="316" y="600" width="130" height="18" rx="2" fill="#161b22" stroke="#21262d" stroke-width="1"/>
+    <text x="322" y="613" fill="#e9d8fd">3 × Full:    $0.060</text>
+
+    <rect x="458" y="600" width="130" height="18" rx="2" fill="#161b22" stroke="#21262d" stroke-width="1"/>
+    <text x="464" y="613" fill="#4a5568">Exec:       $0.000</text>
+
+    <rect x="600" y="600" width="130" height="18" rx="2" fill="#1a3a1a" stroke="#38a169" stroke-width="1"/>
+    <text x="606" y="613" fill="#9ae6b4">Max / issue: $0.150</text>
+
+    <rect x="742" y="600" width="160" height="18" rx="2" fill="#604400" stroke="#f0b429" stroke-width="1"/>
+    <text x="748" y="613" fill="#f6e05e">Avg / issue: ~$0.032</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- ATTEMPT COUNTER (right margin of detailed lane)            -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <text x="852" y="130" text-anchor="middle" fill="#4a5568" font-size="9" font-weight="600" letter-spacing="0.5">ATTEMPTS</text>
+  <!-- Attempt dots -->
+  <circle cx="836" cy="148" r="6" fill="#3182ce" opacity="0.9"/>
+  <text x="836" y="152" text-anchor="middle" fill="#fff" font-size="8" font-weight="700">1</text>
+  <circle cx="852" cy="148" r="6" fill="#3182ce" opacity="0.7"/>
+  <text x="852" y="152" text-anchor="middle" fill="#fff" font-size="8">2</text>
+  <circle cx="868" cy="148" r="6" fill="#3182ce" opacity="0.4"/>
+  <text x="868" y="152" text-anchor="middle" fill="#fff" font-size="8">3</text>
+  <circle cx="884" cy="148" r="6" fill="#9b2335" opacity="0.5"/>
+  <text x="884" y="152" text-anchor="middle" fill="#fff" font-size="8">4</text>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- ORACLE VALIDITY ANNOTATION                                  -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- Brace / callout showing the two-check requirement -->
+  <rect x="822" y="198" width="88" height="54" rx="4" fill="#161b22" stroke="#21262d" stroke-width="1"/>
+  <text x="866" y="212" text-anchor="middle" fill="#8b949e" font-size="8.5" font-weight="600">ORACLE VALID IFF</text>
+  <text x="866" y="224" text-anchor="middle" fill="#e53e3e" font-size="8.5">buggy ⟹ FAIL</text>
+  <text x="866" y="236" text-anchor="middle" fill="#8b949e" font-size="8">∧</text>
+  <text x="866" y="248" text-anchor="middle" fill="#f0b429" font-size="8.5">clean  ⟹ PASS</text>
+  <!-- ORACLE VALID IFF annotation is self-contained; no connector needed -->
+
+</svg>

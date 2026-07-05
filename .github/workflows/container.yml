@@ -1,0 +1,39 @@
+name: Container
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - compose.test.yml
+      - pyproject.toml
+      - constraints.txt
+      - router/**
+      - tests/test_cli_container.py
+      - scripts/podman-smoke.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  podman-smoke:
+    name: Podman smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build and smoke test
+        run: bash scripts/podman-smoke.sh
+

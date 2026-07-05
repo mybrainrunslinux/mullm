@@ -1,0 +1,1407 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>muLLM — Terminal Bench</title>
+  <meta name="description" content="Terminal-Bench style agentic task execution results: groundtruth, local model, cloud escalation, real shell via tmux." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset ─────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── Design tokens ─────────────────────────── */
+    :root {
+      /* Canonical tokens from spec */
+      --bg:      #0a0e1a;
+      --surface: #141828;
+      --border:  #2a3050;
+      --gold:    #c9a84c;
+      --text:    #e8eaf0;
+
+      /* Derived tokens for depth and states */
+      --bg2:     #101624;
+      --bg3:     #182035;
+      --bg4:     #1e2840;
+      --border2: #3a4060;
+      --text2:   #8890a8;
+      --text3:   #525870;
+
+      /* Semantic palette */
+      --teal:    #14b8a6;
+      --amber:   #f59e0b;
+      --green:   #22c55e;
+      --blue:    #3b82f6;
+      --coral:   #ef6c4c;
+      --purple:  #a78bfa;
+      --red:     #ef4444;
+
+      /* Source badge colors */
+      --c-groundtruth: var(--gold);
+      --c-local:       var(--teal);
+      --c-cloud:       var(--amber);
+      --c-failed:      var(--coral);
+
+      /* Glows */
+      --glow-gold: 0 0 20px rgba(201,168,76,0.25);
+      --glow-t:    0 0 16px rgba(20,184,166,0.18);
+      --glow-a:    0 0 16px rgba(245,158,11,0.15);
+      --glow-g:    0 0 16px rgba(34,197,94,0.18);
+
+      --mono:   "JetBrains Mono", "Fira Code", "Courier New", monospace;
+      --radius: 6px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    /* ── Base ───────────────────────────────────── */
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── Layout ─────────────────────────────────── */
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 5rem;
+    }
+
+    /* ── Nav / back link ────────────────────────── */
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+      padding-bottom: 1.1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text2);
+      text-decoration: none;
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: border-color 0.15s, color 0.15s;
+      min-height: 44px;
+    }
+    .nav-back:hover { border-color: var(--border2); color: var(--text); }
+    .nav-back:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .nav-title {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--text2);
+    }
+    .nav-logo {
+      margin-left: auto;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--teal);
+      text-decoration: none;
+      text-shadow: var(--glow-t);
+    }
+
+    /* ── Hero ───────────────────────────────────── */
+    .hero {
+      text-align: center;
+      margin-bottom: 2.25rem;
+      padding: 2rem 1rem 1.75rem;
+      background: linear-gradient(180deg, rgba(201,168,76,0.06) 0%, transparent 100%);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(201,168,76,0.10), transparent);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      margin-bottom: 0.6rem;
+      opacity: 0.8;
+    }
+    .hero-title {
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--gold) 0%, #e8c96a 50%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: none;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 0.65rem;
+    }
+    .hero-sub {
+      font-size: 0.84rem;
+      color: var(--text2);
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+    .hero-pipeline {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .pipeline-step {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .pipeline-step.gt     { background: rgba(201,168,76,0.15); color: var(--gold);  border: 1px solid rgba(201,168,76,0.30); }
+    .pipeline-step.local  { background: rgba(20,184,166,0.12); color: var(--teal);  border: 1px solid rgba(20,184,166,0.25); }
+    .pipeline-step.cloud  { background: rgba(245,158,11,0.12); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+    .pipeline-step.bash   { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+    .pipeline-step:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+    .pipeline-arrow {
+      color: var(--text3);
+      font-size: 0.7rem;
+    }
+
+    /* ── Stat cards ─────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 560px) {
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .stat-card:hover { border-color: var(--border2); }
+    .stat-card.highlight {
+      border-color: rgba(201,168,76,0.40);
+      background: linear-gradient(135deg, rgba(201,168,76,0.07) 0%, var(--surface) 60%);
+    }
+    .stat-card.highlight::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .stat-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      margin-bottom: 0.35rem;
+    }
+    .stat-value {
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--teal);
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-value.gold   { color: var(--gold);  text-shadow: var(--glow-gold); }
+    .stat-value.green  { color: var(--green); text-shadow: var(--glow-g); }
+    .stat-value.amber  { color: var(--amber); }
+    .stat-meta {
+      font-size: 0.7rem;
+      color: var(--text3);
+      margin-top: 0.25rem;
+    }
+
+    /* ── Section headers ────────────────────────── */
+    .section-hdr {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .section-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Live run panel ─────────────────────────── */
+    .live-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .live-panel-hdr {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+    }
+    .live-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px rgba(34,197,94,0.6);
+      flex-shrink: 0;
+    }
+    .live-dot.inactive {
+      background: var(--text3);
+      box-shadow: none;
+    }
+    @keyframes live-pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(34,197,94,0.6); }
+      50%       { opacity: 0.5; box-shadow: 0 0 2px rgba(34,197,94,0.2); }
+    }
+    .live-dot.active-run {
+      animation: live-pulse 1.4s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .live-dot.active-run { animation: none; }
+    }
+    .live-label {
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--text);
+      flex: 1;
+    }
+    .live-task-name {
+      font-size: 0.72rem;
+      color: var(--text2);
+    }
+    .live-turn-badge {
+      font-size: 0.66rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      background: rgba(20,184,166,0.12);
+      color: var(--teal);
+      border: 1px solid rgba(20,184,166,0.25);
+    }
+    .live-terminal {
+      background: #050810;
+      font-family: var(--mono);
+      font-size: 0.74rem;
+      line-height: 1.55;
+      padding: 0.85rem 1rem;
+      min-height: 110px;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #c0d0b0;
+    }
+    .live-terminal .t-prompt {
+      color: var(--teal);
+      font-weight: 600;
+    }
+    .live-terminal .t-cmd {
+      color: #e8eaf0;
+    }
+    .live-terminal .t-output {
+      color: #7a8a6a;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .live-terminal .t-placeholder {
+      color: var(--text3);
+      font-style: italic;
+    }
+    .live-panel-footer {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 1rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg2);
+      flex-wrap: wrap;
+    }
+    .live-panel-footer .live-stat {
+      font-size: 0.7rem;
+      color: var(--text3);
+    }
+    .live-panel-footer .live-stat strong {
+      color: var(--text2);
+    }
+
+    /* ── No-run placeholder ─────────────────────── */
+    .no-run-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.85rem;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: var(--text3);
+      font-size: 0.82rem;
+    }
+    .no-run-icon {
+      font-size: 2rem;
+      line-height: 1;
+      opacity: 0.5;
+    }
+    .no-run-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text2);
+    }
+
+    /* ── Controls ───────────────────────────────── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .filter-group {
+      display: flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 0.5rem 0.85rem;
+      font-family: var(--mono);
+      font-size: 0.74rem;
+      font-weight: 600;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--text2);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      letter-spacing: 0.03em;
+      min-height: 44px;
+    }
+    .filter-btn:last-child { border-right: none; }
+    .filter-btn:hover { background: var(--bg3); color: var(--text); }
+    .filter-btn.active { background: var(--bg4); color: var(--gold); }
+    .filter-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+    .filter-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.74rem;
+      padding: 0.5rem 0.8rem;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    .filter-select:focus { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.5rem 1.1rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s, box-shadow 0.15s, transform 0.1s;
+      min-height: 44px;
+      text-decoration: none;
+    }
+    .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .btn:active { transform: scale(0.97); }
+    .btn-run {
+      background: var(--teal);
+      color: #080c14;
+    }
+    .btn-run:hover:not(:disabled) { box-shadow: var(--glow-t); opacity: 0.90; }
+    .btn-run:disabled { opacity: 0.40; cursor: not-allowed; }
+    .btn-copy {
+      background: var(--bg3);
+      color: var(--amber);
+      border: 1px solid var(--border2);
+    }
+    .btn-copy:hover:not(:disabled) { box-shadow: var(--glow-a); }
+    .btn-copy:disabled { opacity: 0.40; cursor: not-allowed; }
+    .ml-auto { margin-left: auto; }
+
+    /* ── Results table ───────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 1.5rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      background: var(--bg3);
+      padding: 0.6rem 0.85rem;
+      text-align: left;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    thead th.th-center { text-align: center; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.28s ease, transform 0.28s ease, background 0.15s;
+      position: relative;
+    }
+    tbody tr.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--bg2); }
+
+    /* Solved/failed left border via box-shadow trick */
+    tbody tr.row-solved {
+      box-shadow: inset 3px 0 0 rgba(34,197,94,0.45);
+    }
+    tbody tr.row-failed {
+      box-shadow: inset 3px 0 0 rgba(239,108,76,0.45);
+    }
+
+    tbody td {
+      padding: 0.6rem 0.85rem;
+      font-size: 0.79rem;
+      color: var(--text2);
+      vertical-align: middle;
+    }
+    .td-num {
+      font-weight: 600;
+      color: var(--text3);
+      font-size: 0.72rem;
+    }
+    .td-name {
+      font-weight: 500;
+      color: var(--text);
+      max-width: 260px;
+    }
+    .td-name-inner {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .td-category {
+      font-size: 0.72rem;
+      color: var(--text3);
+      white-space: nowrap;
+    }
+    .td-turns { text-align: center; color: var(--text2); }
+    .td-solved { text-align: center; font-size: 1rem; }
+    .td-solved .icon-pass { color: var(--green); }
+    .td-solved .icon-fail { color: var(--coral); }
+    .td-cost { color: var(--text3); white-space: nowrap; }
+    .td-cost.nonzero { color: var(--amber); }
+    .td-time { color: var(--text2); white-space: nowrap; }
+    .td-time.fast { color: var(--green); }
+    .td-time.mid  { color: var(--amber); }
+    .td-time.slow { color: var(--coral); }
+
+    /* ── Badges ──────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      font-size: 0.67rem;
+      font-weight: 700;
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+    .badge-groundtruth {
+      background: linear-gradient(90deg, rgba(201,168,76,0.22), rgba(201,168,76,0.10));
+      color: var(--gold);
+      border: 1px solid rgba(201,168,76,0.45);
+      text-shadow: 0 0 8px rgba(201,168,76,0.40);
+    }
+    .badge-local {
+      background: rgba(20,184,166,0.12);
+      color: var(--teal);
+      border: 1px solid rgba(20,184,166,0.25);
+    }
+    .badge-cloud {
+      background: rgba(245,158,11,0.12);
+      color: var(--amber);
+      border: 1px solid rgba(245,158,11,0.25);
+    }
+    .badge-failed {
+      background: rgba(239,108,76,0.12);
+      color: var(--coral);
+      border: 1px solid rgba(239,108,76,0.25);
+    }
+
+    /* ── Tooltip (hover on badge) ─────────────────── */
+    [data-tip] { position: relative; }
+    [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg4);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.68rem;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 20;
+    }
+    [data-tip]:hover::after,
+    [data-tip]:focus::after { opacity: 1; }
+
+    /* ── Score card ─────────────────────────────── */
+    .score-card {
+      background: var(--surface);
+      border: 1px solid rgba(201,168,76,0.35);
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .score-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 60% at 50% 100%, rgba(201,168,76,0.07), transparent);
+      pointer-events: none;
+    }
+    .score-card-top {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .score-big {
+      font-size: clamp(2rem, 6vw, 3.25rem);
+      font-weight: 700;
+      color: var(--gold);
+      text-shadow: var(--glow-gold);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .score-info { flex: 1; }
+    .score-sub {
+      font-size: 0.78rem;
+      color: var(--text2);
+      margin-bottom: 0.2rem;
+    }
+    .score-pct-badge {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--green);
+      background: rgba(34,197,94,0.10);
+      border: 1px solid rgba(34,197,94,0.28);
+      border-radius: 6px;
+      padding: 0.3em 0.8em;
+      text-shadow: var(--glow-g);
+      white-space: nowrap;
+    }
+    .score-breakdown {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.65rem;
+    }
+    .breakdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.6rem 0.85rem;
+    }
+    .breakdown-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .breakdown-dot.gt     { background: var(--gold); }
+    .breakdown-dot.local  { background: var(--teal); }
+    .breakdown-dot.cloud  { background: var(--amber); }
+    .breakdown-dot.failed { background: var(--coral); }
+    .breakdown-label {
+      font-size: 0.7rem;
+      color: var(--text3);
+      flex: 1;
+    }
+    .breakdown-count {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* ── Cost breakdown ─────────────────────────── */
+    .cost-breakdown {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem;
+      color: var(--text3);
+    }
+    .cost-breakdown strong { color: var(--amber); }
+    .cost-pill {
+      background: rgba(245,158,11,0.10);
+      border: 1px solid rgba(245,158,11,0.20);
+      border-radius: 3px;
+      padding: 0.1rem 0.45rem;
+      color: var(--amber);
+      font-weight: 600;
+    }
+
+    /* ── Empty / no-data states ─────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 3.5rem 1.5rem;
+      color: var(--text3);
+    }
+    .empty-state .e-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.85rem;
+      display: block;
+      opacity: 0.5;
+    }
+    .empty-state .e-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 0.5rem;
+    }
+    .empty-state .e-body {
+      font-size: 0.8rem;
+      line-height: 1.7;
+      max-width: 420px;
+      margin: 0 auto 1.25rem;
+    }
+    .empty-state .e-cost-hint {
+      display: inline-flex;
+      gap: 0.5rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.6rem 1rem;
+      font-size: 0.74rem;
+      color: var(--text2);
+      margin-bottom: 1.25rem;
+    }
+    .empty-state .e-cost-hint strong { color: var(--amber); }
+
+    /* ── Loading spinner ────────────────────────── */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+
+    /* ── Fetch error banner ─────────────────────── */
+    .error-banner {
+      background: rgba(239,108,76,0.08);
+      border: 1px solid rgba(239,108,76,0.30);
+      border-left: 3px solid var(--coral);
+      border-radius: var(--radius);
+      padding: 0.7rem 1rem;
+      font-size: 0.76rem;
+      color: var(--coral);
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .error-banner.visible { display: block; }
+
+    /* ── Footer ─────────────────────────────────── */
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.7rem;
+      color: var(--text3);
+      text-align: center;
+      line-height: 1.8;
+    }
+    footer a { color: var(--text2); text-decoration: none; }
+    footer a:hover { color: var(--gold); }
+
+    /* ── Run ID / Meta bar ──────────────────────── */
+    .meta-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+      padding: 0.65rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.72rem;
+      color: var(--text3);
+    }
+    .meta-bar .meta-item strong { color: var(--text2); }
+    .meta-bar .meta-sep {
+      color: var(--border2);
+      user-select: none;
+    }
+
+    /* ── Animations on load ─────────────────────── */
+    @keyframes fade-in-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero         { animation: fade-in-up 0.4s ease both; }
+    .stats-grid   { animation: fade-in-up 0.4s 0.1s ease both; }
+
+    /* ── Responsive tightening ──────────────────── */
+    @media (max-width: 600px) {
+      .page { padding: 1.25rem 0.85rem 4rem; }
+      .hero { padding: 1.5rem 0.85rem 1.25rem; }
+      .score-card { padding: 1rem 1rem; }
+      .score-big { font-size: 2rem; }
+      .td-name { max-width: 140px; }
+    }
+  </style>
+</head>
+<body>
+<main class="page">
+
+  <!-- Nav -->
+  <nav class="nav" aria-label="Breadcrumb">
+    <a href="/bench" class="nav-back" aria-label="Back to MegaBench">
+      &larr; MegaBench
+    </a>
+    <span class="nav-title" aria-current="page">Terminal Bench</span>
+    <a href="/" class="nav-logo" aria-label="muLLM home">muLLM</a>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" aria-labelledby="hero-heading">
+    <p class="hero-eyebrow" aria-hidden="true">Stanford Terminal-Bench style</p>
+    <h1 id="hero-heading" class="hero-title">Terminal Bench</h1>
+    <p class="hero-sub">
+      Real agentic task execution — groundtruth &rarr; local model &rarr; cloud.
+      No faking it.
+    </p>
+    <div class="hero-pipeline" role="list" aria-label="Execution pipeline">
+      <span class="pipeline-step gt" role="listitem" tabindex="0" data-tip="Instant $0 groundtruth lookup">Groundtruth</span>
+      <span class="pipeline-arrow" aria-hidden="true">&rarr;</span>
+      <span class="pipeline-step local" role="listitem" tabindex="0" data-tip="qwen3-coder:30b, 15s timeout, $0">Local 30B</span>
+      <span class="pipeline-arrow" aria-hidden="true">&rarr;</span>
+      <span class="pipeline-step cloud" role="listitem" tabindex="0" data-tip="Cloud only if complexity > 0.7">Cloud Escalation</span>
+      <span class="pipeline-arrow" aria-hidden="true">&rarr;</span>
+      <span class="pipeline-step bash" role="listitem" tabindex="0" data-tip="Real bash via tmux, no simulation">tmux bash</span>
+    </div>
+  </section>
+
+  <!-- Stat cards -->
+  <section class="stats-grid" aria-label="Summary statistics">
+    <div class="stat-card highlight">
+      <p class="stat-label">Tasks Solved / Total</p>
+      <p class="stat-value gold" id="stat-score" aria-live="polite">&mdash;</p>
+      <p class="stat-meta" id="stat-score-meta">No run yet</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Total Spend</p>
+      <p class="stat-value amber" id="stat-cost" aria-live="polite">$0.00</p>
+      <p class="stat-meta" id="stat-cost-meta">Local-first: mostly free</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Mean Turn Latency</p>
+      <p class="stat-value" id="stat-speed" aria-live="polite">&mdash; s</p>
+      <p class="stat-meta" id="stat-speed-meta">avg per task</p>
+    </div>
+  </section>
+
+  <!-- Error banner -->
+  <div class="error-banner" id="error-banner" role="alert" aria-live="assertive"></div>
+
+  <!-- Live run panel -->
+  <section aria-labelledby="live-heading" style="margin-bottom: 1.5rem;">
+    <div class="section-hdr">
+      <h2 class="section-title" id="live-heading">Live Run</h2>
+      <div class="section-line" aria-hidden="true"></div>
+    </div>
+    <div class="live-panel">
+      <div class="live-panel-hdr">
+        <span class="live-dot inactive" id="live-dot" aria-hidden="true"></span>
+        <span class="live-label" id="live-label">No active run</span>
+        <span class="live-task-name" id="live-task-name"></span>
+        <span class="live-turn-badge" id="live-turn" style="display:none" aria-label="Current turn"></span>
+      </div>
+      <div id="live-body">
+        <!-- Populated by JS -->
+        <div class="no-run-placeholder">
+          <span class="no-run-icon" aria-hidden="true">&#x25b6;&#xfe0e;</span>
+          <p class="no-run-title">No active benchmark run</p>
+          <p style="font-size:0.78rem;color:var(--text3);max-width:360px;text-align:center;">
+            A smoke test runs 10 representative tasks across all categories.
+            Estimated cost: <strong style="color:var(--amber);">$0.20 &ndash; $0.80</strong>.
+          </p>
+          <button class="btn btn-run" id="btn-smoke"
+                  onclick="startSmokeTest()"
+                  aria-label="Start smoke test benchmark">
+            &#x25b6; Start Smoke Test
+          </button>
+        </div>
+      </div>
+      <div class="live-panel-footer" id="live-footer" style="display:none" aria-live="polite">
+        <span class="live-stat"><strong id="lf-session">—</strong> session</span>
+        <span class="live-stat">&#x25cf; turn <strong id="lf-turn">—</strong></span>
+        <span class="live-stat" style="margin-left:auto;color:var(--green);font-size:0.68rem;" id="lf-poll">polling every 2s</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Meta bar (shown when results exist) -->
+  <div class="meta-bar" id="meta-bar" style="display:none" aria-label="Run metadata">
+    <span class="meta-item">Run ID: <strong id="mb-run-id">—</strong></span>
+    <span class="meta-sep" aria-hidden="true">&middot;</span>
+    <span class="meta-item">Started: <strong id="mb-started">—</strong></span>
+    <span class="meta-sep" aria-hidden="true">&middot;</span>
+    <span class="meta-item">Tasks: <strong id="mb-total">—</strong></span>
+  </div>
+
+  <!-- Controls: filters + copy -->
+  <div class="controls" role="toolbar" aria-label="Results filters">
+    <div class="filter-group" role="group" aria-label="Filter by source">
+      <button class="filter-btn active" data-filter="source" data-val="all"
+              onclick="setSourceFilter('all', this)" aria-pressed="true">All</button>
+      <button class="filter-btn" data-filter="source" data-val="groundtruth"
+              onclick="setSourceFilter('groundtruth', this)" aria-pressed="false">Groundtruth</button>
+      <button class="filter-btn" data-filter="source" data-val="local"
+              onclick="setSourceFilter('local', this)" aria-pressed="false">Local</button>
+      <button class="filter-btn" data-filter="source" data-val="cloud"
+              onclick="setSourceFilter('cloud', this)" aria-pressed="false">Cloud</button>
+      <button class="filter-btn" data-filter="source" data-val="failed"
+              onclick="setSourceFilter('failed', this)" aria-pressed="false">Failed</button>
+    </div>
+    <select class="filter-select" id="cat-filter" onchange="setCategoryFilter(this.value)"
+            aria-label="Filter by category">
+      <option value="all">All categories</option>
+    </select>
+    <button class="btn btn-copy ml-auto" id="btn-copy"
+            onclick="copyJSON()" disabled
+            data-tip="Export full run results as JSON"
+            aria-label="Copy results JSON to clipboard">
+      &#x2398; Copy JSON
+    </button>
+  </div>
+
+  <!-- Results table -->
+  <section aria-labelledby="results-heading">
+    <div class="section-hdr">
+      <h2 class="section-title" id="results-heading">Results</h2>
+      <div class="section-line" aria-hidden="true"></div>
+    </div>
+    <div class="table-wrap" role="region" aria-label="Benchmark results table" tabindex="0">
+      <table aria-label="Terminal benchmark task results">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Task</th>
+            <th scope="col">Category</th>
+            <th scope="col" class="th-center">Turns</th>
+            <th scope="col">Source</th>
+            <th scope="col">Cost</th>
+            <th scope="col" class="th-center">Solved</th>
+            <th scope="col">Time</th>
+          </tr>
+        </thead>
+        <tbody id="results-tbody">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+      <div class="empty-state" id="empty-state">
+        <span class="e-icon" aria-hidden="true">&#x1f4bb;</span>
+        <p class="e-title">No benchmark run yet</p>
+        <p class="e-body">
+          muLLM's agentic loop hasn't been benchmarked yet.
+          Start a smoke test to run 10 tasks across filesystem, git, scripting,
+          and debugging categories.
+        </p>
+        <div class="e-cost-hint" role="note" aria-label="Estimated cost">
+          Estimated cost: <strong>$0.20 &ndash; $0.80</strong> &mdash; most tasks hit local or groundtruth ($0)
+        </div>
+        <button class="btn btn-run" onclick="startSmokeTest()"
+                aria-label="Start a smoke test run">
+          &#x25b6; Start Smoke Test
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Score card -->
+  <section aria-labelledby="score-heading" style="margin-top: 1.5rem;">
+    <div class="section-hdr">
+      <h2 class="section-title" id="score-heading">Score Summary</h2>
+      <div class="section-line" aria-hidden="true"></div>
+    </div>
+    <div class="score-card" id="score-card">
+      <div class="score-card-top">
+        <p class="score-big" id="sc-score" aria-label="Score">—</p>
+        <div class="score-info">
+          <p class="score-sub" id="sc-label">No data &mdash; run a benchmark to see results</p>
+        </div>
+        <span class="score-pct-badge" id="sc-pct" aria-label="Score percentage">—%</span>
+      </div>
+      <div class="score-breakdown" id="sc-breakdown" aria-label="Source breakdown">
+        <div class="breakdown-item">
+          <span class="breakdown-dot gt" aria-hidden="true"></span>
+          <span class="breakdown-label">Groundtruth hits</span>
+          <span class="breakdown-count" id="bd-gt">&mdash;</span>
+        </div>
+        <div class="breakdown-item">
+          <span class="breakdown-dot local" aria-hidden="true"></span>
+          <span class="breakdown-label">Local solves</span>
+          <span class="breakdown-count" id="bd-local">&mdash;</span>
+        </div>
+        <div class="breakdown-item">
+          <span class="breakdown-dot cloud" aria-hidden="true"></span>
+          <span class="breakdown-label">Cloud assists</span>
+          <span class="breakdown-count" id="bd-cloud">&mdash;</span>
+        </div>
+        <div class="breakdown-item">
+          <span class="breakdown-dot failed" aria-hidden="true"></span>
+          <span class="breakdown-label">Failed</span>
+          <span class="breakdown-count" id="bd-failed">&mdash;</span>
+        </div>
+      </div>
+      <div class="cost-breakdown" id="cost-breakdown" aria-label="Cost breakdown">
+        <span>Total spend:</span>
+        <span class="cost-pill" id="cb-total">$0.00</span>
+        <span class="meta-sep" aria-hidden="true">&middot;</span>
+        <span>Cloud only:</span>
+        <span class="cost-pill" id="cb-cloud">$0.00</span>
+        <span class="meta-sep" aria-hidden="true">&middot;</span>
+        <span>Groundtruth + local:</span>
+        <strong id="cb-free">$0.00</strong>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>
+    Terminal-Bench style: real shell execution via tmux. No simulated answers.
+  </p>
+  <p style="margin-top:0.3rem;">
+    <a href="/bench">MegaBench</a> &middot;
+    <a href="/dashboard">Dashboard</a> &middot;
+    <a href="/chat">Chat</a>
+  </p>
+</footer>
+
+<script>
+'use strict';
+/* ── State ─────────────────────────────────────── */
+let resultsData = null;
+let sourceFilter = 'all';
+let categoryFilter = 'all';
+let pollTimer = null;
+
+/* ── Boot ──────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  fetchResults();
+  startLivePoll();
+});
+
+/* ── Fetch results ─────────────────────────────── */
+async function fetchResults() {
+  try {
+    const r = await fetch('/api/terminalbench/results');
+    if (r.status === 404) {
+      showEmpty();
+      return;
+    }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    resultsData = data;
+    renderResults(data);
+    hideError();
+  } catch (e) {
+    showError('Could not load results: ' + e.message);
+    showEmpty();
+  }
+}
+
+/* ── Render full results ───────────────────────── */
+function renderResults(data) {
+  // Stat cards
+  const solved = data.solved ?? 0;
+  const total  = data.total_tasks ?? 0;
+  document.getElementById('stat-score').textContent = `${solved} / ${total}`;
+  document.getElementById('stat-score-meta').textContent =
+    total > 0 ? `${data.score_pct?.toFixed(1) ?? 0}% pass rate` : 'No run yet';
+  document.getElementById('stat-cost').textContent =
+    '$' + (data.total_cost_usd ?? 0).toFixed(2);
+  document.getElementById('stat-cost-meta').textContent =
+    data.total_cost_usd > 0.01 ? 'Cloud escalation used' : 'Local-first: mostly free';
+  const avgLat = data.mean_latency_s ?? null;
+  document.getElementById('stat-speed').textContent =
+    avgLat !== null ? `${avgLat.toFixed(1)} s` : '— s';
+  document.getElementById('stat-speed-meta').textContent =
+    data.mean_turns ? `${data.mean_turns.toFixed(1)} turns avg` : 'avg per task';
+
+  // Meta bar
+  document.getElementById('meta-bar').style.display = '';
+  document.getElementById('mb-run-id').textContent = data.run_id ?? '—';
+  document.getElementById('mb-started').textContent =
+    data.started_at ? new Date(data.started_at).toLocaleString() : '—';
+  document.getElementById('mb-total').textContent = total;
+
+  // Category filter options
+  const cats = [...new Set((data.tasks ?? []).map(t => t.category).filter(Boolean))].sort();
+  const sel = document.getElementById('cat-filter');
+  // Remove old options except "All"
+  while (sel.options.length > 1) sel.remove(1);
+  cats.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    sel.appendChild(opt);
+  });
+
+  // Score card
+  const bd = data.breakdown ?? {};
+  document.getElementById('sc-score').textContent  = `${solved} / ${total}`;
+  document.getElementById('sc-label').textContent  =
+    `Tasks solved out of ${total} total`;
+  const pct = data.score_pct ?? 0;
+  document.getElementById('sc-pct').textContent    = `${pct.toFixed(1)}%`;
+  document.getElementById('bd-gt').textContent     = bd.groundtruth ?? 0;
+  document.getElementById('bd-local').textContent  = bd.local ?? 0;
+  document.getElementById('bd-cloud').textContent  = bd.cloud ?? 0;
+  document.getElementById('bd-failed').textContent = bd.failed ?? 0;
+
+  // Cost breakdown
+  const cloudCost = (data.tasks ?? [])
+    .filter(t => t.source === 'cloud')
+    .reduce((s, t) => s + (t.cost ?? 0), 0);
+  const totalCost = data.total_cost_usd ?? 0;
+  const freeCost  = Math.max(0, totalCost - cloudCost);
+  document.getElementById('cb-total').textContent = '$' + totalCost.toFixed(4);
+  document.getElementById('cb-cloud').textContent = '$' + cloudCost.toFixed(4);
+  document.getElementById('cb-free').textContent  = '$' + freeCost.toFixed(4);
+
+  // Enable copy
+  document.getElementById('btn-copy').disabled = false;
+
+  // Render table
+  renderTable(data.tasks ?? []);
+}
+
+/* ── Render table rows ─────────────────────────── */
+function renderTable(tasks) {
+  const tbody = document.getElementById('results-tbody');
+  tbody.innerHTML = '';
+
+  const filtered = tasks.filter(t => {
+    const srcOk = sourceFilter === 'all' || t.source === sourceFilter;
+    const catOk = categoryFilter === 'all' || t.category === categoryFilter;
+    return srcOk && catOk;
+  });
+
+  if (filtered.length === 0) {
+    document.getElementById('empty-state').style.display = '';
+    return;
+  }
+  document.getElementById('empty-state').style.display = 'none';
+
+  filtered.forEach((task, i) => {
+    const tr = document.createElement('tr');
+    if (task.solved) tr.classList.add('row-solved');
+    else             tr.classList.add('row-failed');
+
+    const src = task.source ?? 'failed';
+    const badgeClass = {
+      groundtruth: 'badge-groundtruth',
+      local:       'badge-local',
+      cloud:       'badge-cloud',
+      failed:      'badge-failed',
+    }[src] ?? 'badge-failed';
+    const badgeTip = {
+      groundtruth: 'Instant $0 groundtruth lookup',
+      local:       'Solved by local qwen3-coder:30b ($0)',
+      cloud:       'Required cloud escalation (cost)',
+      failed:      'Not solved within turn limit',
+    }[src] ?? '';
+
+    const timeS = task.time_s ?? null;
+    const timeClass = timeS === null ? '' : timeS < 5 ? 'fast' : timeS < 20 ? 'mid' : 'slow';
+    const costClass = (task.cost ?? 0) > 0 ? 'nonzero' : '';
+
+    tr.innerHTML = `
+      <td class="td-num">${task.id ?? i + 1}</td>
+      <td class="td-name">
+        <span class="td-name-inner" title="${esc(task.name ?? '')}">${esc(task.name ?? '—')}</span>
+      </td>
+      <td class="td-category">${esc(task.category ?? '—')}</td>
+      <td class="td-turns" style="text-align:center">${task.turns ?? '—'}</td>
+      <td>
+        <span class="badge ${badgeClass}" data-tip="${esc(badgeTip)}">${src}</span>
+      </td>
+      <td class="td-cost ${costClass}">
+        ${(task.cost ?? 0) === 0 ? '<span style="color:var(--green)">$0</span>' : '$' + (task.cost).toFixed(4)}
+      </td>
+      <td class="td-solved">
+        ${task.solved
+          ? '<span class="icon-pass" aria-label="Solved">&#x2713;</span>'
+          : '<span class="icon-fail" aria-label="Failed">&#x2717;</span>'}
+      </td>
+      <td class="td-time ${timeClass}">
+        ${timeS !== null ? timeS.toFixed(1) + 's' : '—'}
+      </td>
+    `;
+    tbody.appendChild(tr);
+
+    // Staggered fade-in (opacity 0 → .visible required by bench.html pattern)
+    requestAnimationFrame(() => {
+      setTimeout(() => tr.classList.add('visible'), i * 30);
+    });
+  });
+}
+
+/* ── Empty state ───────────────────────────────── */
+function showEmpty() {
+  document.getElementById('empty-state').style.display = '';
+  document.getElementById('results-tbody').innerHTML = '';
+}
+
+/* ── Filters ───────────────────────────────────── */
+function setSourceFilter(val, btn) {
+  sourceFilter = val;
+  document.querySelectorAll('[data-filter="source"]').forEach(b => {
+    b.classList.toggle('active', b === btn);
+    b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+  });
+  if (resultsData) renderTable(resultsData.tasks ?? []);
+}
+
+function setCategoryFilter(val) {
+  categoryFilter = val;
+  if (resultsData) renderTable(resultsData.tasks ?? []);
+}
+
+/* ── Copy JSON ─────────────────────────────────── */
+function copyJSON() {
+  if (!resultsData) return;
+  navigator.clipboard.writeText(JSON.stringify(resultsData, null, 2)).then(() => {
+    const btn = document.getElementById('btn-copy');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '&#x2713; Copied!';
+    btn.style.color = 'var(--green)';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1800);
+  }).catch(err => showError('Clipboard unavailable: ' + err.message));
+}
+
+/* ── Live run polling ──────────────────────────── */
+function startLivePoll() {
+  pollTimer = setInterval(pollLive, 2000);
+}
+
+async function pollLive() {
+  try {
+    const r = await fetch('/api/terminalbench/active');
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data.active) {
+      renderLive(data);
+    } else {
+      renderLiveIdle();
+    }
+  } catch (_) {
+    // silently skip network errors during polling
+  }
+}
+
+function renderLive(data) {
+  const dot = document.getElementById('live-dot');
+  dot.classList.remove('inactive');
+  dot.classList.add('active-run');
+
+  document.getElementById('live-label').textContent = 'Running...';
+  document.getElementById('live-task-name').textContent = data.task ?? '';
+
+  const turnBadge = document.getElementById('live-turn');
+  turnBadge.style.display = '';
+  turnBadge.textContent = `Turn ${data.turn ?? '?'}`;
+  turnBadge.setAttribute('aria-label', `Current turn: ${data.turn ?? 'unknown'}`);
+
+  const footer = document.getElementById('live-footer');
+  footer.style.display = '';
+  document.getElementById('lf-session').textContent = data.session_id ?? '—';
+  document.getElementById('lf-turn').textContent = data.turn ?? '—';
+
+  // Terminal output
+  const liveBody = document.getElementById('live-body');
+  liveBody.innerHTML = '';
+  const term = document.createElement('div');
+  term.className = 'live-terminal';
+  term.setAttribute('aria-live', 'polite');
+  term.setAttribute('aria-label', 'Live terminal output');
+
+  if (data.last_cmd) {
+    const cmdLine = document.createElement('div');
+    cmdLine.innerHTML =
+      `<span class="t-prompt">$ </span><span class="t-cmd">${esc(data.last_cmd)}</span>`;
+    term.appendChild(cmdLine);
+  }
+  if (data.last_output) {
+    const outDiv = document.createElement('div');
+    outDiv.className = 't-output';
+    outDiv.textContent = data.last_output;
+    term.appendChild(outDiv);
+  }
+  if (!data.last_cmd && !data.last_output) {
+    const ph = document.createElement('div');
+    ph.className = 't-placeholder';
+    ph.textContent = 'Waiting for first command...';
+    term.appendChild(ph);
+  }
+  liveBody.appendChild(term);
+  // Scroll to bottom
+  term.scrollTop = term.scrollHeight;
+}
+
+function renderLiveIdle() {
+  const dot = document.getElementById('live-dot');
+  dot.classList.remove('active-run');
+  dot.classList.add('inactive');
+  document.getElementById('live-label').textContent = 'No active run';
+  document.getElementById('live-task-name').textContent = '';
+  document.getElementById('live-turn').style.display = 'none';
+  document.getElementById('live-footer').style.display = 'none';
+
+  const liveBody = document.getElementById('live-body');
+  liveBody.innerHTML = `
+    <div class="no-run-placeholder">
+      <span class="no-run-icon" aria-hidden="true">&#x25b6;&#xfe0e;</span>
+      <p class="no-run-title">No active benchmark run</p>
+      <p style="font-size:0.78rem;color:var(--text3);max-width:360px;text-align:center;">
+        A smoke test runs 10 representative tasks across all categories.
+        Estimated cost: <strong style="color:var(--amber);">$0.20 &ndash; $0.80</strong>.
+      </p>
+      <button class="btn btn-run" onclick="startSmokeTest()"
+              aria-label="Start smoke test benchmark">
+        &#x25b6; Start Smoke Test
+      </button>
+    </div>
+  `;
+}
+
+/* ── Smoke test trigger ─────────────────── */
+function startSmokeTest() {
+  // POST to backend when wired; for now notify user
+  const btn = document.querySelector('#live-body .btn-run');
+  if (btn) { btn.disabled = true; btn.textContent = 'Launching...'; }
+  fetch('/api/terminalbench/start', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: 'smoke' }) })
+    .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
+    .then(() => { /* live poll will pick it up */ })
+    .catch(err => {
+      showError('Could not start run: ' + err + '. Configure the TerminalBench backend adapter and retry.');
+      if (btn) { btn.disabled = false; btn.innerHTML = '&#x25b6; Start Smoke Test'; }
+    });
+}
+
+/* ── Helpers ────────────────────────────────────── */
+function esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('error-banner').classList.remove('visible');
+}
+
+// Cleanup on unload
+window.addEventListener('beforeunload', () => {
+  if (pollTimer) clearInterval(pollTimer);
+});
+</script>
+</body>
+</html>

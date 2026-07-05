@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>mullm</id>
+    <version>1.0.0</version>
+    <title>muLLM — Local-first LLM Router</title>
+    <authors>Peter Stolmar, 0101 Technology LLC</authors>
+    <owners>0101technology</owners>
+    <projectUrl>https://mullm.com</projectUrl>
+    <licenseUrl>https://github.com/0101technology/mullm/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <iconUrl>https://mullm.com/static/tardigrade.png</iconUrl>
+    <description>Local-first LLM router. Routes queries to the cheapest capable model: deterministic lookup table, semantic cache, local 30B model, or cloud API fallback. 96.4% cost reduction over cloud-only. OpenAI-compatible API endpoint. Free tier first.
+
+Requires Python 3.11+ and Ollama (installed automatically if Chocolatey is used).</description>
+    <summary>96.4% cost reduction. Local-first LLM router with OpenAI-compatible API.</summary>
+    <releaseNotes>https://github.com/0101technology/mullm/blob/main/CHANGELOG.md</releaseNotes>
+    <tags>llm ai router local python ollama cost-optimization</tags>
+    <dependencies>
+      <dependency id="python3" version="3.11.0" />
+      <dependency id="ollama" version="0.1.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

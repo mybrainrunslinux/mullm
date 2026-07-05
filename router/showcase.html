@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>muLLM — Product Showcase</title>
+<meta name="description" content="From CSS question to 3D game in one conversation. See everything muLLM can do.">
+<style>
+:root {
+  --gold: #f4c542;
+  --gold-dim: rgba(244,197,66,0.15);
+  --gold-glow: rgba(244,197,66,0.4);
+  --bg: #0f1117;
+  --bg2: #1a1d2e;
+  --bg3: #141720;
+  --teal: #14b8a6;
+  --teal-dim: rgba(20,184,166,0.15);
+  --blue: #3b82f6;
+  --blue-dim: rgba(59,130,246,0.15);
+  --gray: #6b7280;
+  --gray-dim: rgba(107,114,128,0.15);
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --text-muted: #64748b;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --max-w: 1100px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Nav ── */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(15,17,23,0.88);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(244,197,66,0.12);
+  padding: 0 2rem;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nav-brand {
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--gold);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+  list-style: none;
+}
+.nav-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--gold); }
+
+/* ── Fade-in ── */
+.fi {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.75s cubic-bezier(0.16,1,0.3,1),
+              transform 0.75s cubic-bezier(0.16,1,0.3,1);
+  will-change: opacity, transform;
+}
+.fi.visible { opacity: 1; transform: translateY(0); }
+.fi-delay-1 { transition-delay: 0.1s; }
+.fi-delay-2 { transition-delay: 0.2s; }
+.fi-delay-3 { transition-delay: 0.3s; }
+.fi-delay-4 { transition-delay: 0.4s; }
+.fi-delay-5 { transition-delay: 0.5s; }
+.fi-delay-6 { transition-delay: 0.6s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fi { opacity: 1; transform: none; transition: none; }
+}
+
+/* ── Sections ── */
+section {
+  padding: 7rem 2rem;
+  position: relative;
+}
+section:nth-child(even) { background: var(--bg2); }
+
+.section-inner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+}
+
+.act-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+.act-headline {
+  font-size: clamp(1.75rem, 4vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+.act-headline em {
+  font-style: normal;
+  color: var(--gold);
+}
+.act-sub {
+  font-size: 1.05rem;
+  color: var(--text-dim);
+  max-width: 640px;
+  line-height: 1.7;
+}
+
+/* ── Hero ── */
+#hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(244,197,66,0.06) 0%, transparent 70%), var(--bg);
+  padding-top: 6rem;
+}
+.hero-stars {
+  font-size: 1.4rem;
+  color: var(--gold);
+  letter-spacing: 0.6rem;
+  margin-bottom: 2rem;
+  display: block;
+}
+.hero-title {
+  font-size: clamp(3.5rem, 9vw, 7rem);
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--gold) 0%, #fff9e6 40%, var(--teal) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.5rem;
+}
+.hero-sub {
+  font-size: clamp(1.1rem, 2.5vw, 1.35rem);
+  color: var(--text-dim);
+  max-width: 560px;
+  margin: 0 auto 2.5rem;
+  line-height: 1.65;
+}
+.hero-ctas {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.btn-primary {
+  display: inline-block;
+  background: var(--gold);
+  color: #0f1117;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--gold-glow);
+}
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.18);
+  text-decoration: none;
+  transition: border-color 0.2s, color 0.2s;
+  min-height: 44px;
+}
+.btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Act 1: Chat mockup ── */
+.chat-window {
+  background: var(--bg3);
+  border: 1px solid rgba(244,197,66,0.15);
+  border-radius: var(--radius);
+  overflow: hidden;
+  max-width: 560px;
+  width: 100%;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+.chat-titlebar {
+  background: var(--bg2);
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.dot-red { width:10px;height:10px;border-radius:50%;background:#ff5f57; }
+.dot-yellow { width:10px;height:10px;border-radius:50%;background:#febc2e; }
+.dot-green { width:10px;height:10px;border-radius:50%;background:#28c840; }
+.chat-title-text { font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem; }
+.chat-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.chat-msg { display: flex; gap: 0.6rem; align-items: flex-start; }
+.chat-msg.user { flex-direction: row-reverse; }
+.chat-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  font-size: 0.7rem; font-weight: 700; display: flex;
+  align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.chat-avatar.u { background: var(--gold); color: #0f1117; }
+.chat-avatar.a { background: var(--teal); color: #0f1117; }
+.chat-bubble {
+  background: rgba(255,255,255,0.06);
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  max-width: 80%;
+  color: var(--text);
+}
+.chat-msg.user .chat-bubble {
+  background: var(--gold-dim);
+  border: 1px solid rgba(244,197,66,0.2);
+}
+.chat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(20,184,166,0.12);
+  color: var(--teal);
+  border: 1px solid rgba(20,184,166,0.25);
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  margin-top: 0.35rem;
+}
+.chat-badge .dot { width:5px;height:5px;border-radius:50%;background:var(--teal); }
+.act1-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+@media (max-width: 720px) {
+  .act1-layout { grid-template-columns: 1fr; gap: 2.5rem; }
+}
+
+/* ── Act 2: Router animation ── */
+.router-diagram {
+  position: relative;
+  width: 100%;
+  max-width: 700px;
+  margin: 3rem auto 0;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.rd-input {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.rd-input-box {
+  width: 72px; height: 72px;
+  background: rgba(244,197,66,0.1);
+  border: 1.5px solid rgba(244,197,66,0.4);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+}
+.rd-label { font-size: 0.7rem; color: var(--text-muted); text-align: center; font-weight: 600; letter-spacing: 0.08em; }
+.rd-router {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  position: relative;
+}
+.rd-router-ring {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--gold);
+  border-right-color: var(--gold);
+  animation: spin 1.8s linear infinite;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.rd-router-inner {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: rgba(244,197,66,0.08);
+  border: 1px solid rgba(244,197,66,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 800; color: var(--gold);
+  letter-spacing: 0.04em;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.rd-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+.rd-pill {
+  padding: 0.45rem 0.9rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1.5px solid transparent;
+  transition: box-shadow 0.3s, border-color 0.3s;
+  white-space: nowrap;
+  min-width: 150px;
+  text-align: center;
+  cursor: default;
+}
+.rd-pill.gt  { background: var(--gold-dim); border-color: rgba(244,197,66,0.3); color: var(--gold); }
+.rd-pill.cache { background: var(--teal-dim); border-color: rgba(20,184,166,0.3); color: var(--teal); }
+.rd-pill.local { background: var(--blue-dim); border-color: rgba(59,130,246,0.3); color: var(--blue); }
+.rd-pill.cloud { background: var(--gray-dim); border-color: rgba(107,114,128,0.3); color: var(--gray); }
+.rd-pill.active.gt  { box-shadow: 0 0 18px var(--gold-glow); border-color: var(--gold); }
+.rd-pill.active.cache { box-shadow: 0 0 18px rgba(20,184,166,0.5); border-color: var(--teal); }
+.rd-pill.active.local { box-shadow: 0 0 18px rgba(59,130,246,0.5); border-color: var(--blue); }
+.rd-pill.active.cloud { box-shadow: 0 0 18px rgba(107,114,128,0.4); border-color: var(--gray); }
+/* traveling dot */
+.rd-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 10px var(--gold-glow);
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  top: 0; left: 0;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+}
+.rd-connector {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(244,197,66,0.1), rgba(244,197,66,0.3));
+  position: relative;
+  min-width: 20px;
+}
+.act2-text { text-align: center; max-width: var(--max-w); margin: 0 auto; }
+.act2-text .act-sub { margin: 0 auto; }
+
+/* ── Act 3: Games grid ── */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 3rem;
+}
+@media (max-width: 720px) {
+  .games-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .games-grid { grid-template-columns: 1fr; }
+}
+.game-card {
+  background: var(--bg3);
+  border: 1px solid rgba(244,197,66,0.1);
+  border-radius: var(--radius);
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+.game-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(244,197,66,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+.game-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(244,197,66,0.35);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.4);
+}
+.game-card-icon { font-size: 1.8rem; line-height: 1; }
+.game-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+.game-card-desc { font-size: 0.8rem; color: var(--text-dim); flex: 1; }
+.btn-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(244,197,66,0.1);
+  color: var(--gold);
+  border: 1px solid rgba(244,197,66,0.25);
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s;
+  min-height: 36px;
+  align-self: flex-start;
+}
+.btn-play:hover { background: rgba(244,197,66,0.2); border-color: var(--gold); }
+
+/* ── Act 4: Gallery strip ── */
+.gallery-strip {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  padding: 0.5rem 0 1.5rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 3rem;
+}
+.gallery-strip::-webkit-scrollbar { height: 4px; }
+.gallery-strip::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
+.gallery-strip::-webkit-scrollbar-thumb { background: rgba(244,197,66,0.3); border-radius: 2px; }
+.model-card {
+  flex-shrink: 0;
+  width: 160px;
+  scroll-snap-align: start;
+  background: var(--bg3);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: transform 0.25s, border-color 0.25s;
+}
+.model-card:hover { transform: translateY(-4px); border-color: rgba(244,197,66,0.3); }
+.model-card-preview {
+  width: 160px; height: 160px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.model-card-preview::before {
+  content: '';
+  position: absolute; inset: 0;
+  opacity: 0.85;
+}
+.mc-airship .model-card-preview::before { background: linear-gradient(135deg, #1a1232, #3d2b60); }
+.mc-gear    .model-card-preview::before { background: linear-gradient(135deg, #1c1812, #4a3a1a); }
+.mc-cave    .model-card-preview::before { background: linear-gradient(135deg, #0d1f2d, #1a4560); }
+.mc-spider  .model-card-preview::before { background: linear-gradient(135deg, #1a1a1a, #2d1a0a); }
+.mc-cannon  .model-card-preview::before { background: linear-gradient(135deg, #1a0d0d, #3d1515); }
+.mc-staff   .model-card-preview::before { background: linear-gradient(135deg, #0d0d24, #1a1a4a); }
+.model-card-preview span { position: relative; z-index: 1; }
+.model-card-body { padding: 0.7rem 0.8rem; }
+.model-card-name { font-size: 0.78rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }
+.model-card-link {
+  font-size: 0.7rem;
+  color: var(--teal);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 28px;
+}
+.model-card-link:hover { text-decoration: underline; }
+
+/* ── Act 5: Benchmarks ── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin: 3rem 0 2.5rem;
+}
+@media (max-width: 600px) { .stats-strip { grid-template-columns: 1fr; } }
+.stat-box {
+  background: var(--bg3);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius);
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+.stat-num {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+.stat-gold { color: var(--gold); }
+.stat-teal { color: var(--teal); }
+.stat-blue { color: var(--blue); }
+.stat-label { font-size: 0.85rem; color: var(--text-dim); font-weight: 600; }
+.pull-quote {
+  background: var(--bg2);
+  border-left: 3px solid var(--gold);
+  padding: 1.5rem 2rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--text-dim);
+  line-height: 1.7;
+  margin-bottom: 3rem;
+}
+.act5-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: start;
+}
+@media (max-width: 720px) { .act5-layout { grid-template-columns: 1fr; gap: 2.5rem; } }
+
+/* ── Act 6: Numbers ── */
+.counter-hero {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+.counter-num {
+  font-size: clamp(4rem, 12vw, 8rem);
+  font-weight: 900;
+  color: var(--gold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.counter-sub {
+  font-size: 1rem;
+  color: var(--text-dim);
+  margin-top: 0.75rem;
+}
+.savings-bar {
+  max-width: 600px;
+  margin: 0 auto 3rem;
+}
+.savings-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+}
+.savings-bar-track {
+  height: 16px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.savings-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--teal));
+  border-radius: 8px;
+  width: 0%;
+  transition: width 1.4s cubic-bezier(0.16,1,0.3,1);
+}
+.savings-bar-fill.visible { width: 91.9%; }
+.act6-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  max-width: 680px;
+  margin: 0 auto;
+}
+@media (max-width: 600px) { .act6-grid { grid-template-columns: 1fr; } }
+.mini-stat {
+  background: var(--bg3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-sm);
+  padding: 1.25rem;
+  text-align: center;
+}
+.mini-stat-val { font-size: 1.5rem; font-weight: 800; color: var(--text); margin-bottom: 0.25rem; }
+.mini-stat-key { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* ── Act 7: CTA ── */
+#cta { text-align: center; }
+.cta-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin: 3rem auto;
+  max-width: 800px;
+}
+@media (max-width: 640px) { .cta-cards { grid-template-columns: 1fr; } }
+.cta-card {
+  background: var(--bg3);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius);
+  padding: 2rem 1.5rem;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+  min-height: 44px;
+}
+.cta-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(244,197,66,0.4);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+}
+.cta-card-icon { font-size: 2.2rem; }
+.cta-card-title { font-size: 1rem; font-weight: 700; color: var(--gold); }
+.cta-card-desc { font-size: 0.82rem; color: var(--text-dim); text-align: center; }
+.footer-sig {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.footer-sig strong { color: var(--gold); }
+
+/* ── Circuit grid bg ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(244,197,66,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(244,197,66,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+section, .nav { position: relative; z-index: 1; }
+
+/* ── Router diagram responsive ── */
+@media (max-width: 600px) {
+  .router-diagram {
+    flex-direction: column;
+    height: auto;
+    gap: 1.5rem;
+    padding: 1rem 0;
+  }
+  .rd-connector { width: 2px; height: 30px; min-width: auto; background: linear-gradient(180deg, rgba(244,197,66,0.1), rgba(244,197,66,0.3)); }
+  .rd-tiers { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .rd-pill { min-width: 120px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav class="nav" aria-label="Main navigation">
+  <a href="/" class="nav-brand">mu<strong>LLM</strong></a>
+  <ul class="nav-links">
+    <li><a href="/chat">Chat</a></li>
+    <li><a href="/dashboard">Dashboard</a></li>
+    <li><a href="/bench">Bench</a></li>
+    <li><a href="/investors">Investors</a></li>
+  </ul>
+</nav>
+
+<!-- ── Hero ── -->
+<section id="hero">
+  <div class="section-inner" style="text-align:center">
+    <span class="hero-stars fi" aria-hidden="true">★ ★ ★ ★ ★</span>
+    <h1 class="hero-title fi fi-delay-1">muLLM</h1>
+    <p class="hero-sub fi fi-delay-2">Local-first LLM routing. Ask anything — pay almost nothing. From a CSS question to a 3D game in one conversation.</p>
+    <div class="hero-ctas fi fi-delay-3">
+      <a href="/chat" class="btn-primary">Try the Chat</a>
+      <a href="#act1" class="btn-outline">See how it works ↓</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Act 1: Chat ── -->
+<section id="act1">
+  <div class="section-inner">
+    <div class="act1-layout">
+      <div>
+        <p class="act-label fi">Act 1 — The Chat</p>
+        <h2 class="act-headline fi fi-delay-1">Ask anything. Get an answer in <em>under 1ms.</em></h2>
+        <p class="act-sub fi fi-delay-2">Groundtruth LUT answers 1,313+ common questions deterministically. No inference, no cost, no latency.</p>
+      </div>
+      <div class="chat-window fi fi-delay-1" role="region" aria-label="Chat demo">
+        <div class="chat-titlebar" aria-hidden="true">
+          <div class="dot-red"></div>
+          <div class="dot-yellow"></div>
+          <div class="dot-green"></div>
+          <span class="chat-title-text">muLLM Chat</span>
+        </div>
+        <div class="chat-body">
+          <div class="chat-msg user">
+            <div class="chat-avatar u" aria-hidden="true">U</div>
+            <div class="chat-bubble">Hey, what's the difference between padding and margin in CSS?</div>
+          </div>
+          <div class="chat-msg">
+            <div class="chat-avatar a" aria-hidden="true">M</div>
+            <div>
+              <div class="chat-bubble"><strong>Margin</strong> is space <em>outside</em> the element's border — it separates it from neighbors. <strong>Padding</strong> is space <em>inside</em> the border — it separates content from the edge. Margins collapse between siblings; padding never does.
+                <div class="chat-badge" aria-label="Routed via groundtruth in 0.7ms at zero cost">
+                  <span class="dot"></span>
+                  ⚡ 0.7ms &nbsp;·&nbsp; groundtruth &nbsp;·&nbsp; $0.00
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-msg user">
+            <div class="chat-avatar u" aria-hidden="true">U</div>
+            <div class="chat-bubble">Write me a 3D space shooter game</div>
+          </div>
+          <div class="chat-msg">
+            <div class="chat-avatar a" aria-hidden="true">M</div>
+            <div>
+              <div class="chat-bubble" style="color:var(--text-dim);font-style:italic">Routing to local 30B model… generating 847 lines of Three.js...</div>
+              <div class="chat-badge" style="background:rgba(59,130,246,0.12);color:var(--blue);border-color:rgba(59,130,246,0.25)" aria-label="Routed via local 9B model in 4.2 seconds at zero cost">
+                <span class="dot" style="background:var(--blue)"></span>
+                ⚡ 4.2s &nbsp;·&nbsp; local 9B &nbsp;·&nbsp; $0.00
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Act 2: Router ── -->
+<section id="act2">
+  <div class="section-inner">
+    <div class="act2-text">
+      <p class="act-label fi">Act 2 — The Router</p>
+      <h2 class="act-headline fi fi-delay-1">Intelligent routing. <em>91.9% free.</em></h2>
+      <p class="act-sub fi fi-delay-2">Cloud only for genuinely hard problems. Solve complex tasks in parallel.<span class="sc-tip" role="tooltip" aria-label="Technical detail" tabindex="0">ⓘ</span></p><style>.sc-tip{position:relative;display:inline-block;color:var(--gold);font-size:11px;cursor:help;margin-left:5px;vertical-align:middle;}.sc-tip::after{content:"A 44MB DeBERTa classifier routes every query to the cheapest capable model. Local 30B handles complex code.";position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a1d2e;border:1px solid var(--gold);color:#e2e8f0;font-size:11px;font-style:normal;padding:8px 10px;border-radius:6px;white-space:normal;max-width:260px;width:260px;z-index:999;opacity:0;pointer-events:none;transition:opacity .18s;line-height:1.5;}.sc-tip:hover::after,.sc-tip:focus::after{opacity:1;}</style>
+    </div>
+
+    <!-- Router animation container -->
+    <div class="router-diagram fi fi-delay-3" id="routerDiagram" aria-label="Routing animation showing query flow from input through router to tier destinations">
+      <!-- Input -->
+      <div class="rd-input">
+        <div class="rd-input-box" aria-hidden="true">💬</div>
+        <span class="rd-label">INPUT</span>
+      </div>
+
+      <!-- Connector 1 -->
+      <div class="rd-connector" id="conn1" aria-hidden="true"></div>
+
+      <!-- Router ring -->
+      <div class="rd-router">
+        <div class="rd-router-ring" aria-hidden="true">
+          <div class="rd-router-inner">ROUTER</div>
+        </div>
+        <span class="rd-label">DeBERTa</span>
+      </div>
+
+      <!-- Connector 2 -->
+      <div class="rd-connector" id="conn2" aria-hidden="true"></div>
+
+      <!-- Tier pills -->
+      <div class="rd-tiers" id="rdTiers" aria-live="polite" aria-label="Current routing destination">
+        <div class="rd-pill gt"  id="pill-gt"    aria-label="Groundtruth tier: under 1 millisecond">&#9889; Groundtruth &lt;1ms</div>
+        <div class="rd-pill cache" id="pill-cache" aria-label="Cache tier: approximately 14 milliseconds">&#128190; Cache ~14ms</div>
+        <div class="rd-pill local" id="pill-local" aria-label="Local 9B model tier: approximately 5 seconds">&#127968; Local 9B ~5s</div>
+        <div class="rd-pill cloud" id="pill-cloud" aria-label="Cloud tier: approximately 3 seconds">&#9729; Cloud ~3s</div>
+      </div>
+
+      <!-- Traveling dot (JS positions this) -->
+      <div class="rd-dot" id="rdDot" aria-hidden="true"></div>
+    </div>
+
+    <!-- Tier legend bar -->
+    <div class="fi fi-delay-4" style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-top:2rem;font-size:0.8rem;">
+      <span style="color:var(--gold)">GT 13%</span>
+      <span style="color:var(--text-muted)">·</span>
+      <span style="color:var(--teal)">Cache 34%</span>
+      <span style="color:var(--text-muted)">·</span>
+      <span style="color:var(--blue)">Local 46%</span>
+      <span style="color:var(--text-muted)">·</span>
+      <span style="color:var(--gray)">Cloud 7%</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Act 3: Games ── -->
+<section id="act3">
+  <div class="section-inner">
+    <div style="max-width:640px">
+      <p class="act-label fi">Act 3 — The Games</p>
+      <h2 class="act-headline fi fi-delay-1"><em>263 playable games.</em> All generated by a local model.</h2>
+      <p class="act-sub fi fi-delay-2">Code Mode routes complex generation to the 30B model. 100% HumanEval pass@1. Zero API cost for code generation.</p>
+    </div>
+    <div class="games-grid">
+      <div class="game-card fi fi-delay-1">
+        <div class="game-card-icon">🎯</div>
+        <div class="game-card-title">Axe Throw Lab</div>
+        <div class="game-card-desc">Skill lab — throw, tune aim, and chase precision targets</div>
+        <a href="/code/ready/axe-throw-lab.html" class="btn-play" target="_blank" rel="noopener">&#9654; Play</a>
+      </div>
+      <div class="game-card fi fi-delay-2">
+        <div class="game-card-icon">💎</div>
+        <div class="game-card-title">Bamboo Village</div>
+        <div class="game-card-desc">Village sim — small world exploration and resource play</div>
+        <a href="/code/ready/bamboo-village.html" class="btn-play" target="_blank" rel="noopener">&#9654; Play</a>
+      </div>
+      <div class="game-card fi fi-delay-3">
+        <div class="game-card-icon">🐍</div>
+        <div class="game-card-title">Boardwalk Midway</div>
+        <div class="game-card-desc">Arcade boardwalk — compact carnival games and score loops</div>
+        <a href="/code/ready/boardwalk-midway.html" class="btn-play" target="_blank" rel="noopener">&#9654; Play</a>
+      </div>
+      <div class="game-card fi fi-delay-1">
+        <div class="game-card-icon">🔮</div>
+        <div class="game-card-title">Card Toss</div>
+        <div class="game-card-desc">Throwing game — tune force and angle for clean shots</div>
+        <a href="/code/ready/cardtoss.html" class="btn-play" target="_blank" rel="noopener">&#9654; Play</a>
+      </div>
+      <div class="game-card fi fi-delay-2">
+        <div class="game-card-icon">🤖</div>
+        <div class="game-card-title">Crokinole 2</div>
+        <div class="game-card-desc">Tabletop skill — flick discs and control the board</div>
+        <a href="/code/ready/crokinole2.html" class="btn-play" target="_blank" rel="noopener">&#9654; Play</a>
+      </div>
+      <div class="game-card fi fi-delay-3">
+        <div class="game-card-icon">⬆️</div>
+        <div class="game-card-title">Foot Golf</div>
+        <div class="game-card-desc">Sports puzzle — kick through compact courses</div>
+        <a href="/code/ready/foot-golf.html" class="btn-play" target="_blank" rel="noopener">&#9654; Play</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Act 4: 3D Gallery ── -->
+<section id="act4">
+  <div class="section-inner">
+    <div style="max-width:640px">
+      <p class="act-label fi">Act 4 — The Models</p>
+      <h2 class="act-headline fi fi-delay-1"><em>245 3D models.</em> Steampunk, sci-fi, fantasy.</h2>
+      <p class="act-sub fi fi-delay-2">Generated via Meshy AI pipeline, decimated and optimized. Full PBR textures. Ready for Three.js or Unity.</p>
+    </div>
+    <div class="gallery-strip fi fi-delay-3" role="list" aria-label="3D model gallery">
+      <div class="model-card mc-airship" role="listitem">
+        <div class="model-card-preview" aria-hidden="true"><span>🚀</span></div>
+        <div class="model-card-body">
+          <div class="model-card-name">Steampunk Airship</div>
+          <a href="/studio" class="model-card-link" title="View Steampunk Airship in Studio">View in Studio →</a>
+        </div>
+      </div>
+      <div class="model-card mc-gear" role="listitem">
+        <div class="model-card-preview" aria-hidden="true"><span>⚙️</span></div>
+        <div class="model-card-body">
+          <div class="model-card-name">Iron Gear Assembly</div>
+          <a href="/studio" class="model-card-link" title="View Iron Gear Assembly in Studio">View in Studio →</a>
+        </div>
+      </div>
+      <div class="model-card mc-cave" role="listitem">
+        <div class="model-card-preview" aria-hidden="true"><span>💎</span></div>
+        <div class="model-card-body">
+          <div class="model-card-name">Crystal Cavern</div>
+          <a href="/studio" class="model-card-link" title="View Crystal Cavern in Studio">View in Studio →</a>
+        </div>
+      </div>
+      <div class="model-card mc-spider" role="listitem">
+        <div class="model-card-preview" aria-hidden="true"><span>🕷️</span></div>
+        <div class="model-card-body">
+          <div class="model-card-name">Spider Bot MkII</div>
+          <a href="/studio" class="model-card-link" title="View Spider Bot MkII in Studio">View in Studio →</a>
+        </div>
+      </div>
+      <div class="model-card mc-cannon" role="listitem">
+        <div class="model-card-preview" aria-hidden="true"><span>💣</span></div>
+        <div class="model-card-body">
+          <div class="model-card-name">Siege Cannon</div>
+          <a href="/studio" class="model-card-link" title="View Siege Cannon in Studio">View in Studio →</a>
+        </div>
+      </div>
+      <div class="model-card mc-staff" role="listitem">
+        <div class="model-card-preview" aria-hidden="true"><span>🪄</span></div>
+        <div class="model-card-body">
+          <div class="model-card-name">Arcane Staff</div>
+          <a href="/studio" class="model-card-link" title="View Arcane Staff in Studio">View in Studio →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Act 5: Benchmarks ── -->
+<section id="act5">
+  <div class="section-inner">
+    <div class="act5-layout">
+      <div>
+        <p class="act-label fi">Act 5 — The Proof</p>
+        <h2 class="act-headline fi fi-delay-1">Self-proving. <em>The model built its own benchmark.</em></h2>
+        <p class="act-sub fi fi-delay-2">muLLM routed the HumanEval runner implementation to itself, fixed the check() invocation bug, and ran all 164 problems to completion.</p>
+        <div class="pull-quote fi fi-delay-3" style="margin-top:2rem">
+          "The local model wrote the test harness that proved it scores 100%."
+        </div>
+      </div>
+      <div>
+        <div class="stats-strip fi fi-delay-2">
+          <div class="stat-box">
+            <div class="stat-num stat-gold">100%</div>
+            <div class="stat-label">HumanEval pass@1<br><span style="color:var(--text-muted);font-size:0.75rem">164/164 problems</span></div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num stat-teal">82.4%</div>
+            <div class="stat-label">DeBERTa accuracy<br><span style="color:var(--text-muted);font-size:0.75rem">5,161 examples</span></div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num stat-blue">65%</div>
+            <div class="stat-label">GameDevBench<br><span style="color:var(--text-muted);font-size:0.75rem">vs GPT-4o baseline</span></div>
+          </div>
+        </div>
+        <div class="fi fi-delay-4" style="background:var(--bg3);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius);padding:1.5rem;font-size:0.85rem;color:var(--text-dim);line-height:1.65">
+          <p style="margin-bottom:0.6rem"><strong style="color:var(--gold)">$0.00</strong> total API cost for 164 HumanEval solutions.</p>
+          <p>The same local 9B model that handles chat, routes queries, and evaluates results also solves algorithmic programming problems at state-of-the-art accuracy — without billing a single cent.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Act 6: Numbers ── -->
+<section id="act6">
+  <div class="section-inner" style="text-align:center">
+    <p class="act-label fi">Act 6 — Real Savings</p>
+    <h2 class="act-headline fi fi-delay-1" style="max-width:600px;margin:0 auto 1rem">10,301 queries. <em>$10.86 spent.</em></h2>
+    <p class="act-sub fi fi-delay-2" style="margin:0 auto 3rem">741 queries/day average. 13.9-day production window. Scoring log rotates at 10K — lifetime totals are higher.</p>
+
+    <div class="counter-hero fi fi-delay-2">
+      <div class="counter-num" id="counterNum" aria-live="polite" aria-label="Total queries served">0</div>
+      <div class="counter-sub" id="counterSub">queries served &nbsp;·&nbsp; <strong id="costDisplay">$10.86</strong> actual spend &nbsp;·&nbsp; <strong style="color:var(--teal)">$6,329</strong> estimated lifetime savings vs Opus 4</div>
+    </div>
+
+    <div class="savings-bar fi fi-delay-3">
+      <div class="savings-bar-label">
+        <span style="color:var(--gold)">91.9% Free</span>
+        <span>8.1% paid</span>
+      </div>
+      <div class="savings-bar-track" role="progressbar" aria-valuenow="91.9" aria-valuemin="0" aria-valuemax="100" aria-label="91.9 percent of queries served free">
+        <div class="savings-bar-fill" id="savingsBar"></div>
+      </div>
+    </div>
+
+    <div class="act6-grid fi fi-delay-4">
+      <div class="mini-stat">
+        <div class="mini-stat-val" style="color:var(--gold)">741/day</div>
+        <div class="mini-stat-key">Query avg</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-val" style="color:var(--teal)">$0.001</div>
+        <div class="mini-stat-key">Cost per query</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-val" style="color:var(--blue)">13.9 days</div>
+        <div class="mini-stat-key">Production window</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Act 7: CTA ── -->
+<section id="cta">
+  <div class="section-inner" style="text-align:center">
+    <p class="act-label fi">Act 7 — What's Next</p>
+    <h2 class="act-headline fi fi-delay-1" style="max-width:640px;margin:0 auto 1rem">From CSS question to 3D game <em>in one conversation.</em></h2>
+
+    <div class="cta-cards">
+      <a href="/chat" class="cta-card fi fi-delay-1" aria-label="Open muLLM Chat">
+        <div class="cta-card-icon">💬</div>
+        <div class="cta-card-title">Try the Chat</div>
+        <div class="cta-card-desc">Ask anything. Groundtruth, cache, local, or cloud — you'll barely notice the difference.</div>
+      </a>
+      <a href="/bench" class="cta-card fi fi-delay-2" aria-label="Run benchmarks on the bench page">
+        <div class="cta-card-icon">📊</div>
+        <div class="cta-card-title">Run Benchmarks</div>
+        <div class="cta-card-desc">HumanEval, MultiPL-E, GameDevBench. Live results, real scores, zero fabrication.</div>
+      </a>
+      <a href="/dashboard" class="cta-card fi fi-delay-3" aria-label="Open the dashboard to see live stats">
+        <div class="cta-card-icon">🎛️</div>
+        <div class="cta-card-title">See the Dashboard</div>
+        <div class="cta-card-desc">Live routing stats, cost breakdown, tier distribution, GPU utilization.</div>
+      </a>
+    </div>
+
+    <div class="footer-sig fi fi-delay-4">
+      <strong>★</strong> muLLM helped build this page — the same local model that scores 100% on HumanEval. Cost: <strong>$0.00</strong>.
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── Intersection Observer for fade-ins ──
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        // Also trigger savings bar fill if present
+        const bar = e.target.querySelector('#savingsBar') || (e.target.id === 'savingsBar' ? e.target : null);
+        if (bar) bar.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+
+  document.querySelectorAll('.fi').forEach(el => io.observe(el));
+
+  // Observe savings bar separately for the fill animation
+  const sbar = document.getElementById('savingsBar');
+  if (sbar) {
+    const sio = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('visible'); sio.unobserve(e.target); }
+      });
+    }, { threshold: 0.5 });
+    sio.observe(sbar);
+  }
+
+  // ── Counter animation ──
+  const counterEl = document.getElementById('counterNum');
+  const costEl = document.getElementById('costDisplay');
+  let counterAnimated = false;
+
+  function animateCounter(target, duration) {
+    const start = performance.now();
+    function frame(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      counterEl.textContent = Math.floor(eased * target).toLocaleString();
+      if (progress < 1) requestAnimationFrame(frame);
+      else counterEl.textContent = target.toLocaleString();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  const cio = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !counterAnimated) {
+        counterAnimated = true;
+        // Try to fetch real data
+        fetch('/api/dashboard')
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            let total = 10301;
+            let cost = '$10.86';
+            if (data && data.total_queries) total = data.total_queries;
+            if (data && data.total_cost != null) cost = '$' + data.total_cost.toFixed(2);
+            animateCounter(total, 1800);
+            if (costEl) costEl.textContent = cost;
+          })
+          .catch(() => animateCounter(10301, 1800));
+        cio.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.4 });
+
+  if (counterEl) cio.observe(counterEl);
+
+  // ── Router animation ──
+  const dot = document.getElementById('rdDot');
+  const diagram = document.getElementById('routerDiagram');
+  const pills = {
+    gt:    document.getElementById('pill-gt'),
+    cache: document.getElementById('pill-cache'),
+    local: document.getElementById('pill-local'),
+    cloud: document.getElementById('pill-cloud')
+  };
+  // Weighted random tier selection: GT=13%, cache=34%, local=46%, cloud=7%
+  const TIERS = [
+    { id: 'gt',    weight: 13 },
+    { id: 'cache', weight: 34 },
+    { id: 'local', weight: 46 },
+    { id: 'cloud', weight: 7  }
+  ];
+  const totalWeight = TIERS.reduce((s, t) => s + t.weight, 0);
+
+  function pickTier() {
+    let r = Math.random() * totalWeight;
+    for (const t of TIERS) {
+      r -= t.weight;
+      if (r <= 0) return t.id;
+    }
+    return 'local';
+  }
+
+  function getCenter(el) {
+    const dr = diagram.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    return {
+      x: er.left - dr.left + er.width / 2,
+      y: er.top  - dr.top  + er.height / 2
+    };
+  }
+
+  function moveDot(fromEl, toEl, duration) {
+    return new Promise(resolve => {
+      const from = getCenter(fromEl);
+      const to   = getCenter(toEl);
+      dot.style.left = from.x + 'px';
+      dot.style.top  = from.y + 'px';
+      dot.style.opacity = '1';
+      dot.style.transition = 'none';
+      // Force reflow
+      dot.getBoundingClientRect();
+      dot.style.transition = `left ${duration}ms ease-in-out, top ${duration}ms ease-in-out, opacity 200ms`;
+      dot.style.left = to.x + 'px';
+      dot.style.top  = to.y + 'px';
+      setTimeout(resolve, duration);
+    });
+  }
+
+  function clearPills() {
+    Object.values(pills).forEach(p => p && p.classList.remove('active'));
+  }
+
+  const inputEl  = diagram.querySelector('.rd-input-box');
+  const routerEl = diagram.querySelector('.rd-router-inner');
+  let routerRunning = false;
+
+  async function runCycle() {
+    if (!routerRunning) return;
+    const tier = pickTier();
+
+    // Phase 1: input → router (1s)
+    await moveDot(inputEl, routerEl, 900);
+
+    if (!routerRunning) return;
+
+    // Phase 2: router → selected pill (0.7s)
+    const pillEl = pills[tier];
+    if (pillEl) {
+      clearPills();
+      await moveDot(routerEl, pillEl, 650);
+      pillEl.classList.add('active');
+    }
+
+    // Fade out dot
+    dot.style.opacity = '0';
+
+    // Hold, then next cycle (pause ~0.7s)
+    await new Promise(r => setTimeout(r, 700));
+    clearPills();
+    if (routerRunning) setTimeout(runCycle, 100);
+  }
+
+  // Start router animation when diagram enters viewport
+  const rio = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !routerRunning) {
+        routerRunning = true;
+        runCycle();
+      } else if (!e.isIntersecting && routerRunning) {
+        routerRunning = false;
+        dot.style.opacity = '0';
+        clearPills();
+      }
+    });
+  }, { threshold: 0.3 });
+
+  if (diagram) rio.observe(diagram);
+
+  // ── Reduce motion: disable router animation ──
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    routerRunning = false;
+    if (dot) dot.style.display = 'none';
+  }
+
+})();
+</script>
+</body>
+</html>

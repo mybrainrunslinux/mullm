@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — Data Visualization</title>
+  <meta name="description" content="muLLM live data visualization — real-time cost, tier distribution, query volume, and latency charts." />
+  <meta name="theme-color" content="#0a0e1a" />
+  <link rel="manifest" href="/manifest.json" />
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root, [data-theme="dark"] {
+      --bg:      #0a0e1a;
+      --bg2:     #111827;
+      --bg3:     #1a2332;
+      --bg4:     #243044;
+      --border:  #1e2d3d;
+      --border2: #2a3a4d;
+      --green:   #22c55e;
+      --teal:    #14b8a6;
+      --blue:    #3b82f6;
+      --amber:   #f59e0b;
+      --coral:   #ef6c4c;
+      --purple:  #a78bfa;
+      --pink:    #ec4899;
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --text3:   #8294a7;
+      --mono:    "JetBrains Mono", "Fira Code", monospace;
+      --sans:    "DM Sans", "Inter", system-ui, sans-serif;
+      color-scheme: dark;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --bg4: #cbd5e1;
+      --border: #cbd5e1; --border2: #94a3b8;
+      --green: #16a34a; --teal: #0d9488; --blue: #2563eb;
+      --amber: #d97706; --coral: #dc2626; --purple: #7c3aed; --pink: #db2777;
+      --text: #0f172a; --text2: #475569; --text3: #64748b;
+      color-scheme: light;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --bg4: #cbd5e1;
+        --border: #cbd5e1; --border2: #94a3b8;
+        --green: #16a34a; --teal: #0d9488; --blue: #2563eb;
+        --amber: #d97706; --coral: #dc2626; --purple: #7c3aed; --pink: #db2777;
+        --text: #0f172a; --text2: #475569; --text3: #64748b;
+        color-scheme: light;
+      }
+    }
+
+    /* ── Skip link ── */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--teal); color: #000;
+      padding: 8px 16px; z-index: 10000;
+      font-weight: 600; border-radius: 0 0 8px 0;
+      transition: top 0.2s;
+    }
+    .skip-link:focus { top: 0; }
+
+    *:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 2px;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Nav ── */
+    .nav {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-weight: 700; font-size: 14px;
+      display: flex; align-items: center; gap: 0;
+      text-decoration: none; border: none !important; padding: 0 !important;
+    }
+    .logo-mu    { color: var(--amber); font-family: 'Times New Roman', Georgia, serif; font-size: 18px; font-style: italic; line-height: 14px; }
+    .logo-pipe  { color: var(--text3); font-size: 20px; line-height: 14px; margin: 0 -1px; font-weight: 400; opacity: 0.5; }
+    .logo-llm   { color: var(--teal); letter-spacing: 1px; font-family: var(--mono); }
+    .logo-tardi { height: 14px; margin-left: 6px; opacity: 0.7; filter: invert(1) brightness(0.8); transition: opacity 0.2s; }
+    .logo-tardi:hover { opacity: 1; }
+
+    .nav-spacer { flex: 1; }
+    .nav a {
+      color: var(--text3); text-decoration: none;
+      padding: 4px 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .nav a:hover, .nav a.active {
+      color: var(--teal);
+      border-color: var(--teal);
+    }
+    .theme-btn {
+      background: none; border: 1px solid var(--border);
+      border-radius: 4px; color: var(--text3);
+      font-family: var(--mono); font-size: 11px;
+      padding: 4px 10px; cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .theme-btn:hover { color: var(--teal); border-color: var(--teal); }
+
+    /* ── Page header ── */
+    .page-header {
+      padding: 28px 24px 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .page-header h1 {
+      font-size: clamp(18px, 3vw, 26px);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .page-header .subtitle {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 4px;
+    }
+
+    /* ── Status bar ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text3);
+    }
+    .pulse-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+      animation: pulse-ring 2s ease-out infinite;
+    }
+    .pulse-dot.error { background: var(--coral); box-shadow: 0 0 0 0 rgba(239, 108, 76, 0.4); }
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+      70%  { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    /* ── KPI strip ── */
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      padding: 0 24px 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .kpi-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .kpi-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+    .kpi-label {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .kpi-value {
+      font-size: clamp(20px, 3vw, 28px);
+      font-weight: 700;
+      font-family: var(--mono);
+      line-height: 1;
+    }
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 4px;
+    }
+
+    /* ── Chart grid ── */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 14px;
+      padding: 0 24px 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .chart-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 240px;
+    }
+    .chart-card.wide {
+      grid-column: span 2;
+    }
+    @media (max-width: 780px) {
+      .chart-card.wide { grid-column: span 1; }
+    }
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chart-title {
+      font-size: 12px;
+      font-family: var(--mono);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text2);
+      text-transform: uppercase;
+    }
+    .chart-badge {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--text3);
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+    .chart-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 180px;
+    }
+    .chart-wrap canvas {
+      width: 100% !important;
+    }
+
+    /* ── Latency table ── */
+    .latency-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .lat-cell {
+      background: var(--bg3);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+    .lat-pct { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-bottom: 4px; }
+    .lat-val { font-size: 20px; font-weight: 700; font-family: var(--mono); }
+
+    /* ── Slowest queries ── */
+    .slow-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--mono); }
+    .slow-table th {
+      text-align: left; padding: 6px 8px;
+      color: var(--text3); border-bottom: 1px solid var(--border);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .slow-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text2); }
+    .slow-table tr:last-child td { border-bottom: none; }
+    .slow-table tr:hover td { background: var(--bg3); }
+    .tier-badge {
+      display: inline-block;
+      font-size: 9px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    /* ── Skeleton ── */
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      min-height: 1em;
+    }
+
+    /* ── Error banner ── */
+    .error-banner {
+      background: rgba(239, 108, 76, 0.1);
+      border: 1px solid var(--coral);
+      border-radius: 8px;
+      color: var(--coral);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 10px 16px;
+      margin: 0 24px 16px;
+      max-width: 1400px;
+      display: none;
+    }
+    .error-banner.visible { display: block; }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      .pulse-dot { animation: none; }
+      @keyframes shimmer { 0%, 100% { background-position: 0 0; } }
+    }
+
+    /* ── Footer ── */
+    .page-footer {
+      padding: 16px 24px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text3);
+      font-family: var(--mono);
+      border-top: 1px solid var(--border);
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <nav class="nav" role="navigation" aria-label="muLLM navigation">
+    <a href="/" class="logo" aria-label="muLLM home">
+      <span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span>
+      <img class="logo-tardi"
+           src="/static/tardigrade.svg"
+           alt="tardigrade"
+           title="Tardigrade mascot"
+           loading="lazy" />
+    </a>
+    <div class="nav-spacer"></div>
+    <a href="/chat">Chat</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/dataviz" class="active" aria-current="page">DataViz</a>
+    <a href="/games">Games</a>
+    <a href="/performance">Perf</a>
+    <button class="theme-btn" id="themeBtn" title="Toggle light/dark theme" aria-label="Toggle theme">Light</button>
+  </nav>
+
+  <main id="main">
+    <div class="page-header">
+      <div>
+        <h1>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          Live Data Visualization
+        </h1>
+        <p class="subtitle">Real-time metrics from /api/dashboard and /api/performance — refreshes every 5 seconds</p>
+      </div>
+      <div class="status-bar">
+        <div class="status-pill" aria-live="polite" aria-atomic="true">
+          <div class="pulse-dot" id="statusDot" aria-hidden="true"></div>
+          <span id="statusText">Connecting…</span>
+        </div>
+        <div class="status-pill">
+          <span id="lastUpdate" aria-label="Last updated">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-banner" id="errorBanner" role="alert" aria-live="assertive"></div>
+
+    <!-- KPI strip -->
+    <section class="kpi-strip" aria-label="Key performance indicators">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Queries</div>
+        <div class="kpi-value" id="kpiQueries" style="color:var(--teal)"><span class="skeleton" style="width:60px;display:inline-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpiQueriesSub">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Cost</div>
+        <div class="kpi-value" id="kpiCost" style="color:var(--green)"><span class="skeleton" style="width:60px;display:inline-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpiCostSub">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Savings vs Cloud</div>
+        <div class="kpi-value" id="kpiSavings" style="color:var(--amber)"><span class="skeleton" style="width:60px;display:inline-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpiSavingsSub">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Cache Hit Rate</div>
+        <div class="kpi-value" id="kpiCache" style="color:var(--purple)"><span class="skeleton" style="width:60px;display:inline-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpiCacheSub">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Local Rate</div>
+        <div class="kpi-value" id="kpiLocal" style="color:var(--blue)"><span class="skeleton" style="width:60px;display:inline-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpiLocalSub">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Latency</div>
+        <div class="kpi-value" id="kpiLatency" style="color:var(--coral)"><span class="skeleton" style="width:60px;display:inline-block">&nbsp;</span></div>
+        <div class="kpi-sub" id="kpiLatencySub">—</div>
+      </div>
+    </section>
+
+    <!-- Chart grid -->
+    <section class="chart-grid" aria-label="Charts">
+
+      <!-- Cost over time (wide) -->
+      <div class="chart-card wide">
+        <div class="chart-header">
+          <span class="chart-title">Cumulative Cost over Time</span>
+          <span class="chart-badge" id="costBadge">last 200 queries</span>
+        </div>
+        <div class="chart-wrap" style="min-height:200px">
+          <canvas id="costChart" role="img" aria-label="Cost over time line chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Tier distribution donut -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Tier Distribution</span>
+          <span class="chart-badge" id="tierBadge">all time</span>
+        </div>
+        <div class="chart-wrap" style="min-height:200px">
+          <canvas id="tierChart" role="img" aria-label="Tier distribution donut chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Query volume sparkline -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Query Volume (recent)</span>
+          <span class="chart-badge" id="volBadge">last 50</span>
+        </div>
+        <div class="chart-wrap" style="min-height:200px">
+          <canvas id="volChart" role="img" aria-label="Query volume bar chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Latency histogram -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Latency Histogram</span>
+          <span class="chart-badge" id="histBadge">ms buckets</span>
+        </div>
+        <div class="chart-wrap" style="min-height:200px">
+          <canvas id="histChart" role="img" aria-label="Latency histogram bar chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Latency percentiles -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Latency Percentiles</span>
+          <span class="chart-badge">from /api/performance</span>
+        </div>
+        <div class="latency-grid" id="latencyGrid">
+          <div class="lat-cell"><div class="lat-pct">p50</div><div class="lat-val" id="latP50" style="color:var(--green)">—</div></div>
+          <div class="lat-cell"><div class="lat-pct">p95</div><div class="lat-val" id="latP95" style="color:var(--amber)">—</div></div>
+          <div class="lat-cell"><div class="lat-pct">p99</div><div class="lat-val" id="latP99" style="color:var(--coral)">—</div></div>
+        </div>
+        <div class="chart-wrap" style="min-height:130px; margin-top:8px">
+          <canvas id="pctChart" role="img" aria-label="Latency percentile trend chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Slowest queries -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Slowest Queries</span>
+          <span class="chart-badge">top 5</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="slow-table" aria-label="Slowest queries">
+            <thead>
+              <tr>
+                <th scope="col">Latency</th>
+                <th scope="col">Tier</th>
+                <th scope="col">Model</th>
+                <th scope="col">Category</th>
+              </tr>
+            </thead>
+            <tbody id="slowBody">
+              <tr><td colspan="4" style="color:var(--text3);text-align:center;padding:16px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <p class="page-footer">muLLM dataviz — all data sourced live from scoring log &nbsp;·&nbsp; local-first LLM router</p>
+  </main>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // ── Theme toggle ───────────────────────────────────────────
+    const themeBtn = document.getElementById('themeBtn');
+    const html = document.documentElement;
+    const stored = localStorage.getItem('mullm-theme');
+    if (stored) { html.setAttribute('data-theme', stored); themeBtn.textContent = stored === 'dark' ? 'Light' : 'Dark'; }
+    themeBtn.addEventListener('click', () => {
+      const cur = html.getAttribute('data-theme') || 'dark';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('mullm-theme', next);
+      themeBtn.textContent = next === 'dark' ? 'Light' : 'Dark';
+    });
+
+    // ── Helpers ────────────────────────────────────────────────
+    function fmt(n, d=2) { return typeof n === 'number' ? n.toFixed(d) : '—'; }
+    function fmtMs(ms) {
+      if (ms >= 10000) return (ms/1000).toFixed(1) + 's';
+      return Math.round(ms) + 'ms';
+    }
+    function fmtCost(c) {
+      if (c === 0) return '$0.00';
+      if (c < 0.001) return '$' + c.toFixed(6);
+      if (c < 0.01) return '$' + c.toFixed(4);
+      return '$' + c.toFixed(3);
+    }
+    const TIER_COLOR = {
+      cache:       '#a78bfa',
+      local:       '#14b8a6',
+      local_multi: '#22c55e',
+      cloud:       '#3b82f6',
+      cloud_split: '#f59e0b',
+      unknown:     '#8294a7',
+    };
+    function tierColor(t) { return TIER_COLOR[t] || '#8294a7'; }
+    function tierLabel(t) {
+      return { cache:'Cache', local:'Local', local_multi:'Local Multi', cloud:'Cloud', cloud_split:'Cloud Split', unknown:'Unknown' }[t] || t;
+    }
+    function tierBgStyle(t) {
+      const map = { cache:'rgba(167,139,250,0.18)', local:'rgba(20,184,166,0.18)', local_multi:'rgba(34,197,94,0.18)', cloud:'rgba(59,130,246,0.18)', cloud_split:'rgba(245,158,11,0.18)', unknown:'rgba(130,148,167,0.18)' };
+      return map[t] || 'rgba(130,148,167,0.18)';
+    }
+    function getCSSVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    // ── Chart defaults ─────────────────────────────────────────
+    function applyChartDefaults() {
+      const text2 = getCSSVar('--text2');
+      const text3 = getCSSVar('--text3');
+      const border = getCSSVar('--border');
+      Chart.defaults.color = text2;
+      Chart.defaults.borderColor = border;
+      Chart.defaults.font.family = getCSSVar('--mono') || 'monospace';
+      Chart.defaults.font.size = 10;
+    }
+
+    // ── Chart instances ────────────────────────────────────────
+    let costChart = null, tierChart = null, volChart = null, histChart = null, pctChart = null;
+
+    function buildCostChart() {
+      const ctx = document.getElementById('costChart').getContext('2d');
+      costChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [{
+          label: 'Actual Cost ($)',
+          data: [],
+          borderColor: getCSSVar('--teal'),
+          backgroundColor: 'rgba(20,184,166,0.08)',
+          tension: 0.35,
+          fill: true,
+          pointRadius: 0,
+          borderWidth: 2,
+        }, {
+          label: 'Cloud Would Cost ($)',
+          data: [],
+          borderColor: getCSSVar('--coral'),
+          backgroundColor: 'rgba(239,108,76,0.05)',
+          tension: 0.35,
+          fill: false,
+          pointRadius: 0,
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+        }]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 600 },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 12 } },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) { return ctx.dataset.label + ': $' + (ctx.raw || 0).toFixed(6); }
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 8, maxRotation: 0 } },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.04)' },
+              ticks: { callback: v => '$' + v.toFixed(4) }
+            }
+          }
+        }
+      });
+    }
+
+    function buildTierChart() {
+      const ctx = document.getElementById('tierChart').getContext('2d');
+      tierChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 2, borderColor: getCSSVar('--bg2') }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { animateRotate: true, duration: 700 },
+          cutout: '62%',
+          plugins: {
+            legend: { display: true, position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                  const pct = total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0;
+                  return ctx.label + ': ' + ctx.raw + ' (' + pct + '%)';
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function buildVolChart() {
+      const ctx = document.getElementById('volChart').getContext('2d');
+      volChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets: [{
+          label: 'Queries',
+          data: [],
+          backgroundColor: [],
+          borderWidth: 0,
+          borderRadius: 3,
+        }]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 500 },
+          plugins: { legend: { display: false },
+            tooltip: { callbacks: { title: () => '', label: ctx => ctx.raw + ' tokens' } }
+          },
+          scales: {
+            x: { display: false },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.04)' },
+              ticks: { maxTicksLimit: 5 }
+            }
+          }
+        }
+      });
+    }
+
+    function buildHistChart() {
+      const ctx = document.getElementById('histChart').getContext('2d');
+      histChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets: [{
+          label: 'Queries',
+          data: [],
+          backgroundColor: getCSSVar('--blue') + '99',
+          borderColor: getCSSVar('--blue'),
+          borderWidth: 1,
+          borderRadius: 3,
+        }]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 600 },
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxRotation: 0, font: { size: 9 } } },
+            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { maxTicksLimit: 5 } }
+          }
+        }
+      });
+    }
+
+    function buildPctChart() {
+      const ctx = document.getElementById('pctChart').getContext('2d');
+      pctChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['p50', 'p95', 'p99', 'avg'],
+          datasets: [{
+            data: [0, 0, 0, 0],
+            backgroundColor: [
+              getCSSVar('--green') + 'aa',
+              getCSSVar('--amber') + 'aa',
+              getCSSVar('--coral') + 'aa',
+              getCSSVar('--blue') + 'aa',
+            ],
+            borderColor: [
+              getCSSVar('--green'),
+              getCSSVar('--amber'),
+              getCSSVar('--coral'),
+              getCSSVar('--blue'),
+            ],
+            borderWidth: 1,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 500 },
+          indexAxis: 'y',
+          plugins: { legend: { display: false },
+            tooltip: { callbacks: { label: ctx => fmtMs(ctx.raw) } }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255,255,255,0.04)' },
+              ticks: { callback: v => fmtMs(v) }
+            },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // ── Build latency histogram from raw latency values ────────
+    function buildHistogramBuckets(latencies) {
+      if (!latencies.length) return { labels: [], counts: [] };
+      const buckets = [0, 250, 500, 1000, 2000, 5000, 10000, Infinity];
+      const labels = ['0-250ms', '250-500ms', '500ms-1s', '1-2s', '2-5s', '5-10s', '10s+'];
+      const counts = new Array(labels.length).fill(0);
+      for (const ms of latencies) {
+        for (let i = 0; i < buckets.length - 1; i++) {
+          if (ms >= buckets[i] && ms < buckets[i+1]) { counts[i]++; break; }
+        }
+      }
+      return { labels, counts };
+    }
+
+    // ── Render slowest queries table ───────────────────────────
+    function renderSlowTable(rows) {
+      const tbody = document.getElementById('slowBody');
+      if (!rows || !rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text3);text-align:center;padding:16px">No data yet</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(r => {
+        const col = tierColor(r.tier);
+        return '<tr>' +
+          '<td style="color:var(--coral)">' + fmtMs(r.latency_ms) + '</td>' +
+          '<td><span class="tier-badge" style="background:' + tierBgStyle(r.tier) + ';color:' + col + '">' + tierLabel(r.tier) + '</span></td>' +
+          '<td>' + (r.model || '—').replace('anthropic/', '').replace(':latest','') + '</td>' +
+          '<td style="color:var(--text3)">' + (r.category || '—') + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    // ── Update charts with fresh data ──────────────────────────
+    function updateCharts(dash, perf) {
+      // ── KPIs ──
+      document.getElementById('kpiQueries').textContent = (dash.total_queries || 0).toLocaleString();
+      document.getElementById('kpiQueriesSub').textContent = (dash.days_active || 1) + ' day(s) active';
+      document.getElementById('kpiCost').textContent = fmtCost(dash.total_cost || 0);
+      document.getElementById('kpiCostSub').textContent = fmtCost(dash.estimated_cloud_cost || 0) + ' est. cloud';
+      document.getElementById('kpiSavings').textContent = fmtCost(dash.savings || 0);
+      document.getElementById('kpiSavingsSub').textContent = fmt(dash.savings_pct || 0, 1) + '% saved';
+      document.getElementById('kpiCache').textContent = fmt(dash.cache_hit_rate || 0, 1) + '%';
+      document.getElementById('kpiCacheSub').textContent = (dash.cache_hits || 0).toLocaleString() + ' hits';
+      document.getElementById('kpiLocal').textContent = fmt(dash.local_rate || 0, 1) + '%';
+      document.getElementById('kpiLocalSub').textContent = (dash.local_hits || 0).toLocaleString() + ' local';
+      document.getElementById('kpiLatency').textContent = fmtMs(dash.avg_latency_ms || 0);
+      document.getElementById('kpiLatencySub').textContent = 'p95 ' + fmtMs(perf.latency_p95 || 0);
+
+      // ── Cost over time chart ──
+      const timeline = dash.timeline || [];
+      // Build cumulative cost & cloud cost arrays
+      const costLabels = [];
+      const costActual = [];
+      const costCloud = [];
+      let cumActual = 0, cumCloud = 0;
+      for (let i = 0; i < timeline.length; i++) {
+        const t = timeline[i];
+        cumActual += t.cost || 0;
+        cumCloud += t.cloudCost || 0;
+        costActual.push(parseFloat(cumActual.toFixed(6)));
+        costCloud.push(parseFloat(cumCloud.toFixed(6)));
+        // Label: use index, show every N-th tick
+        costLabels.push(i + 1);
+      }
+      costChart.data.labels = costLabels;
+      costChart.data.datasets[0].data = costActual;
+      costChart.data.datasets[1].data = costCloud;
+      document.getElementById('costBadge').textContent = 'last ' + timeline.length + ' queries';
+      costChart.update('active');
+
+      // ── Tier donut ──
+      const tierDist = perf.tier_distribution || {};
+      const tierKeys = Object.keys(tierDist);
+      tierChart.data.labels = tierKeys.map(tierLabel);
+      tierChart.data.datasets[0].data = tierKeys.map(k => tierDist[k]);
+      tierChart.data.datasets[0].backgroundColor = tierKeys.map(tierColor);
+      document.getElementById('tierBadge').textContent = (perf.total_requests || 0).toLocaleString() + ' total';
+      tierChart.update('active');
+
+      // ── Volume sparkline (token counts per recent query) ──
+      const recent50 = timeline.slice(-50);
+      volChart.data.labels = recent50.map((_, i) => i + 1);
+      volChart.data.datasets[0].data = recent50.map(t => t.tokens || 0);
+      volChart.data.datasets[0].backgroundColor = recent50.map(t => tierColor(t.tier) + '99');
+      document.getElementById('volBadge').textContent = 'last ' + recent50.length;
+      volChart.update('active');
+
+      // ── Latency histogram ──
+      const allLatencies = timeline.map(t => t.latency_ms || 0).filter(v => v > 0);
+      const { labels: histLabels, counts: histCounts } = buildHistogramBuckets(allLatencies);
+      histChart.data.labels = histLabels;
+      histChart.data.datasets[0].data = histCounts;
+      document.getElementById('histBadge').textContent = allLatencies.length + ' queries';
+      histChart.update('active');
+
+      // ── Percentile cells + bar chart ──
+      const p50 = perf.latency_p50 || 0;
+      const p95 = perf.latency_p95 || 0;
+      const p99 = perf.latency_p99 || 0;
+      const avg = perf.avg_latency_ms || 0;
+      document.getElementById('latP50').textContent = fmtMs(p50);
+      document.getElementById('latP95').textContent = fmtMs(p95);
+      document.getElementById('latP99').textContent = fmtMs(p99);
+      pctChart.data.datasets[0].data = [p50, p95, p99, avg];
+      pctChart.update('active');
+
+      // ── Slowest table ──
+      renderSlowTable(perf.slowest_queries || []);
+    }
+
+    // ── Fetch & refresh loop ───────────────────────────────────
+    let consecutiveErrors = 0;
+
+    async function refresh() {
+      try {
+        const [dashRes, perfRes] = await Promise.all([
+          fetch('/api/dashboard'),
+          fetch('/api/performance')
+        ]);
+        if (!dashRes.ok || !perfRes.ok) throw new Error('API error: ' + dashRes.status + '/' + perfRes.status);
+        const [dash, perf] = await Promise.all([dashRes.json(), perfRes.json()]);
+        consecutiveErrors = 0;
+        document.getElementById('errorBanner').classList.remove('visible');
+        document.getElementById('statusDot').classList.remove('error');
+        document.getElementById('statusText').textContent = 'Live';
+        document.getElementById('lastUpdate').textContent = 'Updated ' + new Date().toLocaleTimeString();
+        updateCharts(dash, perf);
+      } catch (err) {
+        consecutiveErrors++;
+        const dot = document.getElementById('statusDot');
+        const txt = document.getElementById('statusText');
+        const banner = document.getElementById('errorBanner');
+        dot.classList.add('error');
+        txt.textContent = 'Error';
+        banner.textContent = 'Failed to fetch data: ' + err.message + ' (retry in 5s)';
+        banner.classList.add('visible');
+      }
+    }
+
+    // ── Init ───────────────────────────────────────────────────
+    function init() {
+      // Wait for Chart.js to be available
+      if (typeof Chart === 'undefined') {
+        setTimeout(init, 50);
+        return;
+      }
+      applyChartDefaults();
+      buildCostChart();
+      buildTierChart();
+      buildVolChart();
+      buildHistChart();
+      buildPctChart();
+      refresh();
+      setInterval(refresh, 5000);
+    }
+
+    // Start once DOM is ready and Chart.js loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  })();
+  </script>
+</body>
+</html>
+</html>

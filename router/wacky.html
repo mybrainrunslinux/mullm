@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mu|LLM — Wacky</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2332;
+  --border:#1e2d3d;
+  --green:#22c55e;--teal:#14b8a6;--blue:#3b82f6;--amber:#f59e0b;
+  --coral:#ef6c4c;--purple:#a78bfa;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#8294a7;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+  --sans:'DM Sans',system-ui,sans-serif;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);margin:0;overflow:hidden}
+.logo{font-weight:700;font-size:14px;display:flex;align-items:center;gap:0;text-decoration:none;border:none!important;padding:0!important}
+.logo-mu{color:var(--amber);font-family:'Times New Roman',Georgia,serif;font-size:18px;font-style:italic;line-height:14px}
+.logo-pipe{color:var(--text3);font-size:20px;line-height:14px;margin:0 -1px;font-weight:400;opacity:0.5}
+.logo-llm{color:var(--teal);letter-spacing:1px}
+.logo-tardi{height:14px;margin-left:6px;opacity:0.7;filter:invert(1) brightness(0.8);transition:opacity 0.2s}
+.logo-tardi:hover{opacity:1}
+.nav{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;padding:12px 24px;font-size:11px;font-family:var(--mono);z-index:100;background:rgba(10,14,26,0.8);backdrop-filter:blur(8px);align-items:center}
+.nav a{color:var(--text3);text-decoration:none;padding:4px 12px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s}
+.nav a:hover,.nav a.active{color:var(--purple);border-color:var(--purple)}
+canvas{display:block;width:100vw;height:100vh}
+.legend{position:fixed;bottom:16px;left:16px;font-family:var(--mono);font-size:10px;color:var(--text3);background:rgba(10,14,26,0.8);padding:12px;border-radius:8px;border:1px solid var(--border);line-height:1.8}
+.legend span{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.stats-overlay{position:fixed;top:56px;right:16px;font-family:var(--mono);font-size:10px;color:var(--text3);background:rgba(10,14,26,0.8);padding:12px;border-radius:8px;border:1px solid var(--border);text-align:right}
+.stats-overlay .val{color:var(--teal);font-size:14px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/" class="logo"><span class="logo-mu">mμ</span><span class="logo-pipe">│</span><span class="logo-llm">LLM</span><img class="logo-tardi" src="/static/tardigrade.svg" alt="tardigrade" title="Tardigrade mascot"></a>
+  <a href="/chat">Chat</a>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/performance">Performance</a>
+  <a href="/demo">Demo</a>
+  <a href="/unblock">Unblock</a>
+  <a href="/wacky" class="active">Wacky</a>
+  <a href="/games">Games</a>
+</div>
+
+<canvas id="c"></canvas>
+
+<div class="legend">
+  <span style="background:var(--green)"></span> Cache (instant)<br>
+  <span style="background:var(--teal)"></span> Local GPU (free)<br>
+  <span style="background:var(--amber)"></span> Cloud (paid)<br>
+  <span style="background:var(--purple)"></span> Vacuum tube (data in flight)<br>
+  <span style="background:var(--coral)"></span> Parachute (slow cloud response)
+</div>
+
+<div class="stats-overlay" id="stats">
+  <div>ACTIVE <span class="val" id="sActive">0</span></div>
+  <div>CACHE <span class="val" id="sCache">0</span></div>
+  <div>LOCAL <span class="val" id="sLocal">0</span></div>
+  <div>CLOUD <span class="val" id="sCloud">0</span></div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const API = location.origin;
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── Tubeman ──
+const tubeman = {
+  x: 0, y: 0,
+  bodyHeight: 120,
+  armLength: 80,
+  phase: 0,
+  splits: 1,  // grows when busy
+  baseColor: '#14b8a6',
+};
+
+// ── Data particles ──
+const particles = [];
+const MAX_PARTICLES = 60;
+
+// Tier node positions (iso 2.5D layout)
+const nodes = {
+  cache:  {x: 0.25, y: 0.35, color: '#22c55e', label: 'CACHE'},
+  local:  {x: 0.5,  y: 0.55, color: '#14b8a6', label: 'LOCAL'},
+  cloud:  {x: 0.8,  y: 0.3,  color: '#f59e0b', label: 'CLOUD'},
+  user:   {x: 0.15, y: 0.7,  color: '#3b82f6', label: 'USER'},
+};
+
+function worldPos(n) {
+  return {x: n.x * W, y: n.y * H};
+}
+
+function spawnParticle(from, to, speed, size, color, label) {
+  const a = worldPos(nodes[from]);
+  const b = worldPos(nodes[to]);
+  particles.push({
+    x: a.x, y: a.y,
+    tx: b.x, ty: b.y,
+    speed: speed,
+    size: size,
+    color: color,
+    label: label || '',
+    progress: 0,
+    parachute: speed < 0.005,
+  });
+  if (particles.length > MAX_PARTICLES) particles.shift();
+}
+
+// ── Draw tubeman ──
+function drawTubeman(t) {
+  const cx = W * 0.5;
+  const baseY = H * 0.75;
+  const wave = Math.sin(t * 3) * 0.3;
+  const wave2 = Math.cos(t * 2.7) * 0.2;
+
+  for (let s = 0; s < tubeman.splits; s++) {
+    const offset = (s - (tubeman.splits - 1) / 2) * 40;
+    const bx = cx + offset;
+
+    // Body — wobbly tube
+    ctx.save();
+    ctx.translate(bx, baseY);
+    ctx.beginPath();
+    const segments = 12;
+    for (let i = 0; i <= segments; i++) {
+      const frac = i / segments;
+      const y = -frac * tubeman.bodyHeight;
+      const wobble = Math.sin(t * 4 + frac * 6 + s) * (8 + frac * 15);
+      const width = 14 - frac * 6;
+      if (i === 0) {
+        ctx.moveTo(wobble - width, y);
+      }
+      ctx.lineTo(wobble - width, y);
+    }
+    for (let i = segments; i >= 0; i--) {
+      const frac = i / segments;
+      const y = -frac * tubeman.bodyHeight;
+      const wobble = Math.sin(t * 4 + frac * 6 + s) * (8 + frac * 15);
+      const width = 14 - frac * 6;
+      ctx.lineTo(wobble + width, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = tubeman.baseColor + '80';
+    ctx.strokeStyle = tubeman.baseColor;
+    ctx.lineWidth = 2;
+    ctx.fill();
+    ctx.stroke();
+
+    // Arms — vacuum tubes reaching toward nodes
+    const headY = -tubeman.bodyHeight;
+    const headWobble = Math.sin(t * 4 + segments / segments * 6 + s) * 23;
+
+    // Left arm → cache/user
+    const target1 = s % 2 === 0 ? nodes.cache : nodes.user;
+    const tp1 = worldPos(target1);
+    drawArm(bx + headWobble, baseY + headY, tp1.x, tp1.y, t, s, target1.color);
+
+    // Right arm → cloud/local
+    const target2 = s % 2 === 0 ? nodes.local : nodes.cloud;
+    const tp2 = worldPos(target2);
+    drawArm(bx + headWobble, baseY + headY, tp2.x, tp2.y, t + 1, s + 1, target2.color);
+
+    // Head — round with eyes
+    ctx.beginPath();
+    ctx.arc(bx + headWobble, baseY + headY - 10, 12, 0, Math.PI * 2);
+    ctx.fillStyle = tubeman.baseColor;
+    ctx.fill();
+    // Eyes
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(bx + headWobble - 4, baseY + headY - 12, 2, 0, Math.PI * 2);
+    ctx.arc(bx + headWobble + 4, baseY + headY - 12, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+function drawArm(sx, sy, tx, ty, t, seed, color) {
+  const dx = tx - sx;
+  const dy = ty - sy;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const segs = 8;
+
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  for (let i = 1; i <= segs; i++) {
+    const frac = i / segs;
+    const wave = Math.sin(t * 5 + frac * 4 + seed * 2) * (20 - frac * 15);
+    const px = sx + dx * frac + Math.cos(t * 3 + seed) * wave * 0.5;
+    const py = sy + dy * frac + Math.sin(t * 3 + seed) * wave * 0.3;
+    ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = color + '60';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Vacuum tube effect — pulsing glow along arm
+  const pulsePos = (t * 0.5 + seed * 0.3) % 1;
+  const px = sx + dx * pulsePos;
+  const py = sy + dy * pulsePos;
+  ctx.beginPath();
+  ctx.arc(px, py, 4, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+// ── Draw nodes ──
+function drawNodes(t) {
+  for (const [key, n] of Object.entries(nodes)) {
+    const p = worldPos(n);
+    const pulse = 1 + Math.sin(t * 2 + key.length) * 0.1;
+
+    // Glow
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 40 * pulse);
+    grad.addColorStop(0, n.color + '30');
+    grad.addColorStop(1, n.color + '00');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 40 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Node circle
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+    ctx.fillStyle = n.color + '40';
+    ctx.strokeStyle = n.color;
+    ctx.lineWidth = 2;
+    ctx.fill();
+    ctx.stroke();
+
+    // Label
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillStyle = n.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(n.label, p.x, p.y + 30);
+  }
+}
+
+// ── Draw particles ──
+function drawParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.progress += p.speed * dt * 60;
+
+    if (p.progress >= 1) {
+      particles.splice(i, 1);
+      continue;
+    }
+
+    // Lerp position
+    const px = p.x + (p.tx - p.x) * p.progress;
+    const py = p.y + (p.ty - p.y) * p.progress;
+
+    if (p.parachute) {
+      // Slow cloud response — parachute visual
+      ctx.save();
+      ctx.translate(px, py);
+      // Parachute canopy
+      ctx.beginPath();
+      ctx.arc(0, -p.size * 2, p.size * 1.5, Math.PI, 0);
+      ctx.strokeStyle = p.color + '80';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Strings
+      ctx.beginPath();
+      ctx.moveTo(-p.size * 1.5, -p.size * 2);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(p.size * 1.5, -p.size * 2);
+      ctx.strokeStyle = p.color + '40';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // Payload
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+      ctx.restore();
+    } else {
+      // Fast local/cache — streaking particle
+      ctx.beginPath();
+      ctx.arc(px, py, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+
+      // Trail
+      const trail = 0.1;
+      const trailX = p.x + (p.tx - p.x) * Math.max(0, p.progress - trail);
+      const trailY = p.y + (p.ty - p.y) * Math.max(0, p.progress - trail);
+      ctx.beginPath();
+      ctx.moveTo(trailX, trailY);
+      ctx.lineTo(px, py);
+      ctx.strokeStyle = p.color + '60';
+      ctx.lineWidth = p.size * 0.8;
+      ctx.stroke();
+    }
+  }
+}
+
+// ── Grid background ──
+function drawGrid() {
+  ctx.strokeStyle = '#1e2d3d20';
+  ctx.lineWidth = 1;
+  const spacing = 40;
+  // Iso lines
+  for (let x = -H; x < W + H; x += spacing) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x - H * 0.5, H);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + H * 0.5, H);
+    ctx.stroke();
+  }
+}
+
+// ── Main loop ──
+let lastT = 0;
+let simTime = 0;
+let cacheCount = 0, localCount = 0, cloudCount = 0;
+
+function frame(ts) {
+  const dt = Math.min((ts - lastT) / 1000, 0.1);
+  lastT = ts;
+  simTime += dt;
+
+  ctx.fillStyle = 'var(--bg)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, 0, W, H);
+
+  drawGrid();
+  drawNodes(simTime);
+  drawTubeman(simTime);
+  drawParticles(dt);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ── SSE: spawn particles from real events ──
+const evtSource = new EventSource(API + '/events');
+evtSource.onmessage = (e) => {
+  try {
+    const d = JSON.parse(e.data);
+    if (d.type === 'query_complete' && d.data) {
+      const tier = d.data.tier || 'local';
+      const cost = d.data.cost || 0;
+      const latency = d.data.latency_ms || 100;
+
+      if (tier === 'cache') {
+        spawnParticle('user', 'cache', 0.04, 3, '#22c55e', 'cache');
+        spawnParticle('cache', 'user', 0.04, 4, '#22c55e', 'response');
+        cacheCount++;
+      } else if (tier.includes('cloud')) {
+        spawnParticle('user', 'local', 0.03, 3, '#3b82f6', 'classify');
+        spawnParticle('local', 'cloud', 0.02, 3, '#f59e0b', 'escalate');
+        // Slow parachute response
+        const speed = Math.max(0.003, Math.min(0.02, 1000 / latency / 60));
+        spawnParticle('cloud', 'user', speed, 6, '#ef6c4c', '$' + cost.toFixed(3));
+        cloudCount++;
+      } else {
+        spawnParticle('user', 'local', 0.03, 3, '#14b8a6', 'query');
+        spawnParticle('local', 'user', 0.03, 4, '#14b8a6', 'response');
+        localCount++;
+      }
+
+      // Tubeman reacts: more splits when busy
+      tubeman.splits = Math.min(5, 1 + Math.floor(particles.length / 8));
+      tubeman.baseColor = tier === 'cache' ? '#22c55e' : tier.includes('cloud') ? '#f59e0b' : '#14b8a6';
+
+      // Update stats
+      document.getElementById('sActive').textContent = particles.length;
+      document.getElementById('sCache').textContent = cacheCount;
+      document.getElementById('sLocal').textContent = localCount;
+      document.getElementById('sCloud').textContent = cloudCount;
+    }
+  } catch {}
+};
+
+// Seed some initial particles for visual interest
+setTimeout(() => {
+  spawnParticle('user', 'cache', 0.02, 3, '#22c55e');
+  spawnParticle('user', 'local', 0.015, 4, '#14b8a6');
+  spawnParticle('cloud', 'user', 0.004, 6, '#ef6c4c');
+}, 500);
+</script>
+</body>
+</html>

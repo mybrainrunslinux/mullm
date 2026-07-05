@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — 4-Way Pipeline Compare</title>
+  <meta name="description" content="Compare mesh x texture pipeline combinations: local vs Meshy mesh, canvas vs Meshy texture." />
+  <meta name="theme-color" content="#0a0a1a" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    /* ── Tokens ─────────────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:      #0a0a1a;
+      --bg2:     #0f0f2a;
+      --bg3:     #141428;
+      --border:  #1e1e3a;
+      --teal:    #00bfa5;
+      --teal-dim:#007a6a;
+      --amber:   #f59e0b;
+      --coral:   #ff6b6b;
+      --green:   #22c55e;
+      --purple:  #a78bfa;
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --text3:   #5a6a7a;
+      --mono:    "JetBrains Mono", "Fira Code", monospace;
+      --sans:    "Inter", -apple-system, sans-serif;
+      color-scheme: dark;
+    }
+
+    /* ── Accessibility ── */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--teal); color: #000;
+      padding: 8px 16px; z-index: 10000;
+      font-weight: 600; border-radius: 0 0 8px 0;
+      transition: top 0.2s; font-family: var(--mono); font-size: 13px;
+    }
+    .skip-link:focus { top: 0; }
+    *:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+    /* ── Layout ── */
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); overflow-x: hidden; line-height: 1.5;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: rgba(10,10,26,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px; display: flex; align-items: center; gap: 12px;
+      font-family: var(--mono); font-size: 13px;
+      position: sticky; top: 0; z-index: 200; flex-wrap: wrap;
+    }
+    .logo { color: var(--teal); font-weight: 700; font-size: 14px; text-decoration: none; letter-spacing: 1px; }
+    .logo-mu { color: var(--amber); font-family: "Times New Roman", Georgia, serif; font-size: 18px; font-style: italic; }
+    .nav-link { padding: 3px 10px; border-radius: 5px; font-size: .8rem; color: var(--text2); text-decoration: none; transition: all .15s; }
+    .nav-link:hover { background: var(--bg3); color: var(--text); }
+    .nav-link.active { background: var(--teal-dim); color: #fff; font-weight: 600; }
+    .topbar-spacer { flex: 1; }
+
+    /* ── Tooltip ── */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+      padding: 5px 10px; background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 6px; font-size: .72rem; color: var(--text); white-space: nowrap;
+      z-index: 9999; pointer-events: none; font-family: var(--mono);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    /* ── Control bar ── */
+    .controls {
+      max-width: 900px; margin: 24px auto 0; padding: 0 20px;
+    }
+    .controls-title {
+      font-family: var(--mono); font-size: 1.1rem; color: var(--teal);
+      margin-bottom: 14px; display: flex; align-items: center; gap: 10px;
+    }
+    .controls-title svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .prompt-row {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .prompt-input {
+      flex: 1; min-width: 240px; background: var(--bg2); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 14px; border-radius: 8px;
+      font-family: var(--mono); font-size: .85rem; transition: border-color .15s;
+    }
+    .prompt-input:focus { border-color: var(--teal); outline: none; }
+    .btn-run {
+      background: linear-gradient(135deg, var(--teal), var(--teal-dim));
+      color: #000; font-weight: 700; font-size: .88rem; padding: 10px 22px;
+      border: none; border-radius: 8px; cursor: pointer; display: flex;
+      align-items: center; gap: 7px; transition: transform .15s, box-shadow .15s;
+      min-height: 44px; font-family: var(--mono); white-space: nowrap;
+    }
+    .btn-run:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,191,165,0.35); }
+    .btn-run:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .budget-warn {
+      font-family: var(--mono); font-size: .72rem; color: var(--amber);
+      background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25);
+      padding: 6px 14px; border-radius: 6px; display: flex; align-items: center; gap: 7px;
+    }
+    .options-row {
+      display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 12px;
+    }
+    .toggle-label {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      font-family: var(--mono); font-size: .78rem; color: var(--text2);
+      user-select: none;
+    }
+    .toggle-label input[type="checkbox"] { accent-color: var(--teal); width: 15px; height: 15px; cursor: pointer; }
+    .toggle-label:hover { color: var(--text); }
+
+    /* ── Comparison grid ── */
+    .compare-section { max-width: 1300px; margin: 28px auto 0; padding: 0 20px; }
+    .grid-header {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 14px; margin-bottom: 6px;
+    }
+    .grid-header-cell {
+      text-align: center; font-family: var(--mono); font-size: .72rem;
+      color: var(--text3); text-transform: uppercase; letter-spacing: 1px;
+      padding: 4px 0; border-bottom: 1px solid var(--border);
+    }
+    .compare-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 700px) {
+      .compare-grid, .grid-header { grid-template-columns: 1fr; }
+    }
+
+    /* ── Pipeline cell ── */
+    .cell {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden; transition: border-color .2s;
+      display: flex; flex-direction: column;
+    }
+    .cell.done { border-color: var(--teal-dim); }
+    .cell.failed { border-color: var(--coral); }
+    .cell.running { border-color: var(--amber); }
+
+    .cell-header {
+      padding: 10px 14px 8px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .cell-label {
+      font-family: var(--mono); font-size: .78rem; font-weight: 700;
+      letter-spacing: 1px; color: var(--text);
+    }
+    .badge-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .badge {
+      font-family: var(--mono); font-size: .64rem; padding: 2px 8px;
+      border-radius: 4px; font-weight: 600; white-space: nowrap;
+    }
+    .badge-free  { background: rgba(34,197,94,0.18);  color: var(--green); }
+    .badge-mid   { background: rgba(245,158,11,0.18); color: var(--amber); }
+    .badge-best  { background: rgba(167,139,250,0.18);color: var(--purple);}
+    .badge-status {
+      font-family: var(--mono); font-size: .62rem; padding: 2px 8px;
+      border-radius: 4px; text-transform: uppercase; font-weight: 600;
+    }
+    .status-idle    { background: rgba(90,106,122,0.3); color: var(--text3); }
+    .status-running { background: rgba(245,158,11,0.2); color: var(--amber); }
+    .status-done    { background: rgba(34,197,94,0.18); color: var(--green); }
+    .status-failed  { background: rgba(255,107,107,0.18); color: var(--coral); }
+
+    /* ── Viewport ── */
+    .viewport-wrap {
+      position: relative; background: var(--bg3);
+      aspect-ratio: 4 / 3; overflow: hidden;
+    }
+    .viewport-canvas {
+      width: 100%; height: 100%; display: block;
+    }
+    .viewport-overlay {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 36px; height: 36px; border: 3px solid var(--border);
+      border-top-color: var(--teal); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .overlay-msg {
+      font-family: var(--mono); font-size: .75rem; color: var(--text2);
+      text-align: center; padding: 0 16px;
+    }
+    .progress-bar-wrap {
+      width: 80%; max-width: 180px; height: 4px;
+      background: var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%; background: var(--teal); border-radius: 2px;
+      transition: width 0.4s ease; width: 0%;
+    }
+    .viewport-overlay.hidden { display: none; }
+
+    /* ── Stats bar ── */
+    .cell-stats {
+      padding: 8px 14px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+      font-family: var(--mono); font-size: .68rem; color: var(--text3);
+      min-height: 36px;
+    }
+    .stat-chip {
+      background: var(--bg3); border: 1px solid var(--border);
+      padding: 2px 8px; border-radius: 4px; color: var(--text2);
+    }
+    .stat-chip.has-tex { color: var(--teal); border-color: rgba(0,191,165,0.3); }
+
+    /* ── Summary table ── */
+    .summary-section {
+      max-width: 900px; margin: 32px auto 40px; padding: 0 20px;
+    }
+    .summary-title {
+      font-family: var(--mono); font-size: .85rem; color: var(--text2);
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+    }
+    .summary-table {
+      width: 100%; border-collapse: collapse;
+      font-family: var(--mono); font-size: .78rem;
+    }
+    .summary-table th {
+      text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border);
+      color: var(--text3); font-weight: 600; text-transform: uppercase; font-size: .68rem;
+    }
+    .summary-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text2); }
+    .summary-table tr:hover td { background: var(--bg3); }
+    .summary-table td:first-child { color: var(--text); font-weight: 600; }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; opacity: 0.5; }
+      .btn-run:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<nav class="topbar" role="navigation" aria-label="Site navigation">
+  <a class="logo" href="/chat" aria-label="muLLM home">
+    <span class="logo-mu">mu</span>LLM
+  </a>
+  <a class="nav-link" href="/3d" data-tooltip="3D asset pipeline">3D</a>
+  <a class="nav-link" href="/assets" data-tooltip="Asset manager">Assets</a>
+  <a class="nav-link" href="/textures" data-tooltip="Texture studio">Textures</a>
+  <a class="nav-link active" href="/compare3d" aria-current="page" data-tooltip="4-way pipeline comparison">Compare</a>
+  <a class="nav-link" href="/swords" data-tooltip="Sword dojo">Dojo</a>
+  <span class="topbar-spacer"></span>
+</nav>
+
+<main id="main-content">
+
+  <!-- ── Controls ── -->
+  <section class="controls" aria-label="Pipeline configuration">
+    <h1 class="controls-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      4-Way Mesh x Texture Pipeline Compare
+    </h1>
+
+    <div class="prompt-row">
+      <input
+        type="text"
+        class="prompt-input"
+        id="prompt-input"
+        value="ornate steampunk gear with brass cogs and copper pipes"
+        placeholder="Describe a 3D object..."
+        aria-label="Object description prompt"
+        maxlength="200"
+      />
+      <button class="btn-run" id="btn-run" aria-label="Run 4-way pipeline test">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <polygon points="5,3 19,12 5,21"/>
+        </svg>
+        Run 4-Way Test
+      </button>
+    </div>
+
+    <div class="budget-warn" role="note" aria-label="Budget information">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      Budget estimate: ~30 Meshy credits + ComfyUI local compute. Rows 1 &amp; 3 are free (local mesh + canvas texture).
+    </div>
+
+    <div class="options-row">
+      <label class="toggle-label" data-tooltip="Lock all 4 cameras to the same orbit angle">
+        <input type="checkbox" id="toggle-sync" />
+        Sync Camera Angles
+      </label>
+      <label class="toggle-label" data-tooltip="Auto-rotate models in all viewports">
+        <input type="checkbox" id="toggle-rotate" checked />
+        Auto-Rotate
+      </label>
+      <label class="toggle-label" data-tooltip="Skip Meshy pipelines — only test free local paths">
+        <input type="checkbox" id="toggle-local-only" />
+        Local Only (free)
+      </label>
+    </div>
+  </section>
+
+  <!-- ── Column headers ── -->
+  <section class="compare-section" aria-label="Pipeline comparison grid">
+    <div class="grid-header" aria-hidden="true">
+      <div class="grid-header-cell">Canvas Texture — $0</div>
+      <div class="grid-header-cell">Meshy Texture — ~10 credits</div>
+    </div>
+
+    <div class="compare-grid" role="list" aria-label="4 pipeline results">
+      <!-- Cell A: Local Mesh + Canvas Texture -->
+      <article class="cell" id="cell-ll" role="listitem" aria-label="Local mesh, local texture pipeline">
+        <div class="cell-header">
+          <span class="cell-label">LOCAL + LOCAL</span>
+          <div class="badge-row">
+            <span class="badge badge-free" data-tooltip="ComfyUI mesh generation + canvas procedural texture">$0 free</span>
+            <span class="badge-status status-idle" id="status-ll" aria-live="polite" aria-label="Pipeline status">IDLE</span>
+          </div>
+        </div>
+        <div class="viewport-wrap">
+          <canvas class="viewport-canvas" id="canvas-ll" aria-label="3D model preview: local mesh, local texture"></canvas>
+          <div class="viewport-overlay" id="overlay-ll" aria-live="polite">
+            <div class="overlay-msg" id="msg-ll">Waiting to start</div>
+          </div>
+        </div>
+        <div class="cell-stats" id="stats-ll" aria-label="Mesh statistics">
+          <span class="stat-chip">—</span>
+        </div>
+      </article>
+
+      <!-- Cell B: Local Mesh + Meshy Texture -->
+      <article class="cell" id="cell-lm" role="listitem" aria-label="Local mesh, Meshy texture pipeline">
+        <div class="cell-header">
+          <span class="cell-label">LOCAL + MESHY</span>
+          <div class="badge-row">
+            <span class="badge badge-mid" data-tooltip="ComfyUI mesh + Meshy AI texturing (~10 credits)">~10 credits</span>
+            <span class="badge-status status-idle" id="status-lm" aria-live="polite" aria-label="Pipeline status">IDLE</span>
+          </div>
+        </div>
+        <div class="viewport-wrap">
+          <canvas class="viewport-canvas" id="canvas-lm" aria-label="3D model preview: local mesh, Meshy texture"></canvas>
+          <div class="viewport-overlay" id="overlay-lm" aria-live="polite">
+            <div class="overlay-msg" id="msg-lm">Waiting to start</div>
+          </div>
+        </div>
+        <div class="cell-stats" id="stats-lm" aria-label="Mesh statistics">
+          <span class="stat-chip">—</span>
+        </div>
+      </article>
+
+      <!-- Cell C: Meshy Mesh + Canvas Texture -->
+      <article class="cell" id="cell-ml" role="listitem" aria-label="Meshy mesh, local texture pipeline">
+        <div class="cell-header">
+          <span class="cell-label">MESHY + LOCAL</span>
+          <div class="badge-row">
+            <span class="badge badge-mid" data-tooltip="Meshy AI mesh generation (~20 credits) + canvas procedural texture">~20 credits</span>
+            <span class="badge-status status-idle" id="status-ml" aria-live="polite" aria-label="Pipeline status">IDLE</span>
+          </div>
+        </div>
+        <div class="viewport-wrap">
+          <canvas class="viewport-canvas" id="canvas-ml" aria-label="3D model preview: Meshy mesh, local texture"></canvas>
+          <div class="viewport-overlay" id="overlay-ml" aria-live="polite">
+            <div class="overlay-msg" id="msg-ml">Waiting to start</div>
+          </div>
+        </div>
+        <div class="cell-stats" id="stats-ml" aria-label="Mesh statistics">
+          <span class="stat-chip">—</span>
+        </div>
+      </article>
+
+      <!-- Cell D: Meshy Mesh + Meshy Texture -->
+      <article class="cell" id="cell-mm" role="listitem" aria-label="Meshy mesh, Meshy texture pipeline">
+        <div class="cell-header">
+          <span class="cell-label">MESHY + MESHY</span>
+          <div class="badge-row">
+            <span class="badge badge-best" data-tooltip="Meshy mesh + Meshy texture — best quality (~30 credits total)">~30 credits</span>
+            <span class="badge-status status-idle" id="status-mm" aria-live="polite" aria-label="Pipeline status">IDLE</span>
+          </div>
+        </div>
+        <div class="viewport-wrap">
+          <canvas class="viewport-canvas" id="canvas-mm" aria-label="3D model preview: Meshy mesh and texture"></canvas>
+          <div class="viewport-overlay" id="overlay-mm" aria-live="polite">
+            <div class="overlay-msg" id="msg-mm">Waiting to start</div>
+          </div>
+        </div>
+        <div class="cell-stats" id="stats-mm" aria-label="Mesh statistics">
+          <span class="stat-chip">—</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ── Summary table ── -->
+  <section class="summary-section" aria-label="Pipeline summary comparison">
+    <p class="summary-title">Summary</p>
+    <table class="summary-table" id="summary-table" aria-label="Pipeline comparison results">
+      <thead>
+        <tr>
+          <th scope="col">Pipeline</th>
+          <th scope="col">Mesh Source</th>
+          <th scope="col">Texture Source</th>
+          <th scope="col">Vertices</th>
+          <th scope="col">Faces</th>
+          <th scope="col">Has Textures</th>
+          <th scope="col">Cost</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody id="summary-body">
+        <tr><td>LOCAL + LOCAL</td><td>ComfyUI</td><td>Canvas</td><td>—</td><td>—</td><td>—</td><td>$0</td><td id="sum-ll">idle</td></tr>
+        <tr><td>LOCAL + MESHY</td><td>ComfyUI</td><td>Meshy AI</td><td>—</td><td>—</td><td>—</td><td>~10 cr</td><td id="sum-lm">idle</td></tr>
+        <tr><td>MESHY + LOCAL</td><td>Meshy AI</td><td>Canvas</td><td>—</td><td>—</td><td>—</td><td>~20 cr</td><td id="sum-ml">idle</td></tr>
+        <tr><td>MESHY + MESHY</td><td>Meshy AI</td><td>Meshy AI</td><td>—</td><td>—</td><td>—</td><td>~30 cr</td><td id="sum-mm">idle</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ── Helpers ────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+const CELL_IDS = ['ll', 'lm', 'ml', 'mm'];
+
+// ── Per-cell Three.js scenes ────────────────────────────────
+const cells = {};
+
+function initViewport(id) {
+  const canvas = $(`canvas-${id}`);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#0a0a1a');
+  scene.fog = new THREE.Fog('#0a0a1a', 8, 20);
+
+  const camera = new THREE.PerspectiveCamera(50, 4 / 3, 0.01, 100);
+  camera.position.set(0, 1.2, 3.2);
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.07;
+  controls.minDistance = 0.5;
+  controls.maxDistance = 12;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 1.4;
+
+  // Lights
+  const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+  scene.add(ambient);
+  const key = new THREE.DirectionalLight(0xffeedd, 1.8);
+  key.position.set(3, 5, 4);
+  key.castShadow = true;
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xaaccff, 0.6);
+  fill.position.set(-4, 2, -2);
+  scene.add(fill);
+  const rim = new THREE.DirectionalLight(0x00bfa5, 0.35);
+  rim.position.set(0, -2, -5);
+  scene.add(rim);
+
+  // Grid
+  const grid = new THREE.GridHelper(8, 20, 0x1e1e3a, 0x141428);
+  grid.position.y = -1;
+  scene.add(grid);
+
+  const cell = { renderer, scene, camera, controls, model: null };
+  cells[id] = cell;
+
+  // Resize observer
+  const ro = new ResizeObserver(() => {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  });
+  ro.observe(canvas);
+
+  return cell;
+}
+
+// ── Canvas metal texture ────────────────────────────────────
+function makeMetalTexture(prompt) {
+  const size = 512;
+  const cv = document.createElement('canvas');
+  cv.width = size; cv.height = size;
+  const ctx = cv.getContext('2d');
+
+  // Dark base gradient — steampunk brass tones
+  const base = ctx.createLinearGradient(0, 0, size, size);
+  base.addColorStop(0, '#3a2a10');
+  base.addColorStop(0.3, '#5c3d1a');
+  base.addColorStop(0.6, '#7a5228');
+  base.addColorStop(1, '#3a2a10');
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, size, size);
+
+  // Scratched metal streaks
+  ctx.globalAlpha = 0.18;
+  for (let i = 0; i < 60; i++) {
+    const x = Math.random() * size;
+    const g = ctx.createLinearGradient(x, 0, x + 2, size);
+    g.addColorStop(0, '#c8922a');
+    g.addColorStop(0.5, '#f5c842');
+    g.addColorStop(1, '#c8922a');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, 0, 0.5 + Math.random(), size);
+  }
+
+  // Circular wear rings
+  ctx.globalAlpha = 0.12;
+  for (let i = 0; i < 8; i++) {
+    const cx = size / 2, cy = size / 2;
+    const r = 40 + i * 28;
+    ctx.strokeStyle = '#f5c842';
+    ctx.lineWidth = 0.5 + Math.random();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Rivet dots
+  ctx.globalAlpha = 0.7;
+  for (let i = 0; i < 16; i++) {
+    const rx = 32 + (i % 4) * 148;
+    const ry = 32 + Math.floor(i / 4) * 148;
+    const rg = ctx.createRadialGradient(rx - 3, ry - 3, 1, rx, ry, 10);
+    rg.addColorStop(0, '#f5c842');
+    rg.addColorStop(0.5, '#b87333');
+    rg.addColorStop(1, '#3a2a10');
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.arc(rx, ry, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// ── Apply canvas texture to loaded GLB ─────────────────────
+function applyCanvasTexture(model, prompt) {
+  const tex = makeMetalTexture(prompt);
+  model.traverse(node => {
+    if (!node.isMesh) return;
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: 0.45,
+      metalness: 0.82,
+      envMapIntensity: 0.8,
+    });
+    node.material = mat;
+    node.castShadow = true;
+    node.receiveShadow = true;
+  });
+}
+
+// ── Normalize model scale/position ─────────────────────────
+function normalizeModel(model) {
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  const maxDim = Math.max(size.x, size.y, size.z);
+  if (maxDim > 0) {
+    const scale = 2.0 / maxDim;
+    model.scale.setScalar(scale);
+  }
+  // Center at origin, sit on grid
+  box.setFromObject(model);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  model.position.sub(center);
+  box.setFromObject(model);
+  model.position.y -= box.min.y;
+}
+
+// ── Mesh stats ──────────────────────────────────────────────
+function getMeshStats(model) {
+  let verts = 0, faces = 0, hasTex = false;
+  model.traverse(node => {
+    if (!node.isMesh) return;
+    const geo = node.geometry;
+    verts += geo.attributes.position ? geo.attributes.position.count : 0;
+    faces += geo.index ? geo.index.count / 3 : (geo.attributes.position ? geo.attributes.position.count / 3 : 0);
+    if (node.material) {
+      const mats = Array.isArray(node.material) ? node.material : [node.material];
+      mats.forEach(m => { if (m.map || m.emissiveMap || m.normalMap) hasTex = true; });
+    }
+  });
+  return { verts: Math.round(verts), faces: Math.round(faces), hasTex };
+}
+
+// ── Render cell stats row ───────────────────────────────────
+function renderStats(id, stats) {
+  const el = $(`stats-${id}`);
+  el.innerHTML = `
+    <span class="stat-chip">${stats.verts.toLocaleString()} verts</span>
+    <span class="stat-chip">${stats.faces.toLocaleString()} faces</span>
+    <span class="stat-chip ${stats.hasTex ? 'has-tex' : ''}">${stats.hasTex ? 'textured' : 'no tex'}</span>
+  `;
+}
+
+// ── Overlay helpers ─────────────────────────────────────────
+function showOverlay(id, msg, progress = null) {
+  const ov = $(`overlay-${id}`);
+  const msgEl = $(`msg-${id}`);
+  ov.classList.remove('hidden');
+
+  let html = `<div class="spinner"></div><div class="overlay-msg">${msg}</div>`;
+  if (progress !== null) {
+    html += `<div class="progress-bar-wrap"><div class="progress-bar" style="width:${progress}%"></div></div>`;
+  }
+  ov.innerHTML = html;
+}
+
+function hideOverlay(id) {
+  $(`overlay-${id}`).classList.add('hidden');
+}
+
+function setStatus(id, state, text) {
+  const el = $(`status-${id}`);
+  el.className = `badge-status status-${state}`;
+  el.textContent = text.toUpperCase();
+  $(`sum-${id}`).textContent = text;
+  const cell = $(`cell-${id}`);
+  cell.className = `cell ${state}`;
+}
+
+// ── Load GLB into viewport ──────────────────────────────────
+const loader = new GLTFLoader();
+
+function loadGLB(id, url, applyCanvas, prompt) {
+  return new Promise((resolve, reject) => {
+    setStatus(id, 'running', 'Loading');
+    showOverlay(id, 'Loading model…', 10);
+
+    loader.load(
+      url,
+      (gltf) => {
+        const cell = cells[id];
+        if (cell.model) { cell.scene.remove(cell.model); }
+        const model = gltf.scene;
+        normalizeModel(model);
+        if (applyCanvas) applyCanvasTexture(model, prompt);
+        else {
+          model.traverse(n => {
+            if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
+          });
+        }
+        cell.scene.add(model);
+        cell.model = model;
+        const stats = getMeshStats(model);
+        renderStats(id, stats);
+        setStatus(id, 'done', 'Done');
+        hideOverlay(id);
+        resolve(stats);
+      },
+      (progress) => {
+        if (progress.total > 0) {
+          const pct = Math.round((progress.loaded / progress.total) * 90) + 10;
+          showOverlay(id, 'Loading model…', pct);
+        }
+      },
+      (err) => {
+        reject(err);
+      }
+    );
+  });
+}
+
+// ── Poll Meshy task ─────────────────────────────────────────
+async function pollMeshy(taskId, id, label) {
+  const MAX_POLLS = 80; // 4 min
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const res = await fetch(`/api/3d/status/${taskId}`);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = await res.json();
+      const pct = Math.min(10 + Math.round((i / MAX_POLLS) * 80), 90);
+      showOverlay(id, `${label}: ${data.status || 'processing'}…`, pct);
+      if (data.status === 'SUCCEEDED' || data.status === 'succeeded') {
+        return data;
+      }
+      if (data.status === 'FAILED' || data.status === 'failed' || data.status === 'EXPIRED') {
+        throw new Error(`Meshy task ${data.status}`);
+      }
+    } catch (e) {
+      throw e;
+    }
+  }
+  throw new Error('Meshy task timed out after 4 min');
+}
+
+// ── Pipeline runners ────────────────────────────────────────
+
+async function runLocalLocal(prompt) {
+  const id = 'll';
+  setStatus(id, 'running', 'Running');
+  showOverlay(id, 'Requesting ComfyUI mesh…', 5);
+  try {
+    const res = await fetch('/api/3d/comfyui', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, format: 'glb' })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (res.status === 503 || res.status === 404) {
+        throw new Error('ComfyUI offline');
+      }
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    showOverlay(id, 'ComfyUI processing…', 30);
+    // May be async — if task_id, poll; if glb_url, load directly
+    let glbUrl = data.glb_url || data.url;
+    if (!glbUrl && data.task_id) {
+      const result = await pollMeshy(data.task_id, id, 'ComfyUI');
+      glbUrl = result.glb_url || result.url || result.model_urls?.glb;
+    }
+    if (!glbUrl) throw new Error('No GLB URL in response');
+    showOverlay(id, 'Applying canvas texture…', 92);
+    await loadGLB(id, glbUrl, true, prompt);
+  } catch (e) {
+    setStatus(id, 'failed', 'Failed');
+    const msg = e.message.includes('ComfyUI offline')
+      ? 'Local mesh unavailable — ComfyUI offline'
+      : `Error: ${e.message}`;
+    showOverlay(id, msg);
+  }
+}
+
+async function runLocalMeshy(prompt) {
+  const id = 'lm';
+  setStatus(id, 'running', 'Running');
+  showOverlay(id, 'Requesting ComfyUI mesh…', 5);
+  try {
+    const meshRes = await fetch('/api/3d/comfyui', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, format: 'glb' })
+    });
+    if (!meshRes.ok) {
+      if (meshRes.status === 503 || meshRes.status === 404) throw new Error('ComfyUI offline');
+      throw new Error(`Mesh HTTP ${meshRes.status}`);
+    }
+    const meshData = await meshRes.json();
+    let previewTaskId = meshData.task_id || meshData.preview_task_id;
+    showOverlay(id, 'ComfyUI processing…', 25);
+    if (!previewTaskId && (meshData.glb_url || meshData.url)) {
+      // Got direct URL — we'll pass it as a refine seed
+      previewTaskId = meshData.glb_url || meshData.url;
+    }
+    // Refine with Meshy texture
+    showOverlay(id, 'Sending to Meshy for texturing…', 50);
+    const refineRes = await fetch('/api/3d/refine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, preview_task_id: previewTaskId })
+    });
+    if (!refineRes.ok) throw new Error(`Refine HTTP ${refineRes.status}`);
+    const refineData = await refineRes.json();
+    showOverlay(id, 'Meshy texturing in progress…', 60);
+    let glbUrl = refineData.glb_url || refineData.url;
+    if (!glbUrl && (refineData.task_id || refineData.result)) {
+      const polled = await pollMeshy(refineData.task_id || refineData.result, id, 'Meshy texture');
+      glbUrl = polled.model_urls?.glb || polled.glb_url || polled.url;
+    }
+    if (!glbUrl) throw new Error('No GLB URL from Meshy refine');
+    await loadGLB(id, glbUrl, false, prompt);
+  } catch (e) {
+    setStatus(id, 'failed', 'Failed');
+    const msg = e.message.includes('ComfyUI offline')
+      ? 'Local mesh unavailable — ComfyUI offline'
+      : `Error: ${e.message}`;
+    showOverlay(id, msg);
+  }
+}
+
+async function runMeshyLocal(prompt) {
+  const id = 'ml';
+  setStatus(id, 'running', 'Running');
+  showOverlay(id, 'Requesting Meshy mesh…', 5);
+  try {
+    const res = await fetch('/api/3d/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ object_prompt: prompt, style_prompt: prompt })
+    });
+    if (!res.ok) throw new Error(`Mesh HTTP ${res.status}`);
+    const data = await res.json();
+    showOverlay(id, 'Waiting for Meshy mesh…', 15);
+    const taskId = data.task_id || data.result;
+    const result = await pollMeshy(taskId, id, 'Meshy mesh');
+    const glbUrl = result.model_urls?.glb || result.glb_url || result.url;
+    if (!glbUrl) throw new Error('No GLB from Meshy text-to-3D');
+    showOverlay(id, 'Applying canvas texture…', 92);
+    await loadGLB(id, glbUrl, true, prompt);
+  } catch (e) {
+    setStatus(id, 'failed', 'Failed');
+    showOverlay(id, `Error: ${e.message}`);
+  }
+}
+
+async function runMeshyMeshy(prompt) {
+  const id = 'mm';
+  setStatus(id, 'running', 'Running');
+  showOverlay(id, 'Requesting Meshy mesh…', 5);
+  try {
+    const res = await fetch('/api/3d/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ object_prompt: prompt, style_prompt: prompt })
+    });
+    if (!res.ok) throw new Error(`Mesh HTTP ${res.status}`);
+    const data = await res.json();
+    const previewId = data.task_id || data.result;
+    showOverlay(id, 'Waiting for Meshy mesh…', 10);
+    const meshResult = await pollMeshy(previewId, id, 'Meshy mesh');
+    // Now refine with Meshy texture
+    showOverlay(id, 'Requesting Meshy texture refine…', 55);
+    const refRes = await fetch('/api/3d/refine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, preview_task_id: previewId })
+    });
+    if (!refRes.ok) {
+      // Fallback: use the mesh-only GLB with canvas
+      const glbUrl = meshResult.model_urls?.glb || meshResult.glb_url;
+      if (glbUrl) {
+        showOverlay(id, 'Refine unavailable — using mesh only', 90);
+        await loadGLB(id, glbUrl, true, prompt);
+        return;
+      }
+      throw new Error(`Refine HTTP ${refRes.status}`);
+    }
+    const refData = await refRes.json();
+    let glbUrl = refData.glb_url || refData.url;
+    if (!glbUrl) {
+      const refTaskId = refData.task_id || refData.result;
+      const polled = await pollMeshy(refTaskId, id, 'Meshy texture');
+      glbUrl = polled.model_urls?.glb || polled.glb_url || polled.url;
+    }
+    if (!glbUrl) throw new Error('No GLB from Meshy+Meshy');
+    await loadGLB(id, glbUrl, false, prompt);
+  } catch (e) {
+    setStatus(id, 'failed', 'Failed');
+    showOverlay(id, `Error: ${e.message}`);
+  }
+}
+
+// ── Camera sync ─────────────────────────────────────────────
+let syncEnabled = false;
+let syncSource = null;
+
+function setupSync() {
+  CELL_IDS.forEach(id => {
+    const ctrl = cells[id].controls;
+    ctrl.addEventListener('change', () => {
+      if (!syncEnabled) return;
+      if (syncSource && syncSource !== id) return;
+      syncSource = id;
+      const srcCam = cells[id].camera;
+      CELL_IDS.forEach(other => {
+        if (other === id) return;
+        const otherCam = cells[other].camera;
+        otherCam.position.copy(srcCam.position);
+        otherCam.quaternion.copy(srcCam.quaternion);
+        cells[other].controls.target.copy(cells[id].controls.target);
+        cells[other].controls.update();
+      });
+      syncSource = null;
+    });
+  });
+}
+
+// ── Render loop ─────────────────────────────────────────────
+let running = false;
+function startLoop() {
+  if (running) return;
+  running = true;
+  (function loop() {
+    requestAnimationFrame(loop);
+    CELL_IDS.forEach(id => {
+      const c = cells[id];
+      c.controls.update();
+      c.renderer.render(c.scene, c.camera);
+    });
+  })();
+}
+
+// ── Init ────────────────────────────────────────────────────
+CELL_IDS.forEach(id => initViewport(id));
+setupSync();
+startLoop();
+
+// ── Controls ────────────────────────────────────────────────
+$('toggle-sync').addEventListener('change', e => {
+  syncEnabled = e.target.checked;
+});
+
+$('toggle-rotate').addEventListener('change', e => {
+  const on = e.target.checked;
+  CELL_IDS.forEach(id => { cells[id].controls.autoRotate = on; });
+});
+
+$('btn-run').addEventListener('click', async () => {
+  const prompt = $('prompt-input').value.trim();
+  if (!prompt) { $('prompt-input').focus(); return; }
+  const localOnly = $('toggle-local-only').checked;
+
+  $('btn-run').disabled = true;
+
+  // Reset all cells
+  CELL_IDS.forEach(id => {
+    setStatus(id, 'idle', 'Queued');
+    showOverlay(id, 'Queued…');
+    $(`stats-${id}`).innerHTML = '<span class="stat-chip">—</span>';
+  });
+
+  if (localOnly) {
+    // Only run the two free pipelines
+    await Promise.allSettled([
+      runLocalLocal(prompt),
+      (async () => {
+        setStatus('lm', 'failed', 'Skipped');
+        showOverlay('lm', 'Skipped — local-only mode');
+      })(),
+      (async () => {
+        setStatus('ml', 'failed', 'Skipped');
+        showOverlay('ml', 'Skipped — local-only mode');
+      })(),
+      (async () => {
+        setStatus('mm', 'failed', 'Skipped');
+        showOverlay('mm', 'Skipped — local-only mode');
+      })(),
+    ]);
+  } else {
+    await Promise.allSettled([
+      runLocalLocal(prompt),
+      runLocalMeshy(prompt),
+      runMeshyLocal(prompt),
+      runMeshyMeshy(prompt),
+    ]);
+  }
+
+  $('btn-run').disabled = false;
+});
+</script>
+</body>
+</html>

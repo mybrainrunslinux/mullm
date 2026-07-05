@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — Physics Simulator</title>
+  <meta name="description" content="Browser-based physics simulation from arcade to exotic — adjustable physical constants, non-Euclidean topology, THREE.js 3D viewport." />
+  <meta name="theme-color" content="#0a0a1a" media="(prefers-color-scheme: dark)" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    /* ── Reset & Tokens ── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:      #0a0a1a;
+      --bg2:     #0f0f2a;
+      --bg3:     #141428;
+      --bg4:     #1a1a38;
+      --border:  #1e1e3a;
+      --border2: #2a2a4a;
+      --teal:    #00bfa5;
+      --teal-dim:#007a6a;
+      --coral:   #ff6b6b;
+      --coral-dim:#9a3030;
+      --amber:   #f59e0b;
+      --purple:  #a78bfa;
+      --green:   #22c55e;
+      --blue:    #3b82f6;
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --text3:   #5a6a7a;
+      --mono:    "JetBrains Mono", "Fira Code", monospace;
+      --sans:    "Inter", -apple-system, sans-serif;
+      --radius:  8px;
+      color-scheme: dark;
+    }
+
+    /* ── Accessibility ── */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--teal); color: #000;
+      padding: 8px 16px; z-index: 10000;
+      font-weight: 600; border-radius: 0 0 8px 0;
+      transition: top 0.2s; font-family: var(--mono); font-size: 13px;
+    }
+    .skip-link:focus { top: 0; }
+    *:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    /* ── Typography ── */
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); overflow-x: hidden;
+      line-height: 1.6; min-height: 100vh;
+    }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: rgba(10,10,26,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px; display: flex;
+      align-items: center; gap: 12px;
+      font-family: var(--mono); font-size: 13px;
+      position: sticky; top: 0; z-index: 200;
+      flex-wrap: wrap;
+    }
+    .logo {
+      font-weight: 700; font-size: 14px; letter-spacing: 1px;
+      color: var(--teal); text-decoration: none;
+      text-shadow: 0 0 12px rgba(0,191,165,0.4);
+      display: flex; align-items: center; gap: 0;
+    }
+    .logo-mu { color: var(--amber); text-shadow: 0 0 12px rgba(245,158,11,0.3); font-family: "Times New Roman", Georgia, serif; font-size: 18px; font-style: italic; line-height: 14px; }
+    .logo-pipe { color: var(--text3); font-size: 20px; line-height: 14px; margin: 0 -1px; font-weight: 400; opacity: 0.5; }
+    .logo-llm { color: var(--teal); letter-spacing: 1px; }
+    .nav-spacer { flex: 1; }
+    .nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+    .nav-link { padding: 4px 10px; border-radius: 6px; font-size: .8rem; color: var(--text2); transition: all .15s; text-decoration: none; }
+    .nav-link:hover { background: var(--bg3); color: var(--text); }
+    .nav-link.active { background: linear-gradient(135deg, var(--teal), #00796b); color: #000; font-weight: 600; }
+
+    /* ── Tooltip ── */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 10px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: .73rem; color: var(--text); white-space: nowrap;
+      z-index: 9999; pointer-events: none; font-family: var(--mono);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    [data-tip-wide]:hover::after, [data-tip-wide]:focus-visible::after { white-space: normal; width: 240px; text-align: left; }
+
+    /* ── Layout ── */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      grid-template-rows: 1fr;
+      height: calc(100vh - 48px);
+      overflow: hidden;
+    }
+    @media (max-width: 900px) {
+      .app-layout { grid-template-columns: 1fr; grid-template-rows: auto 50vh; height: auto; overflow: visible; }
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: var(--bg2); border-right: 1px solid var(--border);
+      overflow-y: auto; overflow-x: hidden;
+      display: flex; flex-direction: column;
+    }
+    .sidebar-section {
+      border-bottom: 1px solid var(--border);
+      padding: 16px;
+    }
+    .sidebar-section:last-child { border-bottom: none; }
+    .section-title {
+      font-family: var(--mono); font-size: .7rem; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--text3);
+      margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+    }
+    .section-title .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+
+    /* ── Tier cards ── */
+    .tier-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+    }
+    .tier-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 10px 8px;
+      cursor: pointer; transition: all .15s; text-align: left;
+      position: relative; min-height: 44px;
+    }
+    .tier-card:hover { border-color: var(--teal); background: var(--bg4); }
+    .tier-card.active { border-color: var(--teal); background: rgba(0,191,165,.1); box-shadow: 0 0 0 1px var(--teal); }
+    .tier-card.disabled { opacity: 0.45; cursor: not-allowed; }
+    .tier-card.active.disabled { opacity: 0.6; cursor: not-allowed; }
+    .tier-name { font-size: .78rem; font-weight: 600; color: var(--text); display: block; line-height: 1.2; }
+    .tier-sub { font-size: .65rem; color: var(--text3); display: block; margin-top: 2px; }
+    .tier-badge {
+      position: absolute; top: 6px; right: 6px;
+      font-size: .55rem; font-family: var(--mono); font-weight: 700;
+      padding: 2px 5px; border-radius: 4px; letter-spacing: .5px; text-transform: uppercase;
+    }
+    .tier-badge.ok { background: rgba(34,197,94,.15); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+    .tier-badge.adapter { background: rgba(245,158,11,.12); color: var(--amber); border: 1px solid rgba(245,158,11,.25); }
+
+    /* ── Scene builder ── */
+    .obj-list { display: flex; flex-direction: column; gap: 6px; }
+    .obj-row {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 10px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: .78rem;
+    }
+    .obj-row .obj-icon { font-size: 1rem; flex-shrink: 0; }
+    .obj-row .obj-name { flex: 1; color: var(--text); font-family: var(--mono); font-size: .72rem; }
+    .obj-row .obj-meta { color: var(--text3); font-size: .68rem; font-family: var(--mono); }
+    .obj-row .obj-del {
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text3); padding: 2px 6px; font-size: .65rem;
+      transition: all .15s; flex-shrink: 0;
+    }
+    .obj-row .obj-del:hover { border-color: var(--coral); color: var(--coral); }
+    .add-obj-row {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .add-btn {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text2); font-size: .72rem; padding: 6px 10px;
+      transition: all .15s; display: flex; align-items: center; gap: 4px;
+      min-height: 32px;
+    }
+    .add-btn:hover { border-color: var(--teal); color: var(--teal); background: var(--bg4); }
+    .add-btn.add-random {
+      background: rgba(0,191,165,.08); border-color: rgba(0,191,165,.3); color: var(--teal);
+    }
+
+    /* ── Form controls ── */
+    label { font-size: .75rem; color: var(--text2); display: block; margin-bottom: 4px; }
+    input[type="number"], input[type="text"], select {
+      width: 100%; background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); padding: 6px 10px; font-size: .8rem;
+      font-family: var(--mono); transition: border-color .15s;
+      -moz-appearance: textfield;
+    }
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    input:focus, select:focus { border-color: var(--teal); outline: none; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .form-row.trio { grid-template-columns: 1fr 1fr 1fr; }
+
+    /* ── Sliders ── */
+    .slider-row {
+      display: grid; grid-template-columns: auto 1fr auto;
+      gap: 8px; align-items: center; margin-bottom: 8px;
+    }
+    .slider-label { font-family: var(--mono); font-size: .68rem; color: var(--text2); min-width: 40px; }
+    .slider-val {
+      font-family: var(--mono); font-size: .68rem; color: var(--teal);
+      min-width: 70px; text-align: right; white-space: nowrap;
+    }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px; border-radius: 2px;
+      background: var(--border2); outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px;
+      border-radius: 50%; background: var(--teal);
+      cursor: pointer; box-shadow: 0 0 0 2px rgba(0,191,165,.25);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px; height: 14px; border-radius: 50%; background: var(--teal);
+      cursor: pointer; border: none;
+    }
+    .earth-reset {
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text3); font-size: .62rem; padding: 2px 6px;
+      transition: all .15s; font-family: var(--mono); margin-top: 2px;
+    }
+    .earth-reset:hover { border-color: var(--amber); color: var(--amber); }
+
+    /* ── Run controls ── */
+    .run-controls { display: flex; flex-direction: column; gap: 10px; }
+    .run-btn {
+      background: linear-gradient(135deg, var(--teal), var(--teal-dim));
+      color: #000; font-weight: 700; font-size: .85rem;
+      padding: 10px 20px; border: none; border-radius: var(--radius);
+      transition: transform .15s, box-shadow .15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 44px; width: 100%;
+    }
+    .run-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,191,165,.3); }
+    .run-btn:active { transform: translateY(0); }
+    .run-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .export-btn {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text2); font-size: .78rem; padding: 8px 14px;
+      border-radius: var(--radius); transition: all .15s;
+      display: flex; align-items: center; gap: 6px;
+      min-height: 36px;
+    }
+    .export-btn:hover { border-color: var(--purple); color: var(--purple); }
+
+    /* ── Timeline scrubber ── */
+    .timeline-bar {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .timeline-controls { display: flex; align-items: center; gap: 8px; }
+    .play-btn {
+      background: var(--bg4); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--teal); padding: 6px 14px; font-size: .8rem;
+      transition: all .15s; min-height: 32px; min-width: 44px;
+    }
+    .play-btn:hover { border-color: var(--teal); background: rgba(0,191,165,.1); }
+    .time-display { font-family: var(--mono); font-size: .72rem; color: var(--text2); flex: 1; text-align: center; }
+
+    /* ── Viewport ── */
+    .viewport-panel {
+      background: var(--bg); display: flex; flex-direction: column; overflow: hidden;
+    }
+    .viewport-toolbar {
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      padding: 8px 16px; display: flex; align-items: center; gap: 10px;
+      font-size: .78rem; flex-wrap: wrap; flex-shrink: 0;
+    }
+    .viewport-badge {
+      font-family: var(--mono); font-size: .65rem; padding: 2px 8px;
+      border-radius: 4px; background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text2);
+    }
+    .viewport-badge.running { background: rgba(0,191,165,.12); color: var(--teal); border-color: rgba(0,191,165,.3); }
+    #three-canvas {
+      flex: 1; display: block; width: 100%; min-height: 300px;
+    }
+
+    /* ── Status / log ── */
+    .status-panel {
+      background: var(--bg2); border-top: 1px solid var(--border);
+      padding: 8px 16px; font-family: var(--mono); font-size: .7rem;
+      color: var(--text2); max-height: 80px; overflow-y: auto; flex-shrink: 0;
+    }
+    .status-line { margin-bottom: 2px; }
+    .status-line.err { color: var(--coral); }
+    .status-line.ok { color: var(--green); }
+    .status-line.warn { color: var(--amber); }
+    .status-line.info { color: var(--teal); }
+
+    /* ── Constants panel ── */
+    .constants-panel { display: none; }
+    .constants-panel.active { display: block; }
+    .const-section { margin-bottom: 8px; }
+    .const-section-title {
+      font-size: .63rem; letter-spacing: 1px; text-transform: uppercase;
+      color: var(--text3); margin-bottom: 6px; font-family: var(--mono);
+    }
+
+    /* ── Object editor modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      backdrop-filter: blur(3px); z-index: 500;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.hidden { display: none; }
+    .modal {
+      background: var(--bg2); border: 1px solid var(--border2);
+      border-radius: 12px; padding: 24px; max-width: 520px; width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    }
+    .modal-title {
+      font-weight: 700; font-size: 1rem; margin-bottom: 16px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-close {
+      background: none; border: none; color: var(--text3);
+      font-size: 1.1rem; padding: 4px; transition: color .15s;
+    }
+    .modal-close:hover { color: var(--coral); }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+    .btn-cancel {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text2); padding: 8px 16px; font-size: .8rem; transition: all .15s;
+      min-height: 36px;
+    }
+    .btn-cancel:hover { border-color: var(--text2); color: var(--text); }
+    .btn-confirm {
+      background: linear-gradient(135deg, var(--teal), var(--teal-dim));
+      border: none; border-radius: 6px; color: #000;
+      padding: 8px 16px; font-weight: 700; font-size: .8rem;
+      transition: all .15s; min-height: 36px;
+    }
+    .btn-confirm:hover { box-shadow: 0 2px 12px rgba(0,191,165,.3); }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; color: var(--text3); text-align: center; gap: 12px;
+      padding: 40px;
+    }
+    .empty-state .big-icon { font-size: 3rem; opacity: .4; }
+    .empty-state p { font-size: .85rem; max-width: 300px; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+    /* ── Topology select ── */
+    .topology-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .topo-btn {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text2); font-size: .7rem; padding: 5px 10px;
+      transition: all .15s; position: relative;
+    }
+    .topo-btn:hover:not(:disabled) { border-color: var(--purple); color: var(--purple); }
+    .topo-btn.active { border-color: var(--purple); color: var(--purple); background: rgba(167,139,250,.1); }
+    .topo-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .topo-btn .topo-wip {
+      font-size: .55rem; color: var(--amber); display: block; text-align: center;
+    }
+
+    /* ── Collapsible panels ── */
+    details > summary {
+      list-style: none; cursor: pointer;
+      font-family: var(--mono); font-size: .7rem; letter-spacing: 1.2px;
+      text-transform: uppercase; color: var(--text3);
+      display: flex; align-items: center; gap: 8px; user-select: none;
+      padding: 4px 0;
+    }
+    details > summary::before { content: "▶"; font-size: .6rem; transition: transform .2s; }
+    details[open] > summary::before { transform: rotate(90deg); }
+    details > summary .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+  </style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<!-- ── Topbar ── -->
+<header class="topbar" role="banner">
+  <a href="/" class="logo" aria-label="muLLM home">
+    <span class="logo-mu">mμ</span><span class="logo-pipe">|</span><span class="logo-llm">LLM</span>
+  </a>
+  <div class="nav-spacer"></div>
+  <nav class="nav-links" aria-label="Primary navigation">
+    <a href="/3d" class="nav-link" data-tooltip="3D Asset Pipeline">3D</a>
+    <a href="/scene" class="nav-link" data-tooltip="Scene Builder">Scene</a>
+    <a href="/gamesystems" class="nav-link" data-tooltip="Game System Modules">Systems</a>
+    <a href="/physics" class="nav-link active" data-tooltip="Physics Simulator" aria-current="page">Physics</a>
+    <a href="/games" class="nav-link" data-tooltip="Game Library">Games</a>
+  </nav>
+</header>
+
+<!-- ── Main layout ── -->
+<main id="main-content" class="app-layout" role="main">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" aria-label="Physics configuration">
+
+    <!-- Tier selector -->
+    <div class="sidebar-section">
+      <div class="section-title"><span class="dot" aria-hidden="true"></span>Realism Tier</div>
+      <div class="tier-grid" role="radiogroup" aria-label="Select physics tier">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Scene builder -->
+    <div class="sidebar-section">
+      <div class="section-title"><span class="dot" aria-hidden="true"></span>Scene Objects</div>
+      <div class="obj-list" id="obj-list" aria-label="Scene objects" aria-live="polite">
+        <!-- Populated by JS -->
+      </div>
+      <div class="add-obj-row" style="margin-top:10px;" aria-label="Add objects">
+        <button class="add-btn" onclick="addObject('sphere')" data-tooltip="Add sphere" aria-label="Add sphere object">sphere</button>
+        <button class="add-btn" onclick="addObject('box')" data-tooltip="Add box" aria-label="Add box object">box</button>
+        <button class="add-btn" onclick="addObject('cylinder')" data-tooltip="Add cylinder" aria-label="Add cylinder object">cyl</button>
+        <button class="add-btn add-random" onclick="addRandomScene()" data-tooltip="Generate random test scene" aria-label="Add random scene">random</button>
+      </div>
+    </div>
+
+    <!-- Sim settings -->
+    <div class="sidebar-section">
+      <div class="section-title"><span class="dot" aria-hidden="true"></span>Simulation Settings</div>
+      <div class="form-row">
+        <div>
+          <label for="duration-input">Duration (s)</label>
+          <input type="number" id="duration-input" value="5" min="0.1" max="300" step="0.5" aria-label="Simulation duration in seconds" />
+        </div>
+        <div>
+          <label for="fps-input">FPS</label>
+          <input type="number" id="fps-input" value="60" min="1" max="300" step="1" aria-label="Frames per second" />
+        </div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label>Ground Plane Y</label>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input type="number" id="ground-y-input" value="0" step="0.5" style="flex:1;" aria-label="Ground plane Y coordinate" />
+          <label style="margin:0; display:flex; gap:4px; align-items:center; font-size:.72rem; cursor:pointer;">
+            <input type="checkbox" id="ground-enable" checked aria-label="Enable ground plane" />
+            on
+          </label>
+        </div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label>Gravity (x, y, z) m/s²</label>
+        <div class="form-row trio">
+          <input type="number" id="grav-x" value="0" step="0.5" aria-label="Gravity X component" placeholder="gx" />
+          <input type="number" id="grav-y" value="-9.81" step="0.5" aria-label="Gravity Y component" placeholder="gy" />
+          <input type="number" id="grav-z" value="0" step="0.5" aria-label="Gravity Z component" placeholder="gz" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Topology -->
+    <div class="sidebar-section">
+      <div class="section-title"><span class="dot" aria-hidden="true"></span>Topology</div>
+      <div class="topology-row" role="radiogroup" aria-label="Select space topology">
+        <button class="topo-btn active" id="topo-euclidean" data-topo="euclidean" onclick="setTopology('euclidean')" aria-pressed="true" data-tooltip="Standard flat space">Euclidean</button>
+        <button class="topo-btn" id="topo-toroidal" data-topo="toroidal" onclick="setTopology('toroidal')" aria-pressed="false" data-tooltip="Pac-Man style wrap — objects exit one side, enter the other">Toroidal</button>
+        <button class="topo-btn" id="topo-hyperbolic" data-topo="hyperbolic" disabled aria-pressed="false" data-tooltip="Adapter-gated — toroidal is the built-in non-Euclidean option">
+          Hyperbolic<span class="topo-wip">adapter</span>
+        </button>
+        <button class="topo-btn" id="topo-elliptic" data-topo="elliptic" disabled aria-pressed="false" data-tooltip="Adapter-gated — toroidal is the built-in non-Euclidean option">
+          Elliptic<span class="topo-wip">adapter</span>
+        </button>
+      </div>
+      <div id="torus-size-row" style="display:none; margin-top:10px;">
+        <label>Torus size (x, y, z) m</label>
+        <div class="form-row trio">
+          <input type="number" id="torus-x" value="20" min="1" step="1" aria-label="Torus X size" />
+          <input type="number" id="torus-y" value="20" min="1" step="1" aria-label="Torus Y size" />
+          <input type="number" id="torus-z" value="20" min="1" step="1" aria-label="Torus Z size" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Exotic constants (visible only when exotic tier selected) -->
+    <div class="sidebar-section constants-panel" id="constants-panel">
+      <div class="section-title"><span class="dot" aria-hidden="true"></span>Physical Constants (Exotic)</div>
+
+      <div class="const-section">
+        <div class="const-section-title">Gravity</div>
+
+        <div class="slider-row">
+          <span class="slider-label" id="lbl-g">g</span>
+          <input type="range" id="slider-g" min="-3" max="3" step="0.01" value="0"
+                 oninput="updateConstSlider('g')" aria-label="Surface gravity multiplier (log scale)" />
+          <span class="slider-val" id="val-g">9.81 m/s²</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" id="lbl-G">G</span>
+          <input type="range" id="slider-G" min="-5" max="5" step="0.05" value="0"
+                 oninput="updateConstSlider('G')" aria-label="Gravitational constant multiplier (log scale)" />
+          <span class="slider-val" id="val-G">6.67e-11</span>
+        </div>
+      </div>
+
+      <div class="const-section">
+        <div class="const-section-title">Relativity</div>
+        <div class="slider-row">
+          <span class="slider-label" id="lbl-c">c</span>
+          <input type="range" id="slider-c" min="-5" max="5" step="0.05" value="0"
+                 oninput="updateConstSlider('c')" aria-label="Speed of light multiplier (log scale)" />
+          <span class="slider-val" id="val-c">3.00e+8 m/s</span>
+        </div>
+      </div>
+
+      <div class="const-section">
+        <div class="const-section-title">Quantum / Atomic</div>
+        <div class="slider-row">
+          <span class="slider-label" id="lbl-h">h</span>
+          <input type="range" id="slider-h" min="-5" max="5" step="0.05" value="0"
+                 oninput="updateConstSlider('h')" aria-label="Planck constant multiplier (log scale)" />
+          <span class="slider-val" id="val-h">6.63e-34 J·s</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" id="lbl-k_B">k_B</span>
+          <input type="range" id="slider-k_B" min="-5" max="5" step="0.05" value="0"
+                 oninput="updateConstSlider('k_B')" aria-label="Boltzmann constant multiplier (log scale)" />
+          <span class="slider-val" id="val-k_B">1.38e-23 J/K</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" id="lbl-e">e</span>
+          <input type="range" id="slider-e" min="-3" max="3" step="0.05" value="0"
+                 oninput="updateConstSlider('e')" aria-label="Elementary charge multiplier (log scale)" />
+          <span class="slider-val" id="val-e">1.60e-19 C</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" id="lbl-m_e">m_e</span>
+          <input type="range" id="slider-m_e" min="-3" max="3" step="0.05" value="0"
+                 oninput="updateConstSlider('m_e')" aria-label="Electron mass multiplier (log scale)" />
+          <span class="slider-val" id="val-m_e">9.11e-31 kg</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" id="lbl-eps0">ε₀</span>
+          <input type="range" id="slider-eps0" min="-3" max="3" step="0.05" value="0"
+                 oninput="updateConstSlider('eps0')" aria-label="Permittivity of free space multiplier (log scale)" />
+          <span class="slider-val" id="val-eps0">8.85e-12 F/m</span>
+        </div>
+      </div>
+
+      <div style="margin-top:4px;">
+        <div id="derived-display" style="font-family:var(--mono);font-size:.65rem;color:var(--text3);line-height:1.8;"></div>
+      </div>
+      <button class="earth-reset" onclick="resetToEarth()" style="margin-top:8px;" aria-label="Reset all constants to Earth values">
+        Reset to Earth values
+      </button>
+    </div>
+
+    <!-- Run controls -->
+    <div class="sidebar-section">
+      <div class="section-title"><span class="dot" aria-hidden="true"></span>Run</div>
+      <div class="run-controls">
+        <button class="run-btn" id="run-btn" onclick="runSimulation()" aria-label="Run physics simulation">
+          <span id="run-icon">&#9654;</span> <span id="run-label">Simulate</span>
+        </button>
+        <div class="timeline-bar" id="timeline-bar" style="display:none;">
+          <input type="range" id="timeline-scrubber" min="0" max="100" step="1" value="0"
+                 oninput="scrubTo(this.value)" aria-label="Timeline scrubber" style="width:100%;" />
+          <div class="timeline-controls">
+            <button class="play-btn" id="play-btn" onclick="togglePlayback()" aria-label="Play/pause simulation">
+              &#9654;
+            </button>
+            <span class="time-display" id="time-display" aria-live="polite">0.000s / 0.000s</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="export-btn" onclick="exportJSON()" data-tooltip="Download simulation frames as JSON" aria-label="Export as JSON">
+            JSON
+          </button>
+          <button class="export-btn" onclick="exportGodot()" data-tooltip="Export as Godot-compatible AnimationPlayer JSON" aria-label="Export for Godot">
+            Godot
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Viewport ── -->
+  <section class="viewport-panel" aria-label="3D simulation viewport">
+    <div class="viewport-toolbar" role="toolbar" aria-label="Viewport controls">
+      <span class="viewport-badge" id="tier-badge">Newtonian</span>
+      <span class="viewport-badge" id="topology-badge">Euclidean</span>
+      <span class="viewport-badge" id="frame-badge">0 frames</span>
+      <div style="flex:1;"></div>
+      <button class="export-btn" onclick="resetCamera()" data-tooltip="Reset camera to default position" aria-label="Reset camera" style="font-size:.7rem;padding:4px 10px;min-height:28px;">
+        reset cam
+      </button>
+    </div>
+    <canvas id="three-canvas" aria-label="3D simulation viewport (Three.js)"></canvas>
+    <div class="status-panel" id="status-panel" role="log" aria-live="polite" aria-label="Simulation status log">
+      <div class="status-line info">Physics simulator ready. Add objects and press Simulate.</div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── Object editor modal ── -->
+<div class="modal-backdrop hidden" id="obj-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modal-title-text">Add Object</span>
+      <button class="modal-close" onclick="closeModal()" aria-label="Close dialog">&#10005;</button>
+    </div>
+    <div class="form-row">
+      <div>
+        <label for="modal-id">ID</label>
+        <input type="text" id="modal-id" maxlength="20" aria-label="Object ID" />
+      </div>
+      <div>
+        <label for="modal-shape">Shape</label>
+        <select id="modal-shape" aria-label="Object shape">
+          <option value="sphere">Sphere</option>
+          <option value="box">Box</option>
+          <option value="cylinder">Cylinder</option>
+          <option value="capsule">Capsule</option>
+          <option value="plane">Plane (static)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label for="modal-mass">Mass (kg)</label>
+        <input type="number" id="modal-mass" value="1" min="0.001" step="0.5" aria-label="Mass in kilograms" />
+      </div>
+      <div>
+        <label for="modal-radius">Radius (m)</label>
+        <input type="number" id="modal-radius" value="0.5" min="0.01" step="0.1" aria-label="Radius in meters" />
+      </div>
+    </div>
+    <label>Position (x, y, z) m</label>
+    <div class="form-row trio" style="margin-bottom:10px;">
+      <input type="number" id="modal-px" value="0" step="0.5" aria-label="Position X" />
+      <input type="number" id="modal-py" value="2" step="0.5" aria-label="Position Y" />
+      <input type="number" id="modal-pz" value="0" step="0.5" aria-label="Position Z" />
+    </div>
+    <label>Initial Velocity (vx, vy, vz) m/s</label>
+    <div class="form-row trio" style="margin-bottom:10px;">
+      <input type="number" id="modal-vx" value="0" step="0.5" aria-label="Velocity X" />
+      <input type="number" id="modal-vy" value="0" step="0.5" aria-label="Velocity Y" />
+      <input type="number" id="modal-vz" value="0" step="0.5" aria-label="Velocity Z" />
+    </div>
+    <div class="form-row">
+      <div>
+        <label for="modal-restitution">Restitution (0–1)</label>
+        <input type="number" id="modal-restitution" value="0.5" min="0" max="1" step="0.1" aria-label="Restitution coefficient" />
+      </div>
+      <div>
+        <label for="modal-friction">Friction (0–2)</label>
+        <input type="number" id="modal-friction" value="0.4" min="0" max="2" step="0.1" aria-label="Friction coefficient" />
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="display:flex;gap:8px;align-items:center;cursor:pointer;">
+        <input type="checkbox" id="modal-static" aria-label="Static (immovable) object" />
+        Static (immovable, infinite mass)
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmModal()">Add to Scene</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── State ────────────────────────────────────────────────────────────
+const EARTH = {
+  G:    6.674e-11,
+  g:    9.81,
+  c:    2.998e8,
+  h:    6.626e-34,
+  hbar: 1.055e-34,
+  k_B:  1.381e-23,
+  e:    1.602e-19,
+  m_e:  9.109e-31,
+  eps0: 8.854e-12,
+  mu0:  1.257e-6,
+  N_A:  6.022e23,
+  alpha:7.297e-3,
+};
+const CONST_UNITS = { G:'m³/(kg·s²)', g:'m/s²', c:'m/s', h:'J·s', hbar:'J·s', k_B:'J/K', e:'C', m_e:'kg', eps0:'F/m', mu0:'H/m', N_A:'mol⁻¹', alpha:'' };
+const CONST_SLIDERS = ['g','G','c','h','k_B','e','m_e','eps0'];
+
+let activeTier = 'newtonian';
+let activeTopology = 'euclidean';
+let pendingShape = 'sphere';
+let sceneObjects = [];
+let simResult = null;
+let currentFrame = 0;
+let isPlaying = false;
+let playInterval = null;
+let constOverrides = {};   // log10 multipliers from sliders
+
+// ── Tier metadata ─────────────────────────────────────────────────────
+const TIERS = [
+  { id:'arcade',    name:'Arcade',     sub:'spheres, deterministic', badge:'ready'  },
+  { id:'newtonian', name:'Newtonian',  sub:'rigid body, friction',   badge:'ready'  },
+  { id:'soft_body', name:'Soft Body',  sub:'springy approximation',  badge:'approx' },
+  { id:'fluid',     name:'Fluid (SPH)',sub:'buoyancy approximation', badge:'approx' },
+  { id:'gas',       name:'Gas / NS',   sub:'pressure approximation', badge:'approx' },
+  { id:'mixed',     name:'Mixed',      sub:'coupled approximation',  badge:'approx' },
+  { id:'chemical',  name:'Chemical',   sub:'reaction approximation', badge:'approx' },
+  { id:'exotic',    name:'Exotic',     sub:'custom constants, ∞G',   badge:'ready'  },
+];
+
+// ── Render tier cards ──────────────────────────────────────────────────
+function renderTierGrid() {
+  const grid = document.querySelector('.tier-grid');
+  grid.innerHTML = TIERS.map(t => `
+    <button class="tier-card ${t.id === activeTier ? 'active' : ''}"
+      onclick="selectTier('${t.id}')"
+      data-tier="${t.id}"
+      aria-pressed="${t.id === activeTier}"
+      ${t.badge === 'approx' ? 'data-tooltip="Built-in deterministic gameplay approximation"' : ''}
+      aria-label="${t.name} tier${t.badge === 'approx' ? ' approximation' : ''}">
+      <span class="tier-name">${t.name}</span>
+      <span class="tier-sub">${t.sub}</span>
+      <span class="tier-badge ${t.badge === 'ready' ? 'ok' : 'adapter'}">${t.badge}</span>
+    </button>
+  `).join('');
+}
+
+window.selectTier = function(id) {
+  activeTier = id;
+  renderTierGrid();
+  document.getElementById('tier-badge').textContent = id.charAt(0).toUpperCase() + id.slice(1);
+  const cp = document.getElementById('constants-panel');
+  if (id === 'exotic') {
+    cp.classList.add('active');
+    log('info', 'Exotic tier: use sliders to adjust physical constants. G and g affect motion; c caps velocity.');
+  } else {
+    cp.classList.remove('active');
+  }
+};
+
+// ── Object list ────────────────────────────────────────────────────────
+function genId() { return 'obj_' + Math.random().toString(36).substr(2,5); }
+
+function shapeIcon(s) {
+  return { sphere:'●', box:'■', cylinder:'⬛', capsule:'💊', plane:'━' }[s] || '●';
+}
+
+function renderObjList() {
+  const list = document.getElementById('obj-list');
+  if (sceneObjects.length === 0) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:.75rem;text-align:center;padding:12px 0;">No objects — add some above</div>';
+    return;
+  }
+  list.innerHTML = sceneObjects.map((o, i) => `
+    <div class="obj-row" role="listitem">
+      <span class="obj-icon" aria-hidden="true">${shapeIcon(o.shape)}</span>
+      <span class="obj-name">${o.id}</span>
+      <span class="obj-meta">${o.shape} ${o.mass}kg r=${o.radius}</span>
+      ${o.static ? '<span class="obj-meta" style="color:var(--amber)">static</span>' : ''}
+      <button class="obj-del" onclick="removeObj(${i})" aria-label="Remove ${o.id}">✕</button>
+    </div>
+  `).join('');
+}
+
+window.removeObj = function(i) {
+  sceneObjects.splice(i, 1);
+  renderObjList();
+  rebuildThreeScene();
+};
+
+// ── Add object modal ───────────────────────────────────────────────────
+window.addObject = function(shape) {
+  pendingShape = shape;
+  document.getElementById('modal-shape').value = shape;
+  document.getElementById('modal-id').value = genId();
+  document.getElementById('modal-py').value = sceneObjects.length === 0 ? '2' : (2 + sceneObjects.length).toString();
+  document.getElementById('modal-px').value = (Math.random() * 4 - 2).toFixed(1);
+  document.getElementById('modal-pz').value = (Math.random() * 4 - 2).toFixed(1);
+  document.getElementById('modal-vx').value = '0';
+  document.getElementById('modal-vy').value = '0';
+  document.getElementById('modal-vz').value = '0';
+  document.getElementById('modal-mass').value = '1';
+  document.getElementById('modal-radius').value = '0.5';
+  document.getElementById('modal-restitution').value = '0.5';
+  document.getElementById('modal-friction').value = '0.4';
+  document.getElementById('modal-static').checked = shape === 'plane';
+  document.getElementById('obj-modal').classList.remove('hidden');
+  document.getElementById('modal-id').focus();
+};
+
+window.closeModal = function() {
+  document.getElementById('obj-modal').classList.add('hidden');
+};
+
+window.confirmModal = function() {
+  const obj = {
+    id: document.getElementById('modal-id').value.trim() || genId(),
+    shape: document.getElementById('modal-shape').value,
+    mass: parseFloat(document.getElementById('modal-mass').value) || 1,
+    radius: parseFloat(document.getElementById('modal-radius').value) || 0.5,
+    pos: [
+      parseFloat(document.getElementById('modal-px').value) || 0,
+      parseFloat(document.getElementById('modal-py').value) || 2,
+      parseFloat(document.getElementById('modal-pz').value) || 0,
+    ],
+    vel: [
+      parseFloat(document.getElementById('modal-vx').value) || 0,
+      parseFloat(document.getElementById('modal-vy').value) || 0,
+      parseFloat(document.getElementById('modal-vz').value) || 0,
+    ],
+    rot: [0, 0, 0],
+    ang_vel: [0, 0, 0],
+    restitution: parseFloat(document.getElementById('modal-restitution').value) || 0.5,
+    friction: parseFloat(document.getElementById('modal-friction').value) || 0.4,
+    static: document.getElementById('modal-static').checked,
+  };
+  sceneObjects.push(obj);
+  closeModal();
+  renderObjList();
+  rebuildThreeScene();
+  log('info', `Added ${obj.shape} "${obj.id}" at [${obj.pos.map(v=>v.toFixed(1)).join(', ')}]`);
+};
+
+window.addRandomScene = function() {
+  sceneObjects = [];
+  // Ground plane
+  sceneObjects.push({ id:'ground', shape:'box', mass:1000, radius:0.5,
+    pos:[0,-0.25,0], vel:[0,0,0], rot:[0,0,0], ang_vel:[0,0,0],
+    restitution:0.3, friction:0.7, static:true, size:[20,0.5,20] });
+  // Random spheres
+  for (let i = 0; i < 6; i++) {
+    const r = 0.3 + Math.random() * 0.5;
+    const mass = r * r * 10;
+    sceneObjects.push({
+      id: `ball_${i+1}`, shape:'sphere', mass, radius:r,
+      pos:[(Math.random()-0.5)*6, 3 + Math.random()*5, (Math.random()-0.5)*6],
+      vel:[(Math.random()-0.5)*3, 0, (Math.random()-0.5)*3],
+      rot:[0,0,0], ang_vel:[0,0,0],
+      restitution: 0.3 + Math.random() * 0.5,
+      friction: 0.2 + Math.random() * 0.5,
+      static: false,
+    });
+  }
+  renderObjList();
+  rebuildThreeScene();
+  log('info', 'Random scene: 1 ground + 6 spheres');
+};
+
+// ── Topology ────────────────────────────────────────────────────────────
+window.setTopology = function(topo) {
+  activeTopology = topo;
+  document.querySelectorAll('.topo-btn').forEach(b => {
+    const active = b.dataset.topo === topo;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-pressed', active);
+  });
+  document.getElementById('torus-size-row').style.display = topo === 'toroidal' ? 'block' : 'none';
+  document.getElementById('topology-badge').textContent = topo.charAt(0).toUpperCase() + topo.slice(1);
+};
+
+// ── Constants sliders ───────────────────────────────────────────────────
+const CONST_META = {
+  g:   { earth: 9.81,     unit:'m/s²',  decimals:2 },
+  G:   { earth: 6.674e-11,unit:'m³/(kg·s²)', decimals:3, exp:true },
+  c:   { earth: 2.998e8,  unit:'m/s',   decimals:3, exp:true },
+  h:   { earth: 6.626e-34,unit:'J·s',   decimals:3, exp:true },
+  k_B: { earth: 1.381e-23,unit:'J/K',   decimals:3, exp:true },
+  e:   { earth: 1.602e-19,unit:'C',     decimals:3, exp:true },
+  m_e: { earth: 9.109e-31,unit:'kg',    decimals:3, exp:true },
+  eps0:{ earth: 8.854e-12,unit:'F/m',   decimals:3, exp:true },
+};
+
+function fmtConst(key, val) {
+  const m = CONST_META[key];
+  if (!m) return val.toPrecision(4);
+  if (m.exp) return val.toExponential(m.decimals) + ' ' + m.unit;
+  return val.toFixed(m.decimals) + ' ' + m.unit;
+}
+
+window.updateConstSlider = function(key) {
+  const slider = document.getElementById(`slider-${key}`);
+  const logVal = parseFloat(slider.value);
+  const earthVal = CONST_META[key].earth;
+  const newVal = earthVal * Math.pow(10, logVal);
+  constOverrides[key] = newVal;
+  document.getElementById(`val-${key}`).textContent = fmtConst(key, newVal);
+  updateDerivedDisplay();
+};
+
+window.resetToEarth = function() {
+  constOverrides = {};
+  CONST_SLIDERS.forEach(key => {
+    const slider = document.getElementById(`slider-${key}`);
+    if (slider) {
+      slider.value = 0;
+      document.getElementById(`val-${key}`).textContent = fmtConst(key, CONST_META[key].earth);
+    }
+  });
+  updateDerivedDisplay();
+  log('info', 'Constants reset to Earth values');
+};
+
+function updateDerivedDisplay() {
+  const G = constOverrides.G ?? EARTH.G;
+  const g = constOverrides.g ?? EARTH.g;
+  const c = constOverrides.c ?? EARTH.c;
+  const h = constOverrides.h ?? EARTH.h;
+  const hbar = h / (2 * Math.PI);
+  const k_B = constOverrides.k_B ?? EARTH.k_B;
+  const e = constOverrides.e ?? EARTH.e;
+  const m_e = constOverrides.m_e ?? EARTH.m_e;
+  const eps0 = constOverrides.eps0 ?? EARTH.eps0;
+
+  const bohr = (4 * Math.PI * eps0 * hbar * hbar) / (m_e * e * e);
+  const alpha = e * e / (4 * Math.PI * eps0 * hbar * c);
+  const v_esc_earth = Math.sqrt(2 * G * 5.97e24 / 6.37e6);
+
+  const div = document.getElementById('derived-display');
+  div.innerHTML =
+    `Bohr radius: ${bohr.toExponential(3)} m<br>` +
+    `Fine-structure α: ${alpha.toFixed(5)}<br>` +
+    `Earth escape vel: ${v_esc_earth.toFixed(0)} m/s<br>` +
+    `g / G ratio: ${(g / G).toExponential(2)}`;
+}
+
+// Initialise display
+updateDerivedDisplay();
+
+// ── Run simulation ──────────────────────────────────────────────────────
+window.runSimulation = async function() {
+  if (sceneObjects.length === 0) {
+    log('err', 'Add at least one object before simulating.');
+    return;
+  }
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('run-label').textContent = 'Simulating…';
+  document.getElementById('run-icon').textContent = '⟳';
+  stopPlayback();
+
+  const duration = parseFloat(document.getElementById('duration-input').value) || 5;
+  const fps = parseFloat(document.getElementById('fps-input').value) || 60;
+  const groundEnable = document.getElementById('ground-enable').checked;
+  const groundY = groundEnable ? parseFloat(document.getElementById('ground-y-input').value) : null;
+  const gx = parseFloat(document.getElementById('grav-x').value) || 0;
+  const gy = parseFloat(document.getElementById('grav-y').value) || -9.81;
+  const gz = parseFloat(document.getElementById('grav-z').value) || 0;
+  const torusX = parseFloat(document.getElementById('torus-x').value) || 20;
+  const torusY = parseFloat(document.getElementById('torus-y').value) || 20;
+  const torusZ = parseFloat(document.getElementById('torus-z').value) || 20;
+
+  const body = {
+    tier: activeTier,
+    objects: sceneObjects,
+    duration_seconds: duration,
+    fps: fps,
+    gravity: [gx, gy, gz],
+    ground_plane_y: groundY,
+    topology: activeTopology,
+    torus_size: [torusX, torusY, torusZ],
+  };
+
+  if (activeTier === 'exotic' && Object.keys(constOverrides).length > 0) {
+    body.constants = constOverrides;
+  }
+
+  try {
+    const t0 = performance.now();
+    log('info', `Running ${activeTier} simulation: ${sceneObjects.length} objects, ${duration}s @ ${fps}fps…`);
+    const resp = await fetch('/api/physics/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      log('err', `Simulation error ${resp.status}: ${err.detail || JSON.stringify(err)}`);
+      return;
+    }
+
+    simResult = await resp.json();
+    log('ok', `Done in ${elapsed}s — ${simResult.frames_emitted} frames, ${simResult.elapsed_ms}ms server time`);
+
+    if (simResult.warnings?.length) {
+      simResult.warnings.forEach(w => log('warn', w));
+    }
+
+    currentFrame = 0;
+    document.getElementById('timeline-bar').style.display = 'block';
+    document.getElementById('timeline-scrubber').max = simResult.frames_emitted - 1;
+    document.getElementById('timeline-scrubber').value = 0;
+    document.getElementById('frame-badge').textContent = `${simResult.frames_emitted} frames`;
+    updateTimeDisplay();
+    applyFrame(0);
+  } catch (e) {
+    log('err', `Network error: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('run-label').textContent = 'Simulate';
+    document.getElementById('run-icon').textContent = '▶';
+  }
+};
+
+// ── Playback ──────────────────────────────────────────────────────────
+window.scrubTo = function(val) {
+  if (!simResult) return;
+  currentFrame = Math.min(parseInt(val), simResult.frames.length - 1);
+  updateTimeDisplay();
+  applyFrame(currentFrame);
+};
+
+window.togglePlayback = function() {
+  if (isPlaying) stopPlayback(); else startPlayback();
+};
+
+function startPlayback() {
+  if (!simResult || simResult.frames.length < 2) return;
+  isPlaying = true;
+  document.getElementById('play-btn').textContent = '⏸';
+  const dt = simResult.dt * 1000;  // ms per frame
+  playInterval = setInterval(() => {
+    currentFrame++;
+    if (currentFrame >= simResult.frames.length) {
+      currentFrame = 0;
+    }
+    document.getElementById('timeline-scrubber').value = currentFrame;
+    updateTimeDisplay();
+    applyFrame(currentFrame);
+  }, Math.max(dt, 16));
+}
+
+function stopPlayback() {
+  isPlaying = false;
+  if (playInterval) { clearInterval(playInterval); playInterval = null; }
+  document.getElementById('play-btn').textContent = '▶';
+}
+
+function updateTimeDisplay() {
+  if (!simResult) return;
+  const t = simResult.frames[currentFrame]?.t ?? 0;
+  const total = simResult.duration_seconds;
+  document.getElementById('time-display').textContent = `${t.toFixed(3)}s / ${total.toFixed(1)}s`;
+}
+
+// ── THREE.js setup ────────────────────────────────────────────────────
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x0a0a1a);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0a0a1a, 30, 80);
+
+const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 200);
+camera.position.set(8, 8, 12);
+camera.lookAt(0, 2, 0);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 2, 0);
+
+// Lighting
+const ambient = new THREE.AmbientLight(0x223366, 0.8);
+scene.add(ambient);
+const sun = new THREE.DirectionalLight(0xffd0aa, 1.4);
+sun.position.set(6, 12, 8);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.near = 0.1;
+sun.shadow.camera.far = 60;
+sun.shadow.camera.left = -15;
+sun.shadow.camera.right = 15;
+sun.shadow.camera.top = 15;
+sun.shadow.camera.bottom = -15;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0x88aaff, 0.4);
+fill.position.set(-5, 3, -8);
+scene.add(fill);
+
+// Grid
+const grid = new THREE.GridHelper(20, 20, 0x1e1e3a, 0x1a1a2e);
+grid.position.y = 0;
+scene.add(grid);
+
+// Ground shadow receiver
+const groundGeo = new THREE.PlaneGeometry(20, 20);
+const groundMat = new THREE.ShadowMaterial({ opacity: 0.3 });
+const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+groundMesh.rotation.x = -Math.PI / 2;
+groundMesh.receiveShadow = true;
+scene.add(groundMesh);
+
+// Colors for objects (cycle)
+const OBJ_COLORS = [0x00bfa5, 0xff6b6b, 0xa78bfa, 0xf59e0b, 0x22c55e, 0x3b82f6, 0xfbbf24, 0xec4899];
+
+// Map from object id to Three mesh
+let meshMap = {};
+let staticMeshes = [];
+
+function makeMesh(obj, idx) {
+  const color = OBJ_COLORS[idx % OBJ_COLORS.length];
+  let geo;
+  if (obj.shape === 'sphere' || obj.shape === 'capsule') {
+    geo = new THREE.SphereGeometry(obj.radius, 16, 16);
+  } else if (obj.shape === 'box') {
+    const sx = obj.size ? obj.size[0] : obj.radius * 2;
+    const sy = obj.size ? obj.size[1] : obj.radius * 2;
+    const sz = obj.size ? obj.size[2] : obj.radius * 2;
+    geo = new THREE.BoxGeometry(sx, sy, sz);
+  } else if (obj.shape === 'cylinder') {
+    geo = new THREE.CylinderGeometry(obj.radius, obj.radius, obj.size ? obj.size[1] : 1, 12);
+  } else if (obj.shape === 'plane') {
+    geo = new THREE.BoxGeometry(obj.size ? obj.size[0] : 20, obj.size ? obj.size[1] : 0.1, obj.size ? obj.size[2] : 20);
+  } else {
+    geo = new THREE.SphereGeometry(obj.radius, 12, 12);
+  }
+  const mat = new THREE.MeshLambertMaterial({
+    color,
+    transparent: obj.static,
+    opacity: obj.static ? 0.4 : 0.9,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = !obj.static;
+  mesh.receiveShadow = true;
+  mesh.position.set(...obj.pos);
+  return mesh;
+}
+
+function rebuildThreeScene() {
+  // Remove old meshes
+  Object.values(meshMap).forEach(m => scene.remove(m));
+  staticMeshes.forEach(m => scene.remove(m));
+  meshMap = {};
+  staticMeshes = [];
+
+  sceneObjects.forEach((obj, i) => {
+    const mesh = makeMesh(obj, i);
+    scene.add(mesh);
+    if (obj.static) {
+      staticMeshes.push(mesh);
+    } else {
+      meshMap[obj.id] = mesh;
+    }
+  });
+}
+
+function applyFrame(frameIdx) {
+  if (!simResult || !simResult.frames[frameIdx]) return;
+  const frame = simResult.frames[frameIdx];
+  frame.objects.forEach(fo => {
+    const mesh = meshMap[fo.id];
+    if (!mesh) return;
+    mesh.position.set(...fo.pos);
+    if (fo.rot) {
+      mesh.rotation.set(...fo.rot);
+    }
+  });
+}
+
+// Initial scene
+rebuildThreeScene();
+
+// ── Resize handler ────────────────────────────────────────────────────
+function onResize() {
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (canvas.width !== w || canvas.height !== h) {
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+}
+
+// ── Render loop ───────────────────────────────────────────────────────
+let lastRAF = 0;
+function animate(ts) {
+  requestAnimationFrame(animate);
+  onResize();
+  controls.update();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+
+// ── Camera reset ──────────────────────────────────────────────────────
+window.resetCamera = function() {
+  camera.position.set(8, 8, 12);
+  controls.target.set(0, 2, 0);
+  controls.update();
+};
+
+// ── Export ────────────────────────────────────────────────────────────
+window.exportJSON = function() {
+  if (!simResult) { log('warn', 'Run a simulation first'); return; }
+  const blob = new Blob([JSON.stringify(simResult, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `physics_${activeTier}_${Date.now()}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  log('ok', `Exported ${simResult.frames_emitted} frames as JSON`);
+};
+
+window.exportGodot = function() {
+  if (!simResult) { log('warn', 'Run a simulation first'); return; }
+  // Godot AnimationPlayer-compatible JSON
+  const tracks = {};
+  simResult.frames.forEach(frame => {
+    frame.objects.forEach(obj => {
+      if (!tracks[obj.id]) tracks[obj.id] = { name: obj.id, keys: [] };
+      tracks[obj.id].keys.push({
+        time: frame.t,
+        position: { x: obj.pos[0], y: obj.pos[1], z: obj.pos[2] },
+        rotation_euler: { x: obj.rot[0], y: obj.rot[1], z: obj.rot[2] },
+      });
+    });
+  });
+  const godotAnim = {
+    format: 'godot_animation_v1',
+    duration: simResult.duration_seconds,
+    fps: simResult.fps,
+    tracks: Object.values(tracks),
+  };
+  const blob = new Blob([JSON.stringify(godotAnim, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `physics_godot_${activeTier}_${Date.now()}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  log('ok', 'Exported Godot-compatible animation JSON');
+};
+
+// ── Logging ───────────────────────────────────────────────────────────
+function log(type, msg) {
+  const panel = document.getElementById('status-panel');
+  const line = document.createElement('div');
+  line.className = `status-line ${type}`;
+  const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+  line.textContent = `[${now}] ${msg}`;
+  panel.appendChild(line);
+  // Keep last 30 lines
+  while (panel.children.length > 30) panel.removeChild(panel.firstChild);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+renderTierGrid();
+window.selectTier('newtonian');
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === ' ' && e.target.tagName !== 'INPUT' && simResult) {
+    e.preventDefault();
+    togglePlayback();
+  }
+});
+
+// Fetch presets on load to verify API is up
+fetch('/api/physics/presets').then(r => r.json()).then(data => {
+  log('info', `API connected — ${data.tiers.length} tiers, max ${data.limits.max_objects} objects`);
+}).catch(() => {
+  log('warn', 'Could not reach /api/physics/presets — is the server running?');
+});
+</script>
+</body>
+</html>

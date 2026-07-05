@@ -1,0 +1,10 @@
+oldcode/
+paper/
+cache/
+htmlcov/
+coverage_html/
+mullm.egg-info/
+*.egg-info/
+dist/
+build/
+

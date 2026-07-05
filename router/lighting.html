@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>muLLM Lighting Studio</title>
+  <style>
+    :root { color-scheme: dark; --bg:#101418; --panel:#171d24; --line:#2d3743; --text:#edf3f8; --muted:#9aa8b6; --gold:#facc15; --teal:#2dd4bf; --blue:#60a5fa; }
+    body { margin:0; font-family:Inter,system-ui,sans-serif; background:var(--bg); color:var(--text); }
+    nav { display:flex; gap:8px; flex-wrap:wrap; padding:12px 18px; border-bottom:1px solid var(--line); background:#0c1116; }
+    nav a { color:var(--muted); text-decoration:none; border:1px solid var(--line); padding:6px 9px; border-radius:4px; font-size:13px; }
+    nav a.active { color:var(--gold); border-color:rgba(250,204,21,.45); }
+    main { display:grid; grid-template-columns:minmax(280px,380px) 1fr; min-height:calc(100vh - 50px); }
+    aside { border-right:1px solid var(--line); padding:16px; background:var(--panel); }
+    section { padding:16px; }
+    h1 { font-size:22px; margin:0 0 12px; }
+    h2 { font-size:14px; color:var(--gold); margin:18px 0 8px; }
+    label { display:block; font-size:12px; color:var(--muted); margin:10px 0 5px; }
+    input, select, textarea { width:100%; box-sizing:border-box; background:#0c1116; color:var(--text); border:1px solid var(--line); border-radius:4px; padding:8px; }
+    textarea { min-height:78px; resize:vertical; }
+    button { background:#18212b; color:var(--text); border:1px solid var(--line); border-radius:4px; padding:8px 10px; cursor:pointer; }
+    button.primary { border-color:rgba(45,212,191,.5); color:var(--teal); }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .stage { min-height:520px; border:1px solid var(--line); background:
+      radial-gradient(circle at 50% 20%, rgba(250,204,21,.25), transparent 26%),
+      linear-gradient(135deg, #141a22, #090c10 55%, #111820); position:relative; overflow:hidden; }
+    .object { width:150px; height:240px; position:absolute; left:50%; top:50%; transform:translate(-50%,-45%); border-radius:38% 38% 10% 10%; background:linear-gradient(90deg,#3b4654,#d5dde8 48%,#394555); box-shadow:0 60px 90px rgba(0,0,0,.55); }
+    .floor { position:absolute; left:-10%; right:-10%; bottom:-18%; height:42%; background:radial-gradient(ellipse at center, rgba(96,165,250,.18), transparent 55%); transform:perspective(500px) rotateX(60deg); border-top:1px solid rgba(255,255,255,.08); }
+    .meters { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+    .meter { border:1px solid var(--line); padding:10px; background:#10161d; }
+    .meter b { display:block; color:var(--gold); font-size:18px; }
+    pre { white-space:pre-wrap; background:#0c1116; border:1px solid var(--line); padding:12px; overflow:auto; }
+    @media (max-width: 780px) { main { grid-template-columns:1fr; } aside { border-right:0; border-bottom:1px solid var(--line); } }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/chat">Chat</a><a href="/scene">Scene</a><a href="/3d">3D</a><a href="/textures">Textures</a><a href="/lighting" class="active">Lighting</a><a href="/swords">Swords</a><a href="/setup">Setup</a>
+  </nav>
+  <main>
+    <aside>
+      <h1>Lighting Studio</h1>
+      <label>Preset</label>
+      <select id="preset">
+        <option>Product hero</option>
+        <option>Steampunk workshop</option>
+        <option>Moonlit cave</option>
+        <option>Golden hour RPG</option>
+        <option>High contrast accessibility</option>
+      </select>
+      <div class="row">
+        <div><label>Key</label><input id="key" type="range" min="0" max="100" value="72"></div>
+        <div><label>Fill</label><input id="fill" type="range" min="0" max="100" value="28"></div>
+      </div>
+      <div class="row">
+        <div><label>Rim</label><input id="rim" type="range" min="0" max="100" value="55"></div>
+        <div><label>Warmth</label><input id="warmth" type="range" min="0" max="100" value="62"></div>
+      </div>
+      <label>Goal</label>
+      <textarea id="goal">Make generated swords and siege assets read clearly in-game, with glinty metal edges, warm workshop bounce light, and readable silhouettes.</textarea>
+      <p><button class="primary" onclick="planRefine()">Plan Refiner Pass</button> <button onclick="copyRig()">Copy JSON</button></p>
+      <pre id="plan">Ready.</pre>
+    </aside>
+    <section>
+      <div class="stage" id="stage"><div class="floor"></div><div class="object"></div></div>
+      <div class="meters">
+        <div class="meter"><span>Readability</span><b id="m1">86</b></div>
+        <div class="meter"><span>Contrast</span><b id="m2">78</b></div>
+        <div class="meter"><span>Specular</span><b id="m3">64</b></div>
+        <div class="meter"><span>Cost</span><b>$0</b></div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const ids = ['key','fill','rim','warmth'];
+    function update(){
+      const k=+key.value,f=+fill.value,r=+rim.value,w=+warmth.value;
+      stage.style.background = `radial-gradient(circle at ${35+w/3}% ${18+k/8}%, rgba(250,204,21,${k/210}), transparent 28%), radial-gradient(circle at 78% 35%, rgba(96,165,250,${r/260}), transparent 18%), linear-gradient(135deg,#141a22,#090c10 55%,#111820)`;
+      m1.textContent = Math.min(99, Math.round(55+k*.32+r*.16-f*.04));
+      m2.textContent = Math.min(99, Math.round(40+k*.42-r*.08));
+      m3.textContent = Math.min(99, Math.round(25+r*.55+w*.12));
+    }
+    ids.forEach(id => document.getElementById(id).addEventListener('input', update)); update();
+    function payload(){ return {preset:preset.value,key:+key.value,fill:+fill.value,rim:+rim.value,warmth:+warmth.value,goal:goal.value}; }
+    async function planRefine(){
+      const res = await fetch('/api/refiner/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:'lighting',quality:'balanced',context:payload()})});
+      plan.textContent = JSON.stringify(await res.json(), null, 2);
+    }
+    function copyRig(){ navigator.clipboard?.writeText(JSON.stringify(payload(), null, 2)); }
+  </script>
+</body>
+</html>

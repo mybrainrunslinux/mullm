@@ -1,0 +1,1410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>mu|LLM — Game Systems</title>
+  <meta name="description" content="Reusable game system modules built by muLLM — drop-in ready for Three.js and canvas games." />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a1a;
+      --bg2: #111827;
+      --bg3: #1a2332;
+      --border: #1e2d3d;
+      --border2: #2a3a4d;
+      --teal: #00bfa5;
+      --amber: #f59e0b;
+      --purple: #a78bfa;
+      --green: #22c55e;
+      --blue: #3b82f6;
+      --coral: #ef6c4c;
+      --text: #e2e8f0;
+      --text2: #94a3b8;
+      --text3: #64748b;
+      --mono: "JetBrains Mono", "Fira Code", monospace;
+      --sans: "DM Sans", "Inter", system-ui, sans-serif;
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Skip link ── */
+    #skip-link {
+      position: absolute;
+      top: -40px;
+      left: 8px;
+      background: var(--teal);
+      color: #0a0a1a;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      z-index: 9999;
+      transition: top 0.2s;
+    }
+    #skip-link:focus { top: 8px; }
+
+    /* ── Top nav ── */
+    #topbar {
+      position: sticky;
+      top: 0;
+      height: 42px;
+      background: rgba(10,10,26,0.95);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 16px;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--teal);
+      text-decoration: none;
+      margin-right: 8px;
+      white-space: nowrap;
+    }
+    .nav-logo span { color: var(--amber); font-style: italic; font-family: Georgia, serif; font-size: 15px; }
+    .nav-link {
+      color: var(--text2);
+      text-decoration: none;
+      font-size: 11px;
+      font-family: var(--mono);
+      padding: 3px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .nav-link:hover { color: var(--teal); border-color: var(--teal); }
+    .nav-link.active { color: var(--teal); border-color: var(--teal); background: rgba(0,191,165,0.08); }
+    .nav-link:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    .nav-spacer { flex: 1; }
+
+    /* ── Page header ── */
+    .page-header {
+      padding: 28px 24px 8px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    .page-header h1 {
+      font-size: clamp(20px, 4vw, 30px);
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .page-header .subtitle {
+      color: var(--text2);
+      font-size: 13px;
+    }
+
+    /* ── Stats banner ── */
+    .stats-banner {
+      display: flex;
+      gap: 12px;
+      padding: 16px 24px;
+      max-width: 1280px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 140px;
+    }
+    .stat-chip .num {
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--teal);
+      line-height: 1;
+    }
+    .stat-chip .num.amber { color: var(--amber); }
+    .stat-chip .num.purple { color: var(--purple); }
+    .stat-chip .num.green { color: var(--green); }
+    .stat-chip .lbl {
+      font-size: 11px;
+      color: var(--text2);
+      line-height: 1.4;
+    }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      padding: 4px 24px 20px;
+      max-width: 1280px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-btn {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text2);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all 0.18s;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      min-height: 32px;
+    }
+    .filter-btn:hover { border-color: var(--teal); color: var(--teal); }
+    .filter-btn.active {
+      background: rgba(0,191,165,0.12);
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+    .filter-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    .filter-count {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text3);
+    }
+
+    /* ── Card grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      padding: 0 24px 64px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 580px) {
+      .grid { grid-template-columns: 1fr; padding: 0 12px 48px; }
+      .filter-bar { padding: 4px 12px 16px; }
+      .stats-banner { padding: 12px 12px; }
+      .page-header { padding: 20px 12px 8px; }
+    }
+
+    /* ── System card ── */
+    .sys-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+    .sys-card:hover {
+      border-color: var(--border2);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .card-top {
+      padding: 18px 18px 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .card-icon {
+      font-size: 28px;
+      line-height: 1;
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .card-name {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Category badge ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-top: 6px;
+      font-weight: 600;
+    }
+    .badge-visual   { background: rgba(167,139,250,0.15); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+    .badge-combat   { background: rgba(239,108,76,0.15);  color: var(--coral);  border: 1px solid rgba(239,108,76,0.25); }
+    .badge-ui       { background: rgba(59,130,246,0.15);  color: var(--blue);   border: 1px solid rgba(59,130,246,0.25); }
+    .badge-persist  { background: rgba(245,158,11,0.15);  color: var(--amber);  border: 1px solid rgba(245,158,11,0.25); }
+    .badge-environ  { background: rgba(34,197,94,0.15);   color: var(--green);  border: 1px solid rgba(34,197,94,0.25); }
+
+    /* ── Demo canvas area ── */
+    .card-demo {
+      padding: 0 18px 0;
+    }
+    .demo-canvas {
+      width: 100%;
+      height: 80px;
+      border-radius: 8px;
+      background: #0a0a1a;
+      border: 1px solid var(--border);
+      display: block;
+    }
+    .demo-controls {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      margin-bottom: 2px;
+    }
+    .demo-btn {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text2);
+      font-size: 10px;
+      font-family: var(--mono);
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      min-height: 28px;
+    }
+    .demo-btn:hover { border-color: var(--teal); color: var(--teal); }
+    .demo-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+    /* ── Card actions ── */
+    .card-actions {
+      padding: 12px 18px 14px;
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+      align-items: center;
+    }
+    .btn-view {
+      flex: 1;
+      background: rgba(0,191,165,0.1);
+      border: 1px solid rgba(0,191,165,0.3);
+      border-radius: 6px;
+      color: var(--teal);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: all 0.18s;
+      text-align: center;
+      min-height: 34px;
+    }
+    .btn-view:hover { background: rgba(0,191,165,0.2); border-color: var(--teal); }
+    .btn-view:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    .btn-view[aria-expanded="true"] {
+      background: rgba(0,191,165,0.2);
+      border-color: var(--teal);
+    }
+
+    /* ── Code panel ── */
+    .code-panel {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+    }
+    .code-panel.open { max-height: 600px; }
+    .code-inner {
+      border-top: 1px solid var(--border);
+      position: relative;
+    }
+    .btn-copy {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text2);
+      font-size: 10px;
+      font-family: var(--mono);
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      z-index: 2;
+      min-height: 28px;
+    }
+    .btn-copy:hover { border-color: var(--teal); color: var(--teal); }
+    .btn-copy.copied { color: var(--green); border-color: var(--green); }
+    .btn-copy:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+    .code-block {
+      overflow-x: auto;
+      padding: 14px 16px 14px 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.65;
+      color: var(--text);
+      background: #080812;
+      white-space: pre;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+    .code-block::-webkit-scrollbar { width: 6px; height: 6px; }
+    .code-block::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── CSS syntax highlighting ── */
+    .tok-kw    { color: #c792ea; } /* keywords */
+    .tok-fn    { color: #82aaff; } /* function names */
+    .tok-str   { color: #c3e88d; } /* strings */
+    .tok-num   { color: #f78c6c; } /* numbers */
+    .tok-cmt   { color: #546e7a; font-style: italic; } /* comments */
+    .tok-cls   { color: #ffcb6b; } /* class names */
+    .tok-op    { color: #89ddff; } /* operators / punctuation */
+    .tok-this  { color: #f07178; } /* this */
+
+    /* ── Generating placeholder ── */
+    .gen-placeholder {
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text3);
+      background: #080812;
+      min-height: 60px;
+    }
+    .gen-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--amber);
+      animation: gen-pulse 1.4s ease-in-out infinite;
+    }
+    .gen-dot:nth-child(2) { animation-delay: 0.2s; }
+    .gen-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes gen-pulse {
+      0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1.1); }
+    }
+
+    /* ── Card shake animation ── */
+    @keyframes card-shake {
+      0%, 100% { transform: translateX(0) rotate(0); }
+      10% { transform: translateX(-6px) rotate(-0.5deg); }
+      20% { transform: translateX(6px) rotate(0.5deg); }
+      30% { transform: translateX(-5px) rotate(-0.4deg); }
+      40% { transform: translateX(5px) rotate(0.4deg); }
+      50% { transform: translateX(-3px) rotate(-0.2deg); }
+      60% { transform: translateX(3px) rotate(0.2deg); }
+      70% { transform: translateX(-2px); }
+      80% { transform: translateX(2px); }
+    }
+    .shaking { animation: card-shake 0.55s ease-out; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sys-card, .code-panel, .gen-dot { transition: none; animation: none; }
+      .shaking { animation: none; }
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 48px;
+      color: var(--text3);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <a href="#main-content" id="skip-link">Skip to main content</a>
+
+  <!-- Top nav -->
+  <nav id="topbar" aria-label="Site navigation">
+    <a href="/chat" class="nav-logo" aria-label="mu|LLM home"><span>mu</span>|LLM</a>
+    <a href="/games" class="nav-link">games</a>
+    <a href="/swords" class="nav-link">swords</a>
+    <a href="/siege" class="nav-link">siege</a>
+    <a href="/gamesystems" class="nav-link active" aria-current="page">systems</a>
+    <div class="nav-spacer"></div>
+  </nav>
+
+  <main id="main-content">
+    <!-- Page header -->
+    <header class="page-header">
+      <h1>
+        <span aria-hidden="true">&#9881;</span>
+        Game Systems
+      </h1>
+      <p class="subtitle">Reusable drop-in modules for Three.js, canvas, and DOM-based games</p>
+    </header>
+
+    <!-- Stats banner -->
+    <section class="stats-banner" aria-label="Summary statistics">
+      <div class="stat-chip">
+        <div class="num" aria-label="13 reusable systems">13</div>
+        <div class="lbl">Reusable<br>Systems</div>
+      </div>
+      <div class="stat-chip">
+        <div class="num amber">5</div>
+        <div class="lbl">Categories<br>Covered</div>
+      </div>
+      <div class="stat-chip">
+        <div class="num purple" aria-label="Three.js compatible">3JS</div>
+        <div class="lbl">Three.js<br>Compatible</div>
+      </div>
+      <div class="stat-chip">
+        <div class="num green" aria-label="$0 — Generated by muLLM Local">$0</div>
+        <div class="lbl">Generated by<br>muLLM Local</div>
+      </div>
+    </section>
+
+    <!-- Filter bar -->
+    <div class="filter-bar" role="group" aria-label="Filter by category">
+      <button class="filter-btn active" data-cat="all">All</button>
+      <button class="filter-btn" data-cat="Visual">Visual</button>
+      <button class="filter-btn" data-cat="Combat">Combat</button>
+      <button class="filter-btn" data-cat="UI">UI</button>
+      <button class="filter-btn" data-cat="Persistence">Persistence</button>
+      <button class="filter-btn" data-cat="Environment">Environment</button>
+      <span class="filter-count" aria-live="polite" id="filter-count">13 systems</span>
+    </div>
+
+    <!-- Card grid -->
+    <div class="grid" id="systems-grid" role="list">
+      <!-- Cards injected by JS -->
+    </div>
+  </main>
+
+  <script>
+  // ──────────────────────────────────────────────
+  //  System definitions
+  // ──────────────────────────────────────────────
+  const SYSTEMS = [
+    {
+      id: 'achievement-system',
+      name: 'Achievement System',
+      icon: '🏆',
+      category: 'Persistence',
+      badgeClass: 'badge-persist',
+      desc: 'Track & display unlocked achievements with localStorage persistence and popup notifications.',
+      source: 'inline',
+      code: `// Achievement data structure
+const ACHIEVEMENTS = {
+  bossKillNoDamage: { id: 'bossKillNoDamage', name: 'Pure Power',
+    description: 'Kill boss without damage', unlocked: false },
+  speedRun: { id: 'speedRun', name: 'Speed Demon',
+    description: 'Clear level in under 60s', unlocked: false },
+  secretHunter: { id: 'secretHunter', name: 'Secret Finder',
+    description: 'Find all secrets in a level', unlocked: false },
+  headshotMaster: { id: 'headshotMaster', name: 'Headshot Master',
+    description: 'Get 10 headshots in a row', unlocked: false }
+};
+
+function loadAchievements() {
+  const saved = localStorage.getItem('fpsAchievements');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    Object.keys(ACHIEVEMENTS).forEach(key => {
+      if (parsed[key]) ACHIEVEMENTS[key].unlocked = parsed[key].unlocked;
+    });
+  }
+  return ACHIEVEMENTS;
+}
+
+function unlockAchievement(id) {
+  if (ACHIEVEMENTS[id]) {
+    ACHIEVEMENTS[id].unlocked = true;
+    localStorage.setItem('fpsAchievements',
+      JSON.stringify(Object.fromEntries(
+        Object.entries(ACHIEVEMENTS).map(([k,v]) =>
+          [k, { unlocked: v.unlocked }]))));
+    showAchievementPopup(ACHIEVEMENTS[id].name);
+    return true;
+  }
+  return false;
+}
+
+function showAchievementPopup(name) {
+  const popup = document.createElement('div');
+  popup.style.cssText = \`position:fixed;top:50%;left:50%;
+    transform:translate(-50%,-50%);background:rgba(0,0,0,0.9);
+    padding:20px;border-radius:10px;color:#fff;text-align:center;
+    z-index:1000;min-width:300px;border:2px solid #ffd700;\`;
+  popup.innerHTML = \`<h2 style="color:#ffd700">Achievement Unlocked!</h2>
+    <h3>\${name}</h3>
+    <button onclick="this.parentElement.remove()"
+      style="margin-top:12px;padding:8px 18px;background:#ffd700;
+             border:none;cursor:pointer;font-weight:bold;">
+      Close</button>\`;
+  document.body.appendChild(popup);
+  setTimeout(() => popup.parentNode?.removeChild(popup), 5000);
+}
+
+loadAchievements();`,
+      demo: null
+    },
+    {
+      id: 'biome-colors',
+      name: 'Biome Colors',
+      icon: '🌍',
+      category: 'Visual',
+      badgeClass: 'badge-visual',
+      desc: '5 biome visual configs (forest / desert / ice / volcanic / crystal) for Three.js scene lighting & fog.',
+      source: 'inline',
+      code: `const BIOME_CONFIG = {
+  forest:   { skyColor:0x4a6b5c, fogColor:0x2d3a32,
+    fogFar:180, groundColor:0x3d2817,
+    ambientLightColor:0x5a4a3a, ambientIntensity:0.65,
+    directionalColor:0x6b5a4a },
+  desert:   { skyColor:0x8fa89c, fogColor:0xd4c4b4,
+    fogFar:250, groundColor:0xc4b49c,
+    ambientLightColor:0xf4e4d4, ambientIntensity:0.85,
+    directionalColor:0xf8f4e8 },
+  ice:      { skyColor:0xb4d4e8, fogColor:0x8cb4d4,
+    fogFar:300, groundColor:0xd4e4f4,
+    ambientLightColor:0xc4d4e8, ambientIntensity:0.75,
+    directionalColor:0xd4e4f8 },
+  volcanic: { skyColor:0xc46b4a, fogColor:0x4a3a32,
+    fogFar:200, groundColor:0x3a2817,
+    ambientLightColor:0x6b4a3a, ambientIntensity:0.55,
+    directionalColor:0x8b5a4a },
+  crystal:  { skyColor:0xd4b4e8, fogColor:0xb49cd4,
+    fogFar:280, groundColor:0xc4d4f4,
+    ambientLightColor:0xe4d4f4, ambientIntensity:0.7,
+    directionalColor:0xf4e4f8 }
+};
+
+function applyBiome(biomeName, scene) {
+  const cfg = BIOME_CONFIG[biomeName] ?? BIOME_CONFIG.forest;
+  scene.background = new THREE.Color(cfg.skyColor);
+  scene.fog = new THREE.FogExp2(cfg.fogColor, 1 / cfg.fogFar);
+  const ambient = scene.children.find(c => c.isAmbientLight)
+    ?? (() => { const l = new THREE.AmbientLight(0,0); scene.add(l); return l; })();
+  ambient.color.setHex(cfg.ambientLightColor);
+  ambient.intensity = cfg.ambientIntensity;
+}`,
+      demo: null
+    },
+    {
+      id: 'weapon-forge',
+      name: 'Weapon Forge',
+      icon: '⚒️',
+      category: 'Combat',
+      badgeClass: 'badge-combat',
+      desc: 'Timing minigame (space-to-stop needle) that upgrades weapon stats across 4 tiers with zone-based rewards.',
+      source: 'inline',
+      code: `class WeaponForge {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
+    this.ctx = this.canvas.getContext('2d');
+    this.stats = {
+      damage:   { tier:0, base:10,   name:'Damage' },
+      fireRate: { tier:0, base:100,  name:'Fire Rate' },
+      reload:   { tier:0, base:1000, name:'Reload' },
+      accuracy: { tier:0, base:50,   name:'Accuracy' }
+    };
+    this.needle = { x:0, speed:4, dir:1, moving:true };
+    this.zones  = {
+      green:  { x:180, w:40 },
+      yellow: { x:140, w:40 }
+    };
+    this.finished = false;
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space' && !this.finished) this.stop();
+    });
+    this.canvas.addEventListener('click', () => {
+      if (!this.finished) this.stop();
+    });
+  }
+
+  stop() {
+    this.needle.moving = false;
+    const nx = this.needle.x;
+    const zone =
+      nx >= this.zones.green.x  && nx < this.zones.green.x  + this.zones.green.w  ? 'green'  :
+      nx >= this.zones.yellow.x && nx < this.zones.yellow.x + this.zones.yellow.w ? 'yellow' : 'red';
+    const tiers = zone === 'green' ? 2 : zone === 'yellow' ? 1 : 0;
+    if (tiers) {
+      this.stats.damage.tier += tiers;
+      this.stats.damage.current = Math.floor(
+        this.stats.damage.base * (1 + tiers * 0.25));
+    }
+    this.finished = true;
+    this.draw();
+  }
+
+  draw() {
+    const { ctx: c, canvas: cv } = this;
+    c.fillStyle = '#1a1a2e'; c.fillRect(0,0,cv.width,cv.height);
+    ['red','yellow','green'].forEach((col, i) => {
+      c.fillStyle = col;
+      const zx = [100,140,180][i];
+      c.fillRect(zx, 8, 40, 12);
+    });
+    c.fillStyle = '#FFD700';
+    c.fillRect(this.needle.x, 4, 4, 20);
+    c.fillStyle = '#888'; c.font='10px monospace'; c.textAlign='center';
+    c.fillText('SPACE or CLICK to stop', cv.width/2, cv.height-6);
+  }
+
+  start() {
+    this.needle.x = 0; this.needle.dir = 1;
+    this.needle.moving = true; this.finished = false;
+    const loop = () => {
+      if (this.finished) return;
+      this.needle.x += this.needle.speed * this.needle.dir;
+      if (this.needle.x >= 280 || this.needle.x <= 0) this.needle.dir *= -1;
+      this.draw();
+      requestAnimationFrame(loop);
+    };
+    loop();
+  }
+}`,
+      demo: null
+    },
+    {
+      id: 'proximity-grenades',
+      name: 'Proximity Grenades',
+      icon: '💣',
+      category: 'Combat',
+      badgeClass: 'badge-combat',
+      desc: 'Auto-detonating grenades with proximity threshold, blast radius falloff, and particle explosion effect.',
+      source: 'inline',
+      code: `const PROXIMITY_THRESHOLD = 3;  // units
+const BLAST_RADIUS = 8;
+const PARTICLE_COUNT = 50;
+
+function checkProximityDetonation(grenade, enemies) {
+  for (const enemy of enemies) {
+    if (grenade.position.distanceTo(enemy.position) <= PROXIMITY_THRESHOLD) {
+      createExplosion(grenade.position, grenade.parent, enemies);
+      return true; // detonated
+    }
+  }
+  return false;
+}
+
+function createExplosion(pos, scene, enemies) {
+  // Damage enemies with linear falloff
+  for (const enemy of enemies) {
+    const d = pos.distanceTo(enemy.position);
+    if (d <= BLAST_RADIUS) {
+      enemy.takeDamage(Math.max(0, 10 * (1 - d / BLAST_RADIUS)));
+    }
+  }
+  spawnParticles(pos, scene);
+}
+
+function spawnParticles(pos, scene) {
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(PARTICLE_COUNT * 3);
+  const velocities = [];
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    positions[i*3]   = pos.x;
+    positions[i*3+1] = pos.y;
+    positions[i*3+2] = pos.z;
+    velocities.push(new THREE.Vector3(
+      (Math.random()-0.5)*0.5,
+      (Math.random()-0.5)*0.5,
+      (Math.random()-0.5)*0.5));
+  }
+  geo.setAttribute('position',
+    new THREE.BufferAttribute(positions, 3));
+  const pts = new THREE.Points(geo,
+    new THREE.PointsMaterial({ color:0xffaa00, size:0.12 }));
+  scene.add(pts);
+  let t = 0;
+  const tick = () => {
+    if (t++ > 60) { scene.remove(pts); return; }
+    const p = geo.attributes.position.array;
+    for (let i=0; i<PARTICLE_COUNT; i++) {
+      p[i*3]   += velocities[i].x;
+      p[i*3+1] += velocities[i].y - 0.01;
+      p[i*3+2] += velocities[i].z;
+    }
+    geo.attributes.position.needsUpdate = true;
+    requestAnimationFrame(tick);
+  };
+  tick();
+}`,
+      demo: null
+    },
+    {
+      id: 'save-system',
+      name: 'Save System',
+      icon: '💾',
+      category: 'Persistence',
+      badgeClass: 'badge-persist',
+      desc: 'localStorage save/load with checkpoint auto-save, typed state schema, and graceful error handling.',
+      source: 'inline',
+      code: `const SAVE_KEY = 'mullm-fps-save';
+
+function saveGame(state) {
+  const snapshot = {
+    currentLevel: state.currentLevel,
+    score:        state.score,
+    gold:         state.gold,
+    weapons:      state.weapons,
+    health:       state.health,
+    inventory:    state.inventory,
+    savedAt:      Date.now()
+  };
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));
+    return true;
+  } catch (e) {
+    console.error('[SaveSystem] write failed:', e);
+    return false;
+  }
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('[SaveSystem] read failed:', e);
+    return null;
+  }
+}
+
+function deleteSave() {
+  localStorage.removeItem(SAVE_KEY);
+}
+
+function checkpointSave(state) {
+  if (state.currentLevel > 0) {
+    const ok = saveGame(state);
+    if (ok) console.log(\`[SaveSystem] checkpoint @ level \${state.currentLevel}\`);
+    return ok;
+  }
+  return false;
+}
+
+// Attach resume button
+function bindResumeButton(btnId, onLoad) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const state = loadGame();
+    if (state) onLoad(state);
+    else console.warn('[SaveSystem] no saved game');
+  });
+}`,
+      demo: null
+    },
+    {
+      id: 'particle-system',
+      name: 'Particle System',
+      icon: '✨',
+      category: 'Visual',
+      badgeClass: 'badge-visual',
+      desc: 'Configurable GPU-friendly emitter with fire, smoke, blood, sparkle presets for Three.js BufferGeometry.',
+      source: 'fetch',
+      fetchPath: '/static/gamesystems/particle-system.js',
+      demo: 'particles'
+    },
+    {
+      id: 'camera-shake',
+      name: 'Camera Shake',
+      icon: '📷',
+      category: 'Visual',
+      badgeClass: 'badge-visual',
+      desc: 'Trauma-based directional screen shake with multi-source stacking, decay curves, and flash overlay.',
+      source: 'fetch',
+      fetchPath: '/static/gamesystems/camera-shake.js',
+      demo: 'shake'
+    },
+    {
+      id: 'day-night-cycle',
+      name: 'Day/Night Cycle',
+      icon: '🌅',
+      category: 'Environment',
+      badgeClass: 'badge-environ',
+      desc: 'Sun orbit, sky color lerp through dawn/noon/dusk/midnight, star field, fog density curves.',
+      source: 'fetch',
+      fetchPath: '/static/gamesystems/day-night-cycle.js',
+      demo: null
+    },
+    {
+      id: 'inventory-grid',
+      name: 'Inventory Grid',
+      icon: '🎒',
+      category: 'UI',
+      badgeClass: 'badge-ui',
+      desc: 'Drag-and-drop grid with stacking, item tooltips, equip slots, and keyboard accessibility.',
+      source: 'fetch',
+      fetchPath: '/static/gamesystems/inventory-grid.js',
+      demo: null
+    },
+    {
+      id: 'dialogue-system',
+      name: 'Dialogue System',
+      icon: '💬',
+      category: 'UI',
+      badgeClass: 'badge-ui',
+      desc: 'NPC dialogue trees with typewriter effect, branching choices, and variable interpolation.',
+      source: 'fetch',
+      fetchPath: '/static/gamesystems/dialogue-system.js',
+      demo: null
+    },
+    {
+      id: 'minimap',
+      name: 'Minimap',
+      icon: '🗺️',
+      category: 'UI',
+      badgeClass: 'badge-ui',
+      desc: 'Top-down orthographic corner map with enemy/objective dots, zoom, and fog-of-war mask.',
+      source: 'fetch',
+      fetchPath: '/static/gamesystems/minimap.js',
+      demo: null
+    },
+    {
+      id: 'weather-system',
+      name: 'Weather System',
+      icon: '🌧️',
+      category: 'Environment',
+      badgeClass: 'badge-environ',
+      desc: 'Rain, snow, fog, lightning with smooth state transitions and wind-influenced particle drift.',
+      source: 'fetch',
+      fetchPath: '/static/gamesystems/weather-system.js',
+      demo: 'weather'
+    },
+    {
+      id: 'combo-system',
+      name: 'Combo System',
+      icon: '⚡',
+      category: 'Combat',
+      badgeClass: 'badge-combat',
+      desc: 'Input buffer with configurable timing windows, visual counter HUD, and damage multiplier ramp.',
+      source: 'fetch',
+      fetchPath: '/static/gamesystems/combo-system.js',
+      demo: null
+    }
+  ];
+
+  // ──────────────────────────────────────────────
+  //  Code cache (populated on expand)
+  // ──────────────────────────────────────────────
+  const codeCache = {};
+
+  // ──────────────────────────────────────────────
+  //  Syntax highlighter (pure CSS classes, no lib)
+  // ──────────────────────────────────────────────
+  function highlight(code) {
+    // Escape HTML first
+    let s = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Comments (single-line) — must come before strings
+    s = s.replace(/(\/\/[^\n]*)/g, '<span class="tok-cmt">$1</span>');
+
+    // Template literals (backtick strings — basic, no nesting)
+    s = s.replace(/(`(?:[^`\\]|\\.)*`)/g, '<span class="tok-str">$1</span>');
+
+    // Strings (single + double quoted)
+    s = s.replace(/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/g,
+      '<span class="tok-str">$1</span>');
+
+    // Numbers
+    s = s.replace(/\b(0x[0-9a-fA-F]+|\d+\.?\d*)\b/g,
+      '<span class="tok-num">$1</span>');
+
+    // Keywords
+    const kws = ['const','let','var','function','class','return','if','else',
+      'for','while','new','this','typeof','instanceof','null','undefined',
+      'true','false','import','export','default','extends','static',
+      'async','await','try','catch','throw','of','in','break','continue'];
+    const kwRe = new RegExp('\\b(' + kws.join('|') + ')\\b', 'g');
+    s = s.replace(kwRe, '<span class="tok-kw">$1</span>');
+
+    // Class names (PascalCase identifiers)
+    s = s.replace(/\b([A-Z][a-zA-Z0-9_]+)\b/g,
+      '<span class="tok-cls">$1</span>');
+
+    // Function calls
+    s = s.replace(/\b([a-z_][a-zA-Z0-9_]*)\s*(?=\()/g,
+      '<span class="tok-fn">$1</span>');
+
+    return s;
+  }
+
+  // ──────────────────────────────────────────────
+  //  Render card HTML
+  // ──────────────────────────────────────────────
+  function renderCard(sys) {
+    const hasDemo = sys.demo !== null;
+    let demoHtml = '';
+    if (sys.demo === 'particles') {
+      demoHtml = `
+        <div class="card-demo">
+          <canvas class="demo-canvas" id="demo-${sys.id}" width="300" height="80"
+            aria-label="Particle system animation demo"></canvas>
+          <div class="demo-controls">
+            <button class="demo-btn" data-demo-preset="fire" data-demo-id="${sys.id}">Fire</button>
+            <button class="demo-btn" data-demo-preset="sparkle" data-demo-id="${sys.id}">Sparkle</button>
+            <button class="demo-btn" data-demo-preset="smoke" data-demo-id="${sys.id}">Smoke</button>
+          </div>
+        </div>`;
+    } else if (sys.demo === 'shake') {
+      demoHtml = `
+        <div class="card-demo">
+          <div class="demo-controls" style="margin-top:0;margin-bottom:8px;">
+            <button class="demo-btn" data-shake-id="${sys.id}" aria-label="Trigger camera shake demo">
+              Shake Demo
+            </button>
+          </div>
+        </div>`;
+    } else if (sys.demo === 'weather') {
+      demoHtml = `
+        <div class="card-demo">
+          <canvas class="demo-canvas" id="demo-${sys.id}" width="300" height="80"
+            aria-label="Weather system animation demo"></canvas>
+          <div class="demo-controls">
+            <button class="demo-btn" data-weather="rain" data-demo-id="${sys.id}">Rain</button>
+            <button class="demo-btn" data-weather="snow" data-demo-id="${sys.id}">Snow</button>
+            <button class="demo-btn" data-weather="fog" data-demo-id="${sys.id}">Fog</button>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <article class="sys-card" data-category="${sys.category}" data-id="${sys.id}" role="listitem">
+        <div class="card-top">
+          <div class="card-icon" aria-hidden="true">${sys.icon}</div>
+          <div class="card-meta">
+            <div class="card-name">${sys.name}</div>
+            <div class="card-desc">${sys.desc}</div>
+            <span class="badge ${sys.badgeClass}" aria-label="Category: ${sys.category}">${sys.category}</span>
+          </div>
+        </div>
+        ${demoHtml}
+        <div class="card-actions">
+          <button class="btn-view" data-sys-id="${sys.id}" aria-expanded="false"
+            aria-controls="code-panel-${sys.id}">
+            View Code
+          </button>
+        </div>
+        <div class="code-panel" id="code-panel-${sys.id}" role="region"
+          aria-label="${sys.name} source code">
+          <div class="code-inner">
+            <button class="btn-copy" data-copy-id="${sys.id}" aria-label="Copy code to clipboard">
+              Copy
+            </button>
+            <div class="code-block" id="code-block-${sys.id}" tabindex="0"
+              aria-label="${sys.name} source code">
+              <div class="gen-placeholder" id="gen-${sys.id}">
+                <span class="gen-dot"></span>
+                <span class="gen-dot"></span>
+                <span class="gen-dot"></span>
+                <span style="color:var(--text3);font-size:10px">Loading…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>`;
+  }
+
+  // ──────────────────────────────────────────────
+  //  Populate grid
+  // ──────────────────────────────────────────────
+  function renderGrid(filter) {
+    const grid = document.getElementById('systems-grid');
+    const filtered = filter === 'all'
+      ? SYSTEMS
+      : SYSTEMS.filter(s => s.category === filter);
+
+    if (filtered.length === 0) {
+      grid.innerHTML = '<div class="empty-state">No systems in this category yet.</div>';
+    } else {
+      grid.innerHTML = filtered.map(renderCard).join('');
+    }
+
+    document.getElementById('filter-count').textContent =
+      `${filtered.length} system${filtered.length !== 1 ? 's' : ''}`;
+
+    // Attach demo inits after render
+    filtered.forEach(sys => {
+      if (sys.demo === 'particles') initParticleDemo(sys.id);
+      if (sys.demo === 'weather')   initWeatherDemo(sys.id);
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  //  Load code (inline or fetch)
+  // ──────────────────────────────────────────────
+  async function loadCode(sys) {
+    if (codeCache[sys.id] !== undefined) return codeCache[sys.id];
+
+    if (sys.source === 'inline') {
+      codeCache[sys.id] = sys.code;
+      return sys.code;
+    }
+
+    try {
+      const res = await fetch(sys.fetchPath);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      codeCache[sys.id] = text;
+      return text;
+    } catch (err) {
+      const message = `// Source unavailable: ${sys.fetchPath}\n// ${err.message || err}`;
+      codeCache[sys.id] = message;
+      return message;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  Toggle code panel
+  // ──────────────────────────────────────────────
+  async function toggleCode(sysId) {
+    const btn    = document.querySelector(`[data-sys-id="${sysId}"]`);
+    const panel  = document.getElementById(`code-panel-${sysId}`);
+    const block  = document.getElementById(`code-block-${sysId}`);
+    const gen    = document.getElementById(`gen-${sysId}`);
+    if (!btn || !panel || !block) return;
+
+    const isOpen = panel.classList.contains('open');
+    if (isOpen) {
+      panel.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+      btn.textContent = 'View Code';
+    } else {
+      panel.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+      btn.textContent = 'Hide Code';
+
+      // Load if not yet rendered
+      if (gen) {
+        const sys  = SYSTEMS.find(s => s.id === sysId);
+        const code = await loadCode(sys);
+        block.innerHTML =
+          `<button class="btn-copy" data-copy-id="${sysId}" aria-label="Copy code to clipboard">Copy</button>` +
+          `<pre style="margin:0;padding:14px 16px;font-family:var(--mono);font-size:11px;line-height:1.65;white-space:pre;overflow-x:auto;background:#080812;" tabindex="0" aria-label="${sys.name} source code"><code>${highlight(code)}</code></pre>`;
+      }
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  Copy to clipboard
+  // ──────────────────────────────────────────────
+  async function copyCode(sysId) {
+    const sys  = SYSTEMS.find(s => s.id === sysId);
+    const code = await loadCode(sys);
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch (e) {
+      // Fallback for non-HTTPS
+      const ta = document.createElement('textarea');
+      ta.value = code;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    // Flash feedback
+    const btns = document.querySelectorAll(`[data-copy-id="${sysId}"]`);
+    btns.forEach(b => {
+      b.textContent = 'Copied!';
+      b.classList.add('copied');
+      setTimeout(() => {
+        b.textContent = 'Copy';
+        b.classList.remove('copied');
+      }, 1800);
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  //  Event delegation
+  // ──────────────────────────────────────────────
+  document.getElementById('systems-grid').addEventListener('click', e => {
+    const viewBtn  = e.target.closest('[data-sys-id]');
+    const copyBtn  = e.target.closest('[data-copy-id]');
+    const shakeBtn = e.target.closest('[data-shake-id]');
+    const presetBtn = e.target.closest('[data-demo-preset]');
+    const weatherBtn = e.target.closest('[data-weather]');
+
+    if (viewBtn)   toggleCode(viewBtn.dataset.sysId);
+    if (copyBtn)   copyCode(copyBtn.dataset.copyId);
+    if (shakeBtn)  shakeCard(shakeBtn.dataset.shakeId);
+    if (presetBtn) setParticlePreset(presetBtn.dataset.demoId, presetBtn.dataset.demoPreset);
+    if (weatherBtn) setWeather(weatherBtn.dataset.demoId, weatherBtn.dataset.weather);
+  });
+
+  // Filter buttons
+  document.querySelector('.filter-bar').addEventListener('click', e => {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderGrid(btn.dataset.cat);
+  });
+
+  // ──────────────────────────────────────────────
+  //  Camera shake demo — shake the card
+  // ──────────────────────────────────────────────
+  function shakeCard(sysId) {
+    const card = document.querySelector(`[data-id="${sysId}"]`);
+    if (!card) return;
+    card.classList.remove('shaking');
+    void card.offsetWidth; // reflow to restart
+    card.classList.add('shaking');
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!prefersReduced) {
+      card.addEventListener('animationend', () => card.classList.remove('shaking'), { once: true });
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  Particle demo (2D canvas, no Three.js)
+  // ──────────────────────────────────────────────
+  const particleStates = {};
+
+  const PARTICLE_PRESETS = {
+    fire: {
+      color: () => `hsl(${20 + Math.random()*30},100%,${50+Math.random()*30}%)`,
+      vx: () => (Math.random()-0.5)*1.2,
+      vy: () => -2.5 - Math.random()*1.5,
+      life: () => 40 + Math.random()*30,
+      size: () => 3 + Math.random()*3,
+      gravity: 0.06,
+      spawnRate: 3
+    },
+    sparkle: {
+      color: () => `hsl(${Math.random()*60+40},100%,70%)`,
+      vx: () => (Math.random()-0.5)*3,
+      vy: () => -3 - Math.random()*2,
+      life: () => 30 + Math.random()*20,
+      size: () => 1.5 + Math.random()*2,
+      gravity: 0.04,
+      spawnRate: 5
+    },
+    smoke: {
+      color: () => `hsla(0,0%,${40+Math.random()*30}%,0.6)`,
+      vx: () => (Math.random()-0.5)*0.6,
+      vy: () => -1.2 - Math.random()*0.8,
+      life: () => 60 + Math.random()*40,
+      size: () => 6 + Math.random()*6,
+      gravity: -0.01,
+      spawnRate: 2
+    }
+  };
+
+  function initParticleDemo(sysId) {
+    const canvas = document.getElementById(`demo-${sysId}`);
+    if (!canvas) return;
+    particleStates[sysId] = {
+      canvas,
+      ctx: canvas.getContext('2d'),
+      particles: [],
+      preset: 'fire',
+      running: true
+    };
+    runParticleLoop(sysId);
+  }
+
+  function setParticlePreset(sysId, preset) {
+    if (particleStates[sysId]) {
+      particleStates[sysId].preset = preset;
+      particleStates[sysId].particles = [];
+    }
+  }
+
+  function runParticleLoop(sysId) {
+    const st = particleStates[sysId];
+    if (!st || !st.running) return;
+
+    const { canvas, ctx, particles } = st;
+    const cfg = PARTICLE_PRESETS[st.preset] || PARTICLE_PRESETS.fire;
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2;
+
+    // Spawn
+    for (let i = 0; i < cfg.spawnRate; i++) {
+      if (particles.length < 200) {
+        particles.push({
+          x: cx + (Math.random()-0.5)*12,
+          y: H - 6,
+          vx: cfg.vx(),
+          vy: cfg.vy(),
+          life: cfg.life(),
+          maxLife: 0,
+          size: cfg.size(),
+          color: cfg.color()
+        });
+        particles[particles.length-1].maxLife = particles[particles.length-1].life;
+      }
+    }
+
+    // Clear
+    ctx.fillStyle = '#080812';
+    ctx.fillRect(0, 0, W, H);
+
+    // Update + draw
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x  += p.vx;
+      p.y  += p.vy;
+      p.vy += cfg.gravity;
+      p.life--;
+
+      if (p.life <= 0 || p.y < -10 || p.x < -10 || p.x > W+10) {
+        particles.splice(i, 1);
+        continue;
+      }
+
+      const alpha = p.life / p.maxLife;
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    requestAnimationFrame(() => runParticleLoop(sysId));
+  }
+
+  // ──────────────────────────────────────────────
+  //  Weather demo
+  // ──────────────────────────────────────────────
+  const weatherStates = {};
+
+  function initWeatherDemo(sysId) {
+    const canvas = document.getElementById(`demo-${sysId}`);
+    if (!canvas) return;
+    weatherStates[sysId] = {
+      canvas,
+      ctx: canvas.getContext('2d'),
+      drops: [],
+      mode: 'rain',
+      fog: 0,
+      running: true
+    };
+    // Seed drops
+    for (let i = 0; i < 60; i++) spawnDrop(weatherStates[sysId]);
+    runWeatherLoop(sysId);
+  }
+
+  function setWeather(sysId, mode) {
+    const st = weatherStates[sysId];
+    if (st) { st.mode = mode; st.drops = []; }
+  }
+
+  function spawnDrop(st) {
+    const W = st.canvas.width, H = st.canvas.height;
+    if (st.mode === 'rain') {
+      st.drops.push({ x: Math.random()*W, y: Math.random()*H,
+        vx: 1.2, vy: 8 + Math.random()*4, len: 6+Math.random()*6 });
+    } else if (st.mode === 'snow') {
+      st.drops.push({ x: Math.random()*W, y: Math.random()*H,
+        vx: (Math.random()-0.5)*0.6, vy: 0.8+Math.random()*0.6,
+        r: 1+Math.random()*2, phase: Math.random()*Math.PI*2 });
+    }
+  }
+
+  function runWeatherLoop(sysId) {
+    const st = weatherStates[sysId];
+    if (!st || !st.running) return;
+    const { canvas, ctx } = st;
+    const W = canvas.width, H = canvas.height;
+
+    ctx.fillStyle = '#080812';
+    ctx.fillRect(0, 0, W, H);
+
+    if (st.mode === 'fog') {
+      // Animated fog
+      st.fog = (st.fog + 0.008) % (Math.PI * 2);
+      for (let i = 0; i < 5; i++) {
+        const x = ((i * 72 + st.fog * 30) % (W + 40)) - 20;
+        const y = 20 + i * 12;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, 40);
+        g.addColorStop(0, 'rgba(160,180,200,0.18)');
+        g.addColorStop(1, 'rgba(160,180,200,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.ellipse(x, y, 60, 20, 0, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(140,160,180,0.06)';
+      ctx.fillRect(0, 0, W, H);
+    } else if (st.mode === 'rain') {
+      // Spawn more
+      while (st.drops.length < 80) spawnDrop(st);
+      ctx.strokeStyle = 'rgba(120,170,220,0.55)';
+      ctx.lineWidth = 1;
+      for (let i = st.drops.length-1; i >= 0; i--) {
+        const d = st.drops[i];
+        ctx.beginPath();
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x + d.vx*0.6, d.y + d.len);
+        ctx.stroke();
+        d.x += d.vx; d.y += d.vy;
+        if (d.y > H + 10) { st.drops.splice(i,1); }
+      }
+    } else if (st.mode === 'snow') {
+      while (st.drops.length < 60) spawnDrop(st);
+      ctx.fillStyle = 'rgba(220,235,255,0.75)';
+      for (let i = st.drops.length-1; i >= 0; i--) {
+        const d = st.drops[i];
+        d.phase += 0.04;
+        d.x += d.vx + Math.sin(d.phase)*0.3;
+        d.y += d.vy;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+        ctx.fill();
+        if (d.y > H + 4) st.drops.splice(i,1);
+      }
+    }
+
+    requestAnimationFrame(() => runWeatherLoop(sysId));
+  }
+
+  // ──────────────────────────────────────────────
+  //  Init
+  // ──────────────────────────────────────────────
+  renderGrid('all');
+  </script>
+</body>
+</html>

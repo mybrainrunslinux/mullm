@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>mu|LLM — Rigging Studio</title>
+  <meta name="description" content="Rigging studio — view bone hierarchies, check rig status, preview animations." />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0a1a; --bg2: #111827; --bg3: #1a2332;
+      --border: #1e2d3d; --teal: #00bfa5; --amber: #f59e0b;
+      --red: #ef4444; --green: #22c55e; --purple: #a78bfa;
+      --text: #e2e8f0; --text2: #94a3b8;
+      --panel-w: 280px; color-scheme: dark;
+    }
+    body { background: var(--bg); color: var(--text); font-family: "DM Sans","Inter",system-ui,sans-serif; height:100vh; width:100vw; overflow:hidden; }
+
+    /* skip link */
+    #skip { position:absolute; top:-40px; left:8px; background:var(--teal); color:#0a0a1a; padding:6px 12px; border-radius:4px; font-size:13px; font-weight:700; text-decoration:none; z-index:9999; transition:top .2s; }
+    #skip:focus { top:8px; }
+
+    /* topbar */
+    #topbar { position:fixed; top:0; left:0; right:0; height:42px; background:rgba(10,10,26,0.92); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; padding:0 16px; z-index:1000; backdrop-filter:blur(8px); }
+    .nav-logo { font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--teal); text-decoration:none; margin-right:8px; }
+    .nav-link { color:var(--text2); text-decoration:none; font-size:11px; font-family:"JetBrains Mono",monospace; padding:3px 10px; border:1px solid var(--border); border-radius:4px; transition:color .15s,border-color .15s; }
+    .nav-link:hover,.nav-link.active { color:var(--teal); border-color:var(--teal); }
+
+    /* layout */
+    #studio { display:flex; height:100vh; padding-top:42px; }
+    #panel { width:var(--panel-w); min-width:var(--panel-w); background:var(--bg2); border-right:1px solid var(--border); overflow-y:auto; display:flex; flex-direction:column; }
+    #viewport { flex:1; position:relative; overflow:hidden; }
+    #three-canvas { width:100%; height:100%; display:block; }
+
+    /* panel sections */
+    .panel-section { padding:12px; border-bottom:1px solid var(--border); }
+    .panel-title { font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--teal); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+
+    select { width:100%; background:var(--bg3); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:6px 8px; font-size:12px; font-family:"JetBrains Mono",monospace; }
+    select:focus { outline:2px solid var(--teal); }
+
+    /* rig status badge */
+    .rig-badge { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-family:"JetBrains Mono",monospace; padding:4px 10px; border-radius:4px; margin-top:6px; }
+    .rig-badge.rigged { background:rgba(34,197,94,0.12); color:var(--green); border:1px solid rgba(34,197,94,0.3); }
+    .rig-badge.unrigged { background:rgba(245,158,11,0.12); color:var(--amber); border:1px solid rgba(245,158,11,0.3); }
+    .rig-badge.none { background:var(--bg3); color:var(--text2); border:1px solid var(--border); }
+
+    /* bone tree */
+    #bone-tree { font-size:11px; font-family:"JetBrains Mono",monospace; color:var(--text2); padding:4px 0; max-height:240px; overflow-y:auto; }
+    .bone-node { padding:2px 0 2px 12px; border-left:1px solid var(--border); cursor:default; white-space:nowrap; }
+    .bone-node:hover { color:var(--teal); }
+    .bone-root { border-left:none; padding-left:0; color:var(--text); }
+    .bone-icon { color:var(--purple); margin-right:4px; }
+
+    /* animation list */
+    .anim-item { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:11px; font-family:"JetBrains Mono",monospace; }
+    .anim-btn { background:var(--bg3); color:var(--teal); border:1px solid var(--border); border-radius:3px; padding:2px 8px; font-size:10px; cursor:pointer; font-family:"JetBrains Mono",monospace; }
+    .anim-btn:hover { border-color:var(--teal); }
+    .anim-btn.playing { background:rgba(0,191,165,0.15); border-color:var(--teal); }
+
+    /* bottombar */
+    #bottombar { position:absolute; bottom:0; left:0; right:0; height:38px; background:rgba(10,10,26,0.88); border-top:1px solid var(--border); display:flex; align-items:center; gap:8px; padding:0 14px; backdrop-filter:blur(4px); }
+    .info-chip { font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--text2); white-space:nowrap; }
+    .info-chip span { color:var(--text); }
+    .bottom-spacer { flex:1; }
+    #export-btn, #autorig-btn {
+      font-family:"JetBrains Mono",monospace; font-size:11px; border:none; border-radius:5px;
+      padding:5px 14px; cursor:pointer; font-weight:700; transition:opacity .15s,transform .1s;
+      min-height:28px; white-space:nowrap;
+    }
+    #export-btn { background:var(--teal); color:#0a0a1a; }
+    #autorig-btn { background:var(--amber); color:#0a0a1a; }
+    #export-btn:hover, #autorig-btn:hover { opacity:.85; transform:translateY(-1px); }
+    #export-btn:disabled, #autorig-btn:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+    #export-btn:focus-visible { outline:2px solid var(--teal); outline-offset:3px; }
+    #autorig-btn:focus-visible { outline:2px solid var(--amber); outline-offset:3px; }
+
+    /* overlay states */
+    #loader { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg); z-index:10; }
+    #loader.hidden { display:none; }
+    .spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--teal); border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #loader-text { margin-top:12px; font-size:13px; color:var(--text2); font-family:"JetBrains Mono",monospace; }
+
+    #empty-state { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+    #empty-state.hidden { display:none; }
+    .empty-icon { font-size:48px; opacity:.12; }
+    .empty-text { font-size:13px; color:var(--text2); margin-top:8px; font-family:"JetBrains Mono",monospace; }
+
+    /* toast */
+    #toast { position:absolute; bottom:50px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--bg3); border:1px solid var(--border); color:var(--text); font-family:"JetBrains Mono",monospace; font-size:11px; padding:7px 16px; border-radius:6px; opacity:0; pointer-events:none; transition:opacity .2s,transform .2s; white-space:nowrap; z-index:20; }
+    #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    #toast.success { border-color:var(--green); color:var(--green); }
+    #toast.error { border-color:var(--red); color:var(--red); }
+
+    /* bones overlay toggle */
+    #bones-overlay-btn { background:var(--bg3); color:var(--text2); border:1px solid var(--border); border-radius:4px; padding:4px 10px; font-size:10px; font-family:"JetBrains Mono",monospace; cursor:pointer; }
+    #bones-overlay-btn:hover, #bones-overlay-btn.active { color:var(--purple); border-color:var(--purple); }
+
+    @media (max-width:600px) {
+      :root { --panel-w: 220px; }
+    }
+    @media (max-width:420px) {
+      #panel { position:absolute; bottom:0; left:0; right:0; width:100%; min-width:100%; height:45%; top:auto; z-index:100; border-right:none; border-top:1px solid var(--border); }
+      #studio { flex-direction:column; }
+      #viewport { width:100%; height:55%; }
+    }
+  </style>
+</head>
+<body>
+
+<a href="#viewport" id="skip">Skip to 3D viewport</a>
+
+<nav id="topbar" role="navigation" aria-label="Main navigation">
+  <a href="/chat" class="nav-logo" aria-label="mu|LLM home">mu|LLM</a>
+  <a href="/chat" class="nav-link">Chat</a>
+  <a href="/games" class="nav-link">Games</a>
+  <a href="/assets" class="nav-link">Assets</a>
+  <a href="/textures" class="nav-link">Textures</a>
+  <a href="/walks" class="nav-link">Walks</a>
+  <a href="/rigs" class="nav-link active" aria-current="page">Rigs</a>
+</nav>
+
+<div id="studio" role="main">
+
+  <!-- Left panel -->
+  <aside id="panel" aria-label="Rigging controls">
+
+    <div class="panel-section">
+      <div class="panel-title">Model</div>
+      <select id="asset-select" aria-label="Select a 3D model">
+        <option value="">-- Select a GLB --</option>
+      </select>
+      <div id="rig-status" class="rig-badge none" style="margin-top:8px;">No model loaded</div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Bone Hierarchy <span id="bone-count" style="color:var(--text2);font-weight:400;"></span></div>
+      <div id="bone-tree"><span style="color:var(--text2);font-size:10px;">Load a model to see bones</span></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Animations <span id="anim-count" style="color:var(--text2);font-weight:400;"></span></div>
+      <div id="anim-list"><span style="color:var(--text2);font-size:10px;">No animations found</span></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Display</div>
+      <button id="bones-overlay-btn" class="active" title="Toggle bone overlay visualization" aria-pressed="true">Bones ON</button>
+    </div>
+
+    <div class="panel-section" style="flex:1;">
+      <div class="panel-title">Strategy</div>
+      <div id="strategy-hint" style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text2);line-height:1.6;">
+        Load a model to see recommended pipeline.
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Viewport -->
+  <section id="viewport" aria-label="3D model viewport" tabindex="-1">
+    <canvas id="three-canvas" aria-label="3D model view — drag to orbit, scroll to zoom"></canvas>
+
+    <div id="loader" aria-live="polite">
+      <div class="spinner" role="status" aria-label="Loading"></div>
+      <div id="loader-text">Initializing…</div>
+    </div>
+
+    <div id="empty-state" class="hidden">
+      <div class="empty-icon">&#9651;</div>
+      <div class="empty-text" id="empty-count">Loading assets…</div>
+      <div class="empty-text" style="font-size:10px;opacity:.5;margin-top:4px;">Drag to orbit · Scroll to zoom</div>
+    </div>
+
+    <div id="bottombar" aria-label="Model info and export">
+      <div class="info-chip" title="Vertex count">Verts <span id="info-verts">—</span></div>
+      <div class="info-chip" title="Face count">Faces <span id="info-faces">—</span></div>
+      <div class="info-chip" title="Bones">Bones <span id="info-bones">—</span></div>
+      <div class="info-chip" title="Animations">Anims <span id="info-anims">—</span></div>
+      <div class="bottom-spacer"></div>
+      <button id="autorig-btn" disabled title="Auto-rig via RigNet pipeline (~$0)">Auto-Rig</button>
+      <button id="export-btn" disabled title="Export GLB with rig info">Export GLB</button>
+    </div>
+
+    <div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+  </section>
+
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+// ── State ─────────────────────────────────────────────────────────
+let scene, camera, renderer, controls;
+let currentModel = null;
+let currentAssetName = null;
+let mixer = null;
+let currentAction = null;
+let clock = new THREE.Clock();
+let boneHelpers = [];
+let showBones = true;
+
+// ── Three.js init ─────────────────────────────────────────────────
+function initThree() {
+  const canvas = document.getElementById('three-canvas');
+  const viewport = document.getElementById('viewport');
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05050f);
+  scene.fog = new THREE.FogExp2(0x05050f, 0.025);
+
+  const w = viewport.clientWidth || 800;
+  const h = (viewport.clientHeight || 600) - 38;
+  camera = new THREE.PerspectiveCamera(45, w / h, 0.01, 100);
+  camera.position.set(0, 1.5, 4);
+
+  // Grid
+  const grid = new THREE.GridHelper(12, 24, 0x1e2d3d, 0x111827);
+  grid.position.y = -0.005;
+  scene.add(grid);
+
+  // Lights
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambient);
+
+  const dirLight = new THREE.DirectionalLight(0xfff4e0, 2);
+  dirLight.position.set(3, 6, 3);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(1024, 1024);
+  dirLight.shadow.camera.near = 0.1;
+  dirLight.shadow.camera.far = 25;
+  [-4,4].forEach(v => {
+    dirLight.shadow.camera.left = -4;
+    dirLight.shadow.camera.right = 4;
+    dirLight.shadow.camera.top = 4;
+    dirLight.shadow.camera.bottom = -4;
+  });
+  scene.add(dirLight);
+
+  const fill = new THREE.DirectionalLight(0x8090c0, 0.5);
+  fill.position.set(-3, 2, -3);
+  scene.add(fill);
+
+  // Shadow plane
+  const shadowMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(10, 10),
+    new THREE.ShadowMaterial({ opacity: 0.2 })
+  );
+  shadowMesh.rotation.x = -Math.PI / 2;
+  shadowMesh.receiveShadow = true;
+  scene.add(shadowMesh);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.minDistance = 0.2;
+  controls.maxDistance = 25;
+  controls.target.set(0, 0.8, 0);
+
+  const ro = new ResizeObserver(onResize);
+  ro.observe(viewport);
+  onResize();
+
+  renderLoop();
+}
+
+function onResize() {
+  const vp = document.getElementById('viewport');
+  const w = vp.clientWidth;
+  const h = vp.clientHeight - 38;
+  if (!w || !h) return;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false);
+}
+
+function renderLoop() {
+  requestAnimationFrame(renderLoop);
+  const delta = clock.getDelta();
+  if (mixer) mixer.update(delta);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// ── Asset list ────────────────────────────────────────────────────
+async function loadAssetList() {
+  const select = document.getElementById('asset-select');
+  try {
+    const res = await fetch('/api/3d-assets');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const assets = Array.isArray(data) ? data : (data.assets || []);
+    const countEl = document.getElementById('empty-count');
+    if (countEl) countEl.textContent = `${assets.length} GLB assets — select to inspect`;
+    select.innerHTML = '<option value="">-- Select a GLB --</option>';
+    assets.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.url;
+      opt.textContent = `${a.name} (${a.size_kb}kb)`;
+      opt.dataset.name = a.name;
+      opt.dataset.size = a.size_kb;
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    console.warn('Asset list error:', e);
+    select.innerHTML = '<option value="">Failed to load assets</option>';
+  }
+}
+
+// ── GLB loader ────────────────────────────────────────────────────
+async function loadModel(url, name) {
+  currentAssetName = name.replace(/\.glb$/i, '').replace(/-lowpoly$/, '');
+
+  document.getElementById('loader').classList.remove('hidden');
+  document.getElementById('empty-state').classList.add('hidden');
+  document.getElementById('loader-text').textContent = `Loading ${name}…`;
+
+  // Clear previous
+  clearBoneHelpers();
+  if (mixer) { mixer.stopAllAction(); mixer = null; }
+  if (currentModel) {
+    scene.remove(currentModel);
+    currentModel.traverse(o => {
+      if (o.isMesh) {
+        o.geometry.dispose();
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+      }
+    });
+    currentModel = null;
+  }
+
+  const loader = new GLTFLoader();
+  try {
+    const gltf = await new Promise((resolve, reject) =>
+      loader.load(url, resolve, undefined, reject)
+    );
+
+    const model = gltf.scene;
+
+    // Normalize scale to ~2 units
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const s = maxDim > 0 ? 2.0 / maxDim : 1;
+    model.scale.setScalar(s);
+    const center = box.getCenter(new THREE.Vector3());
+    model.position.sub(center.clone().multiplyScalar(s));
+    const box2 = new THREE.Box3().setFromObject(model);
+    model.position.y -= box2.min.y;
+
+    model.traverse(o => {
+      if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+    });
+    scene.add(model);
+    currentModel = model;
+
+    // Center orbit target
+    const box3 = new THREE.Box3().setFromObject(model);
+    controls.target.copy(box3.getCenter(new THREE.Vector3()));
+    controls.update();
+
+    // Animation mixer
+    let animCount = 0;
+    if (gltf.animations && gltf.animations.length > 0) {
+      mixer = new THREE.AnimationMixer(model);
+      animCount = gltf.animations.length;
+    }
+
+    // Bone detection
+    const bones = [];
+    model.traverse(o => {
+      if (o.isBone) bones.push(o);
+    });
+    const hasRig = bones.length > 0;
+
+    // Mesh stats
+    let verts = 0, faces = 0;
+    model.traverse(o => {
+      if (!o.isMesh) return;
+      const g = o.geometry;
+      verts += g.attributes.position ? g.attributes.position.count : 0;
+      faces += g.index ? g.index.count / 3 : (g.attributes.position ? g.attributes.position.count / 3 : 0);
+    });
+
+    // Update UI
+    document.getElementById('info-verts').textContent = verts.toLocaleString();
+    document.getElementById('info-faces').textContent = Math.round(faces).toLocaleString();
+    document.getElementById('info-bones').textContent = bones.length;
+    document.getElementById('info-anims').textContent = animCount;
+    document.getElementById('export-btn').disabled = false;
+    document.getElementById('autorig-btn').disabled = false;
+
+    updateRigStatus(hasRig, bones.length, animCount);
+    buildBoneTree(bones);
+    buildAnimList(gltf.animations || []);
+    updateStrategy(hasRig, currentAssetName);
+
+    if (hasRig && showBones) buildBoneHelpers(model);
+
+    document.getElementById('loader').classList.add('hidden');
+
+  } catch (err) {
+    console.error('Load error:', err);
+    document.getElementById('loader-text').textContent = 'Failed: ' + err.message;
+    toast('Load failed: ' + err.message, 'error');
+  }
+}
+
+// ── Rig status ────────────────────────────────────────────────────
+function updateRigStatus(hasRig, boneCount, animCount) {
+  const el = document.getElementById('rig-status');
+  if (hasRig) {
+    el.className = 'rig-badge rigged';
+    el.textContent = `✓ Rigged — ${boneCount} bones, ${animCount} anims`;
+  } else {
+    el.className = 'rig-badge unrigged';
+    el.textContent = `⚠ Unrigged — ready for Auto-Rig`;
+  }
+}
+
+// ── Bone tree ─────────────────────────────────────────────────────
+function buildBoneTree(bones) {
+  const container = document.getElementById('bone-tree');
+  const countEl = document.getElementById('bone-count');
+  if (bones.length === 0) {
+    container.innerHTML = '<span style="color:var(--text2);font-size:10px;">No bones found</span>';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+  if (countEl) countEl.textContent = `(${bones.length})`;
+
+  // Build parent→children map
+  const childMap = new Map();
+  const roots = [];
+  bones.forEach(b => {
+    if (!b.parent || !b.parent.isBone) {
+      roots.push(b);
+    } else {
+      if (!childMap.has(b.parent.uuid)) childMap.set(b.parent.uuid, []);
+      childMap.get(b.parent.uuid).push(b);
+    }
+  });
+
+  function renderNode(bone, depth) {
+    const div = document.createElement('div');
+    div.className = depth === 0 ? 'bone-node bone-root' : 'bone-node';
+    div.style.paddingLeft = `${depth * 12}px`;
+    div.title = `${bone.name} (uuid: ${bone.uuid.slice(0,8)}…)`;
+    div.innerHTML = `<span class="bone-icon">◈</span>${bone.name || '(unnamed)'}`;
+    container.appendChild(div);
+    const children = childMap.get(bone.uuid) || [];
+    children.forEach(c => renderNode(c, depth + 1));
+  }
+
+  container.innerHTML = '';
+  roots.slice(0, 60).forEach(r => renderNode(r, 0));
+  if (bones.length > 60) {
+    const more = document.createElement('div');
+    more.style.cssText = 'padding:4px 0;color:var(--text2);font-size:10px;';
+    more.textContent = `… ${bones.length - 60} more bones`;
+    container.appendChild(more);
+  }
+}
+
+// ── Animation list ────────────────────────────────────────────────
+function buildAnimList(animations) {
+  const container = document.getElementById('anim-list');
+  const countEl = document.getElementById('anim-count');
+  if (animations.length === 0) {
+    container.innerHTML = '<span style="color:var(--text2);font-size:10px;">No animations</span>';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+  if (countEl) countEl.textContent = `(${animations.length})`;
+  container.innerHTML = '';
+  animations.forEach(clip => {
+    const row = document.createElement('div');
+    row.className = 'anim-item';
+    const btn = document.createElement('button');
+    btn.className = 'anim-btn';
+    btn.textContent = '▶';
+    btn.title = `Play "${clip.name}" (${clip.duration.toFixed(2)}s)`;
+    btn.addEventListener('click', () => {
+      if (!mixer) return;
+      if (currentAction) currentAction.stop();
+      currentAction = mixer.clipAction(clip);
+      currentAction.play();
+      document.querySelectorAll('.anim-btn').forEach(b => b.classList.remove('playing'));
+      btn.classList.add('playing');
+      btn.textContent = '■';
+      btn.onclick = () => {
+        currentAction.stop();
+        btn.classList.remove('playing');
+        btn.textContent = '▶';
+        btn.onclick = null;
+      };
+    });
+    const label = document.createElement('span');
+    label.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    label.textContent = `${clip.name} (${clip.duration.toFixed(1)}s)`;
+    row.appendChild(btn);
+    row.appendChild(label);
+    container.appendChild(row);
+  });
+}
+
+// ── Bone helpers (visual overlay) ────────────────────────────────
+function buildBoneHelpers(model) {
+  clearBoneHelpers();
+  if (!showBones) return;
+  model.traverse(o => {
+    if (o.isSkinnedMesh) {
+      const helper = new THREE.SkeletonHelper(o);
+      helper.material.linewidth = 2;
+      scene.add(helper);
+      boneHelpers.push(helper);
+    }
+  });
+}
+
+function clearBoneHelpers() {
+  boneHelpers.forEach(h => {
+    scene.remove(h);
+    if (h.geometry) h.geometry.dispose();
+    if (h.material) h.material.dispose();
+  });
+  boneHelpers = [];
+}
+
+// ── Strategy hint ─────────────────────────────────────────────────
+async function updateStrategy(hasRig, name) {
+  const el = document.getElementById('strategy-hint');
+  if (hasRig) {
+    el.innerHTML = `<span style="color:var(--green);">✓ Rigged</span> — ready for walk cycles at <a href="/walks" style="color:var(--teal);">/walks</a>.<br><br>
+      Canvas retexture: <span style="color:var(--green);">$0</span><br>
+      Meshy refine: <span style="color:var(--amber);">~$0.10</span>`;
+    return;
+  }
+  // Check texture strategy
+  try {
+    const r = await fetch('/api/3d/texture-strategy', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ asset_name: name })
+    });
+    const d = await r.json();
+    const stratColor = d.strategy === 'REFINE' ? 'var(--amber)' : d.strategy === 'CANVAS' ? 'var(--green)' : 'var(--text2)';
+    el.innerHTML = `<span style="color:var(--amber);">⚠ Unrigged</span> — use Auto-Rig below.<br><br>
+      Texture strategy: <span style="color:${stratColor};">${d.strategy}</span> (${d.cost})<br>
+      Canvas retexture: <span style="color:var(--green);">$0</span><br>
+      Meshy refine: <span style="color:var(--amber);">~$0.10</span><br>
+      Meshy generate: <span style="color:var(--red);">20-40 credits</span>`;
+  } catch {
+    el.innerHTML = `<span style="color:var(--amber);">⚠ Unrigged</span><br>Canvas: free · Refine: ~$0.10`;
+  }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────
+let _toastTimer = null;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = ''; }, 3500);
+}
+
+// ── Export GLB ────────────────────────────────────────────────────
+function exportGLB() {
+  if (!currentModel) return;
+  const btn = document.getElementById('export-btn');
+  btn.disabled = true;
+  btn.textContent = 'Exporting…';
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    currentModel,
+    result => {
+      const blob = new Blob([result], { type: 'application/octet-stream' });
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(blob),
+        download: `${currentAssetName || 'model'}-rigged.glb`
+      });
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      btn.disabled = false;
+      btn.textContent = 'Export GLB';
+      toast('GLB exported!', 'success');
+    },
+    err => {
+      btn.disabled = false;
+      btn.textContent = 'Export GLB';
+      toast('Export failed: ' + err.message, 'error');
+    },
+    { binary: true }
+  );
+}
+
+// ── Auto-Rig (future RigNet integration) ─────────────────────────
+async function autoRig() {
+  if (!currentAssetName) return;
+  const btn = document.getElementById('autorig-btn');
+  btn.disabled = true;
+  btn.textContent = 'Rigging…';
+  try {
+    const r = await fetch('/api/rig', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ asset_name: currentAssetName })
+    });
+    const d = await r.json();
+    if (d.error) {
+      toast('Auto-rig: ' + d.error, 'error');
+    } else {
+      toast('Auto-rig queued: ' + (d.message || JSON.stringify(d)), 'success');
+    }
+  } catch (e) {
+    toast('Auto-rig not yet available: ' + e.message, '');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Auto-Rig';
+}
+
+// ── Wire events ───────────────────────────────────────────────────
+function wireEvents() {
+  document.getElementById('asset-select').addEventListener('change', e => {
+    const url = e.target.value;
+    if (!url) return;
+    const opt = e.target.options[e.target.selectedIndex];
+    loadModel(url, opt.dataset.name || opt.textContent);
+  });
+
+  document.getElementById('bones-overlay-btn').addEventListener('click', () => {
+    showBones = !showBones;
+    const btn = document.getElementById('bones-overlay-btn');
+    btn.textContent = showBones ? 'Bones ON' : 'Bones OFF';
+    btn.classList.toggle('active', showBones);
+    btn.setAttribute('aria-pressed', String(showBones));
+    if (showBones && currentModel) {
+      buildBoneHelpers(currentModel);
+    } else {
+      clearBoneHelpers();
+    }
+  });
+
+  document.getElementById('export-btn').addEventListener('click', exportGLB);
+  document.getElementById('autorig-btn').addEventListener('click', autoRig);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────
+async function init() {
+  initThree();
+  wireEvents();
+  await loadAssetList();
+  document.getElementById('loader').classList.add('hidden');
+  document.getElementById('empty-state').classList.remove('hidden');
+}
+
+init().catch(err => {
+  console.error('Rigs studio init error:', err);
+  document.getElementById('loader-text').textContent = 'Failed: ' + err.message;
+});
+</script>
+
+</body>
+</html>

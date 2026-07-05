@@ -1,0 +1,2540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oracle Review — muLLM Ground Truth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Design tokens ── */
+:root {
+  --bg:        #0f0f1a;
+  --bg2:       #161628;
+  --bg3:       #1e1e38;
+  --border:    #2a2a50;
+  --gold:      #f59e0b;
+  --gold-dim:  #92610a;
+  --ion:       #38bdf8;
+  --green:     #22c55e;
+  --green-dim: #166534;
+  --red:       #ef4444;
+  --red-dim:   #7f1d1d;
+  --purple:    #a855f7;
+  --text:      #e2e8f0;
+  --text-dim:  #94a3b8;
+  --text-faint:#475569;
+  --radius:    12px;
+  --radius-lg: 20px;
+
+  --cat-math:      #f59e0b;
+  --cat-code:      #38bdf8;
+  --cat-reasoning: #a855f7;
+  --cat-lookup:    #22c55e;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ── Layout shell ── */
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ── Header ── */
+header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.header-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+}
+
+.header-title h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.header-title p {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+}
+
+.stats-bar {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 12px;
+  min-width: 72px;
+}
+
+.stat-pill .val {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1.1;
+}
+
+.stat-pill .lbl {
+  font-size: 0.62rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.streak-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #78350f, #92400e);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.streak-pill.active { opacity: 1; }
+
+/* ── Tab bar ── */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  outline-offset: -2px;
+}
+
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab-btn:focus-visible { outline: 2px solid var(--ion); border-radius: 4px; }
+
+/* ── Panel containers ── */
+.panel {
+  display: none;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel.active { display: flex; }
+
+/* ══════════════════════════════════════
+   LABEL PANEL
+══════════════════════════════════════ */
+#panel-label {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.label-progress-wrap {
+  padding: 12px 24px 0;
+  flex-shrink: 0;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.progress-text {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.progress-bar-outer {
+  width: 100%;
+  height: 6px;
+  background: var(--bg3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--ion));
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+/* Card arena */
+.card-arena {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px;
+  overflow: hidden;
+  position: relative;
+}
+
+.card-viewport {
+  width: 100%;
+  max-width: 680px;
+  position: relative;
+  perspective: 1200px;
+}
+
+.review-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px 20px;
+  position: relative;
+  transform: translateX(0);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.22s;
+  will-change: transform, opacity;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.review-card.slide-left  { transform: translateX(-120%); opacity: 0; }
+.review-card.slide-right { transform: translateX( 120%); opacity: 0; }
+.review-card.enter-right { transform: translateX( 120%); opacity: 0; }
+.review-card.enter-left  { transform: translateX(-120%); opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .review-card { transition: none !important; }
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-id {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.cat-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  flex-shrink: 0;
+}
+
+.cat-math      { color: var(--cat-math);      background: #78350f33; }
+.cat-code      { color: var(--cat-code);      background: #0c4a6e33; }
+.cat-reasoning { color: var(--cat-reasoning); background: #4c1d9533; }
+.cat-lookup    { color: var(--cat-lookup);    background: #14532d33; }
+
+.prompt-text {
+  font-size: 1.05rem;
+  line-height: 1.65;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  flex: 1;
+  font-weight: 400;
+}
+
+/* Router votes row */
+.router-votes {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.router-vote-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: default;
+  position: relative;
+}
+
+.router-vote-chip[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  margin-bottom: 4px;
+}
+
+.chip-local { background: #14532d55; border-color: var(--green-dim); color: var(--green); }
+.chip-cloud { background: #7f1d1d55; border-color: var(--red-dim);   color: var(--red); }
+
+/* Action buttons */
+.action-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px 24px 16px;
+  flex-shrink: 0;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.btn-label {
+  flex: 1;
+  min-height: 64px;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-label::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.12);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.btn-label:hover::after { opacity: 1; }
+.btn-label:active { transform: scale(0.97); }
+.btn-label:focus-visible { outline: 3px solid var(--ion); outline-offset: 2px; }
+
+.btn-local {
+  background: var(--green);
+  color: #fff;
+  border: 3px solid #16a34a;
+  box-shadow: 0 4px 20px #22c55e44;
+}
+
+.btn-cloud {
+  background: var(--red);
+  color: #fff;
+  border: 3px dashed #dc2626;
+  box-shadow: 0 4px 20px #ef444444;
+}
+
+.btn-skip {
+  background: var(--bg3);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  max-width: 80px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  min-height: 64px;
+  font-family: inherit;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.btn-skip:hover { background: var(--border); color: var(--text); }
+.btn-skip:focus-visible { outline: 2px solid var(--ion); border-radius: 10px; }
+
+.key-hint {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  text-align: center;
+  padding-bottom: 8px;
+  letter-spacing: 0.06em;
+}
+
+/* Confetti overlay */
+#confetti-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.done-screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 20px;
+  text-align: center;
+  padding: 32px;
+}
+
+.done-screen.active { display: flex; }
+
+.done-trophy {
+  font-size: 5rem;
+  animation: bounce-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bounce-in {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.done-score {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+/* ══════════════════════════════════════
+   ISO PANEL
+══════════════════════════════════════ */
+#panel-iso {
+  flex-direction: column;
+}
+
+#iso-canvas-wrap {
+  flex: 1;
+  position: relative;
+}
+
+#iso-canvas-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.iso-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+
+/* ══════════════════════════════════════
+   SPIDER PANEL
+══════════════════════════════════════ */
+#panel-spider {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+}
+
+#spider-canvas-wrap {
+  flex: 1;
+  position: relative;
+  cursor: grab;
+  user-select: none;
+}
+
+#spider-canvas-wrap:active { cursor: grabbing; }
+
+#spider-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.spider-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+
+.spider-tooltip {
+  width: 260px;
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.spider-tooltip h3 {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.tooltip-router-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.tooltip-label { color: var(--text-dim); }
+.tooltip-val   { font-weight: 700; color: var(--text); }
+
+.tooltip-bar-wrap {
+  width: 100%;
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 3px;
+}
+
+.tooltip-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+
+.tooltip-no-hover {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-style: italic;
+  margin: auto 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  header { padding: 8px 12px; gap: 10px; }
+  .stats-bar { gap: 8px; }
+  .stat-pill { padding: 3px 8px; min-width: 60px; }
+  .stat-pill .val { font-size: 0.88rem; }
+  .action-row { padding: 10px 12px 12px; gap: 8px; }
+  .btn-label { min-height: 56px; font-size: 1rem; }
+  .prompt-text { font-size: 0.95rem; }
+  .spider-tooltip { display: none; }
+  #panel-spider { flex-direction: column; }
+}
+
+/* ══════════════════════════════════════════════
+   CLOSE-CALLS PANEL
+══════════════════════════════════════════════ */
+#panel-closecalls {
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.cc-toolbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.cc-progress-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cc-progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.cc-bar-outer {
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cc-bar-inner {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.cc-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.cc-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cc-prompt {
+  padding: 18px 20px;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.6;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cc-meta {
+  padding: 8px 20px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+
+.cc-meta .tag {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.cc-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.cc-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 9px 18px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.cc-tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+.cc-response {
+  padding: 16px 20px;
+  min-height: 80px;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: none;
+}
+
+.cc-response.active { display: block; }
+
+.cc-response-meta {
+  padding: 8px 20px;
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+  display: none;
+}
+
+.cc-response-meta.active { display: flex; gap: 16px; }
+
+.cc-actions {
+  padding: 16px 20px;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  align-items: center;
+}
+
+.cc-vote-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.cc-vote-btn.local-ok {
+  background: rgba(34,197,94,0.1);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.cc-vote-btn.local-ok:hover { background: rgba(34,197,94,0.2); }
+
+.cc-vote-btn.cloud-needed {
+  background: rgba(239,68,68,0.1);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.cc-vote-btn.cloud-needed:hover { background: rgba(239,68,68,0.2); }
+
+.cc-vote-btn.skip {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  border-color: transparent;
+}
+
+.cc-vote-btn.skip:hover { color: var(--text-dim); border-color: var(--border); }
+
+.cc-kbd {
+  font-size: 0.65rem;
+  background: var(--bg4, #22223a);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--text-faint);
+}
+
+.cc-done-screen {
+  text-align: center;
+  padding: 60px 20px;
+  max-width: 500px;
+  margin: 0 auto;
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.cc-done-screen.visible { display: flex; }
+
+.cc-done-icon { font-size: 3rem; }
+
+.holdout-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.holdout-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font: inherit;
+}
+
+.holdout-grid {
+  display: grid;
+  gap: 14px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.holdout-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.28);
+}
+
+.holdout-prompt {
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 12px 0 14px;
+}
+
+.holdout-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.holdout-chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: var(--text-dim);
+  background: var(--bg2);
+  font-size: .72rem;
+}
+
+.holdout-chip.ok { color: var(--green); border-color: rgba(34,197,94,.55); }
+.holdout-chip.bad { color: var(--red); border-color: rgba(239,68,68,.55); }
+
+.holdout-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.holdout-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 9px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.holdout-btn.accept { color: var(--green); border-color: rgba(34,197,94,.65); }
+.holdout-btn.correct { color: var(--gold); border-color: rgba(245,158,11,.65); }
+
+.cc-done-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.cc-done-sub { color: var(--text-dim); font-size: 0.9rem; }
+
+.cc-empty {
+  color: var(--text-faint);
+  text-align: center;
+  padding: 48px;
+  font-size: 0.9rem;
+}
+
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.green { border-color: var(--green); color: var(--green); }
+.toast.gold  { border-color: var(--gold);  color: var(--gold); }
+.toast.red   { border-color: var(--red);   color: var(--red); }
+
+/* ── Score pop animation ── */
+@keyframes score-pop {
+  0%   { opacity: 1; transform: translateY(0)   scale(1.2); }
+  100% { opacity: 0; transform: translateY(-48px) scale(1); }
+}
+
+.score-pop {
+  position: fixed;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--gold);
+  pointer-events: none;
+  z-index: 200;
+  animation: score-pop 0.8s ease forwards;
+}
+</style>
+</head>
+<body>
+
+<div class="shell" role="main">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-title">
+      <h1>Oracle Review</h1>
+      <p>Build ground truth, beat the machines</p>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-pill" title="Problems labeled so far">
+        <span class="val" id="hdr-labeled">0</span>
+        <span class="lbl">Labeled</span>
+      </div>
+      <div class="stat-pill" title="Your agreement rate with muLLM">
+        <span class="val" id="hdr-agree">—</span>
+        <span class="lbl">vs muLLM</span>
+      </div>
+      <div class="stat-pill" title="Your total score">
+        <span class="val" id="hdr-score">0</span>
+        <span class="lbl">Score</span>
+      </div>
+      <div class="streak-pill" id="streak-pill" aria-live="polite" aria-label="Streak counter">
+        <span>&#x1F525;</span>
+        <span id="streak-count">0</span> streak
+      </div>
+    </div>
+  </header>
+
+  <!-- TAB BAR -->
+  <nav class="tab-bar" role="tablist" aria-label="View tabs">
+    <button class="tab-btn active" role="tab" aria-selected="true"
+            aria-controls="panel-label" id="tab-label"
+            onclick="switchTab('label')">Label</button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+            aria-controls="panel-iso" id="tab-iso"
+            onclick="switchTab('iso')">ISO View</button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+            aria-controls="panel-spider" id="tab-spider"
+            onclick="switchTab('spider')">Spider</button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+            aria-controls="panel-holdout" id="tab-holdout"
+            onclick="switchTab('holdout')">Holdout</button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+            aria-controls="panel-closecalls" id="tab-closecalls"
+            onclick="switchTab('closecalls')">Close Calls</button>
+  </nav>
+
+  <!-- LABEL PANEL -->
+  <section class="panel active" id="panel-label" role="tabpanel" aria-labelledby="tab-label">
+
+    <div class="label-progress-wrap">
+      <div class="progress-row">
+        <span class="progress-text" id="progress-text">Loading…</span>
+        <span class="progress-text" id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar-outer" role="progressbar" aria-valuenow="0"
+           aria-valuemin="0" aria-valuemax="100" aria-label="Labeling progress">
+        <div class="progress-bar-inner" id="progress-bar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="card-arena" id="card-arena">
+      <div class="card-viewport">
+        <div class="review-card" id="review-card" aria-live="polite" aria-atomic="true">
+          <div class="card-top">
+            <span class="card-id" id="card-id">Loading…</span>
+            <span class="cat-badge" id="cat-badge"></span>
+          </div>
+          <p class="prompt-text" id="prompt-text"></p>
+          <div class="router-votes" id="router-votes" aria-label="Router decisions"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="done-screen" id="done-screen" aria-live="assertive">
+      <div class="done-trophy" aria-hidden="true">&#x1F3C6;</div>
+      <h2 style="font-size:1.8rem;font-weight:700;color:var(--gold)">All Done!</h2>
+      <p style="color:var(--text-dim);max-width:360px">You've labeled every problem. Your ground truth is now shaping the muLLM oracle.</p>
+      <div class="done-score" id="done-score">0 pts</div>
+      <button onclick="resetAndReload()"
+              style="background:var(--gold);color:#000;border:none;border-radius:10px;padding:12px 28px;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;margin-top:8px;">
+        Review Again
+      </button>
+    </div>
+
+    <div class="action-row" id="action-row">
+      <button class="btn-label btn-local" id="btn-local"
+              onclick="labelCurrent(true)"
+              aria-label="Label as LOCAL — simple, free, local model"
+              title="Left arrow key">
+        <span aria-hidden="true">&#x2713;</span> LOCAL
+      </button>
+      <button class="btn-skip" onclick="skipCurrent()"
+              aria-label="Skip this problem"
+              title="Space bar">Skip</button>
+      <button class="btn-label btn-cloud" id="btn-cloud"
+              onclick="labelCurrent(false)"
+              aria-label="Label as CLOUD — complex, needs best model"
+              title="Right arrow key">
+        CLOUD <span aria-hidden="true">&#x2717;</span>
+      </button>
+    </div>
+
+    <p class="key-hint" aria-hidden="true">&#x2190; LOCAL &nbsp;|&nbsp; SPACE skip &nbsp;|&nbsp; CLOUD &#x2192;</p>
+  </section>
+
+  <!-- ISO PANEL -->
+  <section class="panel" id="panel-iso" role="tabpanel" aria-labelledby="tab-iso">
+    <div id="iso-canvas-wrap">
+      <!-- Three.js mounts here -->
+    </div>
+    <div class="iso-hint" id="iso-hint">Drag to rotate &nbsp;&#x2022;&nbsp; Scroll to zoom</div>
+  </section>
+
+  <!-- SPIDER PANEL -->
+  <section class="panel" id="panel-spider" role="tabpanel" aria-labelledby="tab-spider">
+    <div id="spider-canvas-wrap" aria-label="Radar chart — grab and spin">
+      <canvas id="spider-canvas"></canvas>
+      <div class="spider-hint" id="spider-hint">Grab to spin &#x2192;</div>
+    </div>
+    <aside class="spider-tooltip" id="spider-tooltip-panel" aria-live="polite" aria-label="Router details">
+      <p class="tooltip-no-hover">Hover or touch a router axis to see details</p>
+    </aside>
+  </section>
+
+  <!-- HOLDOUT PANEL -->
+  <section class="panel" id="panel-holdout" role="tabpanel" aria-labelledby="tab-holdout">
+    <div class="holdout-toolbar">
+      <div class="cc-progress-wrap">
+        <div class="cc-progress-row">
+          <span id="holdout-progress-text">Loading...</span>
+          <span id="holdout-accuracy">0%</span>
+        </div>
+        <div class="cc-bar-outer">
+          <div class="cc-bar-inner" id="holdout-bar" style="width:0%"></div>
+        </div>
+      </div>
+      <select class="holdout-select" id="holdout-dataset" aria-label="Holdout dataset">
+        <option value="default">training_data_sample.csv</option>
+      </select>
+    </div>
+    <div class="holdout-grid" id="holdout-grid">
+      <div class="cc-empty">Loading classifier holdout...</div>
+    </div>
+  </section>
+
+</div><!-- .shell -->
+
+<!-- Toast -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Confetti canvas -->
+<canvas id="confetti-canvas" aria-hidden="true"></canvas>
+
+  <!-- CLOSE CALLS PANEL -->
+  <section class="panel" id="panel-closecalls" role="tabpanel" aria-labelledby="tab-closecalls">
+    <div class="cc-toolbar">
+      <div class="cc-progress-wrap">
+        <div class="cc-progress-row">
+          <span id="cc-progress-text">Loading...</span>
+          <span id="cc-progress-pct">0%</span>
+        </div>
+        <div class="cc-bar-outer">
+          <div class="cc-bar-inner" id="cc-bar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="cc-main" id="cc-main">
+      <!-- Cards injected here -->
+      <div class="cc-empty" id="cc-loading">Loading review items...</div>
+    </div>
+  </section>
+
+<script type="module">
+// ══════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════
+// Use same origin as the page — works whether accessed via 127.0.0.1 or LAN IP
+const BASE = window.location.origin;
+const FETCH_OPTS = { credentials: 'include' };
+
+async function apiFetch(path, opts = {}) {
+  try {
+    const res = await fetch(BASE + path, { ...FETCH_OPTS, ...opts });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.warn('API error:', path, e.message);
+    return null;
+  }
+}
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const state = {
+  current: null,       // current problem
+  score: 0,
+  streak: 0,
+  maxStreak: 0,
+  labeledCount: 0,
+  total: 200,
+  muLLMAgree: 0,       // how many times user agreed w/ muLLM system
+  totalLabeled: 0,
+  animating: false,
+  skippedIds: new Set(),  // permanently skip these until reset
+};
+
+// ══════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════
+let activeTab = 'label';
+let isoInitialized = false;
+let spiderInitialized = false;
+let holdoutInitialized = false;
+
+window.switchTab = function(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.id === 'tab-' + name);
+    b.setAttribute('aria-selected', b.id === 'tab-' + name ? 'true' : 'false');
+  });
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'panel-' + name);
+  });
+  activeTab = name;
+
+  if (name === 'iso' && !isoInitialized) {
+    isoInitialized = true;
+    initIso();
+  }
+  if (name === 'spider' && !spiderInitialized) {
+    spiderInitialized = true;
+    initSpider();
+  }
+  if (name === 'holdout' && !holdoutInitialized) {
+    holdoutInitialized = true;
+    loadHoldout();
+  }
+};
+
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+let toastTimer = null;
+function showToast(msg, type = '', ms = 1800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = 'toast', ms);
+}
+
+// ══════════════════════════════════════════════
+// SCORE POP
+// ══════════════════════════════════════════════
+function scorePopAt(el, pts) {
+  const rect = el.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.className = 'score-pop';
+  pop.textContent = '+' + pts;
+  pop.style.left = (rect.left + rect.width / 2 - 20) + 'px';
+  pop.style.top  = (rect.top - 10) + 'px';
+  document.body.appendChild(pop);
+  setTimeout(() => pop.remove(), 900);
+}
+
+// ══════════════════════════════════════════════
+// LABEL PANEL
+// ══════════════════════════════════════════════
+function updateHeader() {
+  document.getElementById('hdr-labeled').textContent = state.labeledCount;
+  document.getElementById('hdr-score').textContent = state.score;
+
+  const agreeEl = document.getElementById('hdr-agree');
+  if (state.totalLabeled > 0) {
+    agreeEl.textContent = Math.round(state.muLLMAgree / state.totalLabeled * 100) + '%';
+  } else {
+    agreeEl.textContent = '—';
+  }
+
+  const streakPill = document.getElementById('streak-pill');
+  const streakCount = document.getElementById('streak-count');
+  streakCount.textContent = state.streak;
+  streakPill.classList.toggle('active', state.streak >= 5);
+}
+
+function updateProgress(labeled, total) {
+  const pct = total > 0 ? Math.round(labeled / total * 100) : 0;
+  document.getElementById('progress-text').textContent = `${labeled} / ${total} labeled`;
+  document.getElementById('progress-pct').textContent = pct + '%';
+  const bar = document.getElementById('progress-bar');
+  bar.style.width = pct + '%';
+  bar.closest('[role=progressbar]').setAttribute('aria-valuenow', pct);
+}
+
+const ROUTER_LABELS = {
+  always_local: 'Always Local',
+  random:       'Random',
+  bert:         'BERT',
+  mf:           'MF',
+  optillm:      'OptILLM',
+  llm_blender:  'LLM Blender',
+  automix:      'AutoMix',
+  always_cloud: 'Always Cloud',
+};
+
+function renderCard(problem) {
+  const card = document.getElementById('review-card');
+  const cat  = (problem.category || 'unknown').toLowerCase();
+
+  document.getElementById('card-id').textContent = problem.id;
+
+  const badge = document.getElementById('cat-badge');
+  badge.textContent = problem.category || 'unknown';
+  badge.className = 'cat-badge cat-' + cat;
+
+  document.getElementById('prompt-text').textContent = problem.prompt;
+
+  // Router votes
+  const votes = document.getElementById('router-votes');
+  votes.innerHTML = '';
+  const rv = problem.router_votes || {};
+  Object.entries(rv).forEach(([rname, isLocal]) => {
+    if (isLocal === null || isLocal === undefined) return;
+    const chip = document.createElement('span');
+    chip.className = 'router-vote-chip ' + (isLocal ? 'chip-local' : 'chip-cloud');
+    const label = ROUTER_LABELS[rname] || rname;
+    const decision = isLocal ? 'LOCAL' : 'CLOUD';
+    chip.setAttribute('title', `${label}: routes ${decision}`);
+    chip.setAttribute('aria-label', `${label} votes ${decision}`);
+    chip.textContent = (ROUTER_LABELS[rname] || rname).slice(0, 6).toUpperCase();
+    chip.innerHTML += ' <span aria-hidden="true">' + (isLocal ? 'L' : 'C') + '</span>';
+    votes.appendChild(chip);
+  });
+}
+
+function nextUrl(alsoExclude) {
+  const ids = [...state.skippedIds];
+  if (alsoExclude) ids.push(alsoExclude);
+  const params = ids.length ? '?skip_labeled=true&exclude_id=' + encodeURIComponent(ids.join(',')) : '';
+  return '/api/review/next' + params;
+}
+
+async function loadNext(alsoExclude) {
+  const data = await apiFetch(nextUrl(alsoExclude));
+  if (!data) {
+    showToast('Could not reach server — check HTTPS', 'red', 4000);
+    return;
+  }
+  if (data.done) {
+    showDone();
+    return;
+  }
+  state.current = data;
+  updateProgress(data.labeled_so_far, data.total);
+  renderCard(data);
+}
+
+window.labelCurrent = async function labelCurrent(isLocal) {
+  if (state.animating || !state.current) return;
+  state.animating = true;
+
+  const card = document.getElementById('review-card');
+  const btn  = document.getElementById(isLocal ? 'btn-local' : 'btn-cloud');
+
+  // Score
+  let pts = 10;
+  const rv = state.current.router_votes || {};
+  const rvVals = Object.values(rv).filter(v => v !== null && v !== undefined);
+  const majorityLocal = rvVals.filter(Boolean).length >= rvVals.length / 2;
+  if (isLocal === majorityLocal) pts += 5;
+
+  // muLLM agreement (tier declared by system)
+  const sysLocal = state.current.tier && ['easy', 'local'].includes(state.current.tier.toLowerCase());
+  if (isLocal === sysLocal) state.muLLMAgree++;
+  state.totalLabeled++;
+  state.streak = (isLocal === majorityLocal) ? state.streak + 1 : 0;
+  state.score += pts;
+  scorePopAt(btn, pts);
+  if (state.streak === 5) showToast('&#x1F525; 5 streak! Keep going!', 'gold');
+  if (state.streak > 0 && state.streak % 10 === 0) showToast(`&#x1F525; ${state.streak} streak!`, 'gold');
+
+  // Slide out
+  card.classList.add(isLocal ? 'slide-left' : 'slide-right');
+
+  // POST label
+  const result = await apiFetch('/api/review/label', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: state.current.id, human_local: isLocal }),
+  });
+  if (result?.ok) {
+    state.labeledCount = result.labeled;
+  } else {
+    // Label POST failed — unfreeze and abort so user can retry
+    card.classList.remove('slide-left', 'slide-right');
+    state.animating = false;
+    showToast('Label failed — check server connection', 'red', 3000);
+    return;
+  }
+
+  updateHeader();
+
+  await sleep(220);
+
+  // Load next (exclude the just-labeled card too, in case server hasn't flushed yet)
+  const justLabeled = state.current.id;
+  const data = await apiFetch(nextUrl(justLabeled));
+  if (!data) {
+    card.classList.remove('slide-left', 'slide-right');
+    state.animating = false;
+    showToast('Could not load next problem', 'red', 3000);
+    return;
+  }
+  if (data.done) {
+    card.classList.remove('slide-left', 'slide-right');
+    showDone();
+    state.animating = false;
+    return;
+  }
+
+  state.current = data;
+  updateProgress(data.labeled_so_far, data.total);
+
+  // Prep next card off-screen
+  card.style.transition = 'none';
+  card.classList.remove('slide-left', 'slide-right');
+  card.classList.add(isLocal ? 'enter-right' : 'enter-left');
+  renderCard(data);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      card.style.transition = '';
+      card.classList.remove('enter-right', 'enter-left');
+      state.animating = false;
+    });
+  });
+}
+
+window.skipCurrent = async function() {
+  if (state.animating || !state.current) return;
+  state.animating = true;
+  state.streak = 0;
+  updateHeader();
+
+  const card = document.getElementById('review-card');
+  card.classList.add('slide-right');
+  await sleep(220);
+
+  // Add to permanent skip set so it never comes back this session
+  if (state.current?.id) state.skippedIds.add(state.current.id);
+  const data = await apiFetch(nextUrl());
+  if (!data) {
+    card.classList.remove('slide-right');
+    state.animating = false;
+    showToast('Could not load next problem', 'red', 3000);
+    return;
+  }
+  if (data.done) {
+    card.classList.remove('slide-right');
+    showDone();
+    state.animating = false;
+    return;
+  }
+  state.current = data;
+  updateProgress(data.labeled_so_far, data.total);
+  card.style.transition = 'none';
+  card.classList.remove('slide-right');
+  card.classList.add('enter-right');
+  renderCard(data);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      card.style.transition = '';
+      card.classList.remove('enter-right');
+      state.animating = false;
+    });
+  });
+};
+
+window.resetAndReload = function() {
+  state.skippedIds.clear();
+  document.getElementById('done-screen').classList.remove('active');
+  document.getElementById('action-row').style.display = '';
+  document.querySelectorAll('.label-progress-wrap,.card-arena,.key-hint').forEach(el => el.style.display = '');
+  loadNext();
+};
+
+function showDone() {
+  document.getElementById('done-screen').classList.add('active');
+  document.getElementById('action-row').style.display = 'none';
+  document.querySelector('.card-arena').style.display = 'none';
+  document.querySelector('.key-hint').style.display = 'none';
+  document.getElementById('done-score').textContent = state.score + ' pts';
+  launchConfetti();
+}
+
+// Keyboard nav
+document.addEventListener('keydown', e => {
+  if (activeTab !== 'label') return;
+  if (e.target.tagName === 'BUTTON') return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); labelCurrent(true);  }
+  if (e.key === 'ArrowRight') { e.preventDefault(); labelCurrent(false); }
+  if (e.key === ' ')          { e.preventDefault(); skipCurrent();       }
+});
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ══════════════════════════════════════════════
+// HOLDOUT CLASSIFIER REVIEW
+// ══════════════════════════════════════════════
+const HOLDOUT_CATEGORIES = ['note','lookup','code','research','creative','deploy','conversation','vision'];
+const holdoutState = { items: [], total: 0, reviewed: 0, dataset: 'default' };
+
+async function loadHoldout() {
+  const dataset = document.getElementById('holdout-dataset').value || 'default';
+  holdoutState.dataset = dataset;
+  const data = await apiFetch(`/api/review/holdout?dataset=${encodeURIComponent(dataset)}&limit=100`);
+  const stats = await apiFetch(`/api/review/holdout/stats?dataset=${encodeURIComponent(dataset)}`);
+  if (!data) {
+    document.getElementById('holdout-grid').innerHTML = '<div class="cc-empty">Could not load holdout dataset.</div>';
+    return;
+  }
+  holdoutState.items = data.items || [];
+  holdoutState.total = data.total || 0;
+  holdoutState.reviewed = data.reviewed || 0;
+  updateHoldoutProgress(stats || data);
+  renderHoldout();
+}
+
+function updateHoldoutProgress(data) {
+  const reviewed = data.reviewed || 0;
+  const total = data.total || holdoutState.total || 0;
+  const pct = total ? Math.round((reviewed / total) * 100) : 0;
+  const acc = data.category_accuracy == null ? 0 : Math.round(data.category_accuracy * 100);
+  document.getElementById('holdout-progress-text').textContent = `${reviewed} / ${total} reviewed`;
+  document.getElementById('holdout-accuracy').textContent = `baseline ${acc}%`;
+  document.getElementById('holdout-bar').style.width = pct + '%';
+}
+
+function renderHoldout() {
+  const grid = document.getElementById('holdout-grid');
+  const nextItems = holdoutState.items.filter(item => !item.reviewed).slice(0, 12);
+  if (nextItems.length === 0) {
+    grid.innerHTML = '<div class="cc-empty">No unreviewed holdout rows in this batch.</div>';
+    return;
+  }
+  grid.innerHTML = nextItems.map(item => {
+    const ok = item.expected_category && item.expected_category === item.predicted_category;
+    const options = HOLDOUT_CATEGORIES.map(cat =>
+      `<option value="${escAttr(cat)}" ${cat === item.expected_category ? 'selected' : ''}>${escHtml(cat)}</option>`
+    ).join('');
+    return `
+      <article class="holdout-card" id="holdout-${escAttr(item.id)}">
+        <div class="holdout-meta">
+          <span class="holdout-chip">row ${escHtml(String(item.row))}</span>
+          <span class="holdout-chip ${ok ? 'ok' : 'bad'}">expected ${escHtml(item.expected_category || 'unknown')}</span>
+          <span class="holdout-chip ${ok ? 'ok' : 'bad'}">predicted ${escHtml(item.predicted_category)}</span>
+          <span class="holdout-chip">complexity ${escHtml(String(item.predicted_complexity))}</span>
+          <span class="holdout-chip">${escHtml(item.predicted_tier)}</span>
+          <span class="holdout-chip">conf ${Math.round(Number(item.confidence || 0) * 100)}%</span>
+        </div>
+        <div class="holdout-prompt">${escHtml(item.query)}</div>
+        <div class="holdout-actions">
+          <button class="holdout-btn accept" onclick="acceptHoldout('${escAttr(item.id)}')">Accept</button>
+          <select class="holdout-select" id="holdout-cat-${escAttr(item.id)}">${options}</select>
+          <button class="holdout-btn correct" onclick="correctHoldout('${escAttr(item.id)}')">Save Correction</button>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+async function saveHoldoutLabel(id, category, accepted) {
+  const result = await apiFetch(`/api/review/holdout/label?dataset=${encodeURIComponent(holdoutState.dataset)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, human_category: category, accepted_prediction: accepted }),
+  });
+  if (!result?.ok) {
+    showToast('Holdout label failed', 'red', 2500);
+    return;
+  }
+  const item = holdoutState.items.find(row => row.id === id);
+  if (item) item.reviewed = true;
+  holdoutState.reviewed = result.reviewed;
+  const stats = await apiFetch(`/api/review/holdout/stats?dataset=${encodeURIComponent(holdoutState.dataset)}`);
+  updateHoldoutProgress(stats || { reviewed: result.reviewed, total: holdoutState.total });
+  renderHoldout();
+}
+
+window.acceptHoldout = function(id) {
+  const item = holdoutState.items.find(row => row.id === id);
+  if (!item) return;
+  saveHoldoutLabel(id, item.predicted_category, true);
+};
+
+window.correctHoldout = function(id) {
+  const select = document.getElementById('holdout-cat-' + id);
+  if (!select) return;
+  saveHoldoutLabel(id, select.value, false);
+};
+
+document.getElementById('holdout-dataset').addEventListener('change', loadHoldout);
+
+// ══════════════════════════════════════════════
+// CONFETTI
+// ══════════════════════════════════════════════
+function launchConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const particles = Array.from({length: 120}, () => ({
+    x:  Math.random() * canvas.width,
+    y:  -10 - Math.random() * 40,
+    vx: (Math.random() - 0.5) * 4,
+    vy: 2 + Math.random() * 4,
+    r:  3 + Math.random() * 5,
+    color: ['#f59e0b','#38bdf8','#a855f7','#22c55e','#ef4444','#fff'][Math.floor(Math.random()*6)],
+    spin:  (Math.random() - 0.5) * 0.2,
+    angle: Math.random() * Math.PI * 2,
+  }));
+
+  let raf;
+  function frame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.angle += p.spin;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.r, -p.r/2, p.r*2, p.r);
+      ctx.restore();
+    });
+    if (particles.some(p => p.y < canvas.height + 20)) {
+      raf = requestAnimationFrame(frame);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  raf = requestAnimationFrame(frame);
+  setTimeout(() => { cancelAnimationFrame(raf); ctx.clearRect(0, 0, canvas.width, canvas.height); }, 5000);
+}
+
+// ══════════════════════════════════════════════
+// ISO VIEW — Three.js conveyor belt
+// ══════════════════════════════════════════════
+async function initIso() {
+  const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
+  const { OrbitControls } = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js');
+
+  const wrap = document.getElementById('iso-canvas-wrap');
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(W, H);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x0f0f1a);
+  wrap.appendChild(renderer.domElement);
+
+  const scene  = new THREE.Scene();
+  scene.fog    = new THREE.Fog(0x0f0f1a, 30, 60);
+
+  const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100);
+  camera.position.set(15, 12, 15);
+  camera.lookAt(0, 0, 0);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.minDistance   = 6;
+  controls.maxDistance   = 35;
+  controls.maxPolarAngle = Math.PI / 2.1;
+  controls.target.set(0, 1, 0);
+
+  // Lighting
+  scene.add(new THREE.AmbientLight(0x334466, 1.5));
+  const sun = new THREE.DirectionalLight(0xffffff, 2);
+  sun.position.set(10, 18, 10);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.near = 0.5;
+  sun.shadow.camera.far  = 60;
+  sun.shadow.camera.left = sun.shadow.camera.bottom = -20;
+  sun.shadow.camera.right = sun.shadow.camera.top   =  20;
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x4477ff, 0.6);
+  fill.position.set(-8, 4, -8);
+  scene.add(fill);
+
+  // Floor
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(40, 20),
+    new THREE.MeshLambertMaterial({ color: 0x0a0a14 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -1.8;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // ── Conveyor belt ──
+  const BELT_LEN = 24;
+  const BELT_W   = 2.5;
+  const BELT_Y   = 0;
+
+  // Belt base
+  const beltGeo = new THREE.BoxGeometry(BELT_LEN, 0.15, BELT_W);
+  const beltMat = new THREE.MeshPhongMaterial({ color: 0x1e1e38 });
+  const beltMesh = new THREE.Mesh(beltGeo, beltMat);
+  beltMesh.position.set(0, BELT_Y - 0.08, 0);
+  beltMesh.receiveShadow = true;
+  scene.add(beltMesh);
+
+  // Belt stripes (animated via material offset)
+  const stripeTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 32;
+    const cx = c.getContext('2d');
+    for (let i = 0; i < 8; i++) {
+      cx.fillStyle = i % 2 === 0 ? '#2a2a50' : '#1e1e38';
+      cx.fillRect(i * 16, 0, 16, 32);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(BELT_LEN / 2, 1);
+    return t;
+  })();
+  const stripeGeo = new THREE.PlaneGeometry(BELT_LEN, BELT_W);
+  const stripeMat = new THREE.MeshLambertMaterial({ map: stripeTex, transparent: true, opacity: 0.7 });
+  const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+  stripe.rotation.x = -Math.PI / 2;
+  stripe.position.set(0, BELT_Y + 0.01, 0);
+  scene.add(stripe);
+
+  // Belt side rails
+  [-1, 1].forEach(side => {
+    const rail = new THREE.Mesh(
+      new THREE.BoxGeometry(BELT_LEN, 0.2, 0.1),
+      new THREE.MeshPhongMaterial({ color: 0x38bdf8, emissive: 0x0c3a4a })
+    );
+    rail.position.set(0, BELT_Y + 0.1, side * (BELT_W / 2 + 0.05));
+    scene.add(rail);
+  });
+
+  // ── 8 Router stations ──
+  const ROUTER_NAMES = ['always_local','random','bert','mf','optillm','llm_blender','automix','always_cloud'];
+  const ROUTER_COLORS = {
+    always_local:  0x22c55e,
+    random:        0x94a3b8,
+    bert:          0x38bdf8,
+    mf:            0xa855f7,
+    optillm:       0xf59e0b,
+    llm_blender:   0xfb923c,
+    automix:       0x06b6d4,
+    always_cloud:  0xef4444,
+  };
+
+  const N = ROUTER_NAMES.length;
+  const STATION_SPACING = BELT_LEN / (N + 1);
+  const BELT_LEFT = -BELT_LEN / 2;
+  const stations = [];
+
+  ROUTER_NAMES.forEach((rname, i) => {
+    const x = BELT_LEFT + (i + 1) * STATION_SPACING;
+    const color = ROUTER_COLORS[rname];
+
+    const stationGeo = new THREE.CylinderGeometry(0.4, 0.5, 1.5, 8);
+    const stationMat = new THREE.MeshPhongMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.15,
+    });
+    const station = new THREE.Mesh(stationGeo, stationMat);
+    station.position.set(x, BELT_Y + 0.75 + BELT_W, 0);
+    station.castShadow = true;
+    scene.add(station);
+
+    // Glowing ring at top
+    const ringGeo = new THREE.TorusGeometry(0.42, 0.06, 6, 16);
+    const ringMat = new THREE.MeshBasicMaterial({ color });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(x, BELT_Y + 1.56 + BELT_W, 0);
+    scene.add(ring);
+
+    // Floating label (sprite)
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width  = 256;
+    labelCanvas.height = 64;
+    const lctx = labelCanvas.getContext('2d');
+    lctx.fillStyle = '#0f0f1a';
+    lctx.roundRect(4, 4, 248, 56, 10);
+    lctx.fill();
+    lctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
+    lctx.font = 'bold 22px system-ui';
+    lctx.textAlign = 'center';
+    lctx.textBaseline = 'middle';
+    lctx.fillText((ROUTER_LABELS[rname] || rname).toUpperCase(), 128, 32);
+    const labelTex = new THREE.CanvasTexture(labelCanvas);
+    const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, transparent: true }));
+    labelSprite.scale.set(2.2, 0.55, 1);
+    labelSprite.position.set(x, BELT_Y + 3.2 + BELT_W, 0);
+    scene.add(labelSprite);
+
+    stations.push({ x, rname, color, station, ring, fallCount: 0 });
+  });
+
+  // ── Fallen packages (floor level) ──
+  const fallenPiles = ROUTER_NAMES.map(() => []);
+  const MAX_FALLEN = 12;
+
+  function addFallenPackage(stIdx, catColor) {
+    const pile = fallenPiles[stIdx];
+    if (pile.length >= MAX_FALLEN) {
+      const old = pile.shift();
+      scene.remove(old);
+    }
+    const geo = new THREE.BoxGeometry(0.5, 0.4, 0.5);
+    const mat = new THREE.MeshPhongMaterial({ color: catColor });
+    const mesh = new THREE.Mesh(geo, mat);
+    const { x } = stations[stIdx];
+    mesh.position.set(
+      x + (Math.random() - 0.5) * 2,
+      -1.6,
+      (Math.random() - 0.5) * 3
+    );
+    mesh.rotation.set(
+      Math.random() * Math.PI,
+      Math.random() * Math.PI,
+      Math.random() * Math.PI
+    );
+    mesh.castShadow = true;
+    scene.add(mesh);
+    pile.push(mesh);
+  }
+
+  // ── Moving packages ──
+  const CAT_COLORS = { math: 0xf59e0b, code: 0x38bdf8, reasoning: 0xa855f7, lookup: 0x22c55e };
+  const packages = [];
+  let pkgId = 0;
+  let spawnTimer = 0;
+  const BELT_SPEED = 1.5; // units/sec
+
+  // Router decisions loaded live from stats
+  let routerStats = {};
+  (async () => {
+    const s = await apiFetch('/api/review/stats');
+    if (s) routerStats = s.router_accuracy || {};
+  })();
+
+  function spawnPackage() {
+    const cats = ['math','code','reasoning','lookup'];
+    const cat  = cats[Math.floor(Math.random() * cats.length)];
+    const col  = CAT_COLORS[cat] || 0xffffff;
+
+    const geo  = new THREE.BoxGeometry(0.8, 0.6, 0.8);
+    const mat  = new THREE.MeshPhongMaterial({ color: col });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    const startX = BELT_LEFT - 1;
+    mesh.position.set(startX, BELT_Y + 0.35, 0);
+    scene.add(mesh);
+
+    // Assign random router decision per station (simulate)
+    const decisions = ROUTER_NAMES.map(rname => {
+      const acc = routerStats[rname]?.accuracy ?? 0.75;
+      return Math.random() < acc; // simplified: accurate routers agree more
+    });
+
+    packages.push({
+      id: pkgId++,
+      mesh,
+      x: startX,
+      cat,
+      decisions,
+      stationVisited: 0,
+      bouncing: false,
+      bounceT: 0,
+      fallen: false,
+      fallenAnim: 0,
+    });
+  }
+
+  // Flash effect on station
+  function flashStation(stIdx, isCorrect) {
+    const s = stations[stIdx];
+    const origColor = s.color;
+    const flashCol  = isCorrect ? 0x22c55e : 0xef4444;
+    s.station.material.emissive.setHex(flashCol);
+    s.station.material.emissiveIntensity = 1.0;
+    setTimeout(() => {
+      s.station.material.emissive.setHex(origColor);
+      s.station.material.emissiveIntensity = 0.15;
+    }, 300);
+  }
+
+  // ── Animation loop ──
+  let lastTime = performance.now();
+
+  function isoFrame() {
+    if (activeTab !== 'iso') { requestAnimationFrame(isoFrame); return; }
+    const now  = performance.now();
+    const dt   = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime   = now;
+    spawnTimer += dt;
+
+    // Scroll belt texture
+    stripeTex.offset.x -= dt * 0.3;
+
+    // Spawn new package every 2.2s
+    if (spawnTimer > 2.2) {
+      spawnTimer = 0;
+      if (packages.length < 5) spawnPackage();
+    }
+
+    // Update packages
+    for (let i = packages.length - 1; i >= 0; i--) {
+      const pkg = packages[i];
+      if (pkg.fallen) {
+        pkg.fallenAnim += dt;
+        if (pkg.fallenAnim > 1.5) {
+          packages.splice(i, 1);
+        }
+        continue;
+      }
+
+      // Move along belt
+      pkg.x += BELT_SPEED * dt;
+      pkg.mesh.position.x = pkg.x;
+      pkg.mesh.rotation.y += dt * 0.5;
+
+      // Check if passing a station
+      while (pkg.stationVisited < stations.length) {
+        const st = stations[pkg.stationVisited];
+        if (pkg.x >= st.x) {
+          const decision = pkg.decisions[pkg.stationVisited];
+          // Simulate: randomly wrong ~25% of the time for interesting visuals
+          const isWrong = Math.random() < 0.22;
+          flashStation(pkg.stationVisited, !isWrong);
+
+          if (isWrong && Math.random() < 0.4) {
+            // Package falls off belt
+            pkg.fallen = true;
+            pkg.fallenAnim = 0;
+            addFallenPackage(pkg.stationVisited, CAT_COLORS[pkg.cat] || 0xffffff);
+
+            // Animate fall
+            const mesh = pkg.mesh;
+            let fy = 0;
+            const fallTick = () => {
+              fy += 0.12;
+              mesh.position.y -= fy * 0.04;
+              mesh.rotation.x += 0.15;
+              mesh.rotation.z += 0.1;
+              if (mesh.position.y > -3) {
+                requestAnimationFrame(fallTick);
+              } else {
+                scene.remove(mesh);
+              }
+            };
+            requestAnimationFrame(fallTick);
+          } else {
+            // Bounce
+            pkg.bouncing = true;
+            pkg.bounceT  = 0;
+          }
+
+          pkg.stationVisited++;
+          break;
+        } else {
+          break;
+        }
+      }
+
+      // Bounce animation
+      if (pkg.bouncing) {
+        pkg.bounceT += dt * 8;
+        pkg.mesh.position.y = BELT_Y + 0.35 + Math.abs(Math.sin(pkg.bounceT)) * 0.4;
+        if (pkg.bounceT > Math.PI) { pkg.bouncing = false; pkg.mesh.position.y = BELT_Y + 0.35; }
+      }
+
+      // Off-screen right
+      if (pkg.x > BELT_LEN / 2 + 2) {
+        scene.remove(pkg.mesh);
+        packages.splice(i, 1);
+      }
+    }
+
+    // Pulse station rings
+    const t = now / 1000;
+    stations.forEach((s, i) => {
+      s.ring.material.opacity = 0.6 + 0.4 * Math.sin(t * 2 + i);
+      s.ring.rotation.z = t * 0.5 + i * 0.3;
+    });
+
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(isoFrame);
+  }
+
+  requestAnimationFrame(isoFrame);
+
+  // Resize
+  window.addEventListener('resize', () => {
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+
+  // Fade hint
+  setTimeout(() => {
+    const hint = document.getElementById('iso-hint');
+    if (hint) hint.style.opacity = '0';
+  }, 3500);
+}
+
+// ══════════════════════════════════════════════
+// SPIDER PANEL — Spinning 3D Radar
+// ══════════════════════════════════════════════
+const SPIDER_DATA = {
+  always_local:  { mullm: 0.6495, quality: 75.0, local: 100,   precision: 75.0, recall: 100  },
+  random:        { mullm: 0.2877, quality: 48.5, local: 52.5,  precision: 72.4, recall: 50.7 },
+  bert:          { mullm: 0.5738, quality: 72.5, local: 66.5,  precision: 85.7, recall: 76.0 },
+  mf:            { mullm: 0.7647, quality: 74.5, local: 99.5,  precision: 74.9, recall: 99.3 },
+  optillm:       { mullm: 0.7879, quality: 76.0, local: 99.0,  precision: 75.8, recall: 100  },
+  llm_blender:   { mullm: 0.6495, quality: 75.0, local: 100,   precision: 75.0, recall: 100  },
+  automix:       { mullm: 0.7570, quality: 74.0, local: 99.0,  precision: 74.8, recall: 98.7 },
+  always_cloud:  { mullm: 0.0884, quality: 25.0, local: 0.0,   precision: 0.0,  recall: 0.0  },
+};
+
+const AXES = [
+  { key: 'mullm',     label: 'mµScore',   max: 1.0   },
+  { key: 'quality',   label: 'Quality%',  max: 100   },
+  { key: 'local',     label: 'Local%',    max: 100   },
+  { key: 'precision', label: 'Precision%',max: 100   },
+  { key: 'recall',    label: 'Recall%',   max: 100   },
+];
+
+const ROUTER_PALETTE = [
+  '#22c55e','#94a3b8','#38bdf8','#a855f7',
+  '#f59e0b','#fb923c','#06b6d4','#ef4444',
+];
+
+function initSpider() {
+  const canvas = document.getElementById('spider-canvas');
+  const wrap   = document.getElementById('spider-canvas-wrap');
+  const ctx    = canvas.getContext('2d');
+  const N_AXES = AXES.length;
+  const ROUTERS = Object.keys(SPIDER_DATA);
+
+  let yaw = 0;               // current rotation angle around Y axis (the "spin")
+  let vel = 0;               // angular velocity (radians/frame)
+  let dragging = false;
+  let lastDragX = 0;
+  let dragVel   = 0;
+  let hoveredRouter = null;
+
+  // Resize canvas to match container
+  function resize() {
+    canvas.width  = wrap.clientWidth  * window.devicePixelRatio;
+    canvas.height = wrap.clientHeight * window.devicePixelRatio;
+    canvas.style.width  = wrap.clientWidth  + 'px';
+    canvas.style.height = wrap.clientHeight + 'px';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ── 3D projection helpers ──
+  // We render the radar chart as a flat polygon in 3D, rotating around Y axis.
+  // Each axis point is in polar coordinates on the XZ plane; we rotate by yaw.
+
+  function project(x3, y3, z3, cx, cy, fov) {
+    // Simple perspective projection
+    const Z = z3 + fov;
+    if (Z <= 0) return null;
+    const scale = fov / Z;
+    return {
+      x: cx + x3 * scale,
+      y: cy - y3 * scale,
+      scale,
+    };
+  }
+
+  function axisPoint3D(axisIdx, radius, amplitude) {
+    // Axes spread in XZ plane, rotate around Y by yaw
+    const baseAngle = (axisIdx / N_AXES) * Math.PI * 2 - Math.PI / 2;
+    const rotAngle  = baseAngle + yaw;
+    return {
+      x: Math.cos(rotAngle) * radius * amplitude,
+      y: 0,
+      z: Math.sin(rotAngle) * radius * amplitude,
+    };
+  }
+
+  // ── Hit test: find closest axis to mouse ──
+  function hitAxis(mx, my, cx, cy, fov, radius) {
+    let best = null, bestDist = 36;
+    AXES.forEach((ax, i) => {
+      const p3 = axisPoint3D(i, radius, 1);
+      const p2 = project(p3.x, p3.y, p3.z, cx, cy, fov);
+      if (!p2) return;
+      const dx = mx - p2.x, dy = my - p2.y;
+      const d  = Math.sqrt(dx*dx + dy*dy);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    return best;
+  }
+
+  // ── Draw ──
+  function draw() {
+    const W = canvas.width, H = canvas.height;
+    const dpr = window.devicePixelRatio;
+    ctx.clearRect(0, 0, W, H);
+
+    const cx  = W / 2;
+    const cy  = H / 2 + H * 0.02;
+    const fov = 500 * dpr;
+    const R   = Math.min(W, H) * 0.32;
+
+    // Background rings (grid)
+    for (let ring = 1; ring <= 5; ring++) {
+      const points = [];
+      for (let ai = 0; ai < N_AXES; ai++) {
+        const p3 = axisPoint3D(ai, R, ring / 5);
+        const p2 = project(p3.x, p3.y, p3.z, cx, cy, fov);
+        if (p2) points.push(p2);
+      }
+      if (points.length < 2) continue;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.closePath();
+      ctx.strokeStyle = `rgba(42,42,80,${ring === 5 ? 0.8 : 0.4})`;
+      ctx.lineWidth   = ring === 5 ? 1.5 : 0.8;
+      ctx.stroke();
+    }
+
+    // Axis lines
+    AXES.forEach((ax, i) => {
+      const p3 = axisPoint3D(i, R, 1);
+      const p2 = project(p3.x, p3.y, p3.z, cx, cy, fov);
+      if (!p2) return;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.strokeStyle = 'rgba(148,163,184,0.35)';
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+    });
+
+    // Router polygons (back-to-front based on Z)
+    const routerPolys = ROUTERS.map((rname, ri) => {
+      const data   = SPIDER_DATA[rname];
+      const color  = ROUTER_PALETTE[ri];
+      const points = AXES.map((ax, ai) => {
+        const val  = data[ax.key] / ax.max;
+        const p3   = axisPoint3D(ai, R, Math.max(0.03, val));
+        return project(p3.x, p3.y, p3.z, cx, cy, fov);
+      }).filter(Boolean);
+
+      // Average Z for sorting (depth)
+      const avgZ = AXES.reduce((sum, ax, ai) => {
+        const p3 = axisPoint3D(ai, R, 1);
+        return sum + p3.z;
+      }, 0) / N_AXES;
+
+      return { rname, color, points, avgZ, ri };
+    });
+
+    // Sort back-to-front
+    routerPolys.sort((a, b) => b.avgZ - a.avgZ);
+
+    routerPolys.forEach(({ rname, color, points, ri }) => {
+      if (points.length < 3) return;
+      const isHovered = hoveredRouter === ri;
+
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.closePath();
+
+      // Fill
+      ctx.fillStyle   = color + (isHovered ? '66' : '30');
+      ctx.fill();
+
+      // Stroke
+      ctx.strokeStyle = color + (isHovered ? 'ff' : '99');
+      ctx.lineWidth   = isHovered ? 2.5 : 1.2;
+      ctx.stroke();
+
+      // Dots at vertices
+      points.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, isHovered ? 4 : 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      });
+    });
+
+    // Axis labels (billboard — face camera)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    AXES.forEach((ax, i) => {
+      const p3  = axisPoint3D(i, R * 1.18, 1);
+      const p2  = project(p3.x, p3.y, p3.z, cx, cy, fov);
+      if (!p2) return;
+
+      const fontSize = Math.max(10, Math.round(13 * p2.scale / dpr));
+      ctx.font      = `600 ${fontSize}px 'Space Grotesk', system-ui`;
+      ctx.fillStyle = 'rgba(226,232,240,0.9)';
+      ctx.shadowColor = '#0f0f1a';
+      ctx.shadowBlur  = 4;
+      ctx.fillText(ax.label, p2.x, p2.y);
+      ctx.shadowBlur  = 0;
+    });
+
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#475569';
+    ctx.fill();
+  }
+
+  // ── Update tooltip panel ──
+  function updateTooltip(ri) {
+    const panel = document.getElementById('spider-tooltip-panel');
+    if (ri === null) {
+      panel.innerHTML = '<p class="tooltip-no-hover">Hover or touch a router axis to see details</p>';
+      return;
+    }
+    const rname = ROUTERS[ri];
+    const data  = SPIDER_DATA[rname];
+    const color = ROUTER_PALETTE[ri];
+    const label = ROUTER_LABELS[rname] || rname;
+
+    let html = `
+      <h3>Router</h3>
+      <div class="tooltip-router-name" style="color:${color}">${label}</div>
+    `;
+
+    AXES.forEach(ax => {
+      const val = data[ax.key];
+      const pct = (val / ax.max * 100).toFixed(1);
+      html += `
+        <div>
+          <div class="tooltip-row">
+            <span class="tooltip-label">${ax.label}</span>
+            <span class="tooltip-val" style="color:${color}">${ax.key === 'mullm' ? val.toFixed(4) : val.toFixed(1) + '%'}</span>
+          </div>
+          <div class="tooltip-bar-wrap">
+            <div class="tooltip-bar" style="width:${pct}%;background:${color}"></div>
+          </div>
+        </div>
+      `;
+    });
+
+    panel.innerHTML = html;
+  }
+
+  // ── RAF loop ──
+  function spiderFrame() {
+    if (!dragging) {
+      yaw += vel;
+      vel *= 0.935; // momentum decay
+      if (Math.abs(vel) < 0.0005) vel = 0;
+    }
+    draw();
+    requestAnimationFrame(spiderFrame);
+  }
+  requestAnimationFrame(spiderFrame);
+
+  // ── Pointer events ──
+  function getClientX(e) {
+    return e.touches ? e.touches[0].clientX : e.clientX;
+  }
+  function getClientXY(e) {
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX, y: src.clientY };
+  }
+
+  function onPointerDown(e) {
+    dragging  = true;
+    dragVel   = 0;
+    lastDragX = getClientX(e);
+    e.preventDefault();
+  }
+
+  let rafDragID = null;
+  function onPointerMove(e) {
+    const { x, y } = getClientXY(e);
+    if (dragging) {
+      const dx  = x - lastDragX;
+      dragVel   = dx * 0.003;
+      yaw      += dragVel;
+      lastDragX = x;
+    }
+
+    // Hit test for hover
+    const rect = canvas.getBoundingClientRect();
+    const mx   = (x - rect.left) * window.devicePixelRatio;
+    const my   = (y - rect.top)  * window.devicePixelRatio;
+    const cx   = canvas.width  / 2;
+    const cy   = canvas.height / 2 + canvas.height * 0.02;
+    const fov  = 500 * window.devicePixelRatio;
+    const R    = Math.min(canvas.width, canvas.height) * 0.32;
+
+    const hit = hitAxis(mx, my, cx, cy, fov, R);
+    if (hit !== hoveredRouter) {
+      hoveredRouter = hit;
+      updateTooltip(hit);
+    }
+  }
+
+  function onPointerUp(e) {
+    if (dragging) {
+      dragging = false;
+      vel = dragVel * 2.5; // apply momentum from last drag velocity
+    }
+  }
+
+  wrap.addEventListener('mousedown',  onPointerDown);
+  wrap.addEventListener('mousemove',  onPointerMove);
+  wrap.addEventListener('mouseup',    onPointerUp);
+  wrap.addEventListener('mouseleave', onPointerUp);
+  wrap.addEventListener('touchstart', onPointerDown, { passive: false });
+  wrap.addEventListener('touchmove',  onPointerMove, { passive: false });
+  wrap.addEventListener('touchend',   onPointerUp);
+
+  // Fade hint after first drag
+  let hintFaded = false;
+  wrap.addEventListener('mousedown', () => {
+    if (!hintFaded) {
+      hintFaded = true;
+      const hint = document.getElementById('spider-hint');
+      if (hint) hint.style.opacity = '0';
+    }
+  }, { once: false });
+
+  // Keyboard rotation
+  document.addEventListener('keydown', e => {
+    if (activeTab !== 'spider') return;
+    if (e.key === 'ArrowLeft')  vel += 0.04;
+    if (e.key === 'ArrowRight') vel -= 0.04;
+  });
+
+  // Slow auto-spin initially
+  vel = 0.008;
+}
+
+// ══════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════
+async function boot() {
+  // Load stats for header
+  const stats = await apiFetch('/api/review/stats');
+  if (stats) {
+    state.labeledCount = stats.labeled;
+    state.total        = stats.total;
+    updateProgress(stats.labeled, stats.total);
+  }
+
+  // Load first card
+  await loadNext();
+  updateHeader();
+}
+
+boot();
+
+// ══════════════════════════════════════════════
+// CLOSE-CALLS TAB LOGIC
+// ══════════════════════════════════════════════
+const ccState = {
+  items: [],
+  currentIdx: 0,
+  voted: 0,
+  total: 0,
+  loaded: false,
+  activeResponseTab: 'local',
+};
+
+async function loadCloseCalls() {
+  if (ccState.loaded) return;
+  ccState.loaded = true;
+  const data = await apiFetch('/api/review/items');
+  if (!data) {
+    document.getElementById('cc-loading').textContent = 'Could not load review items.';
+    return;
+  }
+  ccState.items = data.items || [];
+  ccState.total = data.total || 0;
+  ccState.voted = data.voted || 0;
+
+  // Find first unvoted
+  const unvotedIdx = ccState.items.findIndex(it => !it.voted);
+  ccState.currentIdx = unvotedIdx >= 0 ? unvotedIdx : 0;
+
+  renderCCProgress();
+  renderCCCard();
+}
+
+function renderCCProgress() {
+  const done = ccState.voted;
+  const total = ccState.total;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('cc-progress-text').textContent = `${done} / ${total} reviewed`;
+  document.getElementById('cc-progress-pct').textContent = `${pct}%`;
+  document.getElementById('cc-bar').style.width = pct + '%';
+}
+
+function renderCCCard() {
+  const main = document.getElementById('cc-main');
+  const unvoted = ccState.items.filter(it => !it.voted);
+
+  if (unvoted.length === 0) {
+    showCCDone();
+    return;
+  }
+
+  const item = unvoted[0];
+  const hasCloud = !!item.cloud_response;
+  const hasLocal = !!item.local_response;
+
+  main.innerHTML = `
+    <div class="cc-card" id="cc-current-card">
+      <div class="cc-prompt">${escHtml(item.prompt)}</div>
+      <div class="cc-meta">
+        ${item.category ? `<span class="tag">${escHtml(item.category)}</span>` : ''}
+        ${item.model ? `<span class="tag">cloud: ${escHtml(item.model)}</span>` : ''}
+        ${item.cost != null ? `<span class="tag">$${Number(item.cost).toFixed(4)}</span>` : ''}
+        ${item.complexity != null ? `<span class="tag">complexity ${escHtml(String(item.complexity))}</span>` : ''}
+        ${item.local_model ? `<span class="tag">local: ${escHtml(item.local_model)}</span>` : ''}
+      </div>
+      <div class="cc-tabs">
+        <button class="cc-tab-btn active" id="cc-rtab-local" onclick="switchCCResponseTab('local')">
+          Local ${item.local_latency_ms ? `(${Math.round(item.local_latency_ms)}ms)` : ''}
+        </button>
+        ${hasCloud ? `<button class="cc-tab-btn" id="cc-rtab-cloud" onclick="switchCCResponseTab('cloud')">Cloud</button>` : ''}
+      </div>
+      <div class="cc-response active" id="cc-resp-local">
+        ${hasLocal ? escHtml(item.local_response) : '<span style="color:var(--text-faint);font-style:italic">Generating... (no local response cached)</span>'}
+      </div>
+      ${hasCloud ? `<div class="cc-response" id="cc-resp-cloud">${escHtml(item.cloud_response)}</div>` : ''}
+      <div class="cc-actions">
+        <button class="cc-vote-btn local-ok" onclick="castVote('${escAttr(item.prompt_hash)}', 'local_ok')"
+                title="Local answer was good enough">
+          &#x2713; Local was fine <span class="cc-kbd">1</span>
+        </button>
+        <button class="cc-vote-btn cloud-needed" onclick="castVote('${escAttr(item.prompt_hash)}', 'cloud_needed')"
+                title="Cloud was genuinely needed">
+          &#x2717; Cloud needed <span class="cc-kbd">2</span>
+        </button>
+        <button class="cc-vote-btn skip" onclick="skipCCCard()"
+                title="Skip this card">
+          Skip <span class="cc-kbd">S</span>
+        </button>
+      </div>
+    </div>`;
+
+  // Keyboard shortcuts
+  document.removeEventListener('keydown', ccKeyHandler);
+  document.addEventListener('keydown', ccKeyHandler);
+}
+
+function ccKeyHandler(e) {
+  if (activeTab !== 'closecalls') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const item = ccState.items.filter(it => !it.voted)[0];
+  if (!item) return;
+  if (e.key === '1') { e.preventDefault(); castVote(item.prompt_hash, 'local_ok'); }
+  if (e.key === '2') { e.preventDefault(); castVote(item.prompt_hash, 'cloud_needed'); }
+  if (e.key === 's' || e.key === 'S') { e.preventDefault(); skipCCCard(); }
+}
+
+function switchCCResponseTab(tab) {
+  const localResp = document.getElementById('cc-resp-local');
+  const cloudResp = document.getElementById('cc-resp-cloud');
+  const localBtn  = document.getElementById('cc-rtab-local');
+  const cloudBtn  = document.getElementById('cc-rtab-cloud');
+  if (tab === 'local') {
+    if (localResp) localResp.classList.add('active');
+    if (cloudResp) cloudResp.classList.remove('active');
+    if (localBtn)  localBtn.classList.add('active');
+    if (cloudBtn)  cloudBtn.classList.remove('active');
+  } else {
+    if (localResp) localResp.classList.remove('active');
+    if (cloudResp) cloudResp.classList.add('active');
+    if (localBtn)  localBtn.classList.remove('active');
+    if (cloudBtn)  cloudBtn.classList.add('active');
+  }
+}
+
+async function castVote(promptHash, verdict) {
+  // Immediately mark item as voted in local state
+  const item = ccState.items.find(it => it.prompt_hash === promptHash);
+  if (item) {
+    item.voted = true;
+    item.verdict = verdict;
+    ccState.voted += 1;
+  }
+
+  // Render next card immediately (no delay)
+  renderCCProgress();
+  renderCCCard();
+
+  // Fire-and-forget POST
+  fetch('/api/review/vote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt_hash: promptHash, verdict }),
+  }).catch(err => console.warn('Vote save error:', err));
+}
+
+function skipCCCard() {
+  const unvoted = ccState.items.filter(it => !it.voted);
+  if (unvoted.length <= 1) return; // nothing to skip to
+  // Move first unvoted item to end
+  const item = unvoted[0];
+  const idx = ccState.items.indexOf(item);
+  ccState.items.splice(idx, 1);
+  ccState.items.push(item);
+  renderCCCard();
+}
+
+function showCCDone() {
+  const main = document.getElementById('cc-main');
+  const localOkCount = ccState.items.filter(it => it.verdict === 'local_ok').length;
+  const totalVoted = ccState.items.filter(it => it.voted).length;
+  const pct = totalVoted > 0 ? Math.round((localOkCount / totalVoted) * 100) : 0;
+  main.innerHTML = `
+    <div class="cc-done-screen visible">
+      <div class="cc-done-icon">&#x2713;</div>
+      <div class="cc-done-title">Review complete!</div>
+      <div class="cc-done-sub">
+        ${localOkCount} / ${totalVoted} said local was fine (${pct}%)<br>
+        ${totalVoted - localOkCount} required cloud.
+      </div>
+    </div>`;
+}
+
+// Hook into existing switchTab to load close-calls lazily
+const _origSwitchTab = window.switchTab;
+window.switchTab = function(name) {
+  _origSwitchTab(name);
+  if (name === 'closecalls') loadCloseCalls();
+};
+
+// Expose functions needed by inline onclick handlers (module scope fix)
+window.castVote = castVote;
+window.skipCCCard = skipCCCard;
+window.switchCCResponseTab = switchCCResponseTab;
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function escAttr(s) {
+  return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+</script>
+
+</body>
+</html>

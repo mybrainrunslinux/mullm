@@ -1,0 +1,2971 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>muLLM — 3D Asset Pipeline</title>
+  <meta name="description" content="muLLM 3D asset generation pipeline — browse, generate, and download AI-crafted 3D models from text prompts." />
+  <meta name="theme-color" content="#0a0a1a" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.json" />
+  <!-- Three.js r165 + addons via importmap -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    /* ── Reset & Tokens ──────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:      #0a0a1a;
+      --bg2:     #0f0f2a;
+      --bg3:     #141428;
+      --border:  #1e1e3a;
+      --teal:    #00bfa5;
+      --teal-dim:#007a6a;
+      --coral:   #ff6b6b;
+      --coral-dim:#9a3030;
+      --amber:   #f59e0b;
+      --purple:  #a78bfa;
+      --green:   #22c55e;
+      --text:    #e2e8f0;
+      --text2:   #94a3b8;
+      --text3:   #5a6a7a;
+      --mono:    "JetBrains Mono", "Fira Code", monospace;
+      --sans:    "Inter", -apple-system, sans-serif;
+      color-scheme: dark;
+    }
+    [data-theme="light"] {
+      --bg:     #f0f4ff;
+      --bg2:    #e8edf8;
+      --bg3:    #dce3f0;
+      --border: #c5cfe0;
+      --teal:   #007a6a;
+      --teal-dim:#004d42;
+      --coral:  #c0392b;
+      --text:   #0f1730;
+      --text2:  #3a4a5e;
+      --text3:  #6a7a8e;
+      color-scheme: light;
+    }
+
+    /* ── Accessibility ── */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--teal); color: #000;
+      padding: 8px 16px; z-index: 10000;
+      font-weight: 600; border-radius: 0 0 8px 0;
+      transition: top 0.2s; font-family: var(--mono); font-size: 13px;
+    }
+    .skip-link:focus { top: 0; }
+    *:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+    /* ── Typography ── */
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); overflow-x: hidden;
+      line-height: 1.6;
+    }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: rgba(10, 10, 26, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px; display: flex;
+      align-items: center; gap: 14px;
+      font-family: var(--mono); font-size: 13px;
+      position: sticky; top: 0; z-index: 200;
+      flex-wrap: wrap;
+    }
+    .logo {
+      font-weight: 700; font-size: 14px; letter-spacing: 1px;
+      color: var(--teal); text-decoration: none;
+      text-shadow: 0 0 12px rgba(0,191,165,0.4);
+      display: flex; align-items: center; gap: 0;
+    }
+    .logo-mu {
+      color: var(--amber);
+      text-shadow: 0 0 12px rgba(245,158,11,0.3);
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 18px; font-style: italic; line-height: 14px;
+    }
+    .logo-pipe {
+      color: var(--text3); font-size: 20px; line-height: 14px;
+      margin: 0 -1px; font-weight: 400; opacity: 0.5; position: relative; top: -1px;
+    }
+    .logo-llm { color: var(--teal); letter-spacing: 1px; }
+    .logo-tardi {
+      height: 14px; margin-left: 6px; opacity: 0.7;
+      filter: invert(70%) sepia(30%) saturate(600%) hue-rotate(120deg) brightness(1.1);
+      transition: opacity 0.2s;
+    }
+    .logo-tardi:hover { opacity: 1; }
+    .topbar-spacer { flex: 1; }
+    .nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+    .nav-link {
+      padding: 4px 10px; border-radius: 6px; font-size: .82rem;
+      color: var(--text2); transition: all .15s; text-decoration: none;
+    }
+    .nav-link:hover { background: var(--bg3); color: var(--text); }
+    .nav-link.active {
+      background: linear-gradient(135deg, var(--teal), #00796b);
+      color: #000; font-weight: 600;
+    }
+    .theme-toggle {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text2); padding: 4px 10px; border-radius: 6px;
+      font-size: .82rem; transition: all .15s;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--teal); }
+
+    /* ── Tooltip (data-tooltip attr) ── */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 10px; background: var(--bg2);
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: .75rem; color: var(--text); white-space: nowrap;
+      z-index: 9999; pointer-events: none; font-family: var(--mono);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    [data-tooltip][data-tip-wide]:hover::after,
+    [data-tooltip][data-tip-wide]:focus-visible::after {
+      white-space: normal; width: 220px; text-align: left;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      position: relative; overflow: hidden;
+      min-height: clamp(280px, 40vh, 480px);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 40px 24px;
+      background: linear-gradient(135deg, #0a0a1a 0%, #0d1025 40%, #0a0e1a 100%);
+    }
+    #hero-canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .hero-content { position: relative; z-index: 2; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(0,191,165,0.12); border: 1px solid rgba(0,191,165,0.3);
+      border-radius: 100px; padding: 4px 14px;
+      font-family: var(--mono); font-size: .72rem;
+      color: var(--teal); letter-spacing: 1.5px;
+      text-transform: uppercase; margin-bottom: 18px;
+    }
+    .hero-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--teal); box-shadow: 0 0 6px var(--teal);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .hero-title {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 800; letter-spacing: -1px;
+      background: linear-gradient(135deg, #fff 0%, var(--teal) 50%, var(--coral) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1.15; margin-bottom: 16px;
+    }
+    .hero-sub {
+      font-size: clamp(0.9rem, 2vw, 1.1rem); color: var(--text2);
+      max-width: 560px; margin: 0 auto 28px;
+    }
+    .hero-cta-row {
+      display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--teal), #00796b);
+      color: #000; font-weight: 700; font-size: .9rem;
+      padding: 10px 24px; border: none; border-radius: 8px;
+      transition: transform 0.15s, box-shadow 0.15s;
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 44px; min-width: 44px;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(0,191,165,0.35);
+    }
+    .btn-secondary {
+      background: var(--bg3); color: var(--text);
+      font-weight: 600; font-size: .82rem;
+      padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 4px;
+      transition: all 0.15s; min-height: 38px;
+    }
+    .btn-secondary:hover { border-color: var(--teal); color: var(--teal); }
+    .ref-preview {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px; margin-top: 14px;
+      animation: detailIn 0.2s ease-out;
+    }
+    .btn-ghost {
+      background: transparent; color: var(--text2);
+      font-weight: 600; font-size: .9rem;
+      padding: 10px 24px; border: 1px solid var(--border);
+      border-radius: 8px; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 44px; min-width: 44px;
+    }
+    .btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
+
+    /* ── Section Layout ── */
+    .section { padding: 40px 24px; max-width: 1280px; margin: 0 auto; }
+    .section-title {
+      font-family: var(--mono); font-size: .72rem; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--text3); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .section-title::after {
+      content: ""; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ── Pipeline Status Cards ── */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px; margin-bottom: 32px;
+    }
+    .status-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 20px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .status-card::before {
+      content: ""; position: absolute; top: 0; left: 0;
+      right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--card-accent, var(--teal)), transparent);
+    }
+    .status-card:hover {
+      border-color: var(--teal); box-shadow: 0 4px 24px rgba(0,191,165,0.1);
+    }
+    .status-card-label {
+      font-family: var(--mono); font-size: .7rem;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text3); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .status-indicator {
+      width: 7px; height: 7px; border-radius: 50%;
+      display: inline-block; flex-shrink: 0;
+    }
+    .status-indicator.green {
+      background: var(--green); box-shadow: 0 0 6px var(--green);
+    }
+    .status-indicator.amber {
+      background: var(--amber); box-shadow: 0 0 6px var(--amber);
+    }
+    .status-indicator.red {
+      background: var(--coral); box-shadow: 0 0 6px var(--coral);
+    }
+    .status-indicator.pulse {
+      animation: pulse-indicator 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse-indicator {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+    .status-card-value {
+      font-size: 1.8rem; font-weight: 800;
+      font-family: var(--mono); color: var(--text); line-height: 1.1;
+    }
+    .status-card-sub {
+      font-size: .75rem; color: var(--text3); margin-top: 4px;
+    }
+
+    /* ── Layout: Gallery + Sidebar ── */
+    .gallery-layout {
+      display: grid;
+      grid-template-columns: 1fr minmax(240px, 280px);
+      gap: 24px; align-items: start;
+    }
+    @media (max-width: 900px) {
+      .gallery-layout { grid-template-columns: 1fr; }
+      .sidebar { order: -1; }
+    }
+
+    /* ── Gallery Grid ── */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .asset-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+      cursor: pointer; position: relative;
+    }
+    .asset-card:hover, .asset-card:focus-visible {
+      border-color: var(--teal);
+      box-shadow: 0 8px 32px rgba(0,191,165,0.15);
+      transform: translateY(-3px);
+    }
+    .asset-card:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    .asset-thumb {
+      width: 100%; aspect-ratio: 1;
+      background: var(--bg3);
+      position: relative; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .asset-thumb canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+    }
+    .asset-thumb-placeholder {
+      font-size: 3rem; opacity: 0.3; user-select: none;
+      transition: opacity 0.2s;
+    }
+    .asset-card:hover .asset-thumb-placeholder { opacity: 0.5; }
+    .asset-thumb-tag {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,0.82); border: 1px solid var(--border);
+      border-radius: 4px; padding: 2px 7px;
+      font-family: var(--mono); font-size: .65rem;
+      color: var(--text2); text-transform: uppercase; letter-spacing: 1px;
+    }
+    .asset-thumb-tag.meshy   { border-color: var(--teal);   color: var(--teal); }
+    .asset-thumb-tag.comfyui { border-color: var(--purple); color: var(--purple); }
+    .asset-thumb-tag.procedural { border-color: var(--coral); color: var(--coral); }
+    .asset-info {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 6px 10px; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; gap: 6px;
+      pointer-events: none;
+    }
+    .asset-name {
+      font-weight: 600; font-size: .75rem;
+      color: var(--text); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; flex: 1;
+    }
+    .asset-meta {
+      font-family: var(--mono); font-size: .6rem; color: var(--text3);
+    }
+    .asset-footer {
+      padding: 4px 10px; display: flex; align-items: center; justify-content: space-between;
+      background: transparent;
+    }
+    .asset-size {
+      font-family: var(--mono); font-size: .65rem; color: var(--text3);
+    }
+    .btn-download {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text2); padding: 4px 10px; font-size: .75rem;
+      font-family: var(--mono); display: flex; align-items: center; gap: 4px;
+      transition: all .15s; min-height: 32px;
+    }
+    .btn-download:hover {
+      border-color: var(--teal); color: var(--teal);
+      background: rgba(0,191,165,0.06);
+    }
+
+    /* ── Empty Gallery State ── */
+    .gallery-empty {
+      grid-column: 1 / -1;
+      text-align: center; padding: 60px 24px;
+      background: var(--bg2); border: 2px dashed var(--border);
+      border-radius: 16px; color: var(--text3);
+    }
+    .gallery-empty-icon { font-size: 4rem; margin-bottom: 16px; opacity: 0.4; }
+    .gallery-empty-title {
+      font-size: 1.1rem; font-weight: 600; color: var(--text2); margin-bottom: 8px;
+    }
+    .gallery-empty-sub { font-size: .88rem; max-width: 380px; margin: 0 auto; }
+
+    /* ── Sidebar ── */
+    .sidebar { display: flex; flex-direction: column; gap: 16px; }
+    .sidebar-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 20px;
+    }
+    .sidebar-card-title {
+      font-family: var(--mono); font-size: .7rem;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text3); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .stat-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 6px 0; border-bottom: 1px solid var(--border);
+      font-size: .85rem;
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-row-label { color: var(--text2); }
+    .stat-row-value { font-family: var(--mono); font-weight: 700; color: var(--text); }
+    .stat-row-value.teal { color: var(--teal); }
+    .stat-row-value.coral { color: var(--coral); }
+    .stat-row-value.green { color: var(--green); }
+    .stat-row-value.amber { color: var(--amber); }
+
+    /* ── Generate Form ── */
+    .generate-section {
+      background: linear-gradient(135deg, rgba(0,191,165,0.05), rgba(255,107,107,0.05));
+      border: 1px solid rgba(0,191,165,0.2);
+      border-radius: 16px; padding: 28px; margin-bottom: 32px;
+    }
+    .form-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .form-label {
+      font-family: var(--mono); font-size: .72rem;
+      text-transform: uppercase; letter-spacing: 1.5px; color: var(--text3);
+    }
+    .form-input, .form-textarea {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: var(--sans);
+      font-size: .9rem; padding: 10px 14px; width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      resize: vertical; min-height: 44px;
+    }
+    .form-input:focus, .form-textarea:focus {
+      outline: none; border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(0,191,165,0.12);
+    }
+    .form-select {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: var(--mono);
+      font-size: .85rem; padding: 10px 14px; width: 100%;
+      appearance: none; cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+      padding-right: 36px;
+      transition: border-color 0.2s;
+      min-height: 44px;
+    }
+    .form-select:focus {
+      outline: none; border-color: var(--teal);
+    }
+    .form-row-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 480px) { .form-row-inline { grid-template-columns: 1fr; } }
+
+    /* ── Progress Bar ── */
+    .progress-wrap {
+      display: none; margin-top: 16px;
+      background: var(--bg3); border-radius: 8px; overflow: hidden;
+      border: 1px solid var(--border); padding: 16px;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-label {
+      font-family: var(--mono); font-size: .75rem; color: var(--text2);
+      margin-bottom: 8px; display: flex; justify-content: space-between;
+    }
+    .progress-bar-track {
+      background: var(--bg); border-radius: 4px; height: 6px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; border-radius: 4px;
+      background: linear-gradient(90deg, var(--teal), var(--coral));
+      width: 0%; transition: width 0.5s ease;
+      position: relative; overflow: hidden;
+    }
+    .progress-bar-fill::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+      animation: shimmer-bar 1.5s infinite;
+    }
+    @keyframes shimmer-bar {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .progress-steps {
+      display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+    }
+    .progress-step {
+      font-family: var(--mono); font-size: .68rem;
+      padding: 2px 8px; border-radius: 4px;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text3); transition: all 0.3s;
+    }
+    .progress-step.active {
+      background: rgba(0,191,165,0.1); border-color: var(--teal); color: var(--teal);
+    }
+    .progress-step.done {
+      background: rgba(34,197,94,0.1); border-color: var(--green); color: var(--green);
+    }
+
+    /* ── Model Viewer Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+      padding: 16px; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; width: 100%; max-width: 720px;
+      max-height: 90vh; overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+      transform: scale(0.96) translateY(16px);
+      transition: transform 0.25s;
+    }
+    .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+    }
+    .modal-title {
+      font-weight: 700; font-size: 1rem; color: var(--text);
+    }
+    .modal-close {
+      background: none; border: none; color: var(--text3); font-size: 1.3rem;
+      line-height: 1; padding: 4px; border-radius: 4px; transition: color 0.15s;
+      min-width: 44px; min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-close:hover { color: var(--coral); }
+    .modal-viewer {
+      width: 100%; aspect-ratio: 4/3;
+      background: radial-gradient(ellipse at center, #0f0f2a 0%, #050510 100%);
+      position: relative; overflow: hidden;
+    }
+    .modal-viewer canvas { width: 100% !important; height: 100% !important; }
+    .modal-controls {
+      padding: 12px 20px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+    .viewer-hint {
+      font-family: var(--mono); font-size: .7rem; color: var(--text3);
+      flex: 1;
+    }
+
+    /* ── Glassmorphism card variant ── */
+    .glass-card {
+      background: rgba(15,15,42,0.92);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ── Skeleton ── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%);
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s infinite;
+      border-radius: 6px;
+    }
+    @keyframes skeleton-shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; padding: 32px 24px;
+      font-family: var(--mono); font-size: .7rem; color: var(--text3);
+      border-top: 1px solid var(--border); margin-top: 40px;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    /* ── Toast Notification ── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 18px;
+      font-size: .85rem; color: var(--text);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      z-index: 5000; transform: translateY(80px); opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      max-width: 320px; display: flex; gap: 10px; align-items: center;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { border-color: var(--green); }
+    .toast.error { border-color: var(--coral); }
+    .toast.info { border-color: var(--teal); }
+
+    /* ── Pipeline diagram ── */
+    .pipeline-diagram {
+      display: flex; align-items: center; gap: 0;
+      flex-wrap: wrap; margin-bottom: 28px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 18px; overflow: visible;
+    }
+    .pipeline-step {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 4px; min-width: 80px; padding: 8px 12px;
+      font-family: var(--mono); font-size: .68rem; text-align: center;
+      color: var(--text3); border-radius: 8px; transition: background 0.2s;
+    }
+    .pipeline-step:hover { background: var(--bg3); color: var(--text); }
+    .pipeline-step-icon { font-size: 1.4rem; }
+    .pipeline-arrow {
+      color: var(--text3); font-size: 1rem; margin: 0 2px; flex-shrink: 0;
+      margin-top: -8px;
+    }
+    .pipeline-step.active { background: rgba(0,191,165,0.1); color: var(--teal); }
+    .pipeline-step:hover { cursor: pointer; }
+
+    /* ── Input mode tabs ── */
+    .input-tab {
+      background: transparent; border: none; border-bottom: 2px solid transparent;
+      color: var(--text3); font-family: var(--mono); font-size: .8rem;
+      padding: 8px 18px; cursor: pointer; transition: all 0.15s;
+    }
+    .input-tab:hover { color: var(--text); }
+    .input-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+    /* ── Upload dropzone ── */
+    .upload-dropzone {
+      border: 2px dashed var(--border); border-radius: 12px;
+      padding: 28px; text-align: center; cursor: pointer;
+      transition: all 0.2s; display: flex; flex-direction: column;
+      align-items: center; gap: 8px; color: var(--text3);
+      font-family: var(--mono); font-size: .82rem;
+    }
+    .upload-dropzone:hover, .upload-dropzone.dragover {
+      border-color: var(--teal); background: rgba(0,191,165,0.05);
+    }
+
+    /* ── Generating card ── */
+    .asset-card.generating { border: 1px solid var(--teal); animation: genPulse 2s infinite; }
+    @keyframes genPulse { 0%,100% { border-color: var(--teal); } 50% { border-color: var(--amber); } }
+    .gen-spinner {
+      width: 40px; height: 40px; border: 3px solid var(--border);
+      border-top-color: var(--teal); border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .gen-spinner-small {
+      position: absolute; bottom: 8px; right: 8px;
+      width: 20px; height: 20px; border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: var(--teal); border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .gen-status { color: var(--amber) !important; font-style: italic; }
+
+    /* ── Try It button ── */
+    .btn-try {
+      background: linear-gradient(135deg, var(--teal), #007a6a);
+      color: #000; font-weight: 700; font-size: .7rem;
+      padding: 3px 10px; border: none; border-radius: 6px;
+      cursor: pointer; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 3px;
+    }
+    .btn-try:hover { transform: translateY(-1px); box-shadow: 0 3px 12px rgba(0,191,165,0.4); }
+    .asset-prompt { font-family: var(--mono); font-size: .68rem; color: var(--text3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Pipeline detail panels ── */
+    .pipeline-details { margin-top: 8px; }
+    .pipeline-detail {
+      display: none; background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 22px; margin-top: 10px;
+      animation: detailIn 0.2s ease-out;
+    }
+    .pipeline-detail.open { display: block; }
+    @keyframes detailIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    .pipeline-detail h4 { color: var(--teal); font-size: .95rem; margin-bottom: 8px; font-family: var(--mono); }
+    .pipeline-detail p { font-size: .82rem; color: var(--text2); line-height: 1.6; margin-bottom: 8px; }
+    .pipeline-detail ul { padding-left: 20px; margin: 6px 0 10px; }
+    .pipeline-detail li { font-size: .82rem; color: var(--text2); line-height: 1.6; margin-bottom: 4px; }
+    .pipeline-detail code { font-family: var(--mono); background: var(--bg3); padding: 2px 6px; border-radius: 4px; font-size: .78rem; }
+
+    /* ── Filter controls ── */
+    .filter-pills {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+    }
+    .filter-pill {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 100px; padding: 4px 12px;
+      font-family: var(--mono); font-size: .72rem;
+      color: var(--text2); cursor: pointer;
+      transition: all 0.15s; min-height: 30px;
+      display: inline-flex; align-items: center;
+    }
+    .filter-pill:hover { border-color: var(--teal); color: var(--teal); }
+    .filter-pill.active {
+      background: rgba(0,191,165,0.15); border-color: var(--teal);
+      color: var(--teal); font-weight: 600;
+    }
+    .filter-pill.meshy.active   { background: rgba(0,191,165,0.15); border-color: var(--teal); color: var(--teal); }
+    .filter-pill.comfyui.active { background: rgba(167,139,250,0.15); border-color: var(--purple); color: var(--purple); }
+    .filter-pill.procedural.active { background: rgba(255,107,107,0.15); border-color: var(--coral); color: var(--coral); }
+    .filter-search {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: var(--sans);
+      font-size: .85rem; padding: 8px 12px; width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      min-height: 38px;
+    }
+    .filter-search:focus {
+      outline: none; border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(0,191,165,0.12);
+    }
+    .filter-search::placeholder { color: var(--text3); }
+    .filter-result-count {
+      font-family: var(--mono); font-size: .68rem;
+      color: var(--text3); margin-top: 8px;
+      text-align: right;
+    }
+
+    /* ── Mobile tweaks ── */
+    @media (max-width: 600px) {
+      .topbar { padding: 8px 16px; }
+      .section { padding: 28px 16px; }
+      .hero { padding: 28px 16px; }
+      .generate-section { padding: 20px 16px; }
+      .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <!-- Topbar -->
+  <div class="topbar" role="banner">
+    <a href="/" class="logo" aria-label="muLLM home">
+      <span class="logo-mu">m&#956;</span><span class="logo-pipe">&#x2502;</span><span class="logo-llm">LLM</span>
+      <img class="logo-tardi"
+        src="/static/tardigrade.svg"
+        alt="tardigrade" title="Tardigrade mascot" />
+    </a>
+    <div class="topbar-spacer"></div>
+    <nav class="nav-links" aria-label="Main navigation">
+      <a href="/chat" class="nav-link" data-tooltip="Chat with muLLM">Chat</a>
+      <a href="/dashboard" class="nav-link" data-tooltip="Savings dashboard">Dashboard</a>
+      <a href="/performance" class="nav-link" data-tooltip="Performance metrics">Performance</a>
+      <a href="/games" class="nav-link" data-tooltip="AI-generated games">Games</a>
+      <a href="/3d" class="nav-link active" aria-current="page" data-tooltip="3D asset pipeline">3D</a>
+      <a href="/unblock" class="nav-link" data-tooltip="Agent status">Unblock</a>
+    </nav>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" data-tooltip="Toggle theme">
+      <span id="theme-icon">&#x1F319;</span>
+    </button>
+  </div>
+
+  <!-- Hero Section -->
+  <section class="hero" aria-label="3D Asset Pipeline hero">
+    <canvas id="hero-canvas" aria-hidden="true"></canvas>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="hero-badge-dot" aria-hidden="true"></span>
+        3D Generation Pipeline
+      </div>
+      <h1 class="hero-title">3D Asset Pipeline</h1>
+      <p class="hero-sub">
+        Text-to-3D via Meshy AI and ComfyUI. Generate, preview, and download
+        production-ready GLB models &#x2014; powered by muLLM local routing at $0.00 per prompt.
+      </p>
+      <div class="hero-cta-row">
+        <button class="btn-primary" onclick="document.getElementById('generate-section').scrollIntoView({behavior:'smooth'})"
+          data-tooltip="Open the generation form">
+          &#x2728; Generate New Model
+        </button>
+        <button class="btn-ghost" onclick="document.getElementById('gallery-section').scrollIntoView({behavior:'smooth'})"
+          data-tooltip="Browse existing assets">
+          &#x1F5C3; Browse Gallery
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <main id="main" role="main">
+
+    <!-- Pipeline Diagram -->
+    <div class="section" style="padding-bottom:0">
+      <p class="section-title">How it works <span style="font-size:.7rem;color:var(--text3);font-weight:400">(click any step to learn more)</span></p>
+      <div class="pipeline-diagram" role="list" aria-label="Generation pipeline steps">
+        <div class="pipeline-step" role="listitem" tabindex="0" onclick="toggleDetail('detail-prompt')"
+          data-tooltip="Text or image input &mdash; click for details">
+          <span class="pipeline-step-icon" aria-hidden="true">&#x270F;&#xFE0F;</span>
+          Input
+        </div>
+        <span class="pipeline-arrow" aria-hidden="true">&#x2192;</span>
+        <div class="pipeline-step" role="listitem" tabindex="0" onclick="toggleDetail('detail-classify')"
+          data-tooltip="muLLM classifies complexity &amp; routes &mdash; click for details">
+          <span class="pipeline-step-icon" aria-hidden="true">&#x1F9E0;</span>
+          Classify
+        </div>
+        <span class="pipeline-arrow" aria-hidden="true">&#x2192;</span>
+        <div class="pipeline-step" role="listitem" tabindex="0" onclick="toggleDetail('detail-generate')"
+          data-tooltip="Local or cloud mesh generation &mdash; click for details">
+          <span class="pipeline-step-icon" aria-hidden="true">&#x2699;&#xFE0F;</span>
+          Generate
+        </div>
+        <span class="pipeline-arrow" aria-hidden="true">&#x2192;</span>
+        <div class="pipeline-step" role="listitem" tabindex="0" onclick="toggleDetail('detail-texture')"
+          data-tooltip="Optional texture pass via ComfyUI SDXL &mdash; click for details">
+          <span class="pipeline-step-icon" aria-hidden="true">&#x1F3A8;</span>
+          Texture
+        </div>
+        <span class="pipeline-arrow" aria-hidden="true">&#x2192;</span>
+        <div class="pipeline-step" role="listitem" tabindex="0" onclick="toggleDetail('detail-export')"
+          data-tooltip="GLB saved to assets/3d/ &mdash; click for details">
+          <span class="pipeline-step-icon" aria-hidden="true">&#x1F4E6;</span>
+          Export
+        </div>
+        <span class="pipeline-arrow" aria-hidden="true">&#x2192;</span>
+        <div class="pipeline-step" role="listitem" tabindex="0" onclick="toggleDetail('detail-preview')"
+          data-tooltip="Three.js orbit viewer &mdash; click for details">
+          <span class="pipeline-step-icon" aria-hidden="true">&#x1F453;</span>
+          Preview
+        </div>
+      </div>
+
+      <!-- Expandable detail panels -->
+      <div class="pipeline-details">
+        <div class="pipeline-detail" id="detail-prompt">
+          <h4>Input: Text or Image</h4>
+          <p><strong>Text-to-3D:</strong> Describe what you want &mdash; "a medieval longsword with golden crossguard". Works with both local (ComfyUI) and cloud (Meshy) pipelines.</p>
+          <p><strong>Image-to-3D:</strong> Upload or paste an image URL. The model extracts depth and shape to build a mesh. Meshy supports this directly; ComfyUI uses CLIP vision + Hunyuan3Dv2.</p>
+          <p><strong>Multi-object:</strong> Ask for "three swords and a kraken" &mdash; muLLM splits the prompt and generates each object in parallel.</p>
+        </div>
+        <div class="pipeline-detail" id="detail-classify">
+          <h4>Classify &amp; Route (muLLM)</h4>
+          <p>muLLM's classifier analyzes your prompt complexity (1-4 scale) and picks the cheapest capable pipeline:</p>
+          <ul>
+            <li><strong>Simple objects</strong> (sword, chair, tree) &rarr; <span style="color:var(--green)">ComfyUI local ($0)</span> on the RTX 5090</li>
+            <li><strong>Complex/organic</strong> (dragon, character, detailed scene) &rarr; <span style="color:var(--amber)">Meshy cloud (~$0.10)</span> as escalation</li>
+            <li><strong>Procedural</strong> (basic shapes, crystals) &rarr; <span style="color:var(--green)">Three.js procedural ($0)</span></li>
+          </ul>
+          <p>You can override the auto-routing with the "Via" dropdown in the generate form.</p>
+        </div>
+        <div class="pipeline-detail" id="detail-generate">
+          <h4>Mesh Generation</h4>
+          <p><strong>ComfyUI (local, $0):</strong> Uses Hunyuan3Dv2 on the RTX 5090. Text &rarr; CLIP vision &rarr; 3D voxel &rarr; mesh via VoxelToMesh. Supports text-to-3D and image-to-3D. Output is GLB via SaveGLB node. ~30-90 seconds depending on complexity.</p>
+          <p><strong>Meshy API (cloud, ~$0.10):</strong> Commercial text-to-3D and image-to-3D service. Handles complex organic shapes well. Preview mode (~1 min), refine mode (~3 min). GLB download on completion.</p>
+          <p>Both pipelines output standard GLB files. The router escalates to Meshy only when ComfyUI isn't running or for high-complexity prompts.</p>
+        </div>
+        <div class="pipeline-detail" id="detail-texture">
+          <h4>Texture Refinement (Optional)</h4>
+          <p>After mesh generation from either pipeline, you can optionally run a texture pass through ComfyUI's SDXL pipeline on the 5090:</p>
+          <ul>
+            <li><strong>UV unwrap</strong> the generated mesh</li>
+            <li><strong>SDXL inpaint</strong> generates high-res textures matching your prompt</li>
+            <li><strong>PBR maps</strong> (albedo, normal, roughness) for realistic materials</li>
+          </ul>
+          <p>This works for meshes from both ComfyUI and Meshy &mdash; the texture pass is always local ($0). Run the texture workspace after generation when you want an explicit material refinement pass.</p>
+        </div>
+        <div class="pipeline-detail" id="detail-export">
+          <h4>Export &amp; Storage</h4>
+          <p>Generated models are saved as GLB files to <code>assets/3d/</code> with a sidecar JSON containing metadata (source, prompt, timestamp, cost).</p>
+          <p>Cloud-generated models (Meshy) are automatically downloaded and stored locally. All assets are served via the muLLM static file server.</p>
+        </div>
+        <div class="pipeline-detail" id="detail-preview">
+          <h4>3D Preview</h4>
+          <p>The gallery shows all assets with Three.js orbit viewers. Click any card to open a full-screen viewer with orbit controls, zoom, and download.</p>
+          <p>Assets from any source (ComfyUI, Meshy, manual drop) appear automatically. Large files (50-100MB+) may take a moment to load.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline Status -->
+    <div class="section" style="padding-bottom:0">
+      <p class="section-title">Pipeline Status</p>
+      <div class="status-grid" id="status-grid" role="status" aria-label="Pipeline status indicators" aria-live="polite">
+        <!-- injected by JS -->
+        <div class="status-card" style="--card-accent:var(--teal)">
+          <div class="status-card-label">
+            <span class="status-indicator amber pulse" aria-label="loading"></span>
+            muLLM Router
+          </div>
+          <div class="status-card-value skeleton" style="width:60px;height:28px;margin-bottom:4px"></div>
+          <div class="status-card-sub skeleton" style="width:100px;height:12px"></div>
+        </div>
+        <div class="status-card" style="--card-accent:var(--purple)">
+          <div class="status-card-label">
+            <span class="status-indicator amber pulse" aria-label="loading"></span>
+            Meshy API
+          </div>
+          <div class="status-card-value skeleton" style="width:60px;height:28px;margin-bottom:4px"></div>
+          <div class="status-card-sub skeleton" style="width:100px;height:12px"></div>
+        </div>
+        <div class="status-card" style="--card-accent:var(--coral)">
+          <div class="status-card-label">
+            <span class="status-indicator amber pulse" aria-label="loading"></span>
+            ComfyUI
+          </div>
+          <div class="status-card-value skeleton" style="width:60px;height:28px;margin-bottom:4px"></div>
+          <div class="status-card-sub skeleton" style="width:100px;height:12px"></div>
+        </div>
+        <div class="status-card" style="--card-accent:var(--green)">
+          <div class="status-card-label">
+            <span class="status-indicator amber pulse" aria-label="loading"></span>
+            Total Assets
+          </div>
+          <div class="status-card-value skeleton" style="width:60px;height:28px;margin-bottom:4px"></div>
+          <div class="status-card-sub skeleton" style="width:100px;height:12px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generate New + Gallery layout -->
+    <div class="section">
+
+      <!-- Generate Form -->
+      <div id="generate-section">
+        <p class="section-title">Generate New 3D Model</p>
+        <div class="generate-section glass-card" role="region" aria-label="3D model generation form">
+          <!-- Input mode tabs -->
+          <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)">
+            <button class="input-tab active" id="tab-text" onclick="setInputMode('text')"
+              aria-label="Text to 3D" data-tooltip="Describe what you want and SDXL generates a reference image">Text to 3D</button>
+            <button class="input-tab" id="tab-image" onclick="setInputMode('image')"
+              aria-label="Image to 3D" data-tooltip="Upload your own reference image for direct conversion">Image to 3D</button>
+          </div>
+
+          <!-- Text input -->
+          <div class="form-row" id="input-text-area">
+            <label class="form-label" for="gen-prompt">Text Prompt</label>
+            <textarea class="form-textarea" id="gen-prompt" rows="3"
+              placeholder="A medieval longsword with an ornate golden crossguard and ruby inlay..."
+              aria-describedby="gen-prompt-hint" maxlength="500"></textarea>
+            <span id="gen-prompt-hint" style="font-family:var(--mono);font-size:.7rem;color:var(--text3)">
+              Be descriptive. Include material, style, and scale references for best results.
+            </span>
+          </div>
+
+          <!-- Image upload area (hidden by default) -->
+          <div class="form-row" id="input-image-area" style="display:none">
+            <label class="form-label">Upload Reference Image</label>
+            <div id="upload-dropzone" class="upload-dropzone" role="button" tabindex="0"
+              aria-label="Drop an image or click to upload"
+              data-tooltip="PNG/JPG reference image — white background with centered object works best">
+              <div id="upload-placeholder">
+                <span style="font-size:2rem" aria-hidden="true">&#x1F4F7;</span>
+                <span>Drop image here or click to browse</span>
+                <span style="font-size:.7rem;color:var(--text3)">PNG/JPG &bull; White background, centered object</span>
+              </div>
+              <img id="upload-preview" style="display:none;max-height:200px;border-radius:8px" alt="Uploaded reference" />
+              <input type="file" id="upload-file" accept="image/png,image/jpeg" style="display:none" />
+            </div>
+          </div>
+
+          <div class="form-row-inline">
+            <div class="form-row" style="margin-bottom:0">
+              <label class="form-label" for="gen-asset-type">Asset Type</label>
+              <select class="form-select" id="gen-asset-type" aria-label="Generated asset type"
+                data-tooltip="Adds generation hints and tags the finished model for dojo/game tools.">
+                <option value="auto" selected>Auto</option>
+                <option value="sword">Sword</option>
+                <option value="weapon">Weapon</option>
+                <option value="siege">Siege</option>
+                <option value="character">Character</option>
+                <option value="building">Building</option>
+                <option value="prop">Prop</option>
+              </select>
+            </div>
+            <div class="form-row" style="margin-bottom:0">
+              <label class="form-label" for="gen-style">Style</label>
+              <select class="form-select" id="gen-style" aria-label="3D model style">
+                <option value="realistic">Realistic</option>
+                <option value="cartoon">Cartoon</option>
+                <option value="low-poly" selected>Low-Poly</option>
+                <option value="voxel">Voxel</option>
+                <option value="sci-fi">Sci-Fi</option>
+                <option value="stylized">Stylized</option>
+              </select>
+            </div>
+            <div class="form-row" style="margin-bottom:0">
+              <label class="form-label" for="gen-source">Via</label>
+              <select class="form-select" id="gen-source" aria-label="Generation backend">
+                <option value="auto" selected>Auto (local first)</option>
+                <option value="comfyui">ComfyUI (5090 local, $0)</option>
+                <option value="meshy">Meshy API (cloud, ~$0.10)</option>
+                <option value="procedural">Procedural ($0)</option>
+              </select>
+            </div>
+            <div class="form-row" style="margin-bottom:0">
+              <label class="form-label" for="gen-workflow">Workflow</label>
+              <select class="form-select" id="gen-workflow" aria-label="Generation workflow"
+                data-tooltip="Preview first: generate reference image, review, then convert to 3D. Direct: skip preview, go straight to 3D.">
+                <option value="preview" selected>Preview first (recommended)</option>
+                <option value="direct">Direct to 3D</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+            <label style="font-family:var(--mono);font-size:.72rem;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer"
+              data-tooltip="Auto-refine adds PBR textures via Meshy for +$0.10. Only applies when using Meshy API.">
+              <input type="checkbox" id="gen-refine" style="accent-color:var(--teal)">
+              Include textures (+$0.10, Meshy only)
+            </label>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button class="btn-primary" id="gen-btn" onclick="submitGenerate()"
+              data-tooltip="Submit generation request via muLLM router">
+              <span id="gen-btn-icon" aria-hidden="true">&#x2728;</span>
+              <span id="gen-btn-label">Generate 3D Model</span>
+            </button>
+            <span style="font-family:var(--mono);font-size:.72rem;color:var(--text3)" aria-live="polite" id="gen-cost-label">
+              Estimating cost...
+            </span>
+          </div>
+          <div class="progress-wrap" id="progress-wrap" aria-live="polite" aria-label="Generation progress">
+            <div class="progress-label">
+              <span id="progress-label-text">Initializing...</span>
+              <span id="progress-pct">0%</span>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <div class="progress-steps" id="progress-steps">
+              <span class="progress-step" id="step-classify">Classify</span>
+              <span class="progress-step" id="step-route">Route</span>
+              <span class="progress-step" id="step-mesh">Mesh</span>
+              <span class="progress-step" id="step-texture">Texture</span>
+              <span class="progress-step" id="step-export">Export</span>
+            </div>
+          </div>
+        </div>
+
+          <!-- Reference Image Preview Panel -->
+          <div class="ref-preview" id="ref-preview" style="display:none">
+            <p class="section-title" style="margin-top:8px;font-size:.9rem">Reference Image Preview</p>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+              <div style="flex:1;min-width:200px;max-width:400px">
+                <img id="ref-preview-img" src="" alt="Generated reference image"
+                  style="width:100%;border-radius:12px;border:1px solid var(--border);background:var(--bg3)" />
+              </div>
+              <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:10px">
+                <p style="font-family:var(--mono);font-size:.78rem;color:var(--text2)" id="ref-preview-info">
+                  SDXL reference image generated on RTX 5090 ($0.00)
+                </p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn-primary" onclick="approveRef()" id="ref-approve-btn"
+                    data-tooltip="Send this image to Hunyuan3Dv2 for 3D conversion">
+                    &#x2705; Convert to 3D
+                  </button>
+                  <button class="btn-secondary" onclick="regenerateRef()"
+                    data-tooltip="Generate a new reference image with a different seed">
+                    &#x1F504; Regenerate
+                  </button>
+                  <button class="btn-secondary" onclick="dismissRef()"
+                    data-tooltip="Cancel and close preview">
+                    &#x274C; Cancel
+                  </button>
+                </div>
+                <p style="font-family:var(--mono);font-size:.7rem;color:var(--text3)">
+                  Approve sends the image through Hunyuan3Dv2 &rarr; VoxelToMesh &rarr; GLB on the 5090.
+                  Regenerate creates a new SDXL reference. Both are $0.00 local.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gallery + Sidebar layout -->
+      <div class="gallery-layout" id="gallery-section">
+        <!-- Gallery -->
+        <div>
+          <p class="section-title" style="margin-top:8px">Asset Gallery</p>
+          <div class="gallery-grid" id="gallery-grid" role="list" aria-label="3D asset gallery" aria-live="polite">
+            <!-- Cards injected by JS -->
+            <div class="asset-card skeleton" style="height:280px" aria-hidden="true"></div>
+            <div class="asset-card skeleton" style="height:280px" aria-hidden="true"></div>
+            <div class="asset-card skeleton" style="height:280px" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar" aria-label="Pipeline statistics and filters">
+
+          <!-- Filter Card (top, above Quick Generate and Stats) -->
+          <div class="sidebar-card">
+            <p class="sidebar-card-title">&#x1F50D; Filter Gallery</p>
+
+            <!-- Source filter pills -->
+            <label style="font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);display:block;margin-bottom:6px">Source</label>
+            <div class="filter-pills" role="group" aria-label="Filter by source">
+              <button class="filter-pill active" id="pill-all" onclick="setSourceFilter('all')"
+                data-tooltip="Show all sources" aria-pressed="true">All</button>
+              <button class="filter-pill meshy" id="pill-meshy" onclick="setSourceFilter('meshy')"
+                data-tooltip="Show Meshy assets only" aria-pressed="false">Meshy</button>
+              <button class="filter-pill comfyui" id="pill-comfyui" onclick="setSourceFilter('comfyui')"
+                data-tooltip="Show ComfyUI assets only" aria-pressed="false">ComfyUI</button>
+              <button class="filter-pill procedural" id="pill-procedural" onclick="setSourceFilter('procedural')"
+                data-tooltip="Show procedural assets only" aria-pressed="false">Procedural</button>
+            </div>
+
+            <!-- Category dropdown -->
+            <label class="form-label" for="filter-category" style="margin-top:8px;display:block">Category</label>
+            <select class="form-select" id="filter-category" onchange="setCategoryFilter(this.value)"
+              aria-label="Filter by category" style="margin-bottom:10px">
+              <option value="all">All categories</option>
+              <option value="Sword">Sword</option>
+              <option value="Siege">Siege</option>
+              <option value="Creature">Creature</option>
+              <option value="Prop">Prop</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <!-- Search box -->
+            <label class="form-label" for="filter-search">Search</label>
+            <input type="search" class="filter-search" id="filter-search"
+              placeholder="Name or prompt..." autocomplete="off" spellcheck="false"
+              oninput="scheduleFilterSearch(this.value)"
+              aria-label="Search assets by name or prompt" />
+
+            <div class="filter-result-count" id="filter-count" aria-live="polite"></div>
+          </div>
+
+          <!-- Quick Generate (moved above Stats) -->
+          <div class="sidebar-card">
+            <p class="sidebar-card-title">&#x26A1; Quick Generate</p>
+            <div style="display:flex;flex-direction:column;gap:6px" role="list" aria-label="Quick generate examples">
+              <button class="btn-ghost" style="justify-content:flex-start;font-size:.78rem;padding:8px 12px"
+                onclick="quickGen('A fantasy crystal sword with glowing blue runes')"
+                data-tooltip="Click to populate the generate form" role="listitem">
+                &#x1F5E1;&#xFE0F; Crystal sword
+              </button>
+              <button class="btn-ghost" style="justify-content:flex-start;font-size:.78rem;padding:8px 12px"
+                onclick="quickGen('A low-poly pine tree suitable for a game scene')"
+                data-tooltip="Click to populate the generate form" role="listitem">
+                &#x1F332; Pine tree (low-poly)
+              </button>
+              <button class="btn-ghost" style="justify-content:flex-start;font-size:.78rem;padding:8px 12px"
+                onclick="quickGen('A sci-fi space station control panel with glowing screens')"
+                data-tooltip="Click to populate the generate form" role="listitem">
+                &#x1F6F8; Space station panel
+              </button>
+              <button class="btn-ghost" style="justify-content:flex-start;font-size:.78rem;padding:8px 12px"
+                onclick="quickGen('A cartoon wooden treasure chest with metal bands and a padlock')"
+                data-tooltip="Click to populate the generate form" role="listitem">
+                &#x1F4B0; Treasure chest
+              </button>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="sidebar-card">
+            <p class="sidebar-card-title">&#x1F4CA; Stats</p>
+            <div class="stat-row">
+              <span class="stat-row-label">Total assets</span>
+              <span class="stat-row-value teal" id="stat-total">&#x2014;</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Generated today</span>
+              <span class="stat-row-value amber" id="stat-today">&#x2014;</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Avg generation time</span>
+              <span class="stat-row-value" id="stat-avg-time">&#x2014;</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">Cloud cost saved</span>
+              <span class="stat-row-value green" id="stat-saved">&#x2014;</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row-label">GPU VRAM free</span>
+              <span class="stat-row-value" id="stat-vram">&#x2014;</span>
+            </div>
+            <button class="btn-secondary" style="width:100%;margin-top:10px;font-size:.72rem"
+              onclick="freeVRAM()" data-tooltip="Unload Ollama models to free VRAM for 3D generation">
+              &#x1F4A8; Free VRAM for 3D
+            </button>
+            <div id="vram-detail" style="font-family:var(--mono);font-size:.65rem;color:var(--text3);margin-top:6px"></div>
+          </div>
+
+          <!-- Source Breakdown -->
+          <div class="sidebar-card">
+            <p class="sidebar-card-title">&#x1F3AF; Source Breakdown</p>
+            <div id="source-breakdown">
+              <div class="stat-row">
+                <span class="stat-row-label">Meshy</span>
+                <span class="stat-row-value teal" id="src-meshy">0</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-row-label">ComfyUI</span>
+                <span class="stat-row-value" style="color:var(--purple)" id="src-comfyui">0</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-row-label">Procedural</span>
+                <span class="stat-row-value coral" id="src-procedural">0</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <!-- Model Viewer Modal -->
+  <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-label="3D model viewer"
+    onclick="if(event.target===this)closeModal()">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">Model Viewer</span>
+        <button class="modal-close" onclick="closeModal()" aria-label="Close model viewer"
+          data-tooltip="Close (Esc)">&#x2715;</button>
+      </div>
+      <div class="modal-viewer" id="modal-viewer">
+        <!-- Three.js canvas injected here -->
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);
+          font-family:var(--mono);font-size:.8rem;flex-direction:column;gap:12px" id="modal-placeholder">
+          <span style="font-size:3rem;opacity:0.3" aria-hidden="true">&#x1F4E6;</span>
+          <span>No GLB file available &#x2014; viewer shows procedural preview</span>
+        </div>
+      </div>
+      <div class="modal-controls">
+        <span class="viewer-hint" aria-label="Orbit controls hint">
+          Drag to orbit &bull; Scroll to zoom &bull; Right-drag to pan
+        </span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select class="form-select" id="modal-texture-select" style="font-size:.75rem;padding:4px 8px;min-width:120px"
+            aria-label="Quick texture material" data-tooltip="Apply procedural GLSL material to untextured mesh"
+            onchange="applyQuickTexture(this.value)">
+            <option value="">Original</option>
+            <option value="wood">Wood</option>
+            <option value="stone">Stone</option>
+            <option value="metal">Metal</option>
+            <option value="crystal">Crystal</option>
+            <option value="ice">Ice</option>
+            <option value="lava">Lava</option>
+            <option value="matcap-gold">Matcap: Gold</option>
+            <option value="matcap-silver">Matcap: Silver</option>
+            <option value="matcap-jade">Matcap: Jade</option>
+          </select>
+          <button class="btn-download" id="modal-download" aria-label="Download GLB file"
+            data-tooltip="Download the GLB model file" onclick="downloadCurrentAsset()">
+            &#x2B07; Download GLB
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+  <footer>
+    <span>muLLM 3D Pipeline &bull; Three.js r165 &bull; Local-first &bull; $0 routing via Ollama</span>
+  </footer>
+
+  <!-- Three.js module scripts -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    // ── Expose to global scope for onclick handlers ──────────────
+    window._THREE = THREE;
+    window._OrbitControls = OrbitControls;
+    window._GLTFLoader = GLTFLoader;
+
+    // ── Hero Canvas ─────────────────────────────────────────────
+    (function initHero() {
+      const canvas = document.getElementById('hero-canvas');
+      if (!canvas) return;
+
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+      camera.position.set(0, 0, 8);
+
+      // Ambient + directional lights
+      scene.add(new THREE.AmbientLight(0x112233, 0.6));
+      const dl = new THREE.DirectionalLight(0x00bfa5, 1.2);
+      dl.position.set(5, 8, 5);
+      scene.add(dl);
+      const dl2 = new THREE.DirectionalLight(0xff6b6b, 0.6);
+      dl2.position.set(-5, -3, 3);
+      scene.add(dl2);
+
+      // Floating geometry objects
+      const objects = [];
+      const geoFactories = [
+        () => new THREE.BoxGeometry(0.8, 0.8, 0.8),
+        () => new THREE.SphereGeometry(0.5, 16, 16),
+        () => new THREE.OctahedronGeometry(0.55),
+        () => new THREE.TetrahedronGeometry(0.6),
+        () => new THREE.IcosahedronGeometry(0.48, 0),
+        () => new THREE.TorusGeometry(0.38, 0.15, 12, 24),
+        () => new THREE.ConeGeometry(0.4, 0.85, 6),
+        () => new THREE.DodecahedronGeometry(0.5),
+      ];
+
+      const matColors = [0x00bfa5, 0xff6b6b, 0xa78bfa, 0xf59e0b, 0x22c55e, 0x3b82f6];
+
+      for (let i = 0; i < 22; i++) {
+        const geo = geoFactories[i % geoFactories.length]();
+        const color = matColors[i % matColors.length];
+        const mat = new THREE.MeshPhongMaterial({
+          color,
+          emissive: color, emissiveIntensity: 0.08,
+          transparent: true, opacity: 0.55,
+          wireframe: i % 3 === 0,
+          shininess: 60,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        const r = 3.5 + Math.random() * 3.5;
+        const theta = (i / 22) * Math.PI * 2 + Math.random() * 0.5;
+        const phi = (Math.random() - 0.5) * Math.PI;
+        mesh.position.set(
+          r * Math.cos(theta) * Math.cos(phi),
+          r * Math.sin(phi) * 1.2,
+          r * Math.sin(theta) * Math.cos(phi) - 2,
+        );
+        mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        mesh.userData.rotSpeed = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.006,
+          (Math.random() - 0.5) * 0.009,
+          (Math.random() - 0.5) * 0.005,
+        );
+        mesh.userData.floatPhase = Math.random() * Math.PI * 2;
+        mesh.userData.floatAmp = 0.08 + Math.random() * 0.12;
+        mesh.userData.baseY = mesh.position.y;
+        scene.add(mesh);
+        objects.push(mesh);
+      }
+
+      function resize() {
+        const hero = canvas.parentElement;
+        const w = hero.offsetWidth, h = hero.offsetHeight;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      resize();
+      const ro = new ResizeObserver(resize);
+      ro.observe(canvas.parentElement);
+
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+      let t = 0;
+
+      function animate() {
+        requestAnimationFrame(animate);
+        if (prefersReduced.matches) { renderer.render(scene, camera); return; }
+        t += 0.016;
+        objects.forEach(m => {
+          m.rotation.x += m.userData.rotSpeed.x;
+          m.rotation.y += m.userData.rotSpeed.y;
+          m.rotation.z += m.userData.rotSpeed.z;
+          m.position.y = m.userData.baseY + Math.sin(t + m.userData.floatPhase) * m.userData.floatAmp;
+        });
+        camera.position.x = Math.sin(t * 0.05) * 0.8;
+        camera.position.y = Math.sin(t * 0.03) * 0.4;
+        camera.lookAt(0, 0, 0);
+        renderer.render(scene, camera);
+      }
+      animate();
+    })();
+
+    // ── Modal Viewer ─────────────────────────────────────────────
+    let modalRenderer = null, modalScene = null, modalCamera = null;
+    let modalControls = null, modalAnimId = null, modalGLTF = null;
+
+    function initModalViewer(container) {
+      if (modalRenderer) {
+        modalRenderer.dispose();
+        modalRenderer = null;
+      }
+      if (modalAnimId) { cancelAnimationFrame(modalAnimId); modalAnimId = null; }
+
+      const w = container.offsetWidth || 640;
+      const h = container.offsetHeight || 480;
+
+      modalScene = new THREE.Scene();
+      modalScene.background = new THREE.Color(0x050510);
+
+      // Grid floor
+      const grid = new THREE.GridHelper(8, 16, 0x1e1e3a, 0x1e1e3a);
+      grid.position.y = -1.2;
+      modalScene.add(grid);
+
+      // Lights — neutral white to show actual textures, slight warm fill
+      modalScene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const key = new THREE.DirectionalLight(0xffffff, 1.2);
+      key.position.set(4, 6, 4);
+      modalScene.add(key);
+      const fill = new THREE.DirectionalLight(0xffe8d0, 0.4);
+      fill.position.set(-4, 2, -3);
+      modalScene.add(fill);
+      const rim = new THREE.DirectionalLight(0xd0e0ff, 0.3);
+      rim.position.set(0, -3, -5);
+      modalScene.add(rim);
+
+      modalCamera = new THREE.PerspectiveCamera(45, w / h, 0.01, 100);
+      modalCamera.position.set(2.5, 1.8, 2.5);
+
+      modalRenderer = new THREE.WebGLRenderer({ antialias: true });
+
+      // Generate environment map for PBR material reflections using the
+      // SAME renderer that will render the scene (avoids cross-context
+      // texture issues from creating a throwaway WebGLRenderer).
+      const pmremGen = new THREE.PMREMGenerator(modalRenderer);
+      const envScene = new THREE.Scene();
+      envScene.background = new THREE.Color(0x333344);
+      envScene.add(new THREE.AmbientLight(0xffffff, 0.8));
+      const el1 = new THREE.PointLight(0xffffff, 6, 20); el1.position.set(5, 5, 5); envScene.add(el1);
+      const el2 = new THREE.PointLight(0xffe0c0, 3, 20); el2.position.set(-5, 3, -3); envScene.add(el2);
+      const el3 = new THREE.PointLight(0xc0d0ff, 2, 20); el3.position.set(0, -2, 5); envScene.add(el3);
+      const envMap = pmremGen.fromScene(envScene).texture;
+      pmremGen.dispose();
+      modalScene.environment = envMap;
+      modalRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      modalRenderer.setSize(w, h);
+      modalRenderer.shadowMap.enabled = true;
+      modalRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+      modalRenderer.toneMappingExposure = 1.4;
+      container.appendChild(modalRenderer.domElement);
+
+      modalControls = new OrbitControls(modalCamera, modalRenderer.domElement);
+      modalControls.enableDamping = true;
+      modalControls.dampingFactor = 0.06;
+      modalControls.minDistance = 0.5;
+      modalControls.maxDistance = 20;
+      modalControls.autoRotate = true;
+      modalControls.autoRotateSpeed = 1.2;
+
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+      if (prefersReduced.matches) modalControls.autoRotate = false;
+
+      function loop() {
+        modalAnimId = requestAnimationFrame(loop);
+        modalControls.update();
+        modalRenderer.render(modalScene, modalCamera);
+      }
+      loop();
+
+      // Resize
+      const ro2 = new ResizeObserver(() => {
+        if (!modalRenderer) return;
+        const cw = container.offsetWidth, ch = container.offsetHeight;
+        modalRenderer.setSize(cw, ch);
+        modalCamera.aspect = cw / ch;
+        modalCamera.updateProjectionMatrix();
+      });
+      ro2.observe(container);
+    }
+
+    function loadGLB(url) {
+      if (!modalScene) return;
+      const loader = new _GLTFLoader();
+      loader.load(url, (gltf) => {
+        modalGLTF = gltf.scene;
+        // Center and scale
+        const box = new THREE.Box3().setFromObject(modalGLTF);
+        const size = box.getSize(new THREE.Vector3()).length();
+        const center = box.getCenter(new THREE.Vector3());
+        modalGLTF.position.sub(center);
+        const scale = 2 / size;
+        modalGLTF.scale.setScalar(scale);
+        modalScene.add(modalGLTF);
+        modalCamera.position.set(2.5, 1.8, 2.5);
+        modalControls.target.set(0, 0, 0);
+        modalControls.update();
+      }, undefined, (err) => {
+        console.warn('GLB load error:', err);
+        addProceduralMesh();
+      });
+    }
+
+    function addProceduralMesh() {
+      if (!modalScene) return;
+      const geo = new THREE.IcosahedronGeometry(1, 2);
+      const mat = new THREE.MeshPhongMaterial({
+        color: 0x00bfa5, emissive: 0x003322, shininess: 80,
+        transparent: true, opacity: 0.85,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      modalScene.add(mesh);
+      // Wireframe overlay
+      const wmat = new THREE.MeshBasicMaterial({ color: 0xff6b6b, wireframe: true, transparent: true, opacity: 0.2 });
+      modalScene.add(new THREE.Mesh(geo, wmat));
+    }
+
+    // ── Procedural GLSL textures ──────────────────────────────
+    const _NOISE_GLSL = `
+      vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
+      vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}
+      vec4 permute(vec4 x){return mod289((x*34.+1.)*x);}
+      vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}
+      float snoise(vec3 v){
+        const vec2 C=vec2(1./6.,1./3.);const vec4 D=vec4(0.,.5,1.,2.);
+        vec3 i=floor(v+dot(v,C.yyy)),x0=v-i+dot(i,C.xxx),g=step(x0.yzx,x0.xyz);
+        vec3 l=1.-g,i1=min(g,l.zxy),i2=max(g,l.zxy);
+        vec3 x1=x0-i1+C.x,x2=x0-i2+C.y,x3=x0-D.yyy;
+        i=mod289(i);vec4 p=permute(permute(permute(i.z+vec4(0.,i1.z,i2.z,1.))+i.y+vec4(0.,i1.y,i2.y,1.))+i.x+vec4(0.,i1.x,i2.x,1.));
+        float n_=.142857142857;vec3 ns=n_*D.wyz-D.xzx;
+        vec4 j=p-49.*floor(p*ns.z*ns.z);vec4 x_=floor(j*ns.z),y_=floor(j-7.*x_);
+        vec4 x=x_*ns.x+ns.yyyy,y=y_*ns.x+ns.yyyy,h=1.-abs(x)-abs(y);
+        vec4 b0=vec4(x.xy,y.xy),b1=vec4(x.zw,y.zw);
+        vec4 s0=floor(b0)*2.+1.,s1=floor(b1)*2.+1.;
+        vec4 sh=-step(h,vec4(0));
+        vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy,a1=b1.xzyw+s1.xzyw*sh.zzww;
+        vec3 p0=vec3(a0.xy,h.x),p1=vec3(a0.zw,h.y),p2=vec3(a1.xy,h.z),p3=vec3(a1.zw,h.w);
+        vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+        p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
+        vec4 m=max(.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.);m=m*m;
+        return 42.*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+      }`;
+
+    const _VERT = `varying vec3 vPos; varying vec3 vNorm; varying vec2 vUv;
+      void main(){ vPos=position; vNorm=normal; vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`;
+
+    const TEXTURE_SHADERS = {
+      wood: { frag: `${_NOISE_GLSL}
+        varying vec3 vPos; varying vec3 vNorm;
+        void main(){
+          float ring = sin(length(vPos.xz)*8.+snoise(vPos*2.)*3.)*0.5+0.5;
+          float grain = snoise(vPos*vec3(1.,8.,1.))*0.15;
+          vec3 col = mix(vec3(.35,.2,.08), vec3(.55,.35,.15), ring+grain);
+          float light = max(dot(normalize(vNorm), normalize(vec3(1,2,1))), 0.2);
+          gl_FragColor = vec4(col*light, 1.);
+        }` },
+      stone: { frag: `${_NOISE_GLSL}
+        varying vec3 vPos; varying vec3 vNorm;
+        void main(){
+          float n = snoise(vPos*3.)*.3+snoise(vPos*8.)*.1;
+          vec3 col = mix(vec3(.35,.33,.3), vec3(.55,.52,.48), n+.5);
+          float light = max(dot(normalize(vNorm), normalize(vec3(1,2,1))), 0.25);
+          gl_FragColor = vec4(col*light, 1.);
+        }` },
+      metal: { frag: `${_NOISE_GLSL}
+        varying vec3 vPos; varying vec3 vNorm;
+        void main(){
+          float n = snoise(vPos*12.)*.05;
+          vec3 viewDir = normalize(cameraPosition-vPos);
+          float fresnel = pow(1.-max(dot(normalize(vNorm),viewDir),0.), 3.);
+          vec3 base = vec3(.6,.62,.65)+n;
+          vec3 col = mix(base, vec3(.9,.92,.95), fresnel);
+          float light = max(dot(normalize(vNorm), normalize(vec3(1,2,1))), 0.3);
+          gl_FragColor = vec4(col*light, 1.);
+        }` },
+      crystal: { frag: `${_NOISE_GLSL}
+        varying vec3 vPos; varying vec3 vNorm; uniform float uTime;
+        void main(){
+          float n = snoise(vPos*4.+uTime*.5)*.3;
+          vec3 viewDir = normalize(cameraPosition-vPos);
+          float fresnel = pow(1.-max(dot(normalize(vNorm),viewDir),0.), 2.5);
+          vec3 col = mix(vec3(.05,.3,.5), vec3(.2,.8,1.), fresnel+n);
+          col += vec3(.1,.6,.8)*fresnel*.5;
+          float light = max(dot(normalize(vNorm), normalize(vec3(1,2,1))), 0.3);
+          gl_FragColor = vec4(col*light*1.3, .85);
+        }`, transparent: true },
+      ice: { frag: `${_NOISE_GLSL}
+        varying vec3 vPos; varying vec3 vNorm;
+        void main(){
+          float n = snoise(vPos*6.)*.2;
+          vec3 viewDir = normalize(cameraPosition-vPos);
+          float fresnel = pow(1.-max(dot(normalize(vNorm),viewDir),0.), 3.);
+          vec3 col = mix(vec3(.7,.85,.95), vec3(.9,.95,1.), fresnel+n);
+          float light = max(dot(normalize(vNorm), normalize(vec3(1,2,1))), 0.35);
+          gl_FragColor = vec4(col*light, .9);
+        }`, transparent: true },
+      lava: { frag: `${_NOISE_GLSL}
+        varying vec3 vPos; varying vec3 vNorm; uniform float uTime;
+        void main(){
+          float n = snoise(vPos*3.+vec3(0,uTime*.3,0));
+          float glow = smoothstep(.0,.6, n);
+          vec3 col = mix(vec3(.15,.02,.02), vec3(1.,.4,.05), glow);
+          col += vec3(1.,.6,.1)*pow(glow,3.)*.5;
+          float light = max(dot(normalize(vNorm), normalize(vec3(1,2,1))), 0.4);
+          gl_FragColor = vec4(col*light, 1.);
+        }` },
+    };
+
+    // Matcap generator — creates a spherical matcap texture on canvas
+    function generateMatcap(color1, color2, highlight) {
+      const s = 256, c = document.createElement('canvas');
+      c.width = s; c.height = s;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createRadialGradient(s*.4, s*.35, 0, s*.5, s*.5, s*.55);
+      grad.addColorStop(0, highlight);
+      grad.addColorStop(0.4, color1);
+      grad.addColorStop(1, color2);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, s, s);
+      return new THREE.CanvasTexture(c);
+    }
+
+    const MATCAPS = {
+      'matcap-gold': () => generateMatcap('#ffd700', '#8b6914', '#fffacd'),
+      'matcap-silver': () => generateMatcap('#c0c0c0', '#505050', '#f0f0ff'),
+      'matcap-jade': () => generateMatcap('#00a86b', '#004d33', '#80ffcc'),
+    };
+
+    let _originalMaterials = null;
+    let _shaderTime = { value: 0 };
+
+    function applyQuickTexture(type) {
+      if (!modalGLTF) return;
+
+      // Save originals on first call
+      if (!_originalMaterials) {
+        _originalMaterials = new Map();
+        modalGLTF.traverse(obj => {
+          if (obj.isMesh) _originalMaterials.set(obj, obj.material);
+        });
+      }
+
+      // Restore originals
+      if (!type) {
+        _originalMaterials.forEach((mat, obj) => { obj.material = mat; });
+        toast('Original material restored', 'info');
+        return;
+      }
+
+      // Matcap
+      if (type.startsWith('matcap-')) {
+        const tex = MATCAPS[type]();
+        const mat = new THREE.MeshMatcapMaterial({ matcap: tex });
+        modalGLTF.traverse(obj => { if (obj.isMesh) obj.material = mat; });
+        toast(`Matcap applied: ${type}`, 'success');
+        return;
+      }
+
+      // GLSL shader
+      const shader = TEXTURE_SHADERS[type];
+      if (!shader) return;
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: _VERT,
+        fragmentShader: shader.frag,
+        uniforms: { uTime: _shaderTime },
+        transparent: !!shader.transparent,
+      });
+      modalGLTF.traverse(obj => { if (obj.isMesh) obj.material = mat; });
+      toast(`Procedural ${type} texture applied`, 'success');
+    }
+
+    // Animate shader time for crystal/lava
+    (function tickShaderTime() {
+      _shaderTime.value += 0.016;
+      requestAnimationFrame(tickShaderTime);
+    })();
+
+    // Expose modal functions globally
+    window._initModalViewer = initModalViewer;
+    window._loadGLB = loadGLB;
+    window._addProceduralMesh = addProceduralMesh;
+    window.applyQuickTexture = applyQuickTexture;
+
+    // Expose ALL onclick-referenced functions to window (module scope is invisible to HTML onclick)
+    window.toggleDetail = toggleDetail;
+    window.setInputMode = setInputMode;
+    window.submitGenerate = submitGenerate;
+    window.quickGen = quickGen;
+    window.approveRef = approveRef;
+    window.regenerateRef = regenerateRef;
+    window.dismissRef = dismissRef;
+    window.freeVRAM = freeVRAM;
+    window.openAsset = openAsset;
+    window.closeModal = closeModal;
+    window.downloadCurrentAsset = downloadCurrentAsset;
+    window.downloadAsset = downloadAsset;
+    window.toggleTheme = toggleTheme;
+    window.setSourceFilter = typeof setSourceFilter !== 'undefined' ? setSourceFilter : () => {};
+    window.setCategoryFilter = typeof setCategoryFilter !== 'undefined' ? setCategoryFilter : () => {};
+    window.scheduleFilterSearch = typeof scheduleFilterSearch !== 'undefined' ? scheduleFilterSearch : () => {};
+    window._disposeModal = function() {
+      if (modalAnimId) { cancelAnimationFrame(modalAnimId); modalAnimId = null; }
+      if (modalRenderer) { modalRenderer.dispose(); modalRenderer = null; }
+      if (modalScene) {
+        modalScene.traverse(obj => {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+            else obj.material.dispose();
+          }
+        });
+        modalScene = null;
+      }
+      modalGLTF = null;
+    };
+
+    // Mini card viewers (on hover, deferred)
+    window._makeCardViewer = function(container, style) {
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 50);
+      camera.position.set(2, 1.5, 2);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(container.offsetWidth || 200, container.offsetHeight || 200);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      container.appendChild(renderer.domElement);
+
+      scene.add(new THREE.AmbientLight(0x334455, 0.9));
+      const dl = new THREE.DirectionalLight(0x00bfa5, 1.4);
+      dl.position.set(3, 4, 3);
+      scene.add(dl);
+
+      // Style-based geometry
+      const geoMap = {
+        realistic: new THREE.SphereGeometry(0.8, 24, 24),
+        cartoon:   new THREE.BoxGeometry(1, 1, 1),
+        'low-poly': new THREE.IcosahedronGeometry(0.9, 0),
+        voxel:     new THREE.BoxGeometry(0.9, 0.9, 0.9),
+        'sci-fi':  new THREE.OctahedronGeometry(0.85),
+        stylized:  new THREE.TorusKnotGeometry(0.55, 0.2, 64, 8),
+      };
+      const geo = geoMap[style] || new THREE.IcosahedronGeometry(0.85, 1);
+      const mat = new THREE.MeshPhongMaterial({ color: 0x00bfa5, shininess: 80 });
+      const mesh = new THREE.Mesh(geo, mat);
+      scene.add(mesh);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 2;
+      controls.enableZoom = false;
+      controls.enablePan = false;
+
+      let raf;
+      function loop() {
+        raf = requestAnimationFrame(loop);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      loop();
+
+      return { renderer, scene, camera, controls, raf };
+    };
+  </script>
+
+  <script>
+    // ── Utilities ────────────────────────────────────────────────
+    function $(id) { return document.getElementById(id); }
+
+    // ── Input mode toggle ──
+    let _inputMode = 'text';
+    let _uploadedFile = null;
+
+    function setInputMode(mode) {
+      _inputMode = mode;
+      $('tab-text').classList.toggle('active', mode === 'text');
+      $('tab-image').classList.toggle('active', mode === 'image');
+      $('input-text-area').style.display = mode === 'text' ? '' : 'none';
+      $('input-image-area').style.display = mode === 'image' ? '' : 'none';
+      // Hide workflow dropdown for image mode (no preview step needed — you already have the image)
+      const wfRow = $('gen-workflow').closest('.form-row');
+      if (wfRow) wfRow.style.display = mode === 'image' ? 'none' : '';
+    }
+
+    // File upload handling
+    const dropzone = $('upload-dropzone');
+    const fileInput = $('upload-file');
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('keydown', e => { if (e.key === 'Enter') fileInput.click(); });
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault(); dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) handleUploadFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) handleUploadFile(fileInput.files[0]);
+    });
+
+    function handleUploadFile(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        _uploadedFile = { name: file.name, data: reader.result };
+        $('upload-preview').src = reader.result;
+        $('upload-preview').style.display = '';
+        $('upload-placeholder').style.display = 'none';
+        toast(`Image loaded: ${file.name}`, 'success');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Pipeline detail panel toggle
+    function toggleDetail(id) {
+      const el = $(id);
+      if (!el) return;
+      const wasOpen = el.classList.contains('open');
+      // Close all panels first
+      document.querySelectorAll('.pipeline-detail').forEach(p => p.classList.remove('open'));
+      // Toggle the clicked one
+      if (!wasOpen) el.classList.add('open');
+    }
+    function toast(msg, type = 'info', duration = 3500) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.className = `toast ${type} show`;
+      clearTimeout(el._tid);
+      el._tid = setTimeout(() => { el.classList.remove('show'); }, duration);
+    }
+
+    // ── Theme ────────────────────────────────────────────────────
+    function applyTheme(t) {
+      document.documentElement.dataset.theme = t;
+      $('theme-icon').textContent = t === 'light' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+      localStorage.setItem('mullm-theme', t);
+    }
+    function toggleTheme() {
+      applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+    }
+    (function() {
+      const saved = localStorage.getItem('mullm-theme');
+      if (saved) { applyTheme(saved); return; }
+      if (window.matchMedia('(prefers-color-scheme: light)').matches) applyTheme('light');
+    })();
+
+    // ── Keyboard shortcuts ───────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // ── Fetch System Status ──────────────────────────────────────
+    // Live cost estimator — updates when source/refine changes
+    function updateCostEstimate() {
+      const src = $('gen-source') ? $('gen-source').value : 'auto';
+      const refine = $('gen-refine') ? $('gen-refine').checked : false;
+      let cost = '$0.00 (local)';
+      if (src === 'meshy') {
+        cost = refine ? '~$0.20 (Meshy preview + textures)' : '~$0.10 (Meshy preview)';
+      } else if (src === 'comfyui') {
+        cost = '$0.00 (ComfyUI local)';
+      } else if (src === 'auto') {
+        cost = 'Auto routing — local first, cloud if needed';
+      }
+      if ($('gen-cost-label')) $('gen-cost-label').textContent = cost;
+    }
+    // Bind to dropdowns
+    setTimeout(() => {
+      if ($('gen-source')) $('gen-source').addEventListener('change', updateCostEstimate);
+      if ($('gen-refine')) $('gen-refine').addEventListener('change', updateCostEstimate);
+      updateCostEstimate();
+    }, 500);
+
+    async function fetchStatus() {
+      let sys = {};
+      try {
+        const r = await fetch('/api/system');
+        if (r.ok) sys = await r.json();
+      } catch(_) {}
+
+      // GPU data is nested under sys.gpu
+      const gpu = sys.gpu || {};
+      const hasGpu = !!gpu.name;
+      const vramTotalMb = gpu.memory_total_mb || 0;
+      const vramUsedMb = gpu.memory_used_mb || 0;
+      const vramFreeMb = vramTotalMb - vramUsedMb;
+      const vramFreeGb = vramFreeMb / 1024;
+      const vramTotalGb = vramTotalMb / 1024;
+      const vramStr = hasGpu ? `${vramFreeGb.toFixed(1)} GB free` : 'No GPU';
+      const vramSub = hasGpu ? `${gpu.name} &bull; ${vramTotalGb.toFixed(1)} GB total` : 'No GPU detected';
+
+      // Fetch Meshy status from /api/setup/status
+      let meshyOk = false;
+      try {
+        const mr = await fetch('/api/setup/status');
+        if (mr.ok) { const ms = await mr.json(); meshyOk = !!ms.meshy; }
+      } catch(_) {}
+
+      // Check ComfyUI via backend proxy (avoids mixed-content HTTPS→HTTP block)
+      let comfyOk = false;
+      try {
+        const cr = await fetch('/api/comfyui/status');
+        if (cr.ok) { const cs = await cr.json(); comfyOk = !!cs.running; }
+      } catch(_) {}
+
+      const grid = $('status-grid');
+      grid.innerHTML = `
+        <div class="status-card" style="--card-accent:var(--teal)" data-tooltip="muLLM FastAPI router on :6856" data-tip-wide>
+          <div class="status-card-label">
+            <span class="status-indicator green" aria-label="online"></span>
+            muLLM Router
+          </div>
+          <div class="status-card-value">Online</div>
+          <div class="status-card-sub">:6856 &bull; Ollama local</div>
+        </div>
+        <div class="status-card" style="--card-accent:var(--purple)"
+          data-tooltip="Meshy API — text-to-3D mesh generation service. Requires MESHY_API_KEY." data-tip-wide>
+          <div class="status-card-label">
+            <span class="status-indicator ${meshyOk ? 'green' : 'amber'}" aria-label="${meshyOk ? 'configured' : 'not configured'}"></span>
+            Meshy API
+          </div>
+          <div class="status-card-value" style="font-size:1.2rem">${meshyOk ? 'Configured' : 'Unconfigured'}</div>
+          <div class="status-card-sub">${meshyOk ? 'Ready for text-to-3D' : 'Set MESHY_API_KEY to enable'}</div>
+        </div>
+        <div class="status-card" style="--card-accent:var(--coral)"
+          data-tooltip="ComfyUI — local diffusion pipeline for texture generation. Runs on :8188." data-tip-wide>
+          <div class="status-card-label">
+            <span class="status-indicator ${comfyOk ? 'green' : 'amber'}" aria-label="${comfyOk ? 'running' : 'not running'}"></span>
+            ComfyUI
+          </div>
+          <div class="status-card-value" style="font-size:1.2rem">${comfyOk ? 'Running' : 'Not running'}</div>
+          <div class="status-card-sub">${comfyOk ? ':8188 &bull; Ready' : 'Start on :8188 to enable'}</div>
+        </div>
+        <div class="status-card" style="--card-accent:var(--green)"
+          data-tooltip="GPU VRAM available for inference and 3D generation" data-tip-wide>
+          <div class="status-card-label">
+            <span class="status-indicator ${hasGpu ? 'green' : 'amber'}" aria-label="gpu status"></span>
+            GPU VRAM
+          </div>
+          <div class="status-card-value">${vramStr}</div>
+          <div class="status-card-sub">${vramSub}</div>
+        </div>
+      `;
+    }
+
+    // ── Fetch Assets ─────────────────────────────────────────────
+    let currentAssets = [];
+    let activeAsset = null;
+
+    async function fetchAssets() {
+      let data = { assets: [], total: 0 };
+      try {
+        const r = await fetch('/api/3d-assets');
+        if (r.ok) data = await r.json();
+      } catch(_) {}
+      currentAssets = data.assets || [];
+      applyFilters();
+      updateStats(currentAssets);
+    }
+
+    function updateStats(assets) {
+      $('stat-total').textContent = assets.length;
+      // "Today" is a rough approximation — count files modified in last 24h
+      // Since mtime isn't in the API response, we show 0 unless explicitly provided
+      const today = assets.filter(a => a.created_today).length;
+      $('stat-today').textContent = today;
+      $('stat-avg-time').textContent = assets.length ? '~45s' : '\u2014';
+      // Each Meshy generation costs ~$0.10; we compare vs $0.00 local routing
+      const saved = (assets.filter(a => a.source === 'meshy').length * 0.10).toFixed(2);
+      $('stat-saved').textContent = `$${saved}`;
+
+      // Source breakdown
+      const counts = { meshy: 0, comfyui: 0, procedural: 0 };
+      assets.forEach(a => {
+        const src = (a.source || 'procedural').toLowerCase();
+        if (counts[src] != null) counts[src]++;
+        else counts.procedural++;
+      });
+      $('src-meshy').textContent = counts.meshy;
+      $('src-comfyui').textContent = counts.comfyui;
+      $('src-procedural').textContent = counts.procedural;
+    }
+
+    function renderGallery(assets) {
+      const grid = $('gallery-grid');
+      if (!assets.length) {
+        const isFiltered = currentAssets.length > 0;
+        grid.innerHTML = isFiltered
+          ? `<div class="gallery-empty" role="status">
+              <div class="gallery-empty-icon" aria-hidden="true">&#x1F50D;</div>
+              <div class="gallery-empty-title">No assets match your filters</div>
+              <div class="gallery-empty-sub">Try a different source, category, or search term.</div>
+            </div>`
+          : `<div class="gallery-empty" role="status">
+              <div class="gallery-empty-icon" aria-hidden="true">&#x1F4E6;</div>
+              <div class="gallery-empty-title">No 3D assets yet</div>
+              <div class="gallery-empty-sub">
+                Generate your first model above, or drop .glb files into
+                <code style="font-family:var(--mono);background:var(--bg3);padding:2px 6px;border-radius:4px">assets/3d/</code>
+                to populate the gallery.
+              </div>
+            </div>`;
+        return;
+      }
+
+      const ICONS = { meshy: '&#x1F527;', comfyui: '&#x1F3A8;', procedural: '&#x2699;&#xFE0F;' };
+
+      grid.innerHTML = assets.map((a) => {
+        // Always use the real index in currentAssets so openAsset() works after filtering
+        const realIdx = currentAssets.indexOf(a);
+        const src = (a.source || 'procedural').toLowerCase();
+        const icon = ICONS[src] || '&#x1F4E6;';
+        const date = a.date || '';
+        const sizeStr = a.size_kb != null ? `${(a.size_kb / 1024).toFixed(1)} MB` : '';
+        const promptStr = a.prompt ? `<div class="asset-prompt" title="${a.prompt}">${a.prompt.slice(0,60)}${a.prompt.length > 60 ? '...' : ''}</div>` : '';
+        const thumbHtml = a.thumbnail
+          ? `<img src="${a.thumbnail}" alt="Reference for ${a.name}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;image-rendering:auto" loading="lazy" />`
+          : `<div class="asset-thumb-placeholder">${icon}</div>`;
+        const pipelineTag = a.pipeline && a.pipeline !== 'unknown' ? `<span class="asset-thumb-tag" style="left:auto;right:6px;bottom:6px;font-size:.6rem" aria-hidden="true">${a.pipeline}</span>` : '';
+        return `
+          <article class="asset-card" role="listitem" tabindex="0"
+            aria-label="${a.name} — ${src} 3D asset${a.prompt ? ': ' + a.prompt.slice(0,40) : ''}"
+            onclick="openAsset(${realIdx})" onkeydown="if(event.key==='Enter'||event.key===' ')openAsset(${realIdx})">
+            <div class="asset-thumb" id="thumb-${realIdx}" aria-hidden="true">
+              ${thumbHtml}
+              <span class="asset-thumb-tag ${src}" aria-hidden="true">${src}</span>
+              ${pipelineTag}
+            </div>
+            <div class="asset-info">
+              <div class="asset-name" title="${a.name}">${a.name}</div>
+              ${promptStr}
+              <div class="asset-meta">${date}${date && sizeStr ? ' &bull; ' : ''}${sizeStr}</div>
+            </div>
+            <div class="asset-footer">
+              <span class="asset-size">${sizeStr}</span>
+              ${getTryButton(a)}
+              <button class="btn-download"
+                onclick="event.stopPropagation();downloadAsset('${a.url}','${a.name}.glb')"
+                aria-label="Download ${a.name}.glb"
+                data-tooltip="Download GLB file">
+                &#x2B07; GLB
+              </button>
+            </div>
+          </article>`;
+      }).join('');
+
+      // Cards show reference image as primary — 3D preview only in modal on click
+    }
+
+    // ── Filter State & Logic ──────────────────────────────────────
+    const filterState = { source: 'all', category: 'all', query: '' };
+
+    const CATEGORY_KEYWORDS = {
+      Sword:    /sword|blade|katana|rapier|dagger|scythe/i,
+      Siege:    /catapult|trebuchet|ballista|ram\b|tower|wall\b|gate\b|boulder/i,
+      Creature: /dragon|golem|knight|spirit|seahorse/i,
+      Prop:     /chest|orb\b|lantern|potion|shield|dummy|pillar/i,
+    };
+
+    function categorizeAsset(asset) {
+      const text = `${asset.name || ''} ${asset.prompt || ''}`;
+      for (const [cat, re] of Object.entries(CATEGORY_KEYWORDS)) {
+        if (re.test(text)) return cat;
+      }
+      return 'Other';
+    }
+
+    function applyFilters() {
+      let filtered = currentAssets;
+
+      // Source filter
+      if (filterState.source !== 'all') {
+        filtered = filtered.filter(a =>
+          (a.source || 'procedural').toLowerCase() === filterState.source
+        );
+      }
+
+      // Category filter
+      if (filterState.category !== 'all') {
+        filtered = filtered.filter(a => categorizeAsset(a) === filterState.category);
+      }
+
+      // Text search
+      if (filterState.query.length > 0) {
+        const q = filterState.query.toLowerCase();
+        filtered = filtered.filter(a =>
+          (a.name || '').toLowerCase().includes(q) ||
+          (a.prompt || '').toLowerCase().includes(q)
+        );
+      }
+
+      renderGallery(filtered);
+
+      // Update result count
+      const countEl = $('filter-count');
+      if (countEl) {
+        const active = filterState.source !== 'all' || filterState.category !== 'all' || filterState.query.length > 0;
+        countEl.textContent = active
+          ? `${filtered.length} of ${currentAssets.length} asset${currentAssets.length !== 1 ? 's' : ''}`
+          : '';
+      }
+    }
+
+    function setSourceFilter(src) {
+      filterState.source = src;
+      // Update pill states
+      ['all', 'meshy', 'comfyui', 'procedural'].forEach(s => {
+        const pill = $(`pill-${s}`);
+        if (!pill) return;
+        pill.classList.toggle('active', s === src);
+        pill.setAttribute('aria-pressed', s === src ? 'true' : 'false');
+      });
+      applyFilters();
+    }
+
+    function setCategoryFilter(cat) {
+      filterState.category = cat;
+      applyFilters();
+    }
+
+    let _searchTimer = null;
+    function scheduleFilterSearch(val) {
+      clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(() => {
+        filterState.query = val.trim();
+        applyFilters();
+      }, 200);
+    }
+
+    // ── Asset Viewer Modal ───────────────────────────────────────
+    function openAsset(idx) {
+      const a = currentAssets[idx];
+      if (!a) return;
+      activeAsset = a;
+
+      $('modal-title').textContent = a.name;
+      $('modal-overlay').classList.add('open');
+      document.body.style.overflow = 'hidden';
+
+      const container = $('modal-viewer');
+      // Clear previous content
+      while (container.firstChild) container.removeChild(container.firstChild);
+      const ph = $('modal-placeholder');
+      if (ph) ph.remove();
+
+      // Defer viewer init until after CSS transition (250ms) so container has real dimensions
+      const assetUrl = a.url;
+      setTimeout(() => {
+        if (typeof window._initModalViewer === 'function') {
+          window._initModalViewer(container);
+          if (assetUrl && typeof window._loadGLB === 'function') {
+            window._loadGLB(assetUrl);
+          } else if (typeof window._addProceduralMesh === 'function') {
+            window._addProceduralMesh();
+          }
+        }
+        $('modal-title').focus();
+      }, 270);
+    }
+
+    function closeModal() {
+      $('modal-overlay').classList.remove('open');
+      document.body.style.overflow = '';
+      activeAsset = null;
+      if (typeof window._disposeModal === 'function') window._disposeModal();
+    }
+
+    function downloadCurrentAsset() {
+      if (!activeAsset) return;
+      downloadAsset(activeAsset.url, `${activeAsset.name}.glb`);
+    }
+
+    function downloadAsset(url, filename) {
+      if (!url) { toast('No GLB file available for this asset.', 'error'); return; }
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      toast(`Downloading ${filename}`, 'success');
+    }
+
+    // ── Generate Form ────────────────────────────────────────────
+    let generating = false;
+    const STEPS = ['classify', 'route', 'mesh', 'texture', 'export'];
+
+    function setStep(stepId, state) {
+      const el = $(`step-${stepId}`);
+      if (!el) return;
+      el.className = `progress-step ${state}`;
+    }
+
+    function setProgress(pct, label) {
+      const bar = $('progress-bar');
+      const pctEl = $('progress-pct');
+      const lblEl = $('progress-label-text');
+      bar.style.width = `${pct}%`;
+      bar.setAttribute('aria-valuenow', pct);
+      if (pctEl) pctEl.textContent = `${pct}%`;
+      if (lblEl) lblEl.textContent = label;
+    }
+
+    async function submitGenerate() {
+      if (generating) return;
+      const prompt = $('gen-prompt').value.trim();
+      if (_inputMode === 'text' && !prompt) {
+        toast('Please enter a text prompt.', 'error');
+        $('gen-prompt').focus();
+        return;
+      }
+      if (_inputMode === 'image' && !_uploadedFile) {
+        toast('Please upload a reference image.', 'error');
+        return;
+      }
+      const style = $('gen-style').value;
+      const source = $('gen-source').value;
+      const workflow = $('gen-workflow').value;
+      const assetType = selectedAssetType();
+      const generationPrompt = promptForAssetType(prompt || 'Image to 3D', assetType);
+
+      generating = true;
+      const btn = $('gen-btn');
+      $('gen-btn-icon').textContent = '\u23F3';
+      $('gen-btn-label').textContent = 'Generating...';
+      btn.disabled = true;
+
+      const pw = $('progress-wrap');
+      pw.classList.add('visible');
+      STEPS.forEach(s => setStep(s, ''));
+      setProgress(0, 'Initializing pipeline...');
+
+      // Image-to-3D: upload image and convert directly
+      if (_inputMode === 'image' && _uploadedFile) {
+        try {
+          setStep('classify', 'done');
+          setStep('route', 'done');
+          setStep('mesh', 'active');
+          setProgress(30, 'Uploading image...');
+          const uploadName = `upload_${Date.now()}.png`;
+          const assetName = (prompt || 'upload').replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0,40);
+          addGeneratingCard(assetName, prompt || 'Image to 3D');
+
+          // Upload image to server
+          const ur = await fetch('/api/3d/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_data: _uploadedFile.data, filename: uploadName }),
+          });
+          if (!ur.ok) throw new Error('Upload failed');
+          const ud = await ur.json();
+          if (ud.error) throw new Error(ud.error);
+
+          let cd;
+          if (source === 'meshy') {
+            // Meshy image-to-3D (cloud, ~$0.10, better quality)
+            setProgress(40, 'Sending to Meshy image-to-3D (~$0.10)...');
+            updateGeneratingCard(assetName, 'Meshy processing image...');
+            const mr = await fetch('/api/3d/image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image_path: `/opt/comfyui/input/${uploadName}`, ...assetTypePayload(assetType) }),
+            });
+            if (!mr.ok) throw new Error('Meshy image-to-3D failed');
+            const md = await mr.json();
+            if (md.error) throw new Error(md.error);
+            // Poll Meshy
+            for (let mi = 0; mi < 60; mi++) {
+              await sleep(5000);
+              const sr = await fetch(`/api/3d/status/${md.task_id}?endpoint=image-to-3d`);
+              if (sr.ok) {
+                const sd = await sr.json();
+                if (sd.status === 'complete') {
+                  const glbUrl = (sd.model_urls || {}).glb;
+                  if (glbUrl) {
+                    await fetch('/api/3d/download', {
+                      method: 'POST', headers: {'Content-Type':'application/json'},
+                      body: JSON.stringify({url: glbUrl, name: assetName, prompt: generationPrompt, source: 'meshy', pipeline: 'meshy-image-to-3d', ...assetTypePayload(assetType)}),
+                    });
+                  }
+                  // Auto-refine if checked
+                  if ($('gen-refine') && $('gen-refine').checked && md.task_id) {
+                    updateGeneratingCard(assetName, 'Refining for textures...');
+                    const rr = await fetch('/api/3d/refine', {
+                      method:'POST', headers:{'Content-Type':'application/json'},
+                      body: JSON.stringify({preview_task_id: md.task_id}),
+                    });
+                    const rd = await rr.json();
+                    if (rd.task_id) {
+                      for (let ri = 0; ri < 60; ri++) {
+                        await sleep(5000);
+                        const sr2 = await fetch(`/api/3d/status/${rd.task_id}?endpoint=image-to-3d`);
+                        if (sr2.ok) {
+                          const sd2 = await sr2.json();
+                          if (sd2.status === 'complete') {
+                            const glb2 = (sd2.model_urls||{}).glb;
+                            if (glb2) await fetch('/api/3d/download', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:glb2,name:assetName,prompt:generationPrompt,source:'meshy',pipeline:'meshy-image-to-3d-refined',...assetTypePayload(assetType)})});
+                            break;
+                          }
+                          if (sd2.error) break;
+                        }
+                        updateGeneratingCard(assetName, `Texturing... (${ri*5}s)`);
+                      }
+                    }
+                  }
+                  cd = sd;
+                  break;
+                }
+                if (sd.error) throw new Error(sd.error);
+              }
+              updateGeneratingCard(assetName, `Meshy generating... (${mi*5}s)`);
+            }
+            updateGeneratingCard(assetName, 'Meshy complete!');
+            finishGeneratingCard(assetName);
+          } else {
+            // ComfyUI local image-to-3D ($0)
+            setProgress(40, 'Converting image to 3D on RTX 5090...');
+            updateGeneratingCard(assetName, 'Hunyuan3Dv2 processing...');
+            const cr = await fetch('/api/3d/comfyui', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: uploadName, name: assetName, prompt: generationPrompt, style: style, ...assetTypePayload(assetType) }),
+            });
+            if (!cr.ok) throw new Error('Convert failed');
+            cd = await cr.json();
+            if (cd.error) throw new Error(cd.error);
+
+            setProgress(50, `Hunyuan3Dv2 generating... (${cd.prompt_id ? cd.prompt_id.slice(0,8) : ''})`);
+            updateGeneratingCard(assetName, 'Hunyuan3Dv2 converting...');
+            const result = await pollComfyUIHistory(cd.prompt_id, 180);
+            if (!result) throw new Error('3D generation timed out');
+            await importComfy3DResult(result, assetName, generationPrompt, assetType);
+            finishGeneratingCard(assetName);
+          } // end comfyui else
+
+          setStep('mesh', 'done'); setStep('texture', 'done'); setStep('export', 'done');
+          const imgCost = source === 'meshy' ? ($('gen-refine') && $('gen-refine').checked ? '~$0.20' : '~$0.10') : '$0.00';
+          setProgress(100, `Complete! Cost: ${imgCost}`);
+          $('gen-cost-label').textContent = `${source === 'meshy' ? 'Meshy' : 'ComfyUI local'} \u2022 ${imgCost}`;
+          toast(`3D model generated via ${source}! Cost: ${imgCost}`, 'success', 6000);
+          setTimeout(() => fetchAssets(), 2000);
+        } catch (err) {
+          toast(`Image-to-3D failed: ${err.message}`, 'error');
+        } finally {
+          generating = false; btn.disabled = false;
+          $('gen-btn-icon').textContent = '\u2728';
+          $('gen-btn-label').textContent = 'Generate 3D Model';
+          setTimeout(() => pw.classList.remove('visible'), 3000);
+        }
+        return;
+      }
+
+      // Preview-first workflow: generate SDXL image, show for approval, then convert
+      if (workflow === 'preview' && (source === 'auto' || source === 'comfyui')) {
+        try {
+          setStep('classify', 'done');
+          setStep('route', 'done');
+          const assetName = prompt.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0,40);
+          await submitPreviewWorkflow(generationPrompt, style, assetName, assetType);
+          // User will click approve/regenerate/cancel — don't reset generating state here
+          return;
+        } catch (err) {
+          toast(`Preview generation failed: ${err.message}`, 'error');
+          generating = false; btn.disabled = false;
+          $('gen-btn-icon').textContent = '\u2728';
+          $('gen-btn-label').textContent = 'Generate 3D Model';
+          pw.classList.remove('visible');
+          return;
+        }
+      }
+
+      try {
+        // Step 1: Classify via muLLM — determines complexity and routing
+        setStep('classify', 'active');
+        setProgress(10, 'Classifying prompt via muLLM...');
+
+        const fullPrompt = `generate a 3D model: ${generationPrompt} in ${style} style`;
+        const classifyR = await fetch('/classify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: fullPrompt }),
+        });
+        const classified = classifyR.ok ? await classifyR.json() : {};
+        const complexity = classified.complexity || 2;
+
+        setStep('classify', 'done');
+        setStep('route', 'active');
+        setProgress(20, 'Smart routing...');
+
+        // SMART ROUTING: Local first (5090 + ComfyUI), Meshy only as escalation
+        let comfyAvailable = false;
+        try {
+          const cr = await fetch('/api/comfyui/status');
+          if (cr.ok) { const cs = await cr.json(); comfyAvailable = !!cs.running; }
+        } catch(_) {}
+
+        // Split detection: ONLY split if user explicitly asks for multiple distinct objects
+        // e.g. "a sword and a shield" but NOT "a sword with blue glow and ornate hilt"
+        const needsSplit = false; // disabled — was splitting single-object prompts
+
+        // Route decision: respect user choice, auto = local first
+        let pipeline = source; // user override respected
+        if (source === 'auto') {
+          if (comfyAvailable) {
+            pipeline = 'comfyui';
+          } else if (complexity <= 2) {
+            pipeline = 'procedural';
+          } else {
+            pipeline = 'meshy';
+          }
+        }
+        // meshy/comfyui/procedural = use exactly what user picked
+
+        const costLabel = pipeline === 'comfyui' ? '$0.00 (local 5090)'
+          : pipeline === 'procedural' ? '$0.00 (procedural)'
+          : '~$0.10 (cloud escalation)';
+        $('gen-cost-label').textContent = `Complexity ${complexity} \u2022 ${pipeline} \u2022 ${costLabel}`;
+
+        setStep('route', 'done');
+        setStep('mesh', 'active');
+
+        if (needsSplit) {
+          // SPLIT: decompose "3 swords and a kraken" into parallel tasks
+          setProgress(30, 'Splitting into parallel generation tasks...');
+          const parts = prompt.split(/\s*(?:and|,)\s*/i).filter(p => p.trim().length > 2);
+          setProgress(35, `Generating ${parts.length} objects in parallel via ${pipeline}...`);
+
+          const results = await Promise.allSettled(parts.map(async (part, i) => {
+            const partName = part.trim().replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0,30);
+            return generate3DAsset(promptForAssetType(part.trim(), assetType), style, pipeline, partName, assetType);
+          }));
+
+          const successes = results.filter(r => r.status === 'fulfilled' && r.value).length;
+          setProgress(85, `${successes}/${parts.length} objects generated`);
+
+        } else {
+          // Single object generation
+          const assetName = prompt.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0,40);
+          addGeneratingCard(assetName, prompt);
+          setProgress(35, `Generating via ${pipeline}...`);
+          updateGeneratingCard(assetName, `Submitting to ${pipeline}...`);
+
+          const result = await generate3DAsset(generationPrompt, style, pipeline, assetName, assetType);
+
+          // For comfyui, poll for completion since it returns immediately
+          if (pipeline === 'comfyui' && result && result.prompt_id) {
+            updateGeneratingCard(assetName, 'ComfyUI generating on 5090...');
+            const done = await pollComfyUIHistory(result.prompt_id, 120);
+            if (done) {
+              updateGeneratingCard(assetName, 'GLB ready!');
+            } else {
+              updateGeneratingCard(assetName, 'Still generating — check gallery soon');
+            }
+          }
+
+          // For meshy, generate3DAsset already polls internally
+          if (pipeline === 'meshy') {
+            // Auto-refine for textures if checkbox is checked
+            if ($('gen-refine') && $('gen-refine').checked && result && result.task_id) {
+              updateGeneratingCard(assetName, 'Refining for PBR textures (+$0.10)...');
+              try {
+                const rr = await fetch('/api/3d/refine', {
+                  method: 'POST',
+                  headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({preview_task_id: result.task_id}),
+                });
+                const rd = await rr.json();
+                if (rd.task_id) {
+                  // Poll refine completion
+                  for (let ri = 0; ri < 60; ri++) {
+                    await sleep(5000);
+                    const sr = await fetch(`/api/3d/status/${rd.task_id}?endpoint=text-to-3d`);
+                    if (sr.ok) {
+                      const sd = await sr.json();
+                      if (sd.status === 'complete') {
+                        const glbUrl = (sd.model_urls || {}).glb;
+                        if (glbUrl) {
+                          await fetch('/api/3d/download', {
+                            method:'POST', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({url: glbUrl, name: assetName, prompt: generationPrompt, source: 'meshy', pipeline: 'meshy-text-to-3d-refined', ...assetTypePayload(assetType)}),
+                          });
+                        }
+                        updateGeneratingCard(assetName, 'Textured!');
+                        break;
+                      }
+                      if (sd.error) break;
+                    }
+                    updateGeneratingCard(assetName, `Refining... (${ri*5}s)`);
+                  }
+                }
+              } catch(e) { updateGeneratingCard(assetName, 'Refine failed — preview saved'); }
+            } else {
+              updateGeneratingCard(assetName, 'Meshy complete!');
+            }
+          }
+
+          finishGeneratingCard(assetName);
+        }
+
+        setStep('mesh', 'done');
+        setStep('texture', 'done');
+        setStep('export', 'done');
+        setProgress(100, 'Complete!');
+
+        toast(`Generated via ${pipeline} \u2022 ${costLabel}`, 'success', 6000);
+
+        // Refresh gallery
+        setTimeout(() => fetchAssets(), 2000);
+
+      } catch (err) {
+        toast(`Generation failed: ${err.message}`, 'error');
+        setProgress(0, 'Failed.');
+      } finally {
+        generating = false;
+        $('gen-btn-icon').textContent = '\u2728';
+        $('gen-btn-label').textContent = 'Generate 3D Model';
+        btn.disabled = false;
+        setTimeout(() => { pw.classList.remove('visible'); }, 3000);
+      }
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ── Preview-first workflow state ──
+    let _refState = { prompt: '', style: '', name: '', promptId: '', imageFile: '', assetType: '' };
+
+    async function pollComfyUIHistory(promptId, maxWait = 120) {
+      for (let i = 0; i < maxWait; i++) {
+        await sleep(1000);
+        try {
+          const r = await fetch(`/api/comfyui/history/${encodeURIComponent(promptId)}`);
+          if (r.ok) {
+            const data = await r.json();
+            const entry = data[promptId];
+            if (entry && entry.outputs) return entry;
+          }
+        } catch(_) {}
+      }
+      return null;
+    }
+
+    function firstComfy3DOutput(entry) {
+      for (const nodeId of Object.keys(entry?.outputs || {})) {
+        const out = entry.outputs[nodeId];
+        if (out['3d'] && out['3d'].length > 0) return out['3d'][0];
+      }
+      return null;
+    }
+
+    function selectedAssetType() {
+      const value = $('gen-asset-type') ? $('gen-asset-type').value : 'auto';
+      return value && value !== 'auto' ? value : '';
+    }
+
+    function assetTypePayload(assetType) {
+      if (!assetType) return {};
+      const category = assetType === 'sword' ? 'weapon'
+        : assetType === 'character' ? 'creature'
+        : assetType;
+      const tags = assetType === 'sword' ? ['sword', 'weapon'] : [assetType];
+      return { asset_type: assetType, category, tags };
+    }
+
+    function promptForAssetType(prompt, assetType) {
+      const clean = (prompt || '').trim();
+      const hints = {
+        sword: 'single hero sword, centered, blade aligned along the vertical Y axis, clear hilt and readable tip, game-ready low-poly 3D asset',
+        weapon: 'single handheld weapon, centered, clear handle and striking end, game-ready low-poly 3D asset',
+        siege: 'single siege engine, centered, readable mechanical silhouette, game-ready low-poly 3D asset',
+        character: 'single full-body character, centered, neutral A-pose, game-ready low-poly 3D asset',
+        building: 'single building or structure, centered, readable entrance and roofline, game-ready low-poly 3D asset',
+        prop: 'single reusable prop, centered, clean silhouette, game-ready low-poly 3D asset',
+      };
+      const hint = hints[assetType];
+      return hint ? `${clean}. ${hint}` : clean;
+    }
+
+    async function importComfy3DResult(entry, name, prompt, assetType = '') {
+      const model = firstComfy3DOutput(entry);
+      if (!model || !model.filename) return null;
+      const r = await fetch('/api/3d/import-comfyui', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: model.filename,
+          subfolder: model.subfolder || '',
+          type: model.type || 'output',
+          name,
+          prompt,
+          source: 'comfyui',
+          pipeline: 'hunyuan3d-local',
+          ...assetTypePayload(assetType),
+        }),
+      });
+      if (!r.ok) throw new Error(`Asset import failed: ${r.status}`);
+      return r.json();
+    }
+
+    async function submitPreviewWorkflow(prompt, style, name, assetType = '') {
+      addGeneratingCard(name, prompt);
+      setProgress(25, 'Checking VRAM...');
+      await autoFreeVRAMIfNeeded();
+      setProgress(30, 'Generating SDXL reference image on 5090...');
+      updateGeneratingCard(name, 'Generating reference image...');
+      const r = await fetch('/api/3d/comfyui', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, style, name, ...assetTypePayload(assetType) }),
+      });
+      if (!r.ok) throw new Error(`Reference generation failed: ${r.status}`);
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+
+      _refState = { prompt, style, name, promptId: data.prompt_id, imageFile: '', assetType };
+      setProgress(40, `SDXL generating... (prompt ${data.prompt_id.slice(0,8)})`);
+
+      // Poll ComfyUI for the reference image
+      const result = await pollComfyUIHistory(data.prompt_id, 90);
+      if (!result) throw new Error('Reference image generation timed out');
+
+      // Find the output image filename
+      let imageFile = '';
+      for (const nodeId of Object.keys(result.outputs || {})) {
+        const out = result.outputs[nodeId];
+        if (out.images && out.images.length > 0) {
+          imageFile = out.images[0].filename;
+          break;
+        }
+      }
+      if (!imageFile) throw new Error('No reference image in ComfyUI output');
+
+      _refState.imageFile = imageFile;
+      setProgress(80, 'Reference image ready — review below');
+      setStep('classify', 'done');
+      setStep('route', 'done');
+      setStep('mesh', 'active');
+      updateGeneratingCard(name, 'Reference ready — awaiting approval', `/api/comfyui/view?filename=${encodeURIComponent(imageFile)}&type=output`);
+
+      // Show preview panel
+      $('ref-preview-img').src = `/api/comfyui/view?filename=${encodeURIComponent(imageFile)}&type=output`;
+      $('ref-preview-info').textContent = `SDXL reference for "${prompt}" — ${style} style — $0.00 local (RTX 5090)`;
+      $('ref-preview').style.display = '';
+
+      setProgress(85, 'Awaiting your approval...');
+      toast('Reference image ready! Review and approve to convert to 3D.', 'success');
+    }
+
+    async function approveRef() {
+      if (!_refState.imageFile) { toast('No reference image to convert', 'error'); return; }
+      $('ref-preview').style.display = 'none';
+      $('ref-approve-btn').disabled = true;
+
+      const pw = $('progress-wrap');
+      pw.classList.add('visible');
+      setStep('mesh', 'active');
+      setProgress(50, 'Converting to 3D via Hunyuan3Dv2 on 5090...');
+
+      try {
+        const r = await fetch('/api/3d/comfyui', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: _refState.imageFile, name: _refState.name, ...assetTypePayload(_refState.assetType) }),
+        });
+        if (!r.ok) throw new Error(`3D conversion failed: ${r.status}`);
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+
+        setProgress(60, `Hunyuan3Dv2 generating 3D model... (${data.prompt_id ? data.prompt_id.slice(0,8) : ''})`);
+        updateGeneratingCard(_refState.name, 'Converting to 3D mesh...');
+
+        // Poll for GLB completion
+        const result = await pollComfyUIHistory(data.prompt_id, 180);
+        if (!result) throw new Error('3D conversion timed out');
+        await importComfy3DResult(result, _refState.name, _refState.prompt, _refState.assetType);
+
+        setStep('mesh', 'done');
+        setStep('texture', 'done');
+        setStep('export', 'done');
+        setProgress(100, 'GLB generated on RTX 5090 — $0.00!');
+        toast('3D model generated locally! Check the gallery.', 'success', 6000);
+        $('gen-cost-label').textContent = 'Hunyuan3Dv2 on RTX 5090 \u2022 $0.00';
+        finishGeneratingCard(_refState.name);
+      } catch (err) {
+        toast(`3D conversion failed: ${err.message}`, 'error');
+        setProgress(0, 'Failed.');
+      } finally {
+        $('ref-approve-btn').disabled = false;
+        generating = false;
+        $('gen-btn-icon').textContent = '\u2728';
+        $('gen-btn-label').textContent = 'Generate 3D Model';
+        $('gen-btn').disabled = false;
+        setTimeout(() => { $('progress-wrap').classList.remove('visible'); }, 3000);
+      }
+    }
+
+    async function regenerateRef() {
+      $('ref-preview').style.display = 'none';
+      // Update existing card instead of adding new one
+      updateGeneratingCard(_refState.name, 'Regenerating reference image...');
+      try {
+        setProgress(30, 'Regenerating SDXL reference...');
+        const r = await fetch('/api/3d/comfyui', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: _refState.prompt, style: _refState.style, name: _refState.name, ...assetTypePayload(_refState.assetType) }),
+        });
+        if (!r.ok) throw new Error(`Reference failed: ${r.status}`);
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+        _refState.promptId = data.prompt_id;
+
+        setProgress(40, 'SDXL generating new reference...');
+        const result = await pollComfyUIHistory(data.prompt_id, 90);
+        if (!result) throw new Error('Reference timed out');
+
+        let imageFile = '';
+        for (const nodeId of Object.keys(result.outputs || {})) {
+          const out = result.outputs[nodeId];
+          if (out.images && out.images.length > 0) { imageFile = out.images[0].filename; break; }
+        }
+        if (!imageFile) throw new Error('No image in output');
+
+        _refState.imageFile = imageFile;
+        const imgUrl = `/api/comfyui/view?filename=${encodeURIComponent(imageFile)}&type=output`;
+        updateGeneratingCard(_refState.name, 'New reference ready — review below', imgUrl);
+        $('ref-preview-img').src = imgUrl;
+        $('ref-preview').style.display = '';
+        setProgress(85, 'Review new reference below');
+        toast('New reference generated — approve or regenerate again', 'success');
+      } catch (err) {
+        toast(`Regeneration failed: ${err.message}`, 'error');
+      }
+    }
+
+    function dismissRef() {
+      $('ref-preview').style.display = 'none';
+      generating = false;
+      $('gen-btn-icon').textContent = '\u2728';
+      $('gen-btn-label').textContent = 'Generate 3D Model';
+      $('gen-btn').disabled = false;
+      $('progress-wrap').classList.remove('visible');
+    }
+
+    async function generate3DAsset(prompt, style, pipeline, name, assetType = '') {
+      if (pipeline === 'comfyui') {
+        // LOCAL generation via ComfyUI on 5090
+        const r = await fetch('/api/3d/comfyui', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, style, name, ...assetTypePayload(assetType) }),
+        });
+        if (!r.ok) {
+          const err = await r.text();
+          throw new Error(`ComfyUI: ${err}`);
+        }
+        const data = await r.json();
+        if (data.error) {
+          // Escalate to Meshy if ComfyUI fails
+          toast(`ComfyUI failed, escalating to Meshy cloud...`, 'info');
+          return generate3DAsset(prompt, style, 'meshy', name, assetType);
+        }
+        if (data.stage === 'reference_image' && data.prompt_id) {
+          updateGeneratingCard(name, 'Reference image queued — waiting...');
+          const ref = await pollComfyUIHistory(data.prompt_id, 120);
+          if (!ref) throw new Error('Reference image generation timed out');
+          let imageFile = '';
+          for (const nodeId of Object.keys(ref.outputs || {})) {
+            const out = ref.outputs[nodeId];
+            if (out.images && out.images.length > 0) { imageFile = out.images[0].filename; break; }
+          }
+          if (!imageFile) throw new Error('No reference image in ComfyUI output');
+          updateGeneratingCard(name, 'Reference ready — converting to GLB...', `/api/comfyui/view?filename=${encodeURIComponent(imageFile)}&type=output`);
+          const cr = await fetch('/api/3d/comfyui', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imageFile, name, ...assetTypePayload(assetType) }),
+          });
+          if (!cr.ok) throw new Error(`ComfyUI mesh conversion failed: ${cr.status}`);
+          const mesh = await cr.json();
+          if (mesh.error) throw new Error(mesh.error);
+          if (mesh.prompt_id) {
+            updateGeneratingCard(name, 'Hunyuan3D mesh queued — waiting...');
+            const done = await pollComfyUIHistory(mesh.prompt_id, 180);
+            if (!done) throw new Error('Hunyuan3D conversion timed out');
+            await importComfy3DResult(done, name, prompt, assetType);
+          }
+          return mesh;
+        }
+        return data;
+      }
+
+      if (pipeline === 'meshy') {
+        // CLOUD escalation — Meshy API
+        const r = await fetch('/api/3d/text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, style, ...assetTypePayload(assetType) }),
+        });
+        if (!r.ok) throw new Error(`Meshy error: ${r.status}`);
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+        const taskId = data.task_id;
+        if (!taskId) return data;
+
+        updateGeneratingCard(name, 'Meshy queued — waiting for mesh...');
+        // Poll for completion
+        for (let i = 0; i < 60; i++) {
+          await sleep(5000);
+          const elapsed = `${(i+1)*5}s`;
+          setProgress(50 + Math.min(35, i * 2), `Meshy generating... (${elapsed})`);
+          updateGeneratingCard(name, `Meshy generating... (${elapsed})`);
+          const sr = await fetch(`/api/3d/status/${taskId}?endpoint=text-to-3d`);
+          if (sr.ok) {
+            const sd = await sr.json();
+            if (sd.status === 'complete') {
+              updateGeneratingCard(name, 'Downloading GLB...');
+              const glbUrl = (sd.model_urls || {}).glb;
+              if (glbUrl) {
+                await fetch('/api/3d/download', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ url: glbUrl, name, prompt, source: 'meshy', pipeline: 'meshy-text-to-3d', ...assetTypePayload(assetType) }),
+                });
+              }
+              updateGeneratingCard(name, 'Meshy complete!');
+              return sd;
+            }
+            if (sd.error) throw new Error(sd.error);
+            if (sd.status) updateGeneratingCard(name, `Meshy: ${sd.status} (${elapsed})`);
+          }
+        }
+        throw new Error('Meshy generation timed out');
+      }
+
+      if (pipeline === 'procedural') {
+        // Procedural — no API call, just log it
+        toast(`Procedural: "${prompt}" — $0.00`, 'success');
+        return { status: 'procedural', name };
+      }
+    }
+
+    function quickGen(prompt) {
+      $('gen-prompt').value = prompt;
+      $('generate-section').scrollIntoView({ behavior: 'smooth' });
+      $('gen-prompt').focus();
+      toast('Prompt loaded \u2014 hit Generate!', 'info');
+    }
+
+    // ── Update sidebar VRAM from system ──────────────────────────
+    async function updateSidebarVRAM() {
+      try {
+        const r = await fetch('/api/system');
+        if (!r.ok) return;
+        const sys = await r.json();
+        const gpu = sys.gpu || {};
+        if (gpu.memory_total_mb) {
+          const freeMb = gpu.memory_total_mb - (gpu.memory_used_mb || 0);
+          $('stat-vram').textContent = `${(freeMb / 1024).toFixed(1)} GB`;
+        } else {
+          $('stat-vram').textContent = 'N/A';
+        }
+      } catch(_) {
+        $('stat-vram').textContent = 'N/A';
+      }
+    }
+
+    // ── Try It buttons — route to dojo/demo ────────────────────
+    const SWORD_KEYWORDS = /sword|blade|katana|rapier|dagger|scythe|saber|mace|staff|axe|broadsword/i;
+    const SIEGE_KEYWORDS = /catapult|trebuchet|ballista|battering|ram|siege/i;
+
+    function getTryButton(asset) {
+      const n = asset.name || '';
+      const canTry = asset.can_try || {};
+      if (canTry.dojo || SWORD_KEYWORDS.test(n)) {
+        return `<button class="btn-try" onclick="event.stopPropagation();window.open('/swords?weapon=${encodeURIComponent(n)}','_blank')"
+          aria-label="Try ${n} in sword dojo" data-tooltip="Swing this weapon in the combat dojo">&#x2694; Try</button>`;
+      }
+      if (canTry.siege || SIEGE_KEYWORDS.test(n)) {
+        return `<button class="btn-try" onclick="event.stopPropagation();window.open('/siege?weapon=${encodeURIComponent(n)}','_blank')"
+          aria-label="Try ${n} in siege demo" data-tooltip="Fire this weapon in the siege demo">&#x1F3F0; Try</button>`;
+      }
+      return '';
+    }
+
+    // ── Generating card in gallery ─────────────────────────────
+    function addGeneratingCard(name, prompt) {
+      const grid = $('gallery-grid');
+      // Remove empty state if present
+      const empty = grid.querySelector('.gallery-empty');
+      if (empty) empty.remove();
+
+      const card = document.createElement('article');
+      card.className = 'asset-card generating';
+      card.id = `gen-card-${name}`;
+      card.setAttribute('role', 'listitem');
+      card.innerHTML = `
+        <div class="asset-thumb" style="display:flex;align-items:center;justify-content:center">
+          <div class="gen-spinner" aria-label="Generating 3D model"></div>
+        </div>
+        <div class="asset-info">
+          <div class="asset-name">${name}</div>
+          <div class="asset-prompt">${(prompt || '').slice(0, 60)}</div>
+          <div class="asset-meta gen-status" id="gen-status-${name}">Generating reference image...</div>
+        </div>
+        <div class="asset-footer">
+          <span class="asset-size" style="color:var(--green)">$0.00 local</span>
+        </div>
+      `;
+      grid.prepend(card);
+      $('gallery-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function updateGeneratingCard(name, status, thumbnailUrl) {
+      const statusEl = $(`gen-status-${name}`);
+      if (statusEl) statusEl.textContent = status;
+      if (thumbnailUrl) {
+        const card = $(`gen-card-${name}`);
+        if (card) {
+          const thumb = card.querySelector('.asset-thumb');
+          thumb.innerHTML = `<img src="${thumbnailUrl}" alt="Reference" style="width:100%;height:100%;object-fit:cover;border-radius:8px" />
+            <div class="gen-spinner-small"></div>`;
+        }
+      }
+    }
+
+    function finishGeneratingCard(name) {
+      const card = $(`gen-card-${name}`);
+      if (card) card.remove();
+      // Refresh gallery to load the real card
+      fetchAssets();
+    }
+
+    // ── VRAM management ────────────────────────────────────────
+    async function freeVRAM() {
+      toast('Freeing VRAM — unloading Ollama models...', 'info');
+      try {
+        const r = await fetch('/api/vram/free', { method: 'POST' });
+        if (r.ok) {
+          const data = await r.json();
+          toast(`Freed ${data.total_freed_gb} GB from ${data.freed.length} models`, 'success');
+          $('vram-detail').innerHTML = data.freed.map(m =>
+            `<div>${m.model}: -${m.vram_gb} GB</div>`
+          ).join('');
+          // Refresh VRAM display
+          setTimeout(() => { updateSidebarVRAM(); fetchStatus(); }, 2000);
+        }
+      } catch(e) {
+        toast('Failed to free VRAM', 'error');
+      }
+    }
+
+    // Auto-free VRAM before 3D generation if needed
+    async function autoFreeVRAMIfNeeded() {
+      try {
+        const r = await fetch('/api/system');
+        if (r.ok) {
+          const sys = await r.json();
+          const gpu = sys.gpu || {};
+          const freeMb = (gpu.memory_total_mb || 0) - (gpu.memory_used_mb || 0);
+          if (freeMb < 10000) { // Less than 10GB free
+            toast('Auto-freeing VRAM for 3D generation...', 'info');
+            await fetch('/api/vram/free', { method: 'POST' });
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
+      } catch(_) {}
+    }
+
+    // ── Boot ─────────────────────────────────────────────────────
+    fetchStatus();
+    fetchAssets();
+
+    // Auto-open modal when ?model=URL is in the URL (e.g. from /assets View button)
+    (function() {
+      const _autoModel = new URLSearchParams(location.search).get('model');
+      if (_autoModel) {
+        setTimeout(() => {
+          const overlay = $('modal-overlay');
+          const container = $('modal-viewer');
+          if (!overlay || !container) return;
+          // Clear any stale content
+          while (container.firstChild) container.removeChild(container.firstChild);
+          overlay.classList.add('open');
+          document.body.style.overflow = 'hidden';
+          const titleEl = $('modal-title');
+          if (titleEl) titleEl.textContent = decodeURIComponent(_autoModel).split('/').pop();
+          if (typeof window._initModalViewer === 'function') {
+            window._initModalViewer(container);
+            if (typeof window._loadGLB === 'function') {
+              window._loadGLB(decodeURIComponent(_autoModel));
+            }
+          }
+        }, 500);
+      }
+    })();
+    updateSidebarVRAM();
+    // Refresh status every 30s
+    setInterval(fetchStatus, 30000);
+    setInterval(updateSidebarVRAM, 30000);
+  </script>
+</body>
+</html>
