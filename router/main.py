@@ -5731,10 +5731,12 @@ async def rig_asset(request: Request):
     if not asset_name:
         raise HTTPException(status_code=400, detail="asset_name is required")
 
-    assets_dir = Path(__file__).parent.parent / "assets" / "3d"
-    glb_path = assets_dir / f"{asset_name}.glb"
-    if not glb_path.exists():
+    from router.asset_store import resolve_asset_file
+    try:
+        glb_path = resolve_asset_file(f"{asset_name}.glb")
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Asset '{asset_name}.glb' not found")
+    assets_dir = glb_path.parent
 
     job_id = uuid.uuid4().hex[:12]
     output_path = str(assets_dir / f"{asset_name}-rigged.glb")
@@ -5751,26 +5753,70 @@ async def rig_asset(request: Request):
         async def _run_meshy():
             from router import meshy as _meshy
             try:
-                result = await _meshy.image_to_3d(image_path=str(glb_path))
+                # Meshy auto-rigging wants the originating Meshy task id
+                # (recorded in the asset's sidecar at download time).
+                sidecar = glb_path.with_suffix(".json")
+                meta: dict = {}
+                if sidecar.exists():
+                    try:
+                        meta = json.loads(sidecar.read_text(encoding="utf-8"))
+                    except Exception:
+                        meta = {}
+                input_task_id = str(
+                    meta.get("meshy_task_id") or meta.get("task_id")
+                    or body.get("meshy_task_id") or ""
+                )
+                if not input_task_id:
+                    _rig_jobs[job_id]["status"] = "failed"
+                    _rig_jobs[job_id]["error"] = (
+                        "No Meshy task id for this asset — Meshy rigging needs the "
+                        "originating task (or pass meshy_task_id in the request)."
+                    )
+                    return
+                try:
+                    result = await _meshy.rig_task(input_task_id=input_task_id)
+                except _meshy.MeshyError as exc:
+                    if "face" not in str(exc).lower() and "remesh" not in str(exc).lower():
+                        raise
+                    # Over the 300k-face rigging limit — auto-remesh first.
+                    _rig_jobs[job_id]["note"] = "auto-remeshing to 60k faces before rigging"
+                    rm = await _meshy.remesh_task(input_task_id, target_polycount=60_000)
+                    rm_id = rm.get("task_id", "")
+                    if not rm_id:
+                        raise
+                    for _ in range(120):
+                        await asyncio.sleep(5)
+                        rp = await _meshy.poll_task(rm_id, endpoint="remesh")
+                        if rp.get("status") == "complete":
+                            break
+                        if rp.get("error"):
+                            raise _meshy.MeshyError(f"remesh failed: {rp.get('error')}")
+                    else:
+                        raise _meshy.MeshyError("remesh timed out")
+                    input_task_id = rm_id
+                    result = await _meshy.rig_task(input_task_id=input_task_id)
                 task_id = result.get("task_id", "")
                 if not task_id:
                     _rig_jobs[job_id]["status"] = "failed"
                     _rig_jobs[job_id]["error"] = result.get("error", "no task_id")
                     return
-                for _ in range(60):
+                _rig_jobs[job_id]["meshy_rig_task_id"] = task_id
+                for _ in range(120):
                     await asyncio.sleep(5)
-                    poll = await _meshy.poll_task(task_id, endpoint="image-to-3d")
+                    poll = await _meshy.poll_task(task_id, endpoint="rigging")
                     if poll.get("status") == "complete":
                         glb_url = (poll.get("model_urls") or {}).get("glb", "")
                         if glb_url:
-                            async with httpx.AsyncClient(timeout=60) as cl:
+                            async with httpx.AsyncClient(timeout=120) as cl:
                                 r = await cl.get(glb_url)
                                 Path(output_path).write_bytes(r.content)
                         _rig_jobs[job_id]["status"] = "done"
                         _rig_jobs[job_id]["output"] = output_path
                         return
                     if poll.get("error"):
-                        break
+                        _rig_jobs[job_id]["status"] = "failed"
+                        _rig_jobs[job_id]["error"] = str(poll.get("error"))[:300]
+                        return
                 _rig_jobs[job_id]["status"] = "failed"
                 _rig_jobs[job_id]["error"] = "timed out"
             except Exception as exc:

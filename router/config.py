@@ -98,6 +98,12 @@ CLOUD_MODEL_PRICING: dict[str, dict] = {
         "cost_per_m_output": 15.00,
         "max_context": 1_000_000,
     },
+    "claude-sonnet-5": {
+        "provider": "anthropic",
+        "cost_per_m_input": 3.00,   # intro pricing $2/$10 through 2026-08-31
+        "cost_per_m_output": 15.00,
+        "max_context": 1_000_000,
+    },
     "claude-opus-4-6": {
         "provider": "anthropic",
         "cost_per_m_input": 5.00,
@@ -751,7 +757,7 @@ class Settings(BaseSettings):
 
     # Cloud model routing
     cloud_cheap_model_anthropic: str  = "claude-haiku-4-5"
-    cloud_full_model_anthropic: str   = "claude-sonnet-4-6"
+    cloud_full_model_anthropic: str   = "claude-sonnet-5"
     cloud_power_model_anthropic: str  = "claude-opus-4-7"
     # When True, Claude Fable 5 replaces the Opus power model (top tier and
     # WITH RICE). Toggled from /setup ("fable_top_tier"); off = exact pre-0.9

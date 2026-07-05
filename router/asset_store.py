@@ -18,7 +18,9 @@ from router.config import settings
 ROOT = Path(__file__).resolve().parent.parent
 
 AssetBackend = Literal["local", "s3", "azure_blob", "external_api"]
-CompressionMethod = Literal["none", "gzip", "brotli", "draco", "meshopt", "ktx2", "draco_ktx2", "auto"]
+CompressionMethod = Literal[
+    "none", "gzip", "brotli", "draco", "meshopt", "ktx2", "draco_ktx2", "game_ready", "auto",
+]
 
 
 class AssetStoreError(RuntimeError):
@@ -222,6 +224,12 @@ def compression_status() -> dict[str, dict[str, Any]]:
             "command": gltf_transform or "",
             "install_hint": "Install @gltf-transform/cli plus KTX-Software (ktx binary) — best web-delivery size (geometry + texture compression).",
         },
+        "game_ready": {
+            "available": bool(gltf_transform),
+            "kind": "external-tool",
+            "command": gltf_transform or "",
+            "install_hint": "weld + simplify(0.25) + 1K textures + KTX2 + Draco — targets ≤2MB game-ready props. Needs @gltf-transform/cli and KTX-Software.",
+        },
         "auto": {
             "available": True,
             "kind": "policy",
@@ -247,7 +255,7 @@ def compress_asset(path: Path, method: CompressionMethod = "auto") -> AssetLocat
         output = Path(str(path) + ".br")
         output.write_bytes(brotli.compress(path.read_bytes(), quality=11))
         return AssetLocation("local", path.stem, str(output), asset_url(output.name), output.stat().st_size)
-    if selected in {"draco", "meshopt", "ktx2", "draco_ktx2"}:
+    if selected in {"draco", "meshopt", "ktx2", "draco_ktx2", "game_ready"}:
         # shutil.which only searches PATH — npm-global bin may not be on it when uvicorn starts.
         # Fall back to common install locations before giving up.
         gt = shutil.which("gltf-transform")
@@ -268,16 +276,25 @@ def compress_asset(path: Path, method: CompressionMethod = "auto") -> AssetLocat
             )
         suffix_map = {
             "draco": "-draco.glb", "meshopt": "-meshopt.glb",
-            "ktx2": "-ktx2.glb", "draco_ktx2": "-web.glb",
+            "ktx2": "-ktx2.glb", "draco_ktx2": "-web.glb", "game_ready": "-game.glb",
         }
         output = path.with_name(path.stem + suffix_map[selected])
         # draco_ktx2 chains texture compression (etc1s) then geometry (draco)
         # — the recommended web-delivery combo (KTX2 first: draco output stays draco).
+        # game_ready additionally welds, simplifies to ~25% triangles, and caps
+        # textures at 1K first — sized for ≤2MB stylized game props.
         steps = {
             "draco":      [["draco", str(path), str(output)]],
             "meshopt":    [["meshopt", str(path), str(output)]],
             "ktx2":       [["etc1s", str(path), str(output)]],
             "draco_ktx2": [["etc1s", str(path), str(output)], ["draco", str(output), str(output)]],
+            "game_ready": [
+                ["weld", str(path), str(output)],
+                ["simplify", "--ratio", "0.25", "--error", "0.001", str(output), str(output)],
+                ["resize", "--width", "1024", "--height", "1024", str(output), str(output)],
+                ["etc1s", str(output), str(output)],
+                ["draco", str(output), str(output)],
+            ],
         }[selected]
         import subprocess
         env = dict(os.environ)

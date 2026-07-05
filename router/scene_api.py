@@ -486,7 +486,7 @@ async def compress_3d_asset(name: str, request: Request):
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="asset not found") from exc
     except AssetStoreError as exc:
-        status = 501 if method in {"brotli", "draco", "meshopt", "ktx2", "draco_ktx2"} else 400
+        status = 501 if method in {"brotli", "draco", "meshopt", "ktx2", "draco_ktx2", "game_ready"} else 400
         raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
@@ -570,7 +570,7 @@ async def optimize_3d_asset(request: Request):
         output = compress_asset(source, requested_method)  # type: ignore[arg-type]
         return _compression_payload(source, output, method, mode="optimize")
     except AssetStoreError as exc:
-        status = 501 if method in {"brotli", "draco", "meshopt", "ktx2", "draco_ktx2"} else 400
+        status = 501 if method in {"brotli", "draco", "meshopt", "ktx2", "draco_ktx2", "game_ready"} else 400
         raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 

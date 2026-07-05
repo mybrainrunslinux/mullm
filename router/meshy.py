@@ -13,15 +13,13 @@ from router.config import settings
 
 MESHY_BASE_URL = os.getenv("MESHY_BASE_URL", "https://api.meshy.ai").rstrip("/")
 
-_MESHY_KEY: str = os.getenv("MESHY_API_KEY", "")
-
-
 class MeshyError(RuntimeError):
     """Raised when Meshy is unavailable or rejects a request."""
 
 
 def api_key() -> str:
-    return _MESHY_KEY
+    # Resolve at call time: env first, then settings (loads .env / MULLM_ENV_FILE).
+    return os.getenv("MESHY_API_KEY", "") or (getattr(settings, "meshy_api_key", None) or "")
 
 
 def configured() -> bool:
@@ -163,10 +161,74 @@ async def refine_task(
     return {"provider": "meshy", "task_id": task_id, "status": "queued", "step": "refine", "response": data}
 
 
+async def remesh_task(
+    input_task_id: str,
+    target_polycount: int = 60_000,
+    dry_run: bool = False,
+    *,
+    topology: str = "triangle",
+) -> dict[str, Any]:
+    """Submit a Meshy remesh task (e.g. to get under the 300k-face rigging limit)."""
+    if not input_task_id.strip():
+        raise MeshyError("input_task_id is required")
+    payload: dict[str, Any] = {
+        "input_task_id": input_task_id,
+        "target_polycount": target_polycount,
+        "topology": topology,
+    }
+    # NB: remesh lives under v1 (Meshy's own 400 hint says v2, but that 404s).
+    endpoint = f"{MESHY_BASE_URL}/openapi/v1/remesh"
+    if dry_run:
+        return {"provider": "meshy", "submitted": False, "endpoint": endpoint, "json": payload}
+    if not api_key():
+        return {"error": "MESHY_API_KEY not configured"}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(endpoint, headers=_headers(), json=payload)
+    if response.status_code not in (200, 201, 202):
+        raise MeshyError(f"Meshy remesh error ({response.status_code}): {response.text[:300]}")
+    data = response.json()
+    task_id = data.get("result") or data.get("id") or data.get("task_id") or ""
+    return {"provider": "meshy", "task_id": task_id, "status": "queued", "response": data}
+
+
+async def rig_task(
+    input_task_id: str = "",
+    model_url: str = "",
+    dry_run: bool = False,
+    *,
+    height_meters: float | None = None,
+) -> dict[str, Any]:
+    """Submit a Meshy auto-rigging task (humanoid/biped models).
+
+    Accepts either a completed Meshy task id or a public model URL.
+    """
+    if not input_task_id and not model_url:
+        raise MeshyError("input_task_id or model_url is required")
+    payload: dict[str, Any] = {}
+    if input_task_id:
+        payload["input_task_id"] = input_task_id
+    if model_url:
+        payload["model_url"] = model_url
+    if height_meters:
+        payload["height_meters"] = height_meters
+    endpoint = f"{MESHY_BASE_URL}/openapi/v1/rigging"
+    if dry_run:
+        return {"provider": "meshy", "submitted": False, "endpoint": endpoint, "json": payload}
+    if not api_key():
+        return {"error": "MESHY_API_KEY not configured"}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(endpoint, headers=_headers(), json=payload)
+    if response.status_code not in (200, 201, 202):
+        raise MeshyError(f"Meshy rigging error ({response.status_code}): {response.text[:300]}")
+    data = response.json()
+    task_id = data.get("result") or data.get("id") or data.get("task_id") or ""
+    return {"provider": "meshy", "task_id": task_id, "status": "queued", "response": data}
+
+
 async def poll_task(task_id: str, endpoint: str = "text-to-3d", dry_run: bool = False) -> dict[str, Any]:
     if not task_id.strip():
         raise MeshyError("task_id is required")
-    api_version = "v1" if "image" in endpoint else "v2"
+    api_version = "v1" if ("image" in endpoint or endpoint in {"rigging", "animation", "remesh"}) else "v2"
     url = f"{MESHY_BASE_URL}/openapi/{api_version}/{endpoint}/{task_id}"
     if dry_run:
         return {"provider": "meshy", "submitted": False, "endpoint": url}
@@ -180,11 +242,19 @@ async def poll_task(task_id: str, endpoint: str = "text-to-3d", dry_run: bool = 
     raw_status = data.get("status", "unknown")
     if raw_status == "FAILED":
         return {"provider": "meshy", "task_id": task_id, "error": "Task FAILED", "response": data}
+    # Rigging/animation responses nest outputs under "result".
+    result_obj = data.get("result") if isinstance(data.get("result"), dict) else {}
+    model_urls = data.get("model_urls") or result_obj.get("model_urls") or {}
+    if not model_urls:
+        for k, v in {**result_obj, **data}.items():
+            if isinstance(v, str) and v.startswith("http") and ".glb" in v:
+                model_urls = {"glb": v}
+                break
     return {
         "provider": "meshy",
         "task_id": task_id,
         "status": "complete" if raw_status == "SUCCEEDED" else raw_status.lower(),
-        "model_urls": data.get("model_urls", {}),
+        "model_urls": model_urls,
         "thumbnail_url": data.get("thumbnail_url", ""),
         "texture_urls": data.get("texture_urls", {}),
         "response": data,

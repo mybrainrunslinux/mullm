@@ -36,9 +36,19 @@ from router.config import CLOUD_MODEL_PRICING, settings
 logger = logging.getLogger("mullm.cloud")
 
 # Module-level API keys (readable by tests via patch)
-_ANTHROPIC_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
-_OPENAI_KEY: str = os.environ.get("OPENAI_API_KEY", "")
-_GOOGLE_KEY: str = os.environ.get("GOOGLE_API_KEY", "")
+def _provider_key(provider: str) -> str:
+    """Resolve a provider API key at call time.
+
+    Checks the process environment first, then settings — which is what
+    actually loads .env / MULLM_ENV_FILE. Import-time env snapshots miss
+    keys that arrive via env files or `pass` after module import.
+    """
+    env_names = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY", "google": "GOOGLE_API_KEY"}
+    attrs = {"anthropic": "anthropic_api_key", "openai": "openai_api_key", "google": "google_api_key"}
+    key = os.environ.get(env_names.get(provider, ""), "")
+    if not key:
+        key = getattr(settings, attrs.get(provider, ""), None) or ""
+    return key
 
 _RETRY_DELAYS = [1.0, 2.0, 4.0]   # seconds between retries
 
@@ -460,12 +470,7 @@ def model_for_tier(
 
 def is_configured(provider: str) -> bool:
     """Return True if the given cloud provider has a valid API key configured."""
-    key_map = {
-        "anthropic": _ANTHROPIC_KEY,
-        "openai": _OPENAI_KEY,
-        "google": _GOOGLE_KEY,
-    }
-    key = key_map.get(provider, "")
+    key = _provider_key(provider)
     return bool(key and "CHANGEME" not in key)
 
 
@@ -527,7 +532,8 @@ async def close_client() -> None:
 MODEL_IDS: dict[str, str] = {
     # Short aliases → current canonical IDs
     "claude-haiku":  "claude-haiku-4-5",
-    "claude-sonnet": "claude-sonnet-4-6",
+    "claude-sonnet": "claude-sonnet-5",
+    "claude-sonnet-46": "claude-sonnet-4-6",
     "claude-opus":   "claude-opus-4-7",
     "claude-fable":  "claude-fable-5",
     "gemini-flash":  "gemini-2.5-flash",
@@ -566,7 +572,7 @@ async def _raw_anthropic(
     system: str | None = None,
 ) -> dict:
     headers = {
-        "x-api-key": _ANTHROPIC_KEY,
+        "x-api-key": _provider_key("anthropic"),
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
@@ -610,14 +616,21 @@ async def _raw_openai(
     system: str | None = None,
 ) -> dict:
     headers = {
-        "Authorization": f"Bearer {_OPENAI_KEY}",
+        "Authorization": f"Bearer {_provider_key('openai')}",
         "Content-Type": "application/json",
     }
     messages: list = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
-    payload = {"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature}
+    payload = {"model": model, "messages": messages}
+    if model.startswith(("gpt-5", "o1", "o3", "o4")):
+        # Reasoning-era models: max_tokens is rejected (use max_completion_tokens)
+        # and only the default temperature is accepted.
+        payload["max_completion_tokens"] = max_tokens
+    else:
+        payload["max_tokens"] = max_tokens
+        payload["temperature"] = temperature
     client = _get_client()
     resp = await client.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     resp.raise_for_status()
@@ -643,7 +656,7 @@ async def _raw_google(
     temperature: float = 0.4,
     system: str | None = None,
 ) -> dict:
-    key = _GOOGLE_KEY
+    key = _provider_key("google")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
     contents: list = [{"parts": [{"text": prompt}]}]
     if system:
@@ -710,14 +723,14 @@ async def generate_image(
     quality: str = "standard",
     size: str = "1024x1024",
 ) -> dict:
-    if not _OPENAI_KEY:
+    if not _provider_key("openai"):
         return {"error": "OpenAI API key not configured"}
     cost = _DALLE_COSTS.get(quality, {}).get(size, 0.040)
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 "https://api.openai.com/v1/images/generations",
-                headers={"Authorization": f"Bearer {_OPENAI_KEY}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {_provider_key('openai')}", "Content-Type": "application/json"},
                 json={"model": "dall-e-3", "prompt": prompt, "n": 1, "size": size, "quality": quality},
             )
             if resp.status_code != 200:
@@ -763,7 +776,7 @@ async def stream_anthropic(
     from router.config import settings as _s
     _model = model or getattr(_s, "cloud_cheap_model_anthropic", "claude-haiku-4-5")
     headers = {
-        "x-api-key": _ANTHROPIC_KEY,
+        "x-api-key": _provider_key("anthropic"),
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
@@ -814,7 +827,7 @@ async def stream_openai(
     from router.config import settings as _s
     _model = model or getattr(_s, "cloud_cheap_model_openai", "gpt-4o-mini")
     headers = {
-        "Authorization": f"Bearer {_OPENAI_KEY}",
+        "Authorization": f"Bearer {_provider_key('openai')}",
         "Content-Type": "application/json",
     }
     messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
@@ -849,7 +862,7 @@ async def stream_google(
 ) -> AsyncGenerator[dict, None]:
     from router.config import settings as _s
     _model = model or getattr(_s, "cloud_cheap_model_google", "gemini-2.5-flash")
-    key = _GOOGLE_KEY
+    key = _provider_key("google")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{_model}:streamGenerateContent?alt=sse&key={key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
