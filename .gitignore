@@ -1,0 +1,98 @@
+# Temporary Review These
+scripts/
+.claude
+pr-gauntlet
+run_benchmarks_30b.py
+
+mullm.toml
+
+###
+
+assets/
+code/retired/
+code/broken*
+*.bak
+kaggle/
+models/
+samples/
+screenshots/
+s*-*.sh
+s*-*.py
+
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing & Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.local-browsers
+.cache/ms-playwright/
+
+# Build & Distribution
+dist/
+build/
+*.whl
+*.zip
+*.tsbuildinfo
+
+# Logs & Debugging
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+aider_build.log
+nohup.out
+.eslintcache
+
+# Environment & Secret
+.env
+.env.local
+.env.development.local
+*.env
+temp.env
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+.aider*
+.husky/
+*.log
+tests/visual.spec.ts-snapshots/
+
+# For now exclude images
+public/images/
+
+# Python
+.venv/
+.venv-*/
+.venv*
+__pycache__/
+*.pyc
+.coverage
+*.egg-info/
+
+# Cache & data (runtime state, not source)
+cache/data/
+cache/
+
+# Keep source maintenance scripts trackable even with broad scratch ignores.
+!scripts/
+!scripts/*.sh
+!scripts/*.py
+
+# Playwright
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# Keys
+certs/*.key
+certs/*.pem
+certs/ca.key
+certs/ca.srl
+certs/*.csr
