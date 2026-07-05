@@ -97,6 +97,7 @@ async def test_note_goes_to_cache(transport):
 
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(300)  # two live local-model generations; 35B answers can take >90s
 async def test_cache_hit_on_repeat(transport):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         query = {"content": "How do I configure Nginx for WebSocket proxying?"}
