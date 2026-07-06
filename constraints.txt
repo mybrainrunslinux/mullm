@@ -1,34 +1,37 @@
-# Security-pinned lower bounds for muLLM dependencies.
-# Resolves known CVEs in transitive deps.
-# Usage:
-#   pip install -c constraints.txt mullm-1.0.0-py3-none-any.whl
-#   pip install -c constraints.txt -e .
+# OPTIONAL hardened-install constraints for muLLM.
 #
-# CVEs addressed:
-#   python-jose < 3.5.0   CVE-2024-33663 (algorithm confusion)
-#   GitPython  < 3.1.50   CVE-2024-22190 (remote code via crafted repo)
-#   Pillow     < 12.2.0   CVE-2025-* (several image parsing issues)
-#   requests   < 2.33.0   CVE-2024-35195 (proxy credential leak)
-#   urllib3    < 2.6.3    CVE-2024-37891 (proxy header injection)
-#   litellm    < 1.83.7   internal security patches
-#   pytest     < 9.0.3    CVE-2025-71176 (dev/test local tempdir issue)
+# As of muLLM 0.9 this file is belt-and-suspenders, not a requirement:
+# every security floor listed here is also encoded directly in
+# pyproject.toml, so a plain `pip install mullm` resolves to patched
+# versions on its own (verified with pip-audit against a fresh,
+# constraint-free install on 2026-07-05 — zero findings in the core
+# install; the only known advisory, PYSEC-2026-311 in ChromaDB 1.x, has
+# no fixed release and is why the vector cache is an opt-in extra).
 #
-# Compatibility pins:
-#   ChromaDB pulls OpenTelemetry exporters; all OTel packages must stay on
-#   the same minor version or Chroma can fail at import time.
+# Use this file when you want extra determinism — air-gapped mirrors,
+# older pip resolvers, or org policies that require an explicit pin set:
+#   pip install -c constraints.txt mullm
+#
+# CVE floors (mirrored in pyproject.toml):
+#   Pillow   >= 12.2.0   image-parsing fixes (2025)
+#   requests >= 2.33.0   CVE-2024-35195 (proxy credential leak)
+#   urllib3  >= 2.6.3    CVE-2024-37891 (proxy header injection)
+#   numpy    >= 2.1.0    baseline for Py3.12+ wheels
+#   keyring  >= 25.0.0   Secret Service hardening
+#
+# Compatibility: ChromaDB pulls OpenTelemetry exporters; all OTel
+# packages must share a minor version or Chroma can fail at import time.
+# A fresh resolve picks a coherent set automatically — these pins only
+# protect partially-upgraded environments.
 
-python-jose>=3.5.0
-GitPython>=3.1.50
 Pillow>=12.2.0
 numpy>=2.1.0
 requests>=2.33.0
 urllib3>=2.6.3
-litellm>=1.83.14
-pytest>=9.0.3
 keyring>=25.0.0
 
-opentelemetry-api==1.40.0
-opentelemetry-sdk==1.40.0
-opentelemetry-proto==1.40.0
-opentelemetry-exporter-otlp-proto-common==1.40.0
-opentelemetry-exporter-otlp-proto-grpc==1.40.0
+opentelemetry-api==1.43.0
+opentelemetry-sdk==1.43.0
+opentelemetry-proto==1.43.0
+opentelemetry-exporter-otlp-proto-common==1.43.0
+opentelemetry-exporter-otlp-proto-grpc==1.43.0

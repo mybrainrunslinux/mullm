@@ -84,7 +84,7 @@ redis = [
     "redis>=5.0,<6.0",
 ]
 studio = [
-    "pillow>=12.0,<13.0",
+    "pillow>=12.2,<13.0",
     "imageio-ffmpeg>=0.5,<1.0",
     "kokoro>=0.9,<1.0",
     "soundfile>=0.12,<1.0",
@@ -98,6 +98,11 @@ vector-cache = [
     # gracefully degrades without ChromaDB; users can opt in when they accept
     # the local-only risk or once an upstream fix is available.
     "chromadb>=1.0,<2.0",
+    # Security floors for ChromaDB's transitive HTTP stack (CVE-2024-35195,
+    # CVE-2024-37891) so a bare `pip install mullm[vector-cache]` cannot
+    # resolve below patched versions even without constraints.txt.
+    "requests>=2.33.0",
+    "urllib3>=2.6.3",
 ]
 cuda128 = ["torch==2.7.0", "torchvision", "torchaudio"]
 cuda-nightly = []  # user installs manually; just documents the path

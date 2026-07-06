@@ -95,10 +95,10 @@ Choose the path that fits your setup. All three expose the same API on port **68
 ### Path 1 — pip (simplest)
 
 ```bash
-# Standard install
+# Standard install — secure by default (CVE floors are encoded in the package)
 pip install mullm
 
-# Security-hardened install (recommended) — pins CVE-patched transitive deps
+# Optional hardened install — explicit pin set for air-gapped or policy-bound envs
 pip install -c constraints.txt mullm
 
 # Optional extras
