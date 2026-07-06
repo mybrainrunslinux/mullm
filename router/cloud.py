@@ -213,7 +213,14 @@ async def _openai_complete(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    call_kwargs = {"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature}
+    call_kwargs = {"model": model, "messages": messages}
+    if model.startswith(("gpt-5", "o1", "o3", "o4")):
+        # Reasoning-era models reject max_tokens (use max_completion_tokens)
+        # and accept only the default temperature.
+        call_kwargs["max_completion_tokens"] = max_tokens
+    else:
+        call_kwargs["max_tokens"] = max_tokens
+        call_kwargs["temperature"] = temperature
     logger.debug("OpenAI call kwargs: %s", _safe_log_kwargs(call_kwargs))
     resp = await client.chat.completions.create(**call_kwargs)
     choice = resp.choices[0]

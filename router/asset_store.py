@@ -53,6 +53,86 @@ def packaged_assets_3d_dir() -> Path:
     return ROOT / "assets" / "3d"
 
 
+def archive_3d_dir() -> Path | None:
+    """Advanced cold-storage directory for 3D assets, or None when disabled."""
+    raw = (settings.asset_archive_dir or "").strip()
+    if not raw:
+        return None
+    return Path(raw).expanduser()
+
+
+# Compressed-variant + sidecar suffixes that travel with a .glb on archive/restore.
+_COMPANION_SUFFIXES = (
+    ".json", "-draco.glb", "-meshopt.glb", "-ktx2.glb", "-web.glb", "-game.glb",
+    ".glb.gz", ".glb.br",
+)
+
+
+def _asset_family(dir_: Path, stem: str) -> list[Path]:
+    files = [dir_ / f"{stem}.glb"]
+    for suffix in _COMPANION_SUFFIXES:
+        files.append(dir_ / f"{stem}{suffix}")
+    return [f for f in files if f.exists()]
+
+
+def archive_assets(
+    names: list[str] | None = None,
+    older_than_days: float | None = None,
+    dry_run: bool = False,
+) -> dict:
+    """Move rarely-used 3D assets (glb + sidecar + variants) into cold storage.
+
+    Archived assets stay servable — resolve_asset_file falls back to the
+    archive directory — but stop counting against the hot asset root.
+    """
+    import time as _time
+
+    archive = archive_3d_dir()
+    if archive is None:
+        raise AssetStoreError("asset_archive_dir is not configured (advanced setting)")
+    src_dir = assets_3d_dir()
+    if not src_dir.exists():
+        return {"moved": [], "bytes": 0, "dry_run": dry_run}
+    stems: set[str] = set()
+    if names:
+        stems = {sanitize_asset_name(n) for n in names}
+    else:
+        cutoff = _time.time() - float(older_than_days or 30) * 86400
+        for p in src_dir.glob("*.glb"):
+            base = p.name
+            if any(base.endswith(sfx) for sfx in ("-draco.glb", "-meshopt.glb", "-ktx2.glb", "-web.glb", "-game.glb")):
+                continue
+            if p.stat().st_mtime < cutoff:
+                stems.add(p.stem)
+    moved, total = [], 0
+    if not dry_run:
+        archive.mkdir(parents=True, exist_ok=True)
+    for stem in sorted(stems):
+        for f in _asset_family(src_dir, stem):
+            total += f.stat().st_size
+            moved.append(f.name)
+            if not dry_run:
+                shutil.move(str(f), str(archive / f.name))
+    return {"moved": moved, "bytes": total, "dry_run": dry_run, "archive_dir": str(archive)}
+
+
+def restore_assets(names: list[str]) -> dict:
+    """Move archived assets back into the hot asset root."""
+    archive = archive_3d_dir()
+    if archive is None:
+        raise AssetStoreError("asset_archive_dir is not configured (advanced setting)")
+    dest = assets_3d_dir()
+    dest.mkdir(parents=True, exist_ok=True)
+    moved, total = [], 0
+    for name in names:
+        stem = sanitize_asset_name(name)
+        for f in _asset_family(archive, stem):
+            total += f.stat().st_size
+            moved.append(f.name)
+            shutil.move(str(f), str(dest / f.name))
+    return {"moved": moved, "bytes": total}
+
+
 def sanitize_asset_name(name: str) -> str:
     raw = name.removesuffix(".glb")
     safe = re.sub(r"[^A-Za-z0-9_.-]", "-", raw).strip("-")
@@ -74,6 +154,9 @@ def resolve_asset_file(filename: str) -> Path:
     if not re.fullmatch(r"[A-Za-z0-9_.-]+", filename):
         raise AssetStoreError("invalid asset filename")
     asset_dirs = [assets_3d_dir(), packaged_assets_3d_dir()]
+    archive = archive_3d_dir()
+    if archive is not None:
+        asset_dirs.append(archive)
     allowed_suffixes = {
         ".glb",
         ".gltf",

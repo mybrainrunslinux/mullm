@@ -220,17 +220,25 @@ def asset_record(path: Path) -> dict[str, Any]:
 
 
 def list_assets() -> list[dict[str, Any]]:
+    from router.asset_store import archive_3d_dir
+
     seen: set[str] = set()
-    paths: list[Path] = []
-    for asset_dir in (assets_3d_dir(), packaged_assets_3d_dir()):
+    records: list[dict[str, Any]] = []
+    dirs: list[tuple[Path, bool]] = [(assets_3d_dir(), False), (packaged_assets_3d_dir(), False)]
+    archive = archive_3d_dir()
+    if archive is not None:
+        dirs.append((archive, True))
+    for asset_dir, archived in dirs:
         if not asset_dir.exists():
             continue
         for path in sorted(asset_dir.glob("*.glb"), key=lambda item: item.stat().st_mtime, reverse=True):
             if path.name in seen:
                 continue
             seen.add(path.name)
-            paths.append(path)
-    return [asset_record(path) for path in paths]
+            rec = asset_record(path)
+            rec["archived"] = archived
+            records.append(rec)
+    return records
 
 
 def _compressed_variants(path: Path) -> dict[str, str]:
@@ -292,6 +300,20 @@ async def serve_3d_asset(filename: str):
     return Response(path.read_bytes(), media_type=media_type, headers=headers)
 
 
+def _archive_status() -> dict[str, Any]:
+    from router.asset_store import archive_3d_dir
+
+    archive = archive_3d_dir()
+    if archive is None:
+        return {"enabled": False, "hint": "Set MULLM_ASSET_ARCHIVE_DIR or [studio.assets] archive_dir (advanced)."}
+    count = bytes_ = 0
+    if archive.exists():
+        for p in archive.glob("*.glb"):
+            count += 1
+            bytes_ += p.stat().st_size
+    return {"enabled": True, "dir": str(archive), "asset_count": count, "total_gb": round(bytes_ / 1024**3, 3)}
+
+
 def asset_storage_status_payload() -> dict[str, Any]:
     asset_dir = assets_3d_dir()
     packaged_dir = packaged_assets_3d_dir()
@@ -319,6 +341,7 @@ def asset_storage_status_payload() -> dict[str, Any]:
         "compression_options": ["none", "gzip", "brotli", "draco", "meshopt", "ktx2", "draco_ktx2", "game_ready", "auto"],
         "compression_status": compression_status(),
         "storage_options": ["local", "s3", "azure_blob", "external_api"],
+        "archive": _archive_status(),
         "notes": [
             "Local disk is the default and works offline.",
             "Object storage and external asset APIs are represented in metadata now and can be backed by provider adapters.",
@@ -330,6 +353,42 @@ def asset_storage_status_payload() -> dict[str, Any]:
 @router.get("/api/scene/storage")
 async def asset_storage_status():
     return asset_storage_status_payload()
+
+
+@router.post("/api/3d-assets/archive")
+async def archive_3d_assets(request: Request):
+    """Advanced: move assets (glb + sidecar + compressed variants) to cold storage.
+
+    Body: {"names": [...]} or {"older_than_days": N}; add "dry_run": true to preview.
+    Requires the asset_archive_dir advanced setting (MULLM_ASSET_ARCHIVE_DIR or
+    mullm.toml [studio.assets] archive_dir). Archived assets remain servable.
+    """
+    from router.asset_store import archive_assets
+
+    body = await request.json()
+    try:
+        return archive_assets(
+            names=body.get("names"),
+            older_than_days=body.get("older_than_days"),
+            dry_run=bool(body.get("dry_run", False)),
+        )
+    except AssetStoreError as exc:
+        raise HTTPException(status_code=412, detail=str(exc)) from exc
+
+
+@router.post("/api/3d-assets/restore")
+async def restore_3d_assets(request: Request):
+    """Advanced: move archived assets back into the hot asset root."""
+    from router.asset_store import restore_assets
+
+    body = await request.json()
+    names = body.get("names") or []
+    if not isinstance(names, list) or not names:
+        raise HTTPException(status_code=400, detail="names list required")
+    try:
+        return restore_assets([str(n) for n in names])
+    except AssetStoreError as exc:
+        raise HTTPException(status_code=412, detail=str(exc)) from exc
 
 
 @router.get("/api/world/providers")

@@ -447,6 +447,8 @@ def _flatten_toml(toml: dict[str, Any]) -> dict[str, Any]:
         out["asset_root"] = assets["root"]
     if "storage_backend" in assets:
         out["asset_storage_backend"] = assets["storage_backend"]
+    if "archive_dir" in assets:
+        out["asset_archive_dir"] = assets["archive_dir"]
     if "external_base_url" in assets:
         out["asset_external_base_url"] = assets["external_base_url"]
     if "compression" in assets:
@@ -641,6 +643,9 @@ class Settings(BaseSettings):
     asset_external_base_url: str = ""
     asset_compression: Literal["none", "gzip", "brotli", "draco", "meshopt", "ktx2", "auto"] = "auto"
     asset_max_local_gb: float = 50.0
+    # Advanced: optional cold-storage directory (e.g. a large external drive).
+    # Empty = disabled. Archived assets remain servable via resolve fallback.
+    asset_archive_dir: str = ""
     asset_s3_bucket: str = ""
     asset_azure_container: str = ""
     redis_url: str = Field(
