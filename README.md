@@ -453,4 +453,6 @@ mμ|LLM is a research project and production system developed at 0101 Technology
 
 *Cost-optimal LLM routing. Local-first. Microscopic spend.*
 
+muLLM is developed and stewarded by **0101 Technology LLC** (Oregon, USA). See [NOTICE](NOTICE).
+
 </div>
