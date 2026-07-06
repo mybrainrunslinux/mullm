@@ -795,6 +795,7 @@ select.speed-select {
       <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-foley" id="tbtn-foley" onclick="switchTab('foley')">Foley</button>
       <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-preview" id="tbtn-preview" onclick="switchTab('preview')">Preview</button>
       <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-library" id="tbtn-library" onclick="switchTab('library')">Library</button>
+      <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-sequencer" id="tbtn-sequencer" onclick="switchTab('sequencer')">Sequencer</button>
     </div>
 
     <!-- Record tab -->
@@ -1064,6 +1065,10 @@ select.speed-select {
       </div>
     </div>
 
+    <div class="tab-panel" id="tab-sequencer" role="tabpanel" aria-labelledby="tbtn-sequencer">
+      <div id="sequencer-root"><div class="empty-state">Loading sequencer…</div></div>
+    </div>
+
   </div><!-- /studio-card -->
 
 </main>
@@ -1121,6 +1126,18 @@ function switchTab(name) {
   });
   if (name === 'library') refreshLibrary();
   if (name === 'foley') loadFoleyPresets();
+  if (name === 'sequencer' && !window._seqInit) {
+    window._seqInit = true;
+    const boot = () => window.MusaicSeq.init(document.getElementById('sequencer-root'));
+    if (window.MusaicSeq) boot();
+    else {
+      const s = document.createElement('script');
+      s.src = '/static/musaic-sequencer.js';
+      s.onload = boot;
+      s.onerror = () => { document.getElementById('sequencer-root').textContent = 'Sequencer module failed to load.'; window._seqInit = false; };
+      document.head.appendChild(s);
+    }
+  }
 }
 
 /* ── Format selector ────────────────────────────────────────── */
