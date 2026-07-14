@@ -72,7 +72,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: anchore/scan-action@v6
+      - uses: anchore/scan-action@v7
         id: grype
         with:
           path: .
