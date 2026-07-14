@@ -73,6 +73,7 @@ jobs:
           persist-credentials: false
 
       - uses: anchore/scan-action@v6
+        id: grype
         with:
           path: .
           fail-build: true
@@ -83,4 +84,4 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: results.sarif
+          sarif_file: ${{ steps.grype.outputs.sarif }}

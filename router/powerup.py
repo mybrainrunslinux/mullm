@@ -128,7 +128,8 @@ async def powerup_pipeline(req: QueryRequest, pipeline_start: float) -> Pipeline
         raise RuntimeError(f"powerup_all_failed: {failed}")
 
     total_cost = sum(r["cost"] for r in ok_results)
-    intent_id = f"pw-{hashlib.md5(req.content.encode()).hexdigest()[:8]}"  # noqa: S324
+    # This digest is only a compact correlation ID, never a security primitive.
+    intent_id = f"pw-{hashlib.md5(req.content.encode(), usedforsecurity=False).hexdigest()[:8]}"
 
     if len(ok_results) == 1:
         r = ok_results[0]
