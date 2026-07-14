@@ -513,7 +513,7 @@ class Settings(BaseSettings):
 
     # ── Server ───────────────────────────────────────────────
     port: int = 6856
-    version: str = "0.9.0"
+    version: str = "0.9.1"
     dev_mode: bool = True          # When True, auth is skipped; set False in prod
     server_reload: bool = False    # Development hot-reload; keep off for installed/user runs
     log_level: str = "INFO"

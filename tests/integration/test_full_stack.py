@@ -27,7 +27,7 @@ import time
 import httpx
 import pytest
 
-BASE = os.environ.get("MULLM_BASE_URL", "https://127.0.0.1:6856")
+BASE = os.environ.get("MULLM_BASE_URL", "https://127.0.0.1:16856")
 VERIFY_TLS = os.environ.get("MULLM_TEST_VERIFY_TLS", "0").lower() in {"1", "true", "yes"}
 TIMEOUT = int(os.environ.get("MULLM_TEST_TIMEOUT", "300"))  # local model can be slow on first load
 

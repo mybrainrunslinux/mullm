@@ -343,6 +343,18 @@ async function loadAssetList() {
   }
 }
 
+function requestedCharacterAsset() {
+  const params = new URLSearchParams(location.search);
+  let asset = params.get('asset') || '';
+  let url = params.get('url') || '';
+  try {
+    const saved = JSON.parse(localStorage.getItem('mullm.character.handoff') || '{}');
+    asset ||= saved.asset_name || '';
+    url ||= saved.url || '';
+  } catch (_) {}
+  return asset && url ? { asset, url } : null;
+}
+
 // ── GLB loader ────────────────────────────────────────────────────
 async function loadModel(url, name) {
   currentAssetName = name.replace(/\.glb$/i, '').replace(/-lowpoly$/, '');
@@ -687,6 +699,15 @@ async function init() {
   initThree();
   wireEvents();
   await loadAssetList();
+  const requested = requestedCharacterAsset();
+  if (requested) {
+    const select = document.getElementById('asset-select');
+    const match = Array.from(select.options).find(o => o.dataset.name === requested.asset || o.value === requested.url);
+    if (match) select.value = match.value;
+    await loadModel(requested.url, requested.asset);
+    toast(`Loaded character handoff: ${requested.asset}`, 'success');
+    return;
+  }
   document.getElementById('loader').classList.add('hidden');
   document.getElementById('empty-state').classList.remove('hidden');
 }

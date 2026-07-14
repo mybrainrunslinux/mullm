@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mullm"
-version = "0.9.0"
+version = "0.9.1"
 description = "Local-first LLM router. 96.4% cost reduction. Free tier first."
 readme = "README.md"
 license = "Apache-2.0"
@@ -158,6 +158,7 @@ router = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths    = ["tests"]
+pythonpath   = ["."]
 markers = [
     "spend: tests that make real cloud API calls (run with --grep @spend)",
 ]

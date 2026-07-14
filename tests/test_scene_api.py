@@ -1,3 +1,5 @@
+import base64
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -69,6 +71,23 @@ async def test_scene_asset_file_route_respects_custom_root(tmp_path, monkeypatch
 
     assert response.status_code == 200
     assert response.content == b"glTF fake"
+
+
+@pytest.mark.asyncio
+async def test_character_store_registers_glb_and_bone_manifest(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "asset_root", str(tmp_path))
+    payload = b"glTF" + b"\x00" * 32
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/characters/store", json={
+            "name": "hero character",
+            "glb_base64": base64.b64encode(payload).decode("ascii"),
+            "bones": [{"name": "Hips", "parent": None}],
+            "customization": {"height": 1.1},
+        })
+    assert response.status_code == 200
+    assert response.json()["asset_name"] == "hero-character"
+    assert response.json()["bone_count"] == 1
+    assert (tmp_path / "3d" / "hero-character.glb").read_bytes() == payload
 
 
 @pytest.mark.asyncio

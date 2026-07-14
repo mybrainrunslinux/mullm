@@ -62,6 +62,30 @@ def test_packaged_three_games_use_local_three_vendor():
     assert "unpkg.com/three" not in foot_golf
 
 
+def test_r185_level_and_globe_pages_are_packaged():
+    root = Path(__file__).resolve().parents[1]
+    levels = (root / "router" / "levels.html").read_text(encoding="utf-8")
+    globe = (root / "router" / "globe.html").read_text(encoding="utf-8")
+    for html in (levels, globe):
+        assert '\"three\":\"/static/three/three.module.js\"' in html
+        assert "three@0." not in html
+    assert "GLTFExporter" in levels
+    assert "NASA Earth Observatory" in globe
+
+
+def test_character_workflow_persists_and_hands_off_asset():
+    root = Path(__file__).resolve().parents[1]
+    characters = (root / "router" / "characters.html").read_text(encoding="utf-8")
+    rigs = (root / "router" / "rigs.html").read_text(encoding="utf-8")
+    walks = (root / "router" / "walks.html").read_text(encoding="utf-8")
+    assert "/api/characters/store" in characters
+    assert "GLTFLoader" in characters and "GLTFExporter" in characters
+    assert "new THREE.Bone()" in characters
+    assert "mullm.character.handoff" in characters
+    assert "requestedCharacterAsset" in rigs
+    assert "URLSearchParams(location.search)" in walks
+
+
 def test_sword_dojo_uses_local_three_and_blade_axis_contract():
     root = Path(__file__).resolve().parents[1]
     html = (root / "router" / "swords.html").read_text(encoding="utf-8")

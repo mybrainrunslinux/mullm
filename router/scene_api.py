@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
@@ -281,6 +282,35 @@ async def list_3d_assets(category: str | None = None, q: str | None = None):
         "counts": counts,
         "storage": asset_storage_status_payload(),
     }
+
+
+@router.post("/api/characters/store")
+async def store_character(request: Request):
+    """Register a browser-generated/imported character GLB as a normal 3D asset."""
+    body = await request.json()
+    name = sanitize_asset_name(str(body.get("name") or "character"))
+    encoded = str(body.get("glb_base64") or "")
+    if not encoded:
+        raise HTTPException(status_code=400, detail="glb_base64 is required")
+    try:
+        payload = base64.b64decode(encoded, validate=True)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="invalid GLB base64") from exc
+    if len(payload) < 20 or payload[:4] != b"glTF":
+        raise HTTPException(status_code=400, detail="payload is not a binary GLB")
+    if len(payload) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="character GLB exceeds 50 MB")
+    bone_manifest = body.get("bones") if isinstance(body.get("bones"), list) else []
+    stored = get_asset_store().put_bytes(name, payload, {
+        "source": "character_studio",
+        "category": "character",
+        "tags": ["character", "humanoid", "rigged" if bone_manifest else "unrigged"],
+        "bones": bone_manifest[:512],
+        "customization": body.get("customization") if isinstance(body.get("customization"), dict) else {},
+        "date": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    })
+    return {"ok": True, "asset_name": stored.name, "url": stored.url, "bytes": stored.bytes,
+            "bone_count": len(bone_manifest)}
 
 
 @router.get("/assets/3d/{filename}")

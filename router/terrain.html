@@ -11,8 +11,8 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+      "three": "/static/three/three.module.js",
+      "three/addons/": "/static/three/addons/"
     }
   }
   </script>
@@ -870,6 +870,10 @@
                   data-tooltip="Download the generated GLB file">
             &#8595; Download GLB
           </button>
+          <button class="btn-secondary" id="heightmap-btn" onclick="downloadHeightmap()"
+                  data-tooltip="Download the generated 16-bit grayscale heightmap PNG">
+            &#8595; Heightmap PNG
+          </button>
           <button class="btn-secondary" id="scene-btn" onclick="sendToScene()"
                   data-tooltip="Send this terrain to the Scene Builder as a placed asset"
                   data-tip-wide>
@@ -1335,6 +1339,15 @@ window.downloadGlb = function() {
   a.download = 'terrain-' + ((lastResult && lastResult.preset) || 'game') + '.glb';
   a.click();
   toast('Download started', 'success');
+};
+
+window.downloadHeightmap = function() {
+  if (!lastResult || !lastResult.heightmap_url) { toast('No heightmap available yet', 'error'); return; }
+  var a = document.createElement('a');
+  a.href = lastResult.heightmap_url;
+  a.download = 'terrain-' + (lastResult.preset || 'game') + '-heightmap.png';
+  a.click();
+  toast('16-bit heightmap download started', 'success');
 };
 
 window.sendToScene = async function() {

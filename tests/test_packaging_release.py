@@ -23,7 +23,7 @@ def test_platform_packaging_uses_project_version():
         text = path.read_text(encoding="utf-8")
         assert "0.9.9" not in text
         assert "pyproject.toml" in text
-    assert version == "0.9.0"
+    assert version == "0.9.1"
 
 
 def test_python_support_metadata_includes_313_ci():

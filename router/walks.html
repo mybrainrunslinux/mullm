@@ -735,6 +735,13 @@ let currentWalkPath = '';
 
 async function chooseWalkModel() {
     try {
+        const params = new URLSearchParams(location.search);
+        let requestedUrl = params.get('url') || '';
+        try {
+            const saved = JSON.parse(localStorage.getItem('mullm.character.handoff') || '{}');
+            requestedUrl ||= saved.url || '';
+        } catch (_) {}
+        if (requestedUrl) return requestedUrl;
         const response = await fetch('/api/3d-assets');
         if (!response.ok) throw new Error(`asset list ${response.status}`);
         const data = await response.json();

@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import math
 import os
 import re
 import struct
 import time
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -28,6 +30,7 @@ from fastapi.responses import JSONResponse
 from router.asset_store import get_asset_store
 
 router = APIRouter(prefix="/api/terrain", tags=["terrain"])
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -962,7 +965,11 @@ async def generate_terrain(request: Request) -> JSONResponse:
     if heightmap is None:
         # Fallback to procedural
         actual_source = "procedural"
-        height_scale = float(preset.get("height_scale", 1.0)) * radius_km * 0.1
+        # Use game-scale relief: the previous ``radius_km * 0.1`` calculation
+        # produced just 0.2 m of relief across a 4 km terrain, which rendered
+        # and exported as an apparently flat plane.  Ten percent of the
+        # half-width gives useful hills while keeping slopes navigable.
+        height_scale = float(preset.get("height_scale", 1.0)) * radius_km * 100.0
         heightmap = _procedural_heightmap(grid, grid, scale=height_scale)
 
     # ---- Resample to target grid ----
@@ -1015,6 +1022,22 @@ async def generate_terrain(request: Request) -> JSONResponse:
         **meta,
     })
 
+    # Export the source height field beside local GLBs.  A 16-bit PNG preserves
+    # enough precision for re-import into Three.js, Blender, and game engines.
+    # Remote asset backends may not expose a writable local path, so this is a
+    # best-effort companion while the GLB remains the canonical result.
+    heightmap_url: str | None = None
+    try:
+        from PIL import Image
+
+        normalized = heightmap / max(float(heightmap.max()), 1e-9)
+        height_u16 = np.round(normalized * 65535.0).astype(np.uint16)
+        heightmap_path = Path(stored.path).with_name(f"{stored.name}-heightmap.png")
+        Image.fromarray(height_u16, mode="I;16").save(heightmap_path)
+        heightmap_url = f"/assets/3d/{heightmap_path.name}"
+    except (OSError, ValueError):
+        logger.warning("Could not persist terrain heightmap companion", exc_info=True)
+
     elapsed = time.monotonic() - t0
 
     # ---- OSM overlay ----
@@ -1048,6 +1071,8 @@ async def generate_terrain(request: Request) -> JSONResponse:
         "glb_url": stored.url,
         "glb_path": stored.path,
         "glb_size_kb": round(stored.bytes / 1024, 1),
+        "heightmap_url": heightmap_url,
+        "heightmap_format": "16-bit grayscale PNG" if heightmap_url else None,
         "asset_name": stored.name,
         "source": actual_source,
         "source_requested": source,
