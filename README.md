@@ -7,18 +7,17 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green?style=for-the-badge)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 [![Release](https://img.shields.io/github/v/release/mybrainrunslinux/mullm?style=for-the-badge&logo=github)](https://github.com/mybrainrunslinux/mullm/releases/latest)
-[![Cost Reduction](https://img.shields.io/badge/Cost%20Reduction-96.4%25-F59E0B?style=for-the-badge)](https://mullm.com)
-[![HumanEval](https://img.shields.io/badge/HumanEval-100%25%20pass%401-brightgreen?style=for-the-badge)](https://mullm.com)
-[![RouterBench AIQ](https://img.shields.io/badge/RouterBench%20AIQ-0.6673%20SOTA-purple?style=for-the-badge)](https://mullm.com)
+[![Cost Reduction](https://img.shields.io/badge/Cost%20Reduction-96.4%25-F59E0B?style=for-the-badge)](#-benchmark-results)
+[![HumanEval](https://img.shields.io/badge/HumanEval-100%25%20pass%401-brightgreen?style=for-the-badge)](#-benchmark-results)
+[![RouterBench AIQ](https://img.shields.io/badge/RouterBench%20AIQ-0.6673%20SOTA-purple?style=for-the-badge)](#-benchmark-results)
 
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=for-the-badge)](https://mullm.com)
-[![Backends](https://img.shields.io/badge/Backends-Ollama%20%7C%20ExLlamaV2%20%7C%20llama.cpp%20%7C%20MLX-94A3B8?style=for-the-badge)](https://mullm.com)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=for-the-badge)](#-quick-start)
+[![Backends](https://img.shields.io/badge/Backends-Ollama%20%7C%20ExLlamaV2%20%7C%20llama.cpp%20%7C%20MLX-94A3B8?style=for-the-badge)](#-supported-providers)
 [![Grype](https://img.shields.io/badge/Grype-0%20CVEs-brightgreen?style=for-the-badge)](SECURITY.md)
 [![Bandit](https://img.shields.io/badge/Bandit-0%20High-brightgreen?style=for-the-badge)](SECURITY.md)
-[![Build](https://img.shields.io/badge/Build-passing-brightgreen?style=for-the-badge)](https://mullm.com)
-[![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b?style=for-the-badge&logo=arxiv&logoColor=white)](https://mullm.com)
+[![CI](https://img.shields.io/github/actions/workflow/status/mybrainrunslinux/mullm/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/mybrainrunslinux/mullm/actions/workflows/ci.yml)
 
-**[Website](https://mullm.com)** · **[Paper](#-research)** · **[Quick Start](#-quick-start)** · **[Benchmarks](#-benchmark-results)** · **[Providers](#-supported-providers)**
+**[GitHub](https://github.com/mybrainrunslinux/mullm)** · **[Quick Start](#-quick-start)** · **[Benchmarks](#-benchmark-results)** · **[Providers](#-supported-providers)**
 
 </div>
 
@@ -40,41 +39,7 @@
 
 **mμ|LLM** routes every query through four escalating tiers, short-circuiting the moment an answer is found. Cost accumulates only if cheaper tiers can't satisfy the query.
 
-```
-  ┌─────────────────────────────────────────────────────────────────────┐
-  │                        mμ|LLM  (port 6856)                         │
-  │                     MULM on your phone keypad                       │
-  ├──────────┬──────────────────────────────────┬──────────┬────────────┤
-  │  Tier    │  Component                       │ Latency  │   Cost     │
-  ├──────────┼──────────────────────────────────┼──────────┼────────────┤
-  │  Tier 0  │  Groundtruth LUT                 │  <1 ms   │  $0.000    │
-  │          │  Arithmetic · dates · HTTP codes │          │            │
-  │          │  unit conversions · Big-O · Git  │          │            │
-  ├──────────┼──────────────────────────────────┼──────────┼────────────┤
-  │  Tier 1  │  Semantic Vector Cache           │  ~14 ms  │  $0.000    │
-  │          │  SQLite default · cosine ≥ 0.98  │          │            │
-  │          │  nomic-embed-text embeddings      │          │            │
-  ├──────────┼──────────────────────────────────┼──────────┼────────────┤
-  │  Tier 2  │  Local 30B Model                 │  ~5 s    │  $0.000    │
-  │          │  Ollama / ExLlamaV2 / llama.cpp  │          │            │
-  │          │  65K context · vision support    │          │            │
-  ├──────────┼──────────────────────────────────┼──────────┼────────────┤
-  │  Tier 3  │  Cloud API Fallback              │  ~2 s    │  $$$       │
-  │          │  16 providers · budget hard-stop │          │            │
-  │          │  cheap → full model escalation   │          │            │
-  └──────────┴──────────────────────────────────┴──────────┴────────────┘
-
-  Query ──→ [T0] Groundtruth LUT ───────────────────────────────→ answer
-                      │ miss
-                      ▼
-             [T1] Vector Cache (SQLite/opt-in Chroma) ───────→ cached answer
-                      │ miss
-                      ▼
-             [T2] Local Model (Ollama / ExLlamaV2) ──────────→ answer
-                      │ quality gate fail
-                      ▼
-             [T3] Cloud API (haiku → sonnet → …) ───────────→ answer
-```
+![muLLM four-tier routing architecture](docs/tier-routing.svg)
 
 **The classifier** — DeBERTa-v3-small (44 MB) — reads the query once and predicts tier + intent category before any LLM is invoked. Tier 0 overhead: **<1 ms**.
 
@@ -377,9 +342,7 @@ mullm --tier cloud_full "complex question"     # force a specific tier
 
 ## 🔬 Research
 
-**mμ|LLM** is an academically grounded system with a peer-reviewed paper submitted to EMNLP / arXiv. The implementation is the reference artifact for the paper.
-
-[![arXiv](https://img.shields.io/badge/arXiv-preprint-b31b1b?style=for-the-badge&logo=arxiv&logoColor=white)](https://mullm.com)
+**mμ|LLM** is informed by ongoing research. The manuscript and evaluation methodology are still under critical review; no preprint is currently published.
 
 ### Key claims (verified on production data)
 
@@ -390,7 +353,7 @@ mullm --tier cloud_full "complex question"     # force a specific tier
 - **DeBERTa-v3-small (44 MB)** classifier achieves production-grade intent classification
 - Four-tier waterfall architecture generalizes to any local + cloud backend combination
 
-If you use mμ|LLM in your research, please cite the paper (BibTeX forthcoming after arXiv publication).
+Citation details will be added when the manuscript is ready for publication.
 
 ---
 
@@ -411,7 +374,7 @@ podman-compose up -d                                       # CPU only
 curl http://localhost:6856/health
 ```
 
-For Kubernetes, systemd, or bare-metal deployments see [mullm.com/docs](https://mullm.com/docs).
+For Kubernetes, systemd, or bare-metal deployments see the repository's [deployment documentation](docs/).
 
 ---
 
@@ -420,7 +383,7 @@ For Kubernetes, systemd, or bare-metal deployments see [mullm.com/docs](https://
 Contributions are welcome. Please open an issue before starting large changes.
 
 ```bash
-git clone https://github.com/mullm/mullm
+git clone https://github.com/mybrainrunslinux/mullm.git
 cd mullm
 pip install -e .[all]
 npx playwright test              # 59 free tests (no API calls)
@@ -447,7 +410,7 @@ mμ|LLM is a research project and production system developed at 0101 Technology
 
 <div align="center">
 
-**[mullm.com](https://mullm.com)** · **[0101technology.com](https://0101technology.com)** · **[Apache 2.0](LICENSE)**
+**[GitHub](https://github.com/mybrainrunslinux/mullm)** · **[0101technology.com](https://0101technology.com)** · **[Apache 2.0](LICENSE)**
 
 *Cost-optimal LLM routing. Local-first. Microscopic spend.*
 

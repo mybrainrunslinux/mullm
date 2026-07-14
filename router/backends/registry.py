@@ -227,7 +227,7 @@ def init_backends() -> None:
                 openrouter_key,
                 "meta-llama/llama-3.1-8b-instruct:free",
                 extra_headers={
-                    "HTTP-Referer": "https://mullm.com",
+                    "HTTP-Referer": "https://github.com/mybrainrunslinux/mullm",
                     "X-Title": "muLLM",
                 },
             ),

@@ -40,7 +40,7 @@ LABEL org.opencontainers.image.title="muLLM"
 LABEL org.opencontainers.image.description="Local-first LLM router — 96.4% cost reduction"
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.url="https://mullm.com"
+LABEL org.opencontainers.image.url="https://github.com/mybrainrunslinux/mullm"
 
 # Non-root user
 RUN groupadd --gid 1001 mullm && \

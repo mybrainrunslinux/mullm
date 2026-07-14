@@ -127,7 +127,7 @@ all = [
 ]
 
 [project.urls]
-Homepage    = "https://mullm.com"
+Homepage    = "https://github.com/mybrainrunslinux/mullm"
 Repository  = "https://github.com/mybrainrunslinux/mullm"
 "Bug Tracker" = "https://github.com/mybrainrunslinux/mullm/issues"
 

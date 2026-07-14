@@ -2409,7 +2409,7 @@ async def a2a_agent_card():
                 "method": "POST",
             },
         ],
-        "provider": {"organization": "muLLM", "url": "https://mullm.com"},
+        "provider": {"organization": "muLLM", "url": "https://github.com/mybrainrunslinux/mullm"},
         "authentication": {"schemes": ["none"] if settings.dev_mode or not settings.api_key else ["bearer"]},
     }
 
@@ -4748,8 +4748,8 @@ async def security_txt():
     """RFC 9116 security disclosure file."""
     from router.config import settings as _s
     contact = getattr(_s, "security_contact_email", "contact@mullm.com")
-    canonical = "https://mullm.com/.well-known/security.txt"
-    policy = "https://mullm.com/security"
+    canonical = "https://github.com/mybrainrunslinux/mullm/security/policy"
+    policy = "https://github.com/mybrainrunslinux/mullm/security/policy"
     return (
         f"Contact: mailto:{contact}\n"
         f"Expires: {__import__('datetime').date.today().replace(year=__import__('datetime').date.today().year + 1).isoformat()}T00:00:00Z\n"

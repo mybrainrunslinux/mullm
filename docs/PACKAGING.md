@@ -17,17 +17,16 @@ the signed GitHub release until the wheel is ready.
 Pip supports remote constraints files:
 
 ```bash
-python -m pip install mullm -c https://mullm.com/constraints.txt
+python -m pip install mullm -c https://raw.githubusercontent.com/mybrainrunslinux/mullm/main/constraints.txt
 ```
 
 Prefer immutable versioned URLs for reproducible installs:
 
 ```bash
-python -m pip install mullm==1.0.0 -c https://mullm.com/releases/1.0.0/constraints.txt
+python -m pip install mullm -c https://raw.githubusercontent.com/mybrainrunslinux/mullm/main/constraints.txt
 ```
 
-Keep `https://mullm.com/constraints.txt` or `https://mullm.com/latest/constraints.txt` as a
-convenience alias only. Release docs should point enterprise users at the versioned constraints.
+Use a commit-specific raw GitHub URL when an immutable constraint set is required.
 
 ## Local Release Smoke
 
