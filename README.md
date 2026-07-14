@@ -1,14 +1,12 @@
 <div align="center">
 
-<img src="assets/logo.svg" alt="mμ|LLM logo" width="128" height="128" />
-
 # mμ|LLM
 
 ### Cost-Optimal LLM Routing — 96.4% cheaper than cloud-only
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green?style=for-the-badge)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/PyPI-mullm-orange?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/mullm)
+[![Release](https://img.shields.io/github/v/release/mybrainrunslinux/mullm?style=for-the-badge&logo=github)](https://github.com/mybrainrunslinux/mullm/releases/latest)
 [![Cost Reduction](https://img.shields.io/badge/Cost%20Reduction-96.4%25-F59E0B?style=for-the-badge)](https://mullm.com)
 [![HumanEval](https://img.shields.io/badge/HumanEval-100%25%20pass%401-brightgreen?style=for-the-badge)](https://mullm.com)
 [![RouterBench AIQ](https://img.shields.io/badge/RouterBench%20AIQ-0.6673%20SOTA-purple?style=for-the-badge)](https://mullm.com)
@@ -95,8 +93,8 @@ Choose the path that fits your setup. All three expose the same API on port **68
 ### Path 1 — pip (simplest)
 
 ```bash
-# Standard install — secure by default (CVE floors are encoded in the package)
-pip install mullm
+# Public tester release — install the universal wheel directly from GitHub
+pip install https://github.com/mybrainrunslinux/mullm/releases/download/v0.9.1/mullm-0.9.1-py3-none-any.whl
 
 # Optional hardened install — explicit pin set for air-gapped or policy-bound envs
 pip install -c constraints.txt mullm
@@ -121,7 +119,7 @@ mullm "what is 12345 * 6789"
 
 ```bash
 # Clone and start the full stack (mullm + Ollama + Redis)
-git clone https://github.com/mullm/mullm && cd mullm
+git clone https://github.com/mybrainrunslinux/mullm && cd mullm
 cp .env.example .env        # add API keys as needed
 
 # Podman (preferred — rootless, no daemon)
@@ -143,7 +141,7 @@ docker compose up -d
 ### Path 3 — Source / development
 
 ```bash
-git clone https://github.com/mullm/mullm && cd mullm
+git clone https://github.com/mybrainrunslinux/mullm && cd mullm
 pip install -c constraints.txt -e .[all]
 cp .env.example .env   # edit API keys as needed
 mullm-server

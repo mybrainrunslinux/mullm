@@ -128,8 +128,8 @@ all = [
 
 [project.urls]
 Homepage    = "https://mullm.com"
-Repository  = "https://github.com/0101technology/mullm"
-"Bug Tracker" = "https://github.com/0101technology/mullm/issues"
+Repository  = "https://github.com/mybrainrunslinux/mullm"
+"Bug Tracker" = "https://github.com/mybrainrunslinux/mullm/issues"
 
 [project.scripts]
 mullm        = "router.cli:main"
