@@ -80,28 +80,42 @@ mullm "write a Python function to flatten a nested list"
 mullm "what is 12345 * 6789"
 ```
 
-### Path 2 — Podman / Docker Compose
+Installation itself does not start a process. The first `mullm-server` or `mullm --serve` detects an unconfigured install and prints the setup URL (`http://127.0.0.1:6856/setup`). To open it automatically on a desktop, start with `MULLM_OPEN_BROWSER=1 mullm-server`. You can return to `/setup` at any time.
+
+### Optional installs, modes, and key storage
+
+The base package includes the router, web UI, CLI, SQLite semantic cache, and cloud-provider clients. Add only the capabilities you need:
+
+| Install | Adds |
+|---|---|
+| `pip install "mullm[studio]"` | Studio media helpers, local TTS, audio, and video support |
+| `pip install "mullm[classifier]"` | Transformers + PyTorch for the trained DeBERTa classifier |
+| `pip install "mullm[gpu]"` | NVIDIA GPU/VRAM monitoring |
+| `pip install "mullm[auth]"` | OAuth/OIDC support for a remotely exposed UI |
+| `pip install "mullm[sentence-transformers]"` | Local embedding models |
+| `pip install "mullm[vector-cache]"` | Optional ChromaDB cache; SQLite remains the safer dependency-free default |
+| `pip install "mullm[dev]"` | Developer tests, coverage, linting, and browser-test tools |
+
+Until the package is on PyPI, install an extra from the release wheel with direct-reference syntax, for example: `pip install "mullm[studio] @ https://github.com/mybrainrunslinux/mullm/releases/download/v0.9.1/mullm-0.9.1-py3-none-any.whl"`.
+
+The setup page separates installs from feature toggles. **Single User** keeps private workstation defaults; **Team / Proxy** configures a stricter shared-gateway posture. Studio, 3D, Game Studio, ComfyUI, benchmarks, experimental backends, and research/developer features can be enabled independently. Some changes require a restart.
+
+Provider keys can be saved to the OS keychain (recommended), Unix `pass`, or a local `.env` file with owner-only permissions. **Best available** selects the OS keychain when usable and otherwise falls back to `.env`. For containers and Kubernetes, inject keys through environment variables or mounted secrets rather than baking them into the image.
+
+### Path 2 — Rootless Podman
 
 ```bash
-# Clone and start the full stack (mullm + Ollama + Redis)
-git clone https://github.com/mybrainrunslinux/mullm && cd mullm
-cp .env.example .env        # add API keys as needed
-
-# Podman (preferred — rootless, no daemon)
-podman-compose up -d
-
-# With NVIDIA GPU passthrough
-podman-compose -f compose.yml -f compose.gpu.yml up -d
-
-# Docker fallback
-docker compose up -d
+git clone https://github.com/mybrainrunslinux/mullm.git && cd mullm
+podman build -t localhost/mullm:0.9.1 .
+podman volume create mullm-data
+podman run --name mullm --replace -d \
+  -p 127.0.0.1:6856:6856 \
+  -v mullm-data:/data:Z \
+  -e MULLM_REMOTE_ACCESS=true \
+  localhost/mullm:0.9.1
 ```
 
-> **Single-container run** (no Ollama/Redis bundled):
-> ```bash
-> podman run -d --name mullm -p 6856:6856 --env-file .env \
->   ghcr.io/mullm/mullm:1.0.0
-> ```
+This is a single muLLM container; run Ollama or another compatible inference backend separately. See [Deployment](docs/DEPLOYMENT.md) for secrets, persistent state, and remote access.
 
 ### Path 3 — Source / development
 
@@ -366,15 +380,14 @@ cp .env.example .env
 # Set MULLM_API_KEY=<strong-random-secret>
 # Add cloud API keys as needed
 
-# 2. Start the full stack with Podman (rootless, recommended)
-podman-compose -f compose.yml -f compose.gpu.yml up -d   # with GPU
-podman-compose up -d                                       # CPU only
+# 2. Start muLLM
+mullm-server
 
 # 3. Verify
 curl http://localhost:6856/health
 ```
 
-For Kubernetes, systemd, or bare-metal deployments see the repository's [deployment documentation](docs/).
+For concrete systemd, Podman, Kubernetes, and multi-replica guidance, see [Deployment](docs/DEPLOYMENT.md).
 
 ---
 

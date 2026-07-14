@@ -1,6 +1,6 @@
 [Unit]
 Description=muLLM — Local-first LLM Router
-Documentation=https://mullm.com
+Documentation=https://github.com/mybrainrunslinux/mullm/blob/main/docs/DEPLOYMENT.md
 After=network.target ollama.service
 Wants=ollama.service
 
