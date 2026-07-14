@@ -1118,6 +1118,7 @@ model: mullm-auto
 <div class="card" id="card-startup">
   <h2>8.5. Run on Startup <span class="sec-badge">optional</span></h2>
   <p>Make muLLM start automatically when you log in. One command installs the right service for your OS:</p>
+  <div class="note" style="border-color:#f59e0b;color:#fbbf24;margin-bottom:12px"><strong>GPU and power warning:</strong> installing the service means muLLM starts at every login (or boot when configured) and may load a large local model. That can reserve substantial VRAM and RAM and increase idle power use. Skip this step if you want to start muLLM only when needed.</div>
   <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:var(--mono);font-size:13px;color:var(--teal);margin-bottom:14px">
     mullm --install-service
   </div>
@@ -1150,6 +1151,7 @@ Restart=on-failure
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 Environment=MULLM_REMOTE_ACCESS=true
+Environment=MULLM_OPEN_BROWSER=0
 Environment=MULLM_SSL_CERTFILE=<span id="sl-cert" style="color:var(--teal)">~/newdev/newestmullm/certs/server.crt</span>
 Environment=MULLM_SSL_KEYFILE=<span id="sl-key" style="color:var(--teal)">~/newdev/newestmullm/certs/server.key</span>
 
@@ -1183,6 +1185,7 @@ cat > ~/Library/LaunchAgents/com.mullm.router.plist &lt;&lt;'EOF'
   &lt;dict&gt;
     &lt;key&gt;PYTHONUNBUFFERED&lt;/key&gt;&lt;string&gt;1&lt;/string&gt;
     &lt;key&gt;MULLM_REMOTE_ACCESS&lt;/key&gt;&lt;string&gt;true&lt;/string&gt;
+    &lt;key&gt;MULLM_OPEN_BROWSER&lt;/key&gt;&lt;string&gt;0&lt;/string&gt;
   &lt;/dict&gt;
   &lt;key&gt;RunAtLoad&lt;/key&gt;&lt;true/&gt;
   &lt;key&gt;KeepAlive&lt;/key&gt;&lt;true/&gt;
@@ -1208,7 +1211,7 @@ Register-ScheduledTask -TaskName "mullm" `
         <pre style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:11px;white-space:pre-wrap;word-break:break-all;color:var(--text)"># Download: https://nssm.cc/download
 nssm install mullm "C:\path\to\.venv\Scripts\python.exe" "-m" "router.main"
 nssm set mullm AppDirectory "C:\path\to\newestmullm"
-nssm set mullm AppEnvironmentExtra MULLM_REMOTE_ACCESS=true
+nssm set mullm AppEnvironmentExtra MULLM_REMOTE_ACCESS=true MULLM_OPEN_BROWSER=0
 nssm start mullm</pre>
         <button onclick="copyStartup('startup-win')" style="margin-top:6px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:11px;padding:4px 10px;cursor:pointer">Copy</button>
       </div>

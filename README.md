@@ -80,7 +80,7 @@ mullm "write a Python function to flatten a nested list"
 mullm "what is 12345 * 6789"
 ```
 
-Installation itself does not start a process. The first `mullm-server` or `mullm --serve` detects an unconfigured install and prints the setup URL (`http://127.0.0.1:6856/setup`). To open it automatically on a desktop, start with `MULLM_OPEN_BROWSER=1 mullm-server`. You can return to `/setup` at any time.
+Installation itself does not start a process. The first `mullm-server` or `mullm --serve` detects an unconfigured install, prints the setup URL, and opens `http://127.0.0.1:6856/setup` in your browser. Set `MULLM_OPEN_BROWSER=0` for a headless first start. You can return to `/setup` at any time.
 
 ### Optional installs, modes, and key storage
 

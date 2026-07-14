@@ -63,6 +63,7 @@ USER mullm
 # Environment defaults (override via --env-file)
 ENV MULLM_PORT=6856 \
     MULLM_DEV_MODE=false \
+    MULLM_OPEN_BROWSER=0 \
     MULLM_LOG_LEVEL=INFO \
     MULLM_OLLAMA_BASE_URL=http://host.containers.internal:11434 \
     PYTHONUNBUFFERED=1 \

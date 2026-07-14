@@ -8,11 +8,13 @@ mullm-server
 # Open http://127.0.0.1:6856/setup
 ```
 
-Set `MULLM_OPEN_BROWSER=1` if server startup should open the setup page automatically.
+The interactive first start opens the setup page automatically. Set `MULLM_OPEN_BROWSER=0` for headless environments; installed services do this automatically.
 
 ## Persistent local service
 
 The CLI can create a current-user service for Linux, a LaunchAgent for macOS, or startup instructions for Windows:
+
+> **GPU and power warning:** `mullm --install-service` enables muLLM to start automatically at every login (or boot when the user service is configured for boot). Local inference may load a large GPU model and keep substantial VRAM, RAM, and power in use even when you are not actively chatting. Skip the service install if you prefer to start muLLM only when needed; disable it later with the platform service manager.
 
 ```bash
 mullm --install-service
@@ -33,6 +35,7 @@ For a manually supervised bare-metal process:
 export MULLM_STATE_DIR=/var/lib/mullm
 export MULLM_DEV_MODE=false
 export MULLM_API_KEY='replace-with-a-long-random-token'
+export MULLM_OPEN_BROWSER=0
 exec mullm-server
 ```
 
@@ -48,6 +51,7 @@ podman run --name mullm --replace --detach \
   --volume mullm-data:/data:Z \
   --env MULLM_REMOTE_ACCESS=true \
   --env MULLM_DEV_MODE=false \
+  --env MULLM_OPEN_BROWSER=0 \
   --env MULLM_API_KEY="$MULLM_API_KEY" \
   localhost/mullm:0.9.1
 podman healthcheck run mullm
@@ -100,6 +104,7 @@ spec:
           env:
             - {name: MULLM_REMOTE_ACCESS, value: "true"}
             - {name: MULLM_DEV_MODE, value: "false"}
+            - {name: MULLM_OPEN_BROWSER, value: "0"}
             - {name: MULLM_STATE_DIR, value: /data}
             - {name: MULLM_OLLAMA_BASE_URL, value: "http://ollama.default.svc.cluster.local:11434"}
           envFrom:

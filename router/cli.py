@@ -402,6 +402,10 @@ def _install_service() -> int:
 
     from router.config import _default_state_dir
 
+    print("WARNING: this enables muLLM to start automatically at every login/startup.")
+    print("Local inference may load a large GPU model and keep substantial VRAM, RAM, and power in use.")
+    print("The background service will not open the setup browser.\n")
+
     python_bin = Path(sys.executable).resolve()
     system = platform.system()
     state_dir = _default_state_dir()
@@ -422,6 +426,7 @@ def _install_service() -> int:
         env_lines = [
             "Environment=PYTHONUNBUFFERED=1",
             "Environment=MULLM_REMOTE_ACCESS=true",
+            "Environment=MULLM_OPEN_BROWSER=0",
             f"Environment=MULLM_STATE_DIR={state_dir}",
         ]
         if has_https:
@@ -451,7 +456,8 @@ WantedBy=default.target
         try:
             subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)  # nosec B603, B607
             subprocess.run(["systemctl", "--user", "enable", "mullm"], check=True)  # nosec B603, B607
-            print("Service enabled — will start on next login.")
+            print("Service enabled — muLLM will start automatically on every login.")
+            print("WARNING: local inference may load a GPU model and consume substantial VRAM and power.")
             ans = input("Start now? [Y/n] ").strip().lower()
             if ans in ("", "y"):
                 subprocess.run(["systemctl", "--user", "start", "mullm"], check=True)  # nosec B603, B607
@@ -469,6 +475,7 @@ WantedBy=default.target
         env_block = "    <key>EnvironmentVariables</key>\n    <dict>\n"
         env_block += "      <key>PYTHONUNBUFFERED</key><string>1</string>\n"
         env_block += "      <key>MULLM_REMOTE_ACCESS</key><string>true</string>\n"
+        env_block += "      <key>MULLM_OPEN_BROWSER</key><string>0</string>\n"
         env_block += f"      <key>MULLM_STATE_DIR</key><string>{state_dir}</string>\n"
         if has_https:
             env_block += f"      <key>MULLM_SSL_CERTFILE</key><string>{ssl_cert}</string>\n"
@@ -501,7 +508,8 @@ WantedBy=default.target
 
         try:
             subprocess.run(["launchctl", "load", "-w", str(plist_file)], check=True)  # nosec B603, B607
-            print("Service loaded and will start on next login.")
+            print("Service loaded — muLLM will start automatically on every login.")
+            print("WARNING: local inference may load a GPU model and consume substantial VRAM and power.")
             ans = input("Start now? [Y/n] ").strip().lower()
             if ans in ("", "y"):
                 subprocess.run(["launchctl", "start", "com.mullm.router"], check=True)  # nosec B603, B607
@@ -518,6 +526,7 @@ WantedBy=default.target
         env_set = (
             "set PYTHONUNBUFFERED=1\r\n"
             "set MULLM_REMOTE_ACCESS=true\r\n"
+            "set MULLM_OPEN_BROWSER=0\r\n"
             f"set MULLM_STATE_DIR={state_dir}\r\n"
         )
         if has_https:
@@ -529,6 +538,7 @@ WantedBy=default.target
         print(f"Startup script written: {bat_file}")
         print()
         print("To run on startup, add a Task Scheduler entry:")
+        print("WARNING: this starts muLLM at every login; local models may use substantial GPU VRAM and power.")
         print("  1. Open Task Scheduler → Create Basic Task")
         print('  2. Trigger: "When I log on"')
         print(f'  3. Action: Start Program → "{bat_file}"')
@@ -572,7 +582,7 @@ def main():
     parser.add_argument("--attribution-line", action="store_true",
                         help="Print Co-authored-by trailer (for use in git hooks / scripts)")
     parser.add_argument("--install-service", action="store_true",
-                        help="Install muLLM as a persistent background service (systemd/launchd/Windows Task Scheduler)")
+                        help="Enable automatic startup at login (may keep a GPU model/VRAM active)")
     parser.add_argument("--install-git-hook", action="store_true",
                         help="Install prepare-commit-msg hook in current repo")
     parser.add_argument("--remove-git-hook", action="store_true",

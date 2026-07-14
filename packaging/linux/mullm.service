@@ -7,6 +7,7 @@ Wants=ollama.service
 [Service]
 Type=simple
 Environment=MULLM_ENV_FILE=%h/.config/mullm/mullm.env
+Environment=MULLM_OPEN_BROWSER=0
 EnvironmentFile=-%h/.config/mullm/mullm.env
 Environment=PATH=%h/.local/bin:%h/.mullm/bin:%h/.mullm1/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/bin/env mullm-server

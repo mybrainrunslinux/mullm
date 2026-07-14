@@ -6190,14 +6190,22 @@ def serve():
     else:
         print("  Network: disabled  (set MULLM_REMOTE_ACCESS=true to enable)")
 
-    open_browser = os.environ.get("MULLM_OPEN_BROWSER", "0").strip().lower() in {"1", "true", "yes", "on"}
-    if _is_first_run():
+    first_run = _is_first_run()
+    # Interactive first start is the onboarding event. Installed services set
+    # MULLM_OPEN_BROWSER=0 explicitly so login/boot never launches a browser.
+    open_browser = os.environ.get("MULLM_OPEN_BROWSER", "1").strip().lower() in {"1", "true", "yes", "on"}
+    if first_run:
         print("\n  First run detected - open the setup wizard:")
         print(f"    {setup_url}\n")
         if open_browser:
             try:
+                import threading
                 import webbrowser
-                webbrowser.open(local_url + "/setup")
+
+                # Give uvicorn time to bind before the browser requests /setup.
+                opener = threading.Timer(1.0, webbrowser.open, args=(local_url + "/setup",))
+                opener.daemon = True
+                opener.start()
             except Exception:
                 pass
     else:
