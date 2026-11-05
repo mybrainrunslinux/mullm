@@ -599,6 +599,7 @@ def main():
                         help="Allow spend-gated benchmark/provider tests")
     parser.add_argument("--spend-cap", type=float, default=1.0,
                         help="Hard cap hint for spend-gated runs")
+    parser.add_argument("--factory", metavar="SPEC", help="Run Software Factory from a TOML acceptance specification")
     parser.add_argument("--orchestrate", metavar="TASK_OR_FILE",
                         help="Plan and execute a repo task or markdown task file")
     parser.add_argument("--code", action="store_true", help="Ask orchestrator for code patches")
@@ -701,6 +702,11 @@ def main():
         print(apk_path)
         return
 
+    if args.factory:
+        from router.factory import run_factory
+        report = asyncio.run(run_factory(Path(args.factory), Path.cwd(), args.server_url, dry_run=args.dry_run))
+        print(json.dumps(report, indent=2))
+        raise SystemExit(0 if report["status"] in ("accepted", "planned") else 1)
     if args.orchestrate:
         raise SystemExit(asyncio.run(_orchestrate_from_cli(args)))
 

@@ -2,8 +2,10 @@
 
 `pip install` installs muLLM but never starts it automatically. For a desktop first run:
 
+The 1.0 installation target is `python -m pip install mullm`. PyPI does not yet publish this project (checked 2026-11-04). Until publication, clone this repository and run `python -m pip install .` from its root; add extras with `python -m pip install ".[classifier]"`.
+
 ```bash
-python -m pip install https://github.com/mybrainrunslinux/mullm/releases/download/v0.9.1/mullm-0.9.1-py3-none-any.whl
+python -m pip install mullm
 mullm-server
 # Open http://127.0.0.1:6856/setup
 ```
@@ -44,7 +46,7 @@ exec mullm-server
 Build the included image and keep mutable state outside the container:
 
 ```bash
-podman build -t localhost/mullm:0.9.1 .
+podman build -t localhost/mullm:local .
 podman volume create mullm-data
 podman run --name mullm --replace --detach \
   --publish 127.0.0.1:6856:6856 \
@@ -53,7 +55,7 @@ podman run --name mullm --replace --detach \
   --env MULLM_DEV_MODE=false \
   --env MULLM_OPEN_BROWSER=0 \
   --env MULLM_API_KEY="$MULLM_API_KEY" \
-  localhost/mullm:0.9.1
+  localhost/mullm:local
 podman healthcheck run mullm
 ```
 
@@ -98,7 +100,7 @@ spec:
     spec:
       containers:
         - name: mullm
-          image: registry.example.com/mullm:0.9.1
+          image: registry.example.com/mullm:RELEASE_TAG
           ports:
             - {name: http, containerPort: 6856}
           env:
@@ -148,7 +150,7 @@ Terminate TLS at an Ingress or gateway. Do not expose `/setup`, MCP, A2A, or the
 
 ## Multiple replicas and clustered backends
 
-muLLM can sit behind a load balancer, but 0.9.1 is not a fully shared-state control plane. Before increasing `replicas`:
+muLLM can sit behind a load balancer, but it is not a fully shared-state control plane. Before increasing `replicas`:
 
 - keep the model server external and shared, or schedule one model backend per GPU node;
 - use sticky sessions for streaming and session-oriented requests;
