@@ -62,5 +62,25 @@ def effective_weekly_limit() -> float:
 
 
 def local_only_forced() -> bool:
-    return load_policy()["mode"] == "local_only"
+    return settings.disable_cloud or load_policy()["mode"] == "local_only"
 
+
+
+def require_inference_allowed(url: str | None = None) -> None:
+    """Enforce locality at the transport boundary, including direct SDK callers."""
+    if not local_only_forced():
+        return
+    if url:
+        import ipaddress
+        from urllib.parse import urlsplit
+
+        parsed = urlsplit(url)
+        try:
+            if parsed.scheme in {"http", "https"} and ipaddress.ip_address(parsed.hostname or "").is_loopback:
+                return
+        except ValueError:
+            pass
+        # localhost is the conventional default for local inference servers.
+        if parsed.scheme in {"http", "https"} and parsed.hostname == "localhost":
+            return
+    raise RuntimeError("Cloud inference disabled by local-only privacy policy")

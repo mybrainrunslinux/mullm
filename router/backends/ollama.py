@@ -30,6 +30,8 @@ class OllamaBackend:
     async def generate(
         self, messages: list[dict], model: str | None = None, **kwargs
     ) -> BackendResponse:
+        from router.policy import require_inference_allowed
+        require_inference_allowed(self._base_url)
         m = model or self._default_model
         payload = {"model": m, "messages": messages, "stream": False, **kwargs}
         async with httpx.AsyncClient(timeout=120) as client:
@@ -42,6 +44,8 @@ class OllamaBackend:
     async def stream(
         self, messages: list[dict], model: str | None = None, **kwargs
     ) -> AsyncIterator[str]:
+        from router.policy import require_inference_allowed
+        require_inference_allowed(self._base_url)
         m = model or self._default_model
         payload = {"model": m, "messages": messages, "stream": True, **kwargs}
         async with httpx.AsyncClient(timeout=300) as client:

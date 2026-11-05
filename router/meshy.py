@@ -33,6 +33,8 @@ def configured() -> bool:
 
 
 def _headers() -> dict[str, str]:
+    from router.policy import require_inference_allowed
+    require_inference_allowed()
     key = api_key()
     if not key:
         raise MeshyError("MESHY_API_KEY is required for Meshy generation")

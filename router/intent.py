@@ -509,6 +509,8 @@ def _http_classify(text: str) -> IntentObject | None:
         return None
     try:
         import httpx
+        from router.policy import require_inference_allowed
+        require_inference_allowed(settings.classifier_http_url)
 
         with httpx.Client(timeout=settings.classifier_http_timeout_seconds) as client:
             resp = client.post(

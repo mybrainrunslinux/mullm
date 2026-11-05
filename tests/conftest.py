@@ -70,3 +70,24 @@ def pytest_sessionfinish(session, exitstatus):
             f.write(json.dumps(record) + "\n")
     except Exception as e:
         print(f"\n[conftest] Warning: could not write test_runs.jsonl: {e}")
+
+
+def pytest_addoption(parser):
+    parser.addoption("--grep", default="", help="Use @spend to explicitly enable paid API tests")
+
+
+def pytest_collection_modifyitems(config, items):
+    import pytest
+
+    if config.getoption("--grep") != "@spend":
+        for item in items:
+            if item.get_closest_marker("spend"):
+                item.add_marker(pytest.mark.skip(reason="Paid tests require --grep @spend"))
+
+
+import pytest
+
+@pytest.fixture(autouse=True)
+def isolated_spend_ledger(tmp_path, monkeypatch):
+    from router import spend_guard
+    monkeypatch.setattr(spend_guard, "LEDGER_PATH", tmp_path / "spend.sqlite3")

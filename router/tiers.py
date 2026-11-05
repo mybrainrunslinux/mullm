@@ -12,7 +12,7 @@ Quality gate: if local response is very short (< 40 chars) or confidence is
 below threshold, automatically escalate to CLOUD_CHEAP and mark
 quality_escalated=True.
 
-All tiers obey the 10-minute hard timeout from settings.request_timeout_seconds.
+The /query handler enforces an end-to-end deadline of at most 29 seconds.
 """
 
 from __future__ import annotations
@@ -360,6 +360,8 @@ async def run_local(
         result.latency_ms = round((time.monotonic() - t0) * 1000, 2)
         return result
 
+    from router.policy import require_inference_allowed
+    require_inference_allowed(settings.ollama_base_url)
     model_name = await _select_ollama_model_safe(request, intent)
     payload = _build_ollama_payload(request, intent, model_name)
     model_name = payload["model"]
@@ -434,6 +436,8 @@ async def stream_local(
             yield chunk
         return
 
+    from router.policy import require_inference_allowed
+    require_inference_allowed(settings.ollama_base_url)
     model_name = await _select_ollama_model_safe(request, intent)
     payload = _build_ollama_payload(request, intent, model_name)
     payload["stream"] = True
@@ -685,7 +689,8 @@ async def execute_pipeline(
         try:
             from router.realtime import try_resolve_weather_async
             t0w = time.monotonic()
-            weather_answer = await try_resolve_weather_async(request.content)
+            from router.policy import local_only_forced
+            weather_answer = None if local_only_forced() else await try_resolve_weather_async(request.content)
             if weather_answer is not None:
                 w_ms = round((time.monotonic() - t0w) * 1000, 2)
                 scorer.log_request(
@@ -727,10 +732,11 @@ async def execute_pipeline(
     # ── Classify intent ──────────────────────────────────────────────────
     _check_cancel()
     from router.intent import classify
-    intent = classify(request.content, history=request.history)
+    intent = await asyncio.to_thread(classify, request.content, history=request.history)
 
     # ── Budget check ─────────────────────────────────────────────────────
-    budget_exhausted = scorer.is_budget_exhausted(request.session_id)
+    from router.policy import local_only_forced
+    budget_exhausted = local_only_forced() or scorer.is_budget_exhausted(request.session_id)
     if budget_exhausted:
         logger.warning("Budget exhausted for session %s — forcing LOCAL tier", request.session_id)
 

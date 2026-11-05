@@ -195,11 +195,18 @@ _CLOUD_MODEL_DEFS = {
         "strengths": ["image_gen", "image_edit", "multi_modal", "creative"],
         "max_context": 128_000,
     },
-    # Gemini 3.1 Pro — 80.6% SWE-bench Verified, ~60% lower cost than Opus for coding
-    "gemini-3.1-pro": {
+    "gemini-3.5-flash": {
         "provider": "google",
-        "cost_per_m_input": 1.25,   # estimated — similar to 2.5-pro tier
-        "cost_per_m_output": 5.00,
+        "cost_per_m_input": 1.50,
+        "cost_per_m_output": 9.00,
+        "strengths": ["complex_code", "reasoning", "long_context", "agentic", "fast"],
+        "max_context": 1_000_000,
+    },
+    # Gemini 3.1 Pro remains a preview model; Google has not renamed it stable.
+    "gemini-3.1-pro-preview": {
+        "provider": "google",
+        "cost_per_m_input": 2.00,
+        "cost_per_m_output": 12.00,
         "strengths": ["complex_code", "swe_bench", "reasoning", "long_context", "agentic"],
         "max_context": 1_000_000,
     },
@@ -293,6 +300,30 @@ _CLOUD_MODEL_DEFS = {
         "strengths": ["complex_code", "reasoning", "agentic", "tool_calling"],
         "max_context": 256_000,
         "notes": "requires Responses API (v1/responses) — not usable via chat completions",
+    },
+    "gpt-5.6-sol": {
+        "provider": "openai",
+        "cost_per_m_input": 5.00,
+        "cost_per_m_output": 30.00,
+        "strengths": ["complex_code", "deep_reasoning", "agentic", "tool_calling"],
+        "max_context": 1_050_000,
+        "notes": "Responses API frontier model",
+    },
+    "gpt-5.6-terra": {
+        "provider": "openai",
+        "cost_per_m_input": 2.50,
+        "cost_per_m_output": 15.00,
+        "strengths": ["complex_code", "reasoning", "agentic", "cost_effective"],
+        "max_context": 1_050_000,
+        "notes": "Responses API balanced model",
+    },
+    "gpt-5.6-luna": {
+        "provider": "openai",
+        "cost_per_m_input": 1.00,
+        "cost_per_m_output": 6.00,
+        "strengths": ["fast", "cheap", "structured_output", "tool_calling"],
+        "max_context": 1_050_000,
+        "notes": "Responses API cost-sensitive model",
     },
     "gpt-5.4-mini": {
         "provider": "openai",
@@ -398,7 +429,10 @@ _CLOUD_MODEL_DEFS = {
 }
 
 # Build full lookup: short keys + full model IDs all point to the same pricing
+from router.frontier_models import catalog as frontier_catalog
+
 CLOUD_MODELS = dict(_CLOUD_MODEL_DEFS)
+CLOUD_MODELS.update(frontier_catalog())
 _FULL_ID_TO_SHORT = {
     "claude-sonnet-4-20250514": "claude-sonnet",
     "claude-haiku-4-5-20251001": "claude-haiku",
@@ -424,6 +458,10 @@ _FULL_ID_TO_SHORT = {
     "gpt-5.5-2026-04-23": "gpt-5.5",
     "gpt-5.5-pro": "gpt-5.5-pro",
     "gpt-5.5-pro-2026-04-23": "gpt-5.5-pro",
+    "gpt-5.6": "gpt-5.6-sol",
+    "gpt-5.6-sol": "gpt-5.6-sol",
+    "gpt-5.6-terra": "gpt-5.6-terra",
+    "gpt-5.6-luna": "gpt-5.6-luna",
     "gpt-5.4-pro-2026-03-05": "gpt-5.4-pro",
     "gpt-5.4-mini": "gpt-5.4-mini",
     "gpt-5.4-mini-2026-03-17": "gpt-5.4-mini",
@@ -433,8 +471,8 @@ _FULL_ID_TO_SHORT = {
     "gpt-4.1-mini-2025-04-14": "gpt-4.1-mini",
     "gpt-5-mini": "gpt-5-mini",
     "gpt-4o-audio-preview": "gpt-4o-audio",
-    "gemini-3.1-pro": "gemini-3.1-pro",
-    "gemini-3.1-pro-latest": "gemini-3.1-pro",
+    "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+    "gemini-3.5-flash": "gemini-3.5-flash",
     "minimax-m2.5": "minimax-m2.5",
     "minimax-m2.5-lightning": "minimax-m2.5-lightning",
     "MiniMax-M2.5": "minimax-m2.5",

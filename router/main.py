@@ -666,8 +666,39 @@ async def cache_entry_delete(payload: dict):
     return {"deleted": bool(deleted), "count": deleted}
 
 
+_active_query_tasks: set[asyncio.Task] = set()
+
+
 @app.post("/query", response_model=PipelineResult)
 async def query(request: Request, body: QueryRequest):
+    # Admission happens without awaiting, so capacity checking is atomic on the
+    # event loop. Rejected work never starts inference or consumes cloud tokens.
+    if len(_active_query_tasks) >= settings.max_concurrent_queries:
+        raise HTTPException(status_code=503, detail="Query capacity reached; retry later", headers={"Retry-After": "1"})
+    from router.spend_guard import SESSION
+    session_token = SESSION.set(body.session_id)
+    try:
+        task = asyncio.create_task(_query_impl(request, body))
+    finally:
+        SESSION.reset(session_token)
+    _active_query_tasks.add(task)
+    def completed(done):
+        _active_query_tasks.discard(done)
+        if not done.cancelled():
+            done.exception()  # consume late errors after a client timeout
+    task.add_done_callback(completed)
+    try:
+        done, _ = await asyncio.wait({task}, timeout=settings.request_timeout_seconds)
+        if task not in done:
+            task.cancel()
+            raise HTTPException(status_code=504, detail="Query deadline exceeded")
+        return task.result()
+    finally:
+        if not task.done():
+            task.cancel()
+
+
+async def _query_impl(request: Request, body: QueryRequest):
     # Deduplication check (read body bytes from starlette)
     body_bytes = await request.body()
     if not settings.dev_mode and await _is_duplicate(body_bytes):
@@ -4002,7 +4033,7 @@ def _apply_fable_toggle(enabled: bool) -> None:
     settings.fable_top_tier = bool(enabled)  # type: ignore[assignment]
     field_default = type(settings).model_fields["cloud_power_model_anthropic"].default
     settings.cloud_power_model_anthropic = (  # type: ignore[assignment]
-        "claude-fable-5" if enabled else field_default
+        "claude-fable-5-1" if enabled else field_default
     )
 
 
@@ -5560,6 +5591,9 @@ async def _tts_synthesize_bytes(body: dict[str, Any]) -> tuple[bytes, str]:
 
     speed = max(0.25, min(4.0, speed))
 
+    from router.policy import require_inference_allowed
+    if backend in {"openai", "elevenlabs"}:
+        require_inference_allowed()
     if backend == "openai":
         openai_key = settings.openai_api_key or os.getenv("OPENAI_API_KEY", "")
         if not openai_key:
