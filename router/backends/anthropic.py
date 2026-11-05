@@ -39,6 +39,8 @@ class AnthropicBackend:
     async def generate(
         self, messages: list[dict], model: str | None = None, **kwargs
     ) -> BackendResponse:
+        from router.policy import require_inference_allowed
+        require_inference_allowed()
         m = model or self._default_model
         client = self._get_client()
         system = next(
@@ -52,11 +54,11 @@ class AnthropicBackend:
             system=system or "",
             max_tokens=kwargs.get("max_tokens", 4096),
         )
-        text = resp.content[0].text
+        from router.cloud import _anthropic_text, _pricing_cost
+        text = _anthropic_text(resp.content)
         in_tok = resp.usage.input_tokens
         out_tok = resp.usage.output_tokens
-        costs = self.MODELS.get(m, (0.003, 0.015))
-        cost = (in_tok / 1000 * costs[0]) + (out_tok / 1000 * costs[1])
+        cost = _pricing_cost(m, in_tok, out_tok)
         return BackendResponse(
             text=text,
             input_tokens=in_tok,
@@ -69,6 +71,8 @@ class AnthropicBackend:
     async def stream(
         self, messages: list[dict], model: str | None = None, **kwargs
     ) -> AsyncIterator[str]:
+        from router.policy import require_inference_allowed
+        require_inference_allowed()
         m = model or self._default_model
         client = self._get_client()
         system = next(

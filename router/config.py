@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, InitSettingsSource, SettingsConfigDict
 
 
@@ -83,6 +83,8 @@ def _default_scoring_log() -> Path:
 # ---------------------------------------------------------------------------
 # Cloud model pricing catalogue (6 canonical models, $/million tokens)
 # ---------------------------------------------------------------------------
+
+from router.frontier_models import catalog as frontier_catalog
 
 CLOUD_MODEL_PRICING: dict[str, dict] = {
     # --- Anthropic ---
@@ -159,6 +161,24 @@ CLOUD_MODEL_PRICING: dict[str, dict] = {
         "cost_per_m_output": 180.00,
         "max_context": 1_050_000,
     },
+    "gpt-5.6-sol": {
+        "provider": "openai",
+        "cost_per_m_input": 5.00,
+        "cost_per_m_output": 30.00,
+        "max_context": 1_050_000,
+    },
+    "gpt-5.6-terra": {
+        "provider": "openai",
+        "cost_per_m_input": 2.50,
+        "cost_per_m_output": 15.00,
+        "max_context": 1_050_000,
+    },
+    "gpt-5.6-luna": {
+        "provider": "openai",
+        "cost_per_m_input": 1.00,
+        "cost_per_m_output": 6.00,
+        "max_context": 1_050_000,
+    },
     # --- Google ---
     "gemini-1.5-flash": {
         "provider": "google",
@@ -176,6 +196,12 @@ CLOUD_MODEL_PRICING: dict[str, dict] = {
         "provider": "google",
         "cost_per_m_input": 0.30,
         "cost_per_m_output": 2.50,
+        "max_context": 1_000_000,
+    },
+    "gemini-3.5-flash": {
+        "provider": "google",
+        "cost_per_m_input": 1.50,
+        "cost_per_m_output": 9.00,
         "max_context": 1_000_000,
     },
     "gemini-3.1-pro-preview": {                 # verified live 2026-07-05
@@ -212,6 +238,8 @@ CLOUD_MODEL_PRICING: dict[str, dict] = {
         "max_context": 202_752,
     },
 }
+CLOUD_MODEL_PRICING.update(frontier_catalog())
+
 
 # Adaptive cache similarity thresholds per intent category.
 # Higher = stricter (fewer false hits).  Values tuned on production data.
@@ -761,19 +789,19 @@ class Settings(BaseSettings):
         return _resolve_secret_reference(v)
 
     # Cloud model routing
-    cloud_cheap_model_anthropic: str  = "claude-haiku-4-5"
-    cloud_full_model_anthropic: str   = "claude-sonnet-5"
-    cloud_power_model_anthropic: str  = "claude-opus-4-7"
+    cloud_cheap_model_anthropic: str  = "claude-haiku-5-5"
+    cloud_full_model_anthropic: str   = "claude-sonnet-5-5"
+    cloud_power_model_anthropic: str  = "claude-opus-5-5"
     # When True, Claude Fable 5 replaces the Opus power model (top tier and
     # WITH RICE). Toggled from /setup ("fable_top_tier"); off = exact pre-0.9
     # behavior (Opus). Fable requests carry a server-side fallback to Opus so
     # a safety refusal degrades gracefully instead of failing the query.
     fable_top_tier: bool = True
-    cloud_cheap_model_openai: str     = "gpt-4o-mini"
-    cloud_full_model_openai: str      = "gpt-5.4-pro"
-    cloud_power_model_openai: str     = "gpt-5.5"
+    cloud_cheap_model_openai: str     = "gpt-6-luna"
+    cloud_full_model_openai: str      = "gpt-6.1-sol"
+    cloud_power_model_openai: str     = "gpt-6-astra"
     cloud_cheap_model_google: str     = "gemini-2.5-flash"
-    cloud_full_model_google: str      = "gemini-3.1-pro-preview"
+    cloud_full_model_google: str      = "gemini-3.5-flash"
     cloud_power_model_google: str     = "gemini-3.1-pro-preview"
     cloud_cheap_model_cerebras: str   = "gpt-oss-120b"
     cloud_full_model_cerebras: str    = "gpt-oss-120b"
@@ -831,7 +859,9 @@ class Settings(BaseSettings):
     commit_attribution_email: str = "noreply@mullm.local"
 
     # ── Misc ──────────────────────────────────────────────────
-    request_timeout_seconds: int = 600     # 10-minute hard limit per request
+    request_timeout_seconds: float = Field(default=29.0, gt=0, le=29.0)
+    max_concurrent_queries: int = Field(default=32, ge=1, le=1024)
+    disable_cloud: bool = Field(default=False, validation_alias=AliasChoices("DISABLE_CLOUD", "MULLM_DISABLE_CLOUD"))
 
     @field_validator("port")
     @classmethod

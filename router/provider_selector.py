@@ -106,8 +106,11 @@ def provider_client_available(provider: str) -> bool:
 
 def provider_ready(provider: str) -> bool:
     """Return True only when a provider is configured, importable, and not backed off."""
+    from router.policy import local_only_forced
+
     return (
-        provider_configured(provider)
+        not local_only_forced()
+        and provider_configured(provider)
         and provider_client_available(provider)
         and provider_policy.provider_available(provider)
     )

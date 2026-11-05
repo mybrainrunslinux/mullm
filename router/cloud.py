@@ -30,8 +30,9 @@ from dataclasses import dataclass
 
 import httpx
 
-from router import provider_policy
+from router import provider_policy, policy
 from router.config import CLOUD_MODEL_PRICING, settings
+from router.frontier_models import standard_cost
 
 logger = logging.getLogger("mullm.cloud")
 
@@ -85,10 +86,7 @@ class CloudResult:
         pricing = CLOUD_MODEL_PRICING.get(self.model)
         if pricing is None:
             return 0.0
-        return (
-            self.input_tokens  * pricing["cost_per_m_input"]  / 1_000_000
-            + self.output_tokens * pricing["cost_per_m_output"] / 1_000_000
-        )
+        return standard_cost(self.model, pricing, self.input_tokens, self.output_tokens)
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +126,7 @@ async def _with_retry(coro_fn, *args, provider_name: str | None = None, **kwargs
 
 # Models that reject sampling params (temperature/top_p/top_k → HTTP 400).
 _ANTHROPIC_NO_SAMPLING_PREFIXES = (
-    "claude-fable", "claude-mythos", "claude-opus-4-7", "claude-opus-4-8", "claude-sonnet-5",
+    "claude-fable", "claude-mythos", "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-sonnet-5", "claude-haiku-5-5",
 )
 # Fable-class models: thinking always on, refusal stop reason possible.
 _ANTHROPIC_FABLE_PREFIXES = ("claude-fable", "claude-mythos")
@@ -160,6 +158,7 @@ async def _anthropic_complete(
     temperature: float,
     system: str | None = None,
 ) -> CloudResult:
+    policy.require_inference_allowed()
     if not settings.anthropic_api_key:
         raise RuntimeError("MULLM_ANTHROPIC_API_KEY not set")
     import anthropic  # deferred — not installed in all envs
@@ -196,6 +195,10 @@ async def _anthropic_complete(
 # OpenAI
 # ---------------------------------------------------------------------------
 
+def _openai_uses_responses(model: str) -> bool:
+    """Models documented as Responses-only/current-frontier in this adapter."""
+    return model.startswith(("gpt-5.6", "gpt-6")) or model == "gpt-5.5-pro"
+
 async def _openai_complete(
     prompt: str,
     model: str,
@@ -203,6 +206,7 @@ async def _openai_complete(
     temperature: float,
     system: str | None = None,
 ) -> CloudResult:
+    policy.require_inference_allowed()
     if not settings.openai_api_key:
         raise RuntimeError("MULLM_OPENAI_API_KEY not set")
     import openai  # deferred
@@ -212,6 +216,21 @@ async def _openai_complete(
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
+
+    if _openai_uses_responses(model):
+        call_kwargs = {"model": model, "input": prompt, "max_output_tokens": max_tokens}
+        if system:
+            call_kwargs["instructions"] = system
+        logger.debug("OpenAI Responses kwargs: %s", _safe_log_kwargs(call_kwargs))
+        resp = await client.responses.create(**call_kwargs)
+        usage = resp.usage
+        return CloudResult(
+            text=resp.output_text or "",
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            model=model,
+            provider="openai",
+        )
 
     call_kwargs = {"model": model, "messages": messages}
     if model.startswith(("gpt-5", "o1", "o3", "o4")):
@@ -245,6 +264,7 @@ async def _google_complete(
     temperature: float,
     system: str | None = None,
 ) -> CloudResult:
+    policy.require_inference_allowed()
     if not settings.google_api_key:
         raise RuntimeError("MULLM_GOOGLE_API_KEY not set")
     from google import genai  # deferred
@@ -291,6 +311,7 @@ async def _cerebras_complete(
     temperature: float,
     system: str | None = None,
 ) -> CloudResult:
+    policy.require_inference_allowed()
     if not settings.cerebras_api_key:
         raise RuntimeError("CEREBRAS_API_KEY not set")
     import openai
@@ -329,6 +350,7 @@ async def _deepseek_complete(
     temperature: float,
     system: str | None = None,
 ) -> CloudResult:
+    policy.require_inference_allowed()
     if not settings.deepseek_api_key:
         raise RuntimeError("DEEPSEEK_API_KEY not set")
     import openai
@@ -367,6 +389,7 @@ async def _glm_complete(
     temperature: float,
     system: str | None = None,
 ) -> CloudResult:
+    policy.require_inference_allowed()
     if not settings.glm_api_key:
         raise RuntimeError("GLM_API_KEY / ZHIPU_API_KEY not set")
     import openai
@@ -424,6 +447,7 @@ async def complete(
     Raises RuntimeError if the provider API key is missing.
     Raises ValueError if *model* is not in the pricing catalogue.
     """
+    policy.require_inference_allowed()
     pricing = CLOUD_MODEL_PRICING.get(model)
     if pricing is None:
         raise ValueError(f"Unknown cloud model: {model!r}. Add it to CLOUD_MODEL_PRICING.")
@@ -547,11 +571,11 @@ async def close_client() -> None:
 
 MODEL_IDS: dict[str, str] = {
     # Short aliases → current canonical IDs
-    "claude-haiku":  "claude-haiku-4-5",
-    "claude-sonnet": "claude-sonnet-5",
+    "claude-haiku":  "claude-haiku-5-5",
+    "claude-sonnet": "claude-sonnet-5-5",
     "claude-sonnet-46": "claude-sonnet-4-6",
-    "claude-opus":   "claude-opus-4-7",
-    "claude-fable":  "claude-fable-5",
+    "claude-opus":   "claude-opus-5-5",
+    "claude-fable":  "claude-fable-5-1",
     "gemini-flash":  "gemini-2.5-flash",
     "gemini-pro":    "gemini-3.1-pro-preview",
     # All canonical IDs map to themselves
@@ -577,7 +601,7 @@ def _get_pricing(model: str) -> dict:
 
 def _pricing_cost(model: str, in_tok: int, out_tok: int) -> float:
     p = CLOUD_MODEL_PRICING.get(model) or _get_pricing(model)
-    return (in_tok * p.get("cost_per_m_input", 0) + out_tok * p.get("cost_per_m_output", 0)) / 1_000_000
+    return standard_cost(MODEL_IDS.get(model, model), p, in_tok, out_tok)
 
 
 async def _raw_anthropic(
@@ -587,6 +611,7 @@ async def _raw_anthropic(
     temperature: float = 0.4,
     system: str | None = None,
 ) -> dict:
+    policy.require_inference_allowed()
     headers = {
         "x-api-key": _provider_key("anthropic"),
         "anthropic-version": "2023-06-01",
@@ -631,10 +656,36 @@ async def _raw_openai(
     temperature: float = 0.4,
     system: str | None = None,
 ) -> dict:
+    policy.require_inference_allowed()
     headers = {
         "Authorization": f"Bearer {_provider_key('openai')}",
         "Content-Type": "application/json",
     }
+    if _openai_uses_responses(model):
+        payload = {"model": model, "input": prompt, "max_output_tokens": max_tokens}
+        if system:
+            payload["instructions"] = system
+        client = _get_client()
+        resp = await client.post("https://api.openai.com/v1/responses", headers=headers, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        text = data.get("output_text", "")
+        if not text:
+            parts = []
+            for item in data.get("output", []):
+                for content in item.get("content", []):
+                    if content.get("type") == "output_text":
+                        parts.append(content.get("text", ""))
+            text = "".join(parts)
+        usage = data.get("usage", {})
+        in_tok = usage.get("input_tokens", len(prompt) // 4)
+        out_tok = usage.get("output_tokens", len(text) // 4)
+        return {
+            "text": text, "response": text,
+            "tokens_in": in_tok, "tokens_out": out_tok,
+            "cost": _pricing_cost(model, in_tok, out_tok), "model": model,
+        }
+
     messages: list = []
     if system:
         messages.append({"role": "system", "content": system})
@@ -672,6 +723,7 @@ async def _raw_google(
     temperature: float = 0.4,
     system: str | None = None,
 ) -> dict:
+    policy.require_inference_allowed()
     key = _provider_key("google")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
     contents: list = [{"parts": [{"text": prompt}]}]
@@ -715,6 +767,7 @@ async def execute_cloud(
     model_name: str = "claude-sonnet-4-6",
     provider: str = "anthropic",
 ) -> dict:
+    policy.require_inference_allowed()
     if not is_configured(provider):
         raise ValueError(f"Provider {provider!r} is not configured")
     fn = _RAW_DISPATCH.get(provider)
@@ -739,6 +792,7 @@ async def generate_image(
     quality: str = "standard",
     size: str = "1024x1024",
 ) -> dict:
+    policy.require_inference_allowed()
     if not _provider_key("openai"):
         return {"error": "OpenAI API key not configured"}
     cost = _DALLE_COSTS.get(quality, {}).get(size, 0.040)
@@ -789,6 +843,7 @@ async def stream_anthropic(
     model: str | None = None,
     system: str = "You are a helpful assistant.",
 ) -> AsyncGenerator[dict, None]:
+    policy.require_inference_allowed()
     from router.config import settings as _s
     _model = model or getattr(_s, "cloud_cheap_model_anthropic", "claude-haiku-4-5")
     headers = {
@@ -840,6 +895,7 @@ async def stream_openai(
     model: str | None = None,
     system: str = "You are a helpful assistant.",
 ) -> AsyncGenerator[dict, None]:
+    policy.require_inference_allowed()
     from router.config import settings as _s
     _model = model or getattr(_s, "cloud_cheap_model_openai", "gpt-4o-mini")
     headers = {
@@ -876,6 +932,7 @@ async def stream_google(
     model: str | None = None,
     system: str = "You are a helpful assistant.",
 ) -> AsyncGenerator[dict, None]:
+    policy.require_inference_allowed()
     from router.config import settings as _s
     _model = model or getattr(_s, "cloud_cheap_model_google", "gemini-2.5-flash")
     key = _provider_key("google")

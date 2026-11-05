@@ -87,7 +87,9 @@ class BaseWorldProvider:
 
     async def submit(self, request: GenerationRequest, timeout_s: float = 90.0) -> dict[str, Any]:
         submission = self.build_submission(request)
-        async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=True) as client:
+        from router.policy import require_inference_allowed
+        require_inference_allowed(submission.endpoint)
+        async with httpx.AsyncClient(timeout=timeout_s, follow_redirects=False) as client:
             if submission.json is not None:
                 response = await client.request(
                     submission.method,

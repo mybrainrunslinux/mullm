@@ -13,8 +13,14 @@ def test_cost_mode_picks_cheapest_configured_same_tier(tmp_path, monkeypatch):
 
     selection = provider_selector.select_provider_model("cloud_cheap", mode="cost_optimize")
 
-    assert selection.model == "gpt-4o-mini"
+    assert selection.model == "claude-haiku-5-5"
     assert selection.tier == "cloud_cheap"
+
+
+def test_google_models_keep_cheap_stable_and_preview_tiers_distinct():
+    assert provider_selector.settings.cloud_cheap_model_google == "gemini-2.5-flash"
+    assert provider_selector.settings.cloud_full_model_google == "gemini-3.5-flash"
+    assert provider_selector.settings.cloud_power_model_google == "gemini-3.1-pro-preview"
 
 
 def test_manual_order_cannot_cross_tier_guard(tmp_path, monkeypatch):

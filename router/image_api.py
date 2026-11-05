@@ -55,6 +55,8 @@ _DALLE3_SIZES = {"1024x1024", "1792x1024", "1024x1792"}
 
 
 async def _generate_openai(prompt: str, model: str, size: str) -> dict[str, Any]:
+    from router.policy import require_inference_allowed
+    require_inference_allowed()
     key = _api_key("openai")
     if not key:
         raise HTTPException(status_code=412, detail="OpenAI API key not configured — add OPENAI_API_KEY")
@@ -113,6 +115,8 @@ _IMAGEN_API_IDS = {
 
 
 async def _generate_google(prompt: str, model: str) -> dict[str, Any]:
+    from router.policy import require_inference_allowed
+    require_inference_allowed()
     key = _api_key("google")
     if not key:
         raise HTTPException(status_code=412, detail="Google API key not configured — add GOOGLE_API_KEY")
