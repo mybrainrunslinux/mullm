@@ -1,0 +1,36 @@
+{
+  "title": "Competitor research",
+  "eyebrow": "EVIDENCE / POSITIONING",
+  "subtitle": "Compare what you can support. Make the unknowns visible.",
+  "intro": "Example company names only. No market claims are supplied; add your own sourced findings.",
+  "defaults": {
+    "name": "Understand the alternatives",
+    "audience": "Independent software teams",
+    "competitors": "Northstar\nWayfinder\nClearpath",
+    "focus": "Onboarding, pricing clarity, and evidence of customer outcomes"
+  },
+  "fields": [
+    {
+      "key": "name",
+      "label": "Research workspace",
+      "type": "text"
+    },
+    {
+      "key": "audience",
+      "label": "Customer perspective",
+      "type": "text"
+    },
+    {
+      "key": "competitors",
+      "label": "Companies to compare",
+      "type": "textarea",
+      "help": "One company name per line. These starting names are fictional."
+    },
+    {
+      "key": "focus",
+      "label": "Comparison focus",
+      "type": "textarea"
+    }
+  ],
+  "id": "competitors"
+}

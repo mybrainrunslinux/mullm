@@ -1,0 +1,4 @@
+triangle: real clicks, hint, undo, restart, 13 jumps and visible final shape PASS
+cross: real clicks, hint, undo, restart, 24 jumps and visible final shape PASS
+diamond: real clicks, hint, undo, restart, 26 jumps and visible final shape PASS
+PASS: all three puzzles, mobile fit, zero browser exceptions, zero external requests

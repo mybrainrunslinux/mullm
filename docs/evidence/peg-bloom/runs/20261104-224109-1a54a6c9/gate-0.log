@@ -1,0 +1,4 @@
+triangle: 15 cells; 13 legal jumps; exact finishing shape verified
+cross: 33 cells; 24 legal jumps; exact finishing shape verified
+diamond: 41 cells; 26 legal jumps; exact finishing shape verified
+PASS: 63 jumps, 63 states, three board shapes, immutable transitions and illegal-move rejection

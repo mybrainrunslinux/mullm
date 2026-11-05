@@ -1,0 +1,44 @@
+[
+  {
+    "project": "campaign",
+    "run_id": "20261104-231518-e3f60a4b",
+    "review_status": "needs_human",
+    "domain_logic": "local-model-generated with diagnosed repair instructions",
+    "presentation": "supplied shared UI component",
+    "passed_command_gates": [
+      "domain",
+      "browser",
+      "package"
+    ],
+    "candidate_archive_sha256": "b189d626a79318413930ea22174ec5c73c5071d8171546f3bde0fb753b97ce3e",
+    "candidate_archive_bytes": 8021
+  },
+  {
+    "project": "competitors",
+    "run_id": "20261104-231518-4176148f",
+    "review_status": "needs_human",
+    "domain_logic": "local-model-generated with diagnosed repair instructions",
+    "presentation": "supplied shared UI component",
+    "passed_command_gates": [
+      "domain",
+      "browser",
+      "package"
+    ],
+    "candidate_archive_sha256": "7b40227aceb6f7724d9db72459af990399433e11fece3560fd1fc302b7b03523",
+    "candidate_archive_bytes": 8035
+  },
+  {
+    "project": "research",
+    "run_id": "20261104-231518-77e06bf8",
+    "review_status": "needs_human",
+    "domain_logic": "local-model-generated with diagnosed repair instructions",
+    "presentation": "supplied shared UI component",
+    "passed_command_gates": [
+      "domain",
+      "browser",
+      "package"
+    ],
+    "candidate_archive_sha256": "6b736f3cd68b6ed6c05d30a42ebe1ad49e1f095059ad40a3a50322f86bcfc846",
+    "candidate_archive_bytes": 7924
+  }
+]

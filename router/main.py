@@ -195,6 +195,7 @@ if _otel_available:
 
 from router import research_exports
 from router.bench_api import router as bench_router
+from router.factory_api import router as factory_router
 from router.civitai_api import router as civitai_router
 from router.comfyui_api import router as comfyui_router
 from router.coverage_api import router as coverage_router
@@ -213,6 +214,7 @@ from router.terrain_api import router as terrain_router
 
 app.include_router(review_router)
 app.include_router(bench_router)
+app.include_router(factory_router)
 app.include_router(image_api_router)  # must come before comfyui_router (owns /api/image/*)
 app.include_router(comfyui_router)
 app.include_router(coverage_router)

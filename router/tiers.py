@@ -271,7 +271,6 @@ def _build_ollama_payload(request: QueryRequest, intent: IntentObject, model_nam
     options: dict = {
         "temperature": temperature,
         "num_ctx": settings.ollama_num_ctx,
-        "think": think,
     }
     if num_predict > 0:
         options["num_predict"] = num_predict
@@ -281,9 +280,12 @@ def _build_ollama_payload(request: QueryRequest, intent: IntentObject, model_nam
         "model": model_name,
         "messages": messages,
         "stream": False,
+        "think": think,
         "options": options,
         "keep_alive": settings.ollama_keep_alive,
     }
+    if ctx.get("format") == "json" or isinstance(ctx.get("format"), dict):
+        payload["format"] = ctx["format"]
     if intent.needs_vision and request.images:
         # Ollama vision: images attached to the last user message
         payload["messages"][-1]["images"] = request.images

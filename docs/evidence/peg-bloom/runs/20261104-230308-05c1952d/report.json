@@ -1,0 +1,79 @@
+{
+  "status": "accepted",
+  "run_id": "20261104-230308-05c1952d",
+  "branch": "factory/20261104-230308-05c1952d",
+  "worktree": "$EVALUATION_ROOT/peg-bloom-wooden-factory-20261104-230308-05c1952d",
+  "source_commit": "b3c7b2826ebc5e50952c6884cc79c21fde22a982",
+  "name": "Peg Bloom \u00b7 wooden review",
+  "plan": [
+    {
+      "id": "verify-wooden-game",
+      "instruction": "Verify the candidate before asking for playability review.",
+      "depends_on": [],
+      "writable_files": [
+        "engine.mjs",
+        "app.mjs"
+      ],
+      "gates": [
+        "rules"
+      ],
+      "context_files": null,
+      "max_output_tokens": 2400,
+      "verification_only": true,
+      "max_attempts": 3
+    }
+  ],
+  "manifest_sha256": "85dd5664f8bd8f01cc9d9a31054ed3119742219cde0689437d357c115e87a4fe",
+  "tasks": [
+    {
+      "id": "verify-wooden-game",
+      "depends_on": [],
+      "status": "passed",
+      "attempts": [],
+      "verification_only": true,
+      "gates": [
+        {
+          "name": "rules",
+          "returncode": 0,
+          "log": "$EVALUATION_ROOT/peg-bloom-wooden/.git/factory/20261104-230308-05c1952d/verify-wooden-game-rules.log"
+        }
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "name": "rules",
+      "returncode": 0,
+      "log": "$EVALUATION_ROOT/peg-bloom-wooden/.git/factory/20261104-230308-05c1952d/gate-0.log"
+    },
+    {
+      "name": "browser",
+      "returncode": 0,
+      "log": "$EVALUATION_ROOT/peg-bloom-wooden/.git/factory/20261104-230308-05c1952d/gate-1.log"
+    },
+    {
+      "name": "package",
+      "returncode": 0,
+      "log": "$EVALUATION_ROOT/peg-bloom-wooden/.git/factory/20261104-230308-05c1952d/gate-2.log"
+    },
+    {
+      "name": "playability",
+      "kind": "human",
+      "returncode": 0,
+      "decision_id": "agent-de317a4a60b44be2b36457c1c69067c5"
+    }
+  ],
+  "artifacts": {
+    "dist/peg-bloom.zip": {
+      "sha256": "dc8519d616c237699593d7ee5cb189b420c74d74bb4151aa60c2aeb15272b0e7",
+      "bytes": 9522
+    }
+  },
+  "elapsed_seconds": 166.694,
+  "human_decisions": [
+    {
+      "session_id": "agent-de317a4a60b44be2b36457c1c69067c5",
+      "choice": "Accept"
+    }
+  ]
+}

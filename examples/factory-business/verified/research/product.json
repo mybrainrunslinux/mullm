@@ -1,0 +1,60 @@
+{
+  "title": "Marketing research planner",
+  "eyebrow": "QUESTIONS / LEARNING",
+  "subtitle": "Design a small study that can change a real decision.",
+  "intro": "An example discovery study. Hypotheses are assumptions to test, not conclusions.",
+  "defaults": {
+    "name": "Find the friction before launch",
+    "audience": "Small software-team leads",
+    "hypothesis": "Teams will prioritize fewer handoffs over more automation features.",
+    "method": "Interviews",
+    "participants": 8,
+    "days": 14,
+    "decision": "Choose the first onboarding improvement to test"
+  },
+  "fields": [
+    {
+      "key": "name",
+      "label": "Study name",
+      "type": "text"
+    },
+    {
+      "key": "audience",
+      "label": "Who should participate?",
+      "type": "text"
+    },
+    {
+      "key": "hypothesis",
+      "label": "Hypothesis to challenge",
+      "type": "textarea"
+    },
+    {
+      "key": "method",
+      "label": "Research method",
+      "type": "select",
+      "options": [
+        "Interviews",
+        "Survey",
+        "Usability sessions"
+      ]
+    },
+    {
+      "key": "participants",
+      "label": "Target participants",
+      "type": "number",
+      "min": 1
+    },
+    {
+      "key": "days",
+      "label": "Study window (days)",
+      "type": "number",
+      "min": 1
+    },
+    {
+      "key": "decision",
+      "label": "Decision this should inform",
+      "type": "textarea"
+    }
+  ],
+  "id": "research"
+}

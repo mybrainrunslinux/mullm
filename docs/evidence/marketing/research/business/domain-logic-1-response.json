@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\": {\"workflow.mjs\": \"export function buildPlan(input, sources = []) {\\n  const { name, audience, hypothesis, method, participants, days, decision } = input || {};\\n  const warnings = [];\\n  const p = Number(participants) || 0;\\n  const d = Number(days) || 0;\\n\\n  if (p <= 0) warnings.push('Participants must be greater than 0.');\\n  if (d <= 0) warnings.push('Days must be greater than 0.');\\n\\n  const schedule = [];\\n  if (d > 0) {\\n    for (let i = 1; i <= d; i++) {\\n      let label = `Day ${i}`;\\n      if (i === 1) label += ' (Recruit)';\\n      else if (i === d) label += ' (Decide)';\\n      else if (i === 2) label += ' (Collect)';\\n      else if (i === d - 1) label += ' (Synthesize)';\\n      else label += ' (Collect)';\\n      schedule.push({ day: i, label });\\n    }\\n  }\\n\\n  const questions = [\\n    `What is your biggest challenge with ${audience || 'your target audience'}?`,\\n    `Can you walk me through how you currently handle ${method || 'research'}?`,\\n    `What would make this process significantly easier for you?`,\\n    `If you could change one thing about your current workflow, what would it be?`\\n  ];\\n\\n  const summary = `Plan for \\\"${name || 'Untitled Study'}\\\" to test: \\\"${hypothesis || 'No hypothesis provided'}\\\".`;\\n\\n  return {\\n    summary,\\n    metrics: [\\n      { label: 'Target participants', value: p },\\n      { label: 'Study days', value: d },\\n      { label: 'Evidence count', value: sources.length }\\n    ],\\n    sections: [\\n      {\\n        title: 'Hypothesis (Untested)',\\n        items: [hypothesis || 'No hypothesis provided']\\n      },\\n      {\\n        title: 'Interview Questions',\\n        items: questions\\n      },\\n      {\\n        title: 'Study Schedule',\\n        items: schedule.map(s => s.label)\\n      },\\n      {\\n        title: 'Decision',\\n        items: [decision || 'No decision specified. Revisit when ready.']\\n      }\\n    ],\\n    warnings,\\n    name,\\n    audience,\\n    hypothesis,\\n    method,\\n    participants: p,\\n    days: d,\\n    decision,\\n    questions,\\n    schedule,\\n    evidence_count: sources.length,\\n    sources\\n  };\\n}\"}}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 1599,
+  "latency_ms": 14902.3,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-231046-0268b9b3",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "9439f410-47f4-4d0a-abd3-2d1f57586369",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "code",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "workflow.mjs",
+      "exactly",
+      "contract.md"
+    ],
+    "confidence": 0.7,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T07:11:05.304986Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

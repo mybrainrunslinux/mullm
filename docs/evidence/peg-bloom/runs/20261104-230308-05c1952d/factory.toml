@@ -1,0 +1,30 @@
+name = "Peg Bloom · wooden review"
+target = "browser-game"
+goals = ["A clear, tactile wooden puzzle box with accessible controls and a satisfying constellation reveal."]
+business_rules = ["Rules and controller originated in local model runs. The wooden presentation is a reusable component supplied during guided review."]
+publish_events = true
+human_intervention = true
+writable_files = ["engine.mjs", "app.mjs"]
+protected_files = ["factory.toml", "puzzles.json", "acceptance.mjs", "browser_acceptance.py", "build.py", "render.mjs", "ui.mjs", "style.css", "index.html"]
+artifacts = ["dist/peg-bloom.zip"]
+[[tasks]]
+id = "verify-wooden-game"
+instruction = "Verify the candidate before asking for playability review."
+writable_files = ["engine.mjs", "app.mjs"]
+verification_only = true
+gates = ["rules"]
+[[gates]]
+name = "rules"
+command = ["node", "acceptance.mjs"]
+[[gates]]
+name = "browser"
+command = ["python3", "browser_acceptance.py"]
+timeout_seconds = 60
+[[gates]]
+name = "package"
+command = ["python3", "build.py"]
+[[gates]]
+name = "playability"
+kind = "human"
+prompt = "Playability review: open the wooden box and try a first move without Hint. Are pegs, drilled holes and legal landings obvious? Try Undo, rim dragging, view controls and a hinted move. Accept only if this feels comfortably playable; otherwise Reject and describe what needs work."
+review_url = "http://127.0.0.1:16857"

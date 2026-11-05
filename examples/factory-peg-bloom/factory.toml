@@ -1,0 +1,67 @@
+name = "peg-bloom"
+target = "browser-game"
+publish_events = true
+human_intervention = true
+goals = ["Build Peg Bloom: three solvable peg-solitaire boards revealing a final constellation, including 24- and 26-move puzzles."]
+business_rules = ["Use only local files and browser APIs. Preserve fixture data and acceptance tests.", "Implement the exact interfaces in contract.md. Keep each response under 1800 tokens by writing compact code."]
+preferences = ["Deep midnight background, mint pegs, warm gold goal rings, clear focus outlines; usable on phones and desktop."]
+writable_files = ["engine.mjs", "render.mjs", "app.mjs", "style.css"]
+context_files = ["contract.md", "engine-contract.md", "index.html"]
+protected_files = ["factory.toml", "engine-contract.md", "contract.md", "index.html", "puzzles.json", "acceptance.mjs", "browser_acceptance.py", "build.py"]
+artifacts = ["dist/peg-bloom.zip"]
+
+[[tasks]]
+id = "engine"
+instruction = "Implement only engine.mjs. CRITICAL: cells, pegs, goal, from, over and to are STRINGS like '0,2', never coordinate arrays. Parse each cell string with split(',').map(Number). Return moves as arrays of THREE STRINGS. Enumerate from each occupied string in each allowed direction, requiring from/over/to all on puzzle.cells, from and over occupied, to empty. applyMove must first match the full move triple against legalMoves; return pegs without from and over, plus to. isSolved requires pegs.length === goal.length, no duplicates and every goal present. No UI code."
+writable_files = ["engine.mjs"]
+gates = ["rules"]
+context_files = ["engine-contract.md"]
+max_output_tokens = 1400
+
+[[tasks]]
+id = "board"
+instruction = "Implement only render.mjs: renderBoard per contract.md. Use data-cell and data-occupied attributes on buttons, CSS grid positions, goal/peg/selected/target classes. No app orchestration."
+writable_files = ["render.mjs"]
+gates = ["render-syntax"]
+context_files = ["contract.md"]
+max_output_tokens = 1400
+
+[[tasks]]
+id = "style"
+instruction = "Implement only style.css, in fewer than 30 compact CSS rules. #board uses display:grid; .peg .goal .selected .target are classes on its cell buttons. Use #board button.peg, #board button.goal, #board button.selected and #board button.target selectors so they override #board button. Keep the board max-width 560px centered and use border-box, wrapping nav, main max-width:100%, and grid buttons with min-width:0 and aspect-ratio:1 so nine columns fit a 390px viewport without hiding overflow. Make a polished compact responsive puzzle game with a clear constellation theme, large clickable cells, gold target rings, mint pegs and focus outlines."
+writable_files = ["style.css"]
+gates = []
+context_files = ["index.html"]
+max_output_tokens = 1400
+
+[[tasks]]
+id = "play"
+depends_on = ["engine", "board", "style"]
+instruction = "Implement only app.mjs: complete playable game controller per contract.md, importing engine and render modules. Use event delegation on #board. Before selecting a peg, check whether selected plus the clicked EMPTY destination matches a legal move and apply it. Never reject empty clicks early. For hints replay from a COPY of puzzle.start, comparing sorted sets with current pegs BEFORE each solution move; select that move start and update the UI when equal. Never apply the replay to current pegs. Keep undo/restart and board switching correct. Keep code compact."
+writable_files = ["app.mjs"]
+gates = ["browser"]
+context_files = ["contract.md", "engine.mjs", "render.mjs"]
+max_output_tokens = 2200
+
+[[gates]]
+name = "rules"
+command = ["node", "acceptance.mjs"]
+timeout_seconds = 30
+[[gates]]
+name = "render-syntax"
+command = ["node", "--check", "render.mjs"]
+timeout_seconds = 10
+[[gates]]
+name = "browser"
+command = ["python3", "browser_acceptance.py"]
+timeout_seconds = 60
+[[gates]]
+name = "package"
+command = ["python3", "build.py"]
+timeout_seconds = 15
+
+[[gates]]
+name = "product-review"
+kind = "human"
+prompt = "Play the candidate: are pegs and empty holes distinct, can you discover a legal move without Hint, and do selection, undo and completion feel clear? Accept only when it is comfortably playable."
+review_url = "http://127.0.0.1:8080"

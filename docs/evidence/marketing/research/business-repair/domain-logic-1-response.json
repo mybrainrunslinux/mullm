@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\": {\"workflow.mjs\": \"export function buildPlan(input, sources = []) {\\n  const { name, audience, hypothesis, method, participants, days, decision } = input || {};\\n  const warnings = [];\\n  const p = Number(participants) || 0;\\n  const d = Number(days) || 0;\\n\\n  if (p <= 0) warnings.push('Participants must be greater than 0.');\\n  if (d <= 0) warnings.push('Days must be greater than 0.');\\n\\n  const schedule = [];\\n  if (d > 0) {\\n    schedule.push({ day: 1, label: 'Recruit' });\\n    schedule.push({ day: 2, label: 'Collect' });\\n    schedule.push({ day: 3, label: 'Synthesize' });\\n    schedule.push({ day: d, label: 'Decide' });\\n  }\\n\\n  const questions = [\\n    'Walk me through the last time your team encountered this problem?',\\n    'Which step took the most effort, and what happened?',\\n    'What have you already tried, and how did it work?',\\n    'What evidence would make you choose a different approach?'\\n  ];\\n\\n  const summary = `Plan for \\\"${name || 'Untitled Study'}\\\" to test: \\\"${hypothesis || 'No hypothesis provided'}\\\".`;\\n\\n  return {\\n    summary,\\n    metrics: [\\n      { label: 'Target participants', value: p },\\n      { label: 'Study days', value: d },\\n      { label: 'Evidence count', value: sources.length }\\n    ],\\n    sections: [\\n      {\\n        title: 'Hypothesis (Untested)',\\n        items: [hypothesis || 'No hypothesis provided']\\n      },\\n      {\\n        title: 'Interview Questions',\\n        items: questions\\n      },\\n      {\\n        title: 'Study Schedule',\\n        items: schedule.map(s => s.label)\\n      },\\n      {\\n        title: 'Decision',\\n        items: [decision || 'No decision specified. Revisit when ready.']\\n      }\\n    ],\\n    warnings,\\n    name,\\n    audience,\\n    hypothesis,\\n    method,\\n    participants: p,\\n    days: d,\\n    decision,\\n    questions,\\n    schedule,\\n    evidence_count: sources.length,\\n    sources\\n  };\\n}\"}}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 2314,
+  "latency_ms": 14362.28,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-231518-77e06bf8",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "185cf7c1-b9ea-4617-a07a-d75dce4fcd2a",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "code",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "repair",
+      "workflow.mjs",
+      "per",
+      "contract.md"
+    ],
+    "confidence": 0.7,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T07:15:58.086757Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

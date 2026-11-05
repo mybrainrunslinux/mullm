@@ -1,0 +1,8 @@
+triangle: real clicks, hint, undo, restart, 13 jumps and visible final shape PASS
+cross: real clicks, hint, undo, restart, 24 jumps and visible final shape PASS
+diamond: real clicks, hint, undo, restart, 26 jumps and visible final shape PASS
+Traceback (most recent call last):
+  File "$EVALUATION_ROOT/peg-bloom-repair-factory-20261104-223753-12729be1/browser_acceptance.py", line 70, in <module>
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'mobile page overflows horizontally'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: mobile page overflows horizontally

@@ -1,0 +1,50 @@
+{
+  "title": "Campaign planner",
+  "eyebrow": "DIRECTION / DELIVERY",
+  "subtitle": "Turn a clear objective into a practical, measurable campaign.",
+  "intro": "A fictional product launch brief. Replace it with your audience, budget and channels.",
+  "defaults": {
+    "name": "Launch the next chapter",
+    "audience": "Independent software teams",
+    "objective": "Book qualified discovery calls",
+    "budget": 12000,
+    "days": 30,
+    "channels": "Newsletter, Community, Search"
+  },
+  "fields": [
+    {
+      "key": "name",
+      "label": "Campaign name",
+      "type": "text"
+    },
+    {
+      "key": "audience",
+      "label": "Audience",
+      "type": "text"
+    },
+    {
+      "key": "objective",
+      "label": "Primary objective",
+      "type": "text"
+    },
+    {
+      "key": "budget",
+      "label": "Available budget ($)",
+      "type": "number",
+      "min": 0
+    },
+    {
+      "key": "days",
+      "label": "Planning window (days)",
+      "type": "number",
+      "min": 1
+    },
+    {
+      "key": "channels",
+      "label": "Channels",
+      "type": "textarea",
+      "help": "Separate channel names with commas."
+    }
+  ],
+  "id": "campaign"
+}

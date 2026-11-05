@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "$EVALUATION_ROOT/peg-bloom-final-factory-20261104-224315-106e2ef5/browser_acceptance.py", line 40, in <module>
+    assert page.locator('#board [data-cell]').count() == len(p['cells'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

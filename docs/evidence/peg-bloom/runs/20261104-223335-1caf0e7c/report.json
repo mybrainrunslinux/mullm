@@ -1,0 +1,222 @@
+{
+  "status": "stopped",
+  "run_id": "20261104-223335-1caf0e7c",
+  "branch": "factory/20261104-223335-1caf0e7c",
+  "worktree": "$EVALUATION_ROOT/peg-bloom-factory-20261104-223335-1caf0e7c",
+  "source_commit": "72e9e8d6e5d78769ebc3ab47119a544df9caa027",
+  "name": "peg-bloom",
+  "plan": [
+    {
+      "id": "engine",
+      "instruction": "Implement only engine.mjs. CRITICAL: cells, pegs, goal, from, over and to are STRINGS like '0,2', never coordinate arrays. Parse each cell string with split(',').map(Number). Return moves as arrays of THREE STRINGS. Enumerate from each occupied string in each allowed direction, requiring from/over/to all on puzzle.cells, from and over occupied, to empty. applyMove must first match the full move triple against legalMoves; return pegs without from and over, plus to. isSolved requires pegs.length === goal.length, no duplicates and every goal present. No UI code.",
+      "depends_on": [],
+      "writable_files": [
+        "engine.mjs"
+      ],
+      "gates": [
+        "rules"
+      ],
+      "context_files": [
+        "engine-contract.md"
+      ],
+      "max_output_tokens": 1400,
+      "max_attempts": 3
+    },
+    {
+      "id": "board",
+      "instruction": "Implement only render.mjs: renderBoard per contract.md. Use data-cell and data-occupied attributes on buttons, CSS grid positions, goal/peg/selected/target classes. No app orchestration.",
+      "depends_on": [],
+      "writable_files": [
+        "render.mjs"
+      ],
+      "gates": [
+        "render-syntax"
+      ],
+      "context_files": [
+        "contract.md"
+      ],
+      "max_output_tokens": 1400,
+      "max_attempts": 3
+    },
+    {
+      "id": "style",
+      "instruction": "Implement only style.css, in fewer than 30 compact CSS rules. #board uses display:grid; .peg .goal .selected .target are classes on its cell buttons. Make a polished compact responsive puzzle game with a clear constellation theme, large clickable cells, gold target rings, mint pegs and focus outlines.",
+      "depends_on": [],
+      "writable_files": [
+        "style.css"
+      ],
+      "gates": [],
+      "context_files": [
+        "index.html"
+      ],
+      "max_output_tokens": 1400,
+      "max_attempts": 3
+    },
+    {
+      "id": "play",
+      "instruction": "Implement only app.mjs: complete playable game controller per contract.md, importing engine and render modules. Use event delegation on #board, correct undo/restart, board switching and honest solution-prefix hints. Keep code compact.",
+      "depends_on": [
+        "engine",
+        "board",
+        "style"
+      ],
+      "writable_files": [
+        "app.mjs"
+      ],
+      "gates": [
+        "browser"
+      ],
+      "context_files": [
+        "contract.md",
+        "engine.mjs",
+        "render.mjs"
+      ],
+      "max_output_tokens": 2200,
+      "max_attempts": 3
+    }
+  ],
+  "manifest_sha256": "407023bf215fe369cf44eb0e3f33702c797811c3e3bb5589a859b10fed93b445",
+  "tasks": [
+    {
+      "id": "engine",
+      "depends_on": [],
+      "status": "passed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [
+            {
+              "name": "rules",
+              "returncode": 0,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-223335-1caf0e7c/engine-1-rules.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 1097,
+          "latency_ms": 9830.06,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "passed",
+          "elapsed_seconds": 9.922
+        }
+      ]
+    },
+    {
+      "id": "board",
+      "depends_on": [],
+      "status": "passed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [
+            {
+              "name": "render-syntax",
+              "returncode": 0,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-223335-1caf0e7c/board-1-render-syntax.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 1310,
+          "latency_ms": 11681.84,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "passed",
+          "elapsed_seconds": 11.752
+        }
+      ]
+    },
+    {
+      "id": "style",
+      "depends_on": [],
+      "status": "passed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 1395,
+          "latency_ms": 19708.71,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "passed",
+          "elapsed_seconds": 19.735
+        }
+      ]
+    },
+    {
+      "id": "play",
+      "depends_on": [
+        "engine",
+        "board",
+        "style"
+      ],
+      "status": "needs_human",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [
+            {
+              "name": "browser",
+              "returncode": 1,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-223335-1caf0e7c/play-1-browser.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 2688,
+          "latency_ms": 22964.32,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "failed",
+          "error": "Gate browser failed:\nTraceback (most recent call last):\n  File \"$EVALUATION_ROOT/peg-bloom-factory-20261104-223335-1caf0e7c/browser_acceptance.py\", line 45, in <module>\n    assert page.locator(f'#board [data-cell=\"{first[0]}\"].selected').count() == 1, 'hint must select the next solution peg'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: hint must select the next solution peg\n",
+          "elapsed_seconds": 23.865
+        },
+        {
+          "attempt": 2,
+          "gates": [
+            {
+              "name": "browser",
+              "returncode": 1,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-223335-1caf0e7c/play-2-browser.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 3760,
+          "latency_ms": 22848.16,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "failed",
+          "error": "Gate browser failed:\nTraceback (most recent call last):\n  File \"$EVALUATION_ROOT/peg-bloom-factory-20261104-223335-1caf0e7c/browser_acceptance.py\", line 45, in <module>\n    assert page.locator(f'#board [data-cell=\"{first[0]}\"].selected').count() == 1, 'hint must select the next solution peg'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: hint must select the next solution peg\n",
+          "elapsed_seconds": 23.857
+        },
+        {
+          "attempt": 3,
+          "gates": [
+            {
+              "name": "browser",
+              "returncode": 1,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-223335-1caf0e7c/play-3-browser.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 3734,
+          "latency_ms": 22421.75,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "failed",
+          "error": "Gate browser failed:\nTraceback (most recent call last):\n  File \"$EVALUATION_ROOT/peg-bloom-factory-20261104-223335-1caf0e7c/browser_acceptance.py\", line 45, in <module>\n    assert page.locator(f'#board [data-cell=\"{first[0]}\"].selected').count() == 1, 'hint must select the next solution peg'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: hint must select the next solution peg\n",
+          "elapsed_seconds": 23.28
+        }
+      ]
+    }
+  ],
+  "gates": [],
+  "artifacts": {},
+  "elapsed_seconds": 1712.102,
+  "human_decisions": [
+    {
+      "session_id": "agent-b4df488855574287a01412b5ebb65b22",
+      "choice": "Stop: superseded experiment, closed by Codex test driver"
+    }
+  ],
+  "error": "Stopped by human decision: Stop: superseded experiment, closed by Codex test driver"
+}

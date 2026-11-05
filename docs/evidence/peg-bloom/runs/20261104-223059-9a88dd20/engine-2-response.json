@@ -1,0 +1,41 @@
+{
+  "response": "{\n  \"files\": {\n    \"engine.mjs\": \"export function legalMoves(cells, pegs, goal) {\\n  const parse = s => s.split(',').map(Number);\\n  const cellsSet = new Set(cells);\\n  const pegsSet = new Set(pegs);\\n  const dirs = [[0,1],[0,-1],[1,0],[-1,0]];\\n  const moves = [];\\n  for (const fromStr of pegs) {\\n    const [fx, fy] = parse(fromStr);\\n    for (const [dx, dy] of dirs) {\\n      const ox = fx + dx, oy = fy + dy;\\n      const tx = fx + 2*dx, ty = fy + 2*dy;\\n      const overStr = `${ox},${oy}`;\\n      const toStr = `${tx},${ty}`;\\n      if (cellsSet.has(fromStr) && cellsSet.has(overStr) && cellsSet.has(toStr) && pegsSet.has(overStr) && !pegsSet.has(toStr)) {\\n        moves.push([fromStr, overStr, toStr]);\\n      }\\n    }\\n  }\\n  return moves;\\n}\\n\\nexport function applyMove(pegs, move) {\\n  const [from, over, to] = move;\\n  const newPegs = pegs.filter(p => p !== from && p !== over);\\n  newPegs.push(to);\\n  return newPegs;\\n}\\n\\nexport function isSolved(pegs, goal) {\\n  if (pegs.length !== goal.length) return false;\\n  const pegsSet = new Set(pegs);\\n  for (const g of goal) {\\n    if (!pegsSet.has(g)) return false;\\n  }\\n  return true;\\n}\"\n  }\n}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 1103,
+  "latency_ms": 9654.85,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-223059-9a88dd20",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "07d136fe-fb6f-4f25-86fc-1b4752c2fd7c",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "lookup",
+    "complexity": 3,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "engine.mjs",
+      "critical",
+      "cells"
+    ],
+    "confidence": 0.9,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T06:31:11.794100Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

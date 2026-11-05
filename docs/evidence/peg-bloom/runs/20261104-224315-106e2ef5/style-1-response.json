@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\": {\"style.css\": \"COMPLETE FILE CONTENT\"}}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 594,
+  "latency_ms": 742.39,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-224315-106e2ef5",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "c2d678d9-acb3-4005-a18a-d1e91a3fef2c",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "code",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "style.css",
+      "fewer",
+      "compact"
+    ],
+    "confidence": 0.7,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T06:43:37.490935Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

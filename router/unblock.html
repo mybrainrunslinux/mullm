@@ -212,9 +212,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);padding:0;ma
 
 <script>
 const API = location.origin;
+const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let currentSessionId = null;
 let selectedChoice = '';
 let prevSessionIds = new Set();
+let focusedSessionHash = null;
 let lastSessionCount = 0;
 
 // ── Sound notification (subtle chime on new card) ──
@@ -321,13 +323,18 @@ function renderSessions(d) {
         quickBtns = s.options.map((o, i) => {
           const colors = ['var(--green)','var(--teal)','var(--blue)','var(--purple)','var(--amber)'];
           const c = colors[i % colors.length];
-          return `<button class="qopt" data-sid="${s.session_id}" data-choice="${o.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();queueOption(this)" style="padding:6px 12px;background:var(--bg4);border:1px solid ${c};border-radius:6px;color:${c};font-size:10px;cursor:pointer;font-family:var(--mono);transition:all .2s;position:relative" onmouseover="if(!this.dataset.queued)this.style.background='${c}',this.style.color='#000'" onmouseout="if(!this.dataset.queued)this.style.background='var(--bg4)',this.style.color='${c}'">${o}</button>`;
+          const action = s.run_id ? 'quickUnblock(this.dataset.sid,this.dataset.choice)' : 'queueOption(this)';
+          return `<button class="qopt" data-sid="${s.session_id}" data-choice="${escapeHTML(o)}" onclick="event.stopPropagation();${action}" style="padding:6px 12px;background:var(--bg4);border:1px solid ${c};border-radius:6px;color:${c};font-size:10px;cursor:pointer;font-family:var(--mono);transition:all .2s;position:relative" onmouseover="if(!this.dataset.queued)this.style.background='${c}',this.style.color='#000'" onmouseout="if(!this.dataset.queued)this.style.background='var(--bg4)',this.style.color='${c}'">${escapeHTML(o)}</button>`;
         }).join('');
       }
+      // Factory decisions are mutually exclusive and cannot be postponed by Skip.
+      if (!s.run_id) {
       // Submit queue button (hidden until 2+ selections)
       quickBtns += `<button class="qsubmit" data-sid="${s.session_id}" onclick="event.stopPropagation();submitQueue('${s.session_id}')" style="display:none;padding:6px 10px;background:var(--green);border:1px solid var(--green);border-radius:6px;color:#000;font-size:10px;cursor:pointer;font-family:var(--mono);font-weight:700" title="Submit selections">&#9654;</button>`;
       quickBtns += `<button onclick="event.stopPropagation();quickUnblock('${s.session_id}','skip')" style="padding:6px 10px;background:var(--bg4);border:1px solid var(--amber);border-radius:6px;color:var(--amber);font-size:10px;cursor:pointer;font-family:var(--mono)" title="Skip → tomorrow">SKIP</button>`;
       quickBtns += `<button onclick="event.stopPropagation();quickUnblock('${s.session_id}','cancel')" style="padding:6px 10px;background:var(--bg4);border:1px solid var(--coral);border-radius:6px;color:var(--coral);font-size:10px;cursor:pointer;font-family:var(--mono)" title="Cancel">&#10005;</button>`;
+
+      }
 
       // Agent-specific metadata row
       const isAgent = s.session_id && s.session_id.startsWith('agent-');
@@ -336,16 +343,16 @@ function renderSessions(d) {
         const sevColors = {low:'var(--text3)',medium:'var(--amber)',high:'var(--orange)',critical:'var(--red)'};
         const sevC = sevColors[s.severity] || 'var(--text3)';
         agentMeta = `<div style="font-family:var(--mono);font-size:9px;margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <span style="padding:1px 6px;border-radius:3px;background:var(--bg4);color:var(--purple)">${s.agent_type || 'agent'}</span>
-          <span style="padding:1px 6px;border-radius:3px;background:var(--bg4);color:${sevC}">${s.severity || 'medium'}</span>
-          ${s.parent_id ? '<span style="color:var(--text3)">parent: '+s.parent_id.slice(0,8)+'</span>' : ''}
-          ${s.context ? '<div style="margin-top:4px;font-size:9px;color:var(--text3);width:100%;line-height:1.5">'+s.context.replace(/"/g,'&quot;')+'</div>' : ''}
+          <span style="padding:1px 6px;border-radius:3px;background:var(--bg4);color:var(--purple)">${escapeHTML(s.agent_type || 'agent')}</span>
+          <span style="padding:1px 6px;border-radius:3px;background:var(--bg4);color:${sevC}">${escapeHTML(s.severity || 'medium')}</span>
+          ${s.parent_id ? '<span style="color:var(--text3)">parent: '+escapeHTML(s.parent_id.slice(0,8))+'</span>' : ''}
+          ${s.context ? '<div style="margin-top:4px;font-size:9px;color:var(--text3);width:100%;line-height:1.5">'+escapeHTML(s.context)+'</div>' : ''}
         </div>`;
       }
 
       const isResolved = s.resolved || s.status?.startsWith('resolved');
       const resolvedBanner = isResolved
-        ? `<div style="margin-top:8px;padding:8px 12px;background:var(--green);color:#000;border-radius:6px;font-family:var(--mono);font-size:11px;font-weight:700">&#10003; ${s.resolved_choice ? 'Choice: ' + s.resolved_choice : 'Resolved'}</div>`
+        ? `<div style="margin-top:8px;padding:8px 12px;background:var(--green);color:#000;border-radius:6px;font-family:var(--mono);font-size:11px;font-weight:700">&#10003; ${s.resolved_choice ? 'Choice: ' + escapeHTML(s.resolved_choice) : 'Resolved'}</div>`
         : '';
       const cardOpacity = isResolved ? 'opacity:0.6;' : '';
 
@@ -356,18 +363,29 @@ function renderSessions(d) {
       return `<div class="session-card ${s.color}" id="${cardId}" style="${cardOpacity}" onclick="toggleCardExpand('${cardId}')">
         <div class="indicator ${s.color}" title="Click to expand"></div>
         <div class="session-id">${s.session_id.slice(0, 30)} <span style="color:var(--teal);font-size:9px;opacity:0.6">${isResolved ? 'RESOLVED' : 'CLICK TO EXPAND'}</span></div>
-        <div class="session-summary" style="line-height:1.5">${s.summary || 'No preview'}</div>
+        <div class="session-summary" style="line-height:1.5">${escapeHTML(s.summary || 'No preview')}</div>
         <div class="session-meta">
-          <span class="pill" style="background:${tc};color:#000">${s.tier || '?'}</span>
+          <span class="pill" style="background:${tc};color:#000">${escapeHTML(s.tier || '?')}</span>
           <span>${elapsed}</span>
           <span style="margin-left:auto;font-size:8px;color:var(--text3)">${s.created_at ? new Date(s.created_at * 1000).toLocaleTimeString() : ''}</span>
         </div>
-        <div class="session-status ${s.color}">${s.status === 'blocked: working' ? '&#9679; WORKING' : s.status === 'blocked: idle' ? '&#9675; IDLE — ready for tasks' : s.status === 'blocked: user_request' ? '&#9889; TASK ROUTED' : s.status}</div>
+        <div class="session-status ${s.color}">${s.status === 'blocked: working' ? '&#9679; WORKING' : s.status === 'blocked: idle' ? '&#9675; IDLE — ready for tasks' : s.status === 'blocked: user_request' ? '&#9889; TASK ROUTED' : escapeHTML(s.status)}</div>
         ${agentMeta}
         ${resolvedBanner}
         ${isResolved ? '' : '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' + quickBtns + '</div>'}
       </div>`;
     }).join('');
+
+    // Deep links from the factory open the exact request once, including resolved history.
+    if (location.hash && focusedSessionHash !== location.hash) {
+      let linked;
+      try { linked = decodeURIComponent(location.hash.slice(1)); } catch { linked = ''; }
+      if (cardSessions.some(s => s.session_id === linked)) {
+        const cardId = 'card-' + linked.replace(/[^a-z0-9]/gi, '');
+        expandedIds.add(cardId); focusedSessionHash = location.hash;
+        document.getElementById(cardId)?.scrollIntoView({block: 'center'});
+      }
+    }
 
     // Re-expand cards that were expanded before re-render
     expandedIds.forEach(id => {
@@ -428,10 +446,20 @@ function toggleCardExpand(cardId) {
       <span style="font-family:var(--mono);font-size:9px;color:var(--text3)">${s.session_id}</span>
       <button onclick="event.stopPropagation();this.closest('.session-card').dataset.expanded='';this.closest('.card-expand').remove()" style="margin-left:auto;background:none;border:1px solid var(--text3);border-radius:4px;color:var(--text3);cursor:pointer;padding:2px 8px;font-size:10px;font-family:var(--mono)">✕ Close</button>
     </div>
-    <div style="margin-bottom:8px;white-space:pre-wrap;word-break:break-word">${s.summary || ''}</div>
-    ${s.context ? '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;white-space:pre-wrap;word-break:break-word;padding:8px;background:var(--bg2);border-radius:6px">' + s.context + '</div>' : ''}
-    <div style="font-size:9px;color:var(--text3)">Status: ${s.status || '?'} · ${s.agent_type || ''} ${s.severity ? '· ' + s.severity : ''}</div>
+    <div style="margin-bottom:8px;white-space:pre-wrap;word-break:break-word">${escapeHTML(s.summary || '')}</div>
+    ${s.context ? '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;white-space:pre-wrap;word-break:break-word;padding:8px;background:var(--bg2);border-radius:6px">' + escapeHTML(s.context) + '</div>' : ''}
+    <div style="font-size:9px;color:var(--text3)">Status: ${escapeHTML(s.status || '?')} · ${escapeHTML(s.agent_type || '')} ${s.severity ? '· ' + escapeHTML(s.severity) : ''}</div>
   `;
+  for (const link of s.links || []) {
+    if (!/^https?:\/\//i.test(link.url)) continue;
+    const a = document.createElement('a');
+    a.href = link.url; a.textContent = link.label; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.style.display = 'block'; div.appendChild(a);
+  }
+  if (!s.resolved && s.block_reason === 'clarification') {
+    const button = document.createElement('button'); button.textContent = 'Write an answer';
+    button.onclick = () => openModal(s.session_id, s); div.appendChild(button);
+  }
   div.onclick = function(e) { e.stopPropagation(); };
   // Mark card as expanded so re-render preserves it
   card.dataset.expanded = '1';
@@ -465,6 +493,8 @@ function openModal(sessionId, sessionJson) {
   let s = sessionJson;
   if (typeof s === 'string') { try { s = JSON.parse(s); } catch(e) { console.error('Modal parse error:', e); return; } }
   if (!s) return;
+  if (s.resolved) return;
+  document.getElementById('modalText').value = '';
   currentSessionId = sessionId;
   selectedChoice = '';
 
@@ -482,21 +512,26 @@ function openModal(sessionId, sessionJson) {
   summaryEl.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:4px;background:${statusColor};color:#000;font-weight:700">${statusLabel}</span>
-      ${isAgent ? '<span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:4px;background:var(--bg4);color:var(--purple)">'+agentName+'</span>' : ''}
+      ${isAgent ? '<span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:4px;background:var(--bg4);color:var(--purple)">'+escapeHTML(agentName)+'</span>' : ''}
       <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${s.elapsed_s ? (s.elapsed_s > 60 ? Math.round(s.elapsed_s/60)+'m ago' : Math.round(s.elapsed_s)+'s ago') : ''}</span>
     </div>
-    <div style="font-size:14px;color:var(--text);line-height:1.6;padding:12px;background:var(--bg3);border-radius:8px;border-left:3px solid ${statusColor};margin-bottom:4px">${s.summary || (isIdle ? 'This agent is idle and ready for tasks. Type or speak a task below.' : 'This session needs your input.')}</div>
-    ${s.context ? '<div style="font-size:11px;color:var(--text2);margin-top:4px;padding:8px;background:var(--bg4);border-radius:6px">'+s.context+'</div>' : ''}
-    ${s.parent_id ? '<div style="font-size:9px;color:var(--text3);margin-top:4px">Parent: '+s.parent_id+'</div>' : ''}
+    <div style="font-size:14px;color:var(--text);line-height:1.6;padding:12px;background:var(--bg3);border-radius:8px;border-left:3px solid ${statusColor};margin-bottom:4px">${escapeHTML(s.summary || (isIdle ? 'This agent is idle and ready for tasks. Type or speak a task below.' : 'This session needs your input.'))}</div>
+    ${s.context ? '<div style="font-size:11px;color:var(--text2);margin-top:4px;padding:8px;background:var(--bg4);border-radius:6px">'+escapeHTML(s.context)+'</div>' : ''}
+    ${s.parent_id ? '<div style="font-size:9px;color:var(--text3);margin-top:4px">Parent: '+escapeHTML(s.parent_id)+'</div>' : ''}
   `;
 
   const optionsDiv = document.getElementById('modalOptions');
   const textInput = document.getElementById('modalText');
 
   if (s.options && s.options.length > 0) {
-    optionsDiv.innerHTML = s.options.map(o =>
-      `<button class="option-btn" onclick="selectOption(this,'${o.replace(/'/g, "\\'")}')">${o}</button>`
-    ).join('');
+    optionsDiv.replaceChildren();
+    for (const option of s.options) {
+      const button = document.createElement('button');
+      button.className = 'option-btn';
+      button.textContent = option;
+      button.onclick = () => selectOption(button, option);
+      optionsDiv.appendChild(button);
+    }
     optionsDiv.style.display = 'flex';
     textInput.style.display = 'block';
   } else {
@@ -554,6 +589,7 @@ async function submitUnblock() {
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'choice=' + encodeURIComponent(choice),
     });
+    if (!r.ok) throw new Error(await r.text());
     const d = await r.json();
     closeModal();
     showToast('Sent: ' + choice, 'var(--green)');
@@ -635,7 +671,7 @@ function quickUnblock(sessionId, choice) {
   fetch(API + '/api/sessions/' + encodeURIComponent(sessionId) + '/unblock', {
     method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: 'choice=' + encodeURIComponent(choice),
-  }).then(r => r.json()).then(d => {
+  }).then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); }).then(d => {
     showToast((choice === 'cancel' ? 'Cancelled' : choice === 'skip' ? 'Skipped' : 'Sent') + ': ' + choice, d.choice ? 'var(--green)' : 'var(--amber)');
     refresh();
   }).catch(() => { showToast('Failed to send — retrying...', 'var(--coral)'); });
@@ -644,7 +680,7 @@ function quickUnblock(sessionId, choice) {
 function showToast(msg, color) {
   const t = document.createElement('div');
   t.style.cssText = 'position:fixed;top:60px;right:20px;padding:12px 20px;background:' + (color||'var(--green)') + ';color:#000;border-radius:8px;font-family:var(--mono);font-size:11px;font-weight:700;z-index:300;transition:opacity .3s;box-shadow:0 4px 16px rgba(0,0,0,.3);display:flex;align-items:center;gap:8px';
-  t.innerHTML = msg + ' <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#000;cursor:pointer;font-size:14px;padding:0 4px;opacity:0.6">✕</button>';
+  t.innerHTML = escapeHTML(msg) + ' <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#000;cursor:pointer;font-size:14px;padding:0 4px;opacity:0.6">✕</button>';
   document.body.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 10000);
 }
@@ -769,10 +805,10 @@ function updateActivityBar(sessions) {
     }
 
     const label = isHeartbeat ? (s.request_id || s.agent_type || 'agent').slice(0, 15) : (s.agent_type || s.session_id || '').slice(0, 15);
-    return `<div style="display:flex;align-items:center;gap:4px;padding:2px 8px;background:var(--bg3);border-radius:4px;border:1px solid ${dotColor}30" title="${s.summary || s.session_id}">
+    return `<div style="display:flex;align-items:center;gap:4px;padding:2px 8px;background:var(--bg3);border-radius:4px;border:1px solid ${dotColor}30" title="${escapeHTML(s.summary || s.session_id)}">
       <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};display:inline-block;flex-shrink:0;${pulse}"></span>
-      <span style="color:${dotColor};font-size:9px;white-space:nowrap">${label}</span>
-      <span style="color:var(--text3);font-size:8px">${statusText}</span>
+      <span style="color:${dotColor};font-size:9px;white-space:nowrap">${escapeHTML(label)}</span>
+      <span style="color:var(--text3);font-size:8px">${escapeHTML(statusText)}</span>
     </div>`;
   }).join('');
 }

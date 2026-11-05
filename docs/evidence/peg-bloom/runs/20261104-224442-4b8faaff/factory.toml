@@ -1,0 +1,36 @@
+name = "peg-bloom"
+target = "browser-game"
+publish_events = true
+human_intervention = true
+goals = ["Build Peg Bloom: three solvable peg-solitaire boards revealing a final constellation, including 24- and 26-move puzzles."]
+business_rules = ["Use only local files and browser APIs. Preserve fixture data and acceptance tests.", "Implement the exact interfaces in contract.md. Keep each response under 1800 tokens by writing compact code."]
+preferences = ["Deep midnight background, mint pegs, warm gold goal rings, clear focus outlines; usable on phones and desktop."]
+writable_files = ["engine.mjs", "render.mjs", "app.mjs", "style.css"]
+context_files = ["contract.md", "engine-contract.md", "index.html"]
+protected_files = ["factory.toml", "engine-contract.md", "contract.md", "index.html", "puzzles.json", "acceptance.mjs", "browser_acceptance.py", "build.py"]
+artifacts = ["dist/peg-bloom.zip"]
+
+[[tasks]]
+id = "visual-clarity"
+instruction = "Fix only style.css. Preserve the existing stylesheet, changing only these issues: selectors .peg/.goal/.selected/.target are less specific than #board button, so occupied pegs and empty holes look identical and borders disappear. Change those selectors to #board button.peg, #board button.goal, #board button.selected, #board button.target. For hover use #board button:hover only if it does not override the peg color. Set #board width:100%; max-width:560px and main max-width:680px so the desktop board fits comfortably. Keep mobile cells at least 24px. Preserve all other rules. Return the complete corrected CSS."
+writable_files = ["style.css"]
+context_files = []
+gates = ["browser"]
+max_output_tokens = 1400
+
+[[gates]]
+name = "rules"
+command = ["node", "acceptance.mjs"]
+timeout_seconds = 30
+[[gates]]
+name = "render-syntax"
+command = ["node", "--check", "render.mjs"]
+timeout_seconds = 10
+[[gates]]
+name = "browser"
+command = ["python3", "browser_acceptance.py"]
+timeout_seconds = 60
+[[gates]]
+name = "package"
+command = ["python3", "build.py"]
+timeout_seconds = 15

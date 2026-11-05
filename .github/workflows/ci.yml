@@ -48,6 +48,7 @@ jobs:
         run: |
           python -m pytest \
             tests/test_factory.py \
+            tests/test_factory_api.py \
             tests/test_spend_guard.py \
             tests/test_release_guards.py \
             tests/test_frontier_models.py \

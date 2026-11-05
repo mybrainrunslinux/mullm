@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\":{\"engine.mjs\":\"// engine.mjs - Pure-function contract for Peg Bloom\\n\\n/**\\n * Returns all legal move triples [from, over, to] for the current peg configuration.\\n * @param {object} puzzle - Puzzle object with cells, directions.\\n * @param {string[]} pegs - Array of occupied cell strings \\\"x,y\\\".\\n * @returns {Array<[string, string, string]>} Array of legal moves.\\n */\\nexport function legalMoves(puzzle, pegs) {\\n  const pegSet = new Set(pegs);\\n  const moves = [];\\n  for (const from of pegs) {\\n    const [fx, fy] = from.split(',').map(Number);\\n    for (const [dx, dy] of puzzle.directions) {\\n      const ox = fx + dx, oy = fy + dy;\\n      const tx = fx + 2 * dx, ty = fy + 2 * dy;\\n      const over = `${ox},${oy}`;\\n      const to = `${tx},${ty}`;\\n      if (pegSet.has(from) && pegSet.has(over) && !pegSet.has(to) &&\\n          puzzle.cells.includes(over) && puzzle.cells.includes(to)) {\\n        moves.push([from, over, to]);\\n      }\\n    }\\n  }\\n  return moves;\\n}\\n\\n/**\\n * Applies a move, returning a new peg array. Throws if illegal.\\n * @param {object} puzzle - Puzzle object.\\n * @param {string[]} pegs - Current occupied cells.\\n * @param {[string, string, string]} move - [from, over, to].\\n * @returns {string[]} New peg array.\\n */\\nexport function applyMove(puzzle, pegs, move) {\\n  const [from, over, to] = move;\\n  const pegSet = new Set(pegs);\\n  if (!pegSet.has(from) || !pegSet.has(over) || pegSet.has(to)) {\\n    throw new Error(`Illegal move: ${move.join(' -> ')}`);\\n  }\\n  const newPegs = pegs.filter(p => p !== from && p !== over).concat(to);\\n  return newPegs;\\n}\\n\\n/**\\n * Checks if the current peg set exactly matches the goal.\\n * @param {object} puzzle - Puzzle object with goal array.\\n * @param {string[]} pegs - Current occupied cells.\\n * @returns {boolean}\\n */\\nexport function isSolved(puzzle, pegs) {\\n  const goalSet = new Set(puzzle.goal);\\n  const pegSet = new Set(pegs);\\n  if (goalSet.size !== pegSet.size) return false;\\n  for (const cell of goalSet) {\\n    if (!pegSet.has(cell)) return false;\\n  }\\n  return true;\\n}\",\"relative/path\":\"engine.mjs\"}}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 1746,
+  "latency_ms": 19369.08,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-221941-38806bd6",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "f699be54-4c8b-4a2b-a4e4-55344e474c6b",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "code",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "engine.mjs",
+      "pure-function",
+      "contract"
+    ],
+    "confidence": 0.7,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T06:20:10.821828Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

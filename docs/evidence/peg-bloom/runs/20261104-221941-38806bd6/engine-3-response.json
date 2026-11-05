@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\":{\"engine.mjs\":\"// engine.mjs - Pure functions for Peg Bloom\\n\\n/**\\n * Returns all legal move triples [from, over, to] for the current peg configuration.\\n * @param {object} puzzle - Puzzle object with cells, directions.\\n * @param {string[]} pegs - Array of occupied cell strings \\\"x,y\\\".\\n * @returns {string[][]} Array of move triples.\\n */\\nexport function legalMoves(puzzle, pegs) {\\n  const pegSet = new Set(pegs);\\n  const moves = [];\\n  for (const from of pegs) {\\n    for (const [dx, dy] of puzzle.directions) {\\n      const [fx, fy] = from.split(',').map(Number);\\n      const ox = fx + dx, oy = fy + dy;\\n      const tx = fx + 2 * dx, ty = fy + 2 * dy;\\n      const over = `${ox},${oy}`;\\n      const to = `${tx},${ty}`;\\n      if (pegSet.has(from) && pegSet.has(over) && !pegSet.has(to)) {\\n        moves.push([from, over, to]);\\n      }\\n    }\\n  }\\n  return moves;\\n}\\n\\n/**\\n * Applies a move to the peg configuration, returning a new array.\\n * @param {object} puzzle - Puzzle object.\\n * @param {string[]} pegs - Current occupied cells.\\n * @param {string[]} move - Move triple [from, over, to].\\n * @returns {string[]} New peg array.\\n * @throws {Error} If move is illegal.\\n */\\nexport function applyMove(puzzle, pegs, move) {\\n  const [from, over, to] = move;\\n  const pegSet = new Set(pegs);\\n  if (!pegSet.has(from) || !pegSet.has(over) || pegSet.has(to)) {\\n    throw new Error(`Illegal move: ${move.join(' -> ')}`);\\n  }\\n  const newPegs = pegs.filter(p => p !== over);\\n  newPegs.push(to);\\n  return newPegs;\\n}\\n\\n/**\\n * Checks if the current peg configuration matches the goal exactly.\\n * @param {object} puzzle - Puzzle object with goal array.\\n * @param {string[]} pegs - Current occupied cells.\\n * @returns {boolean} True if pegs match goal exactly.\\n */\\nexport function isSolved(puzzle, pegs) {\\n  const goalSet = new Set(puzzle.goal);\\n  const pegSet = new Set(pegs);\\n  if (goalSet.size !== pegSet.size) return false;\\n  for (const cell of goalSet) {\\n    if (!pegSet.has(cell)) return false;\\n  }\\n  return true;\\n}\",\"output_contract\":\"Return only JSON: {\\\"files\\\":{\\\"relative/path\\\":\\\"complete file content\\\"}}. Keep the implementation concise.\"}\n\n}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 1717,
+  "latency_ms": 19925.82,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-221941-38806bd6",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "43574372-393d-4328-bf66-c4cc7ae41703",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "code",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "engine.mjs",
+      "pure-function",
+      "contract"
+    ],
+    "confidence": 0.7,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T06:20:30.215007Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

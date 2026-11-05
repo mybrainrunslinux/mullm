@@ -1,0 +1,90 @@
+{
+  "status": "failed",
+  "run_id": "20261104-222316-52abef87",
+  "branch": "factory/20261104-222316-52abef87",
+  "worktree": "$EVALUATION_ROOT/peg-bloom-factory-20261104-222316-52abef87",
+  "source_commit": "27de4672f7ae18995ce0f9c3ab4504b72348ce75",
+  "manifest_sha256": "8d10850a9608c6cd336e5f97894a75ee491f3273bd809f2254d72c16db48578c",
+  "tasks": [
+    {
+      "id": "engine",
+      "depends_on": [],
+      "status": "passed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [
+            {
+              "name": "rules",
+              "returncode": 0,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-222316-52abef87/engine-1-rules.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 1569,
+          "latency_ms": 12656.37,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "passed",
+          "elapsed_seconds": 12.751
+        }
+      ]
+    },
+    {
+      "id": "board",
+      "depends_on": [],
+      "status": "passed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [
+            {
+              "name": "render-syntax",
+              "returncode": 0,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-222316-52abef87/board-1-render-syntax.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 1876,
+          "latency_ms": 12516.6,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "passed",
+          "elapsed_seconds": 12.583
+        }
+      ]
+    },
+    {
+      "id": "style",
+      "depends_on": [],
+      "status": "failed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [],
+          "status": "failed",
+          "error": "Server error '504 Gateway Timeout' for url 'https://127.0.0.1:16856/query'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504",
+          "elapsed_seconds": 29.019
+        },
+        {
+          "attempt": 2,
+          "gates": [],
+          "status": "failed",
+          "error": "Server error '504 Gateway Timeout' for url 'https://127.0.0.1:16856/query'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504",
+          "elapsed_seconds": 29.004
+        },
+        {
+          "attempt": 3,
+          "gates": [],
+          "status": "failed",
+          "error": "Server error '504 Gateway Timeout' for url 'https://127.0.0.1:16856/query'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504",
+          "elapsed_seconds": 29.004
+        }
+      ]
+    }
+  ],
+  "gates": [],
+  "artifacts": {},
+  "elapsed_seconds": 112.4,
+  "error": "Task style exhausted 3 attempts: Server error '504 Gateway Timeout' for url 'https://127.0.0.1:16856/query'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504"
+}

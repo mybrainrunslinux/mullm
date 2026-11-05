@@ -1,0 +1,52 @@
+{
+  "status": "failed",
+  "run_id": "20261104-221941-38806bd6",
+  "branch": "factory/20261104-221941-38806bd6",
+  "worktree": "$EVALUATION_ROOT/peg-bloom-factory-20261104-221941-38806bd6",
+  "source_commit": "9cfc5343ef80309e3365e685a8332fea426ab508",
+  "manifest_sha256": "6a2b402d5c7c0023edbfd881c012b1b2afdab1d12d483e2caa21bb82b57f7c3f",
+  "tasks": [
+    {
+      "id": "engine",
+      "depends_on": [],
+      "status": "failed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [],
+          "status": "failed",
+          "error": "Server error '504 Gateway Timeout' for url 'https://127.0.0.1:16856/query'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504",
+          "elapsed_seconds": 29.017
+        },
+        {
+          "attempt": 2,
+          "gates": [],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 1746,
+          "latency_ms": 19369.08,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "failed",
+          "error": "Candidate modifies files outside the manifest allowlist",
+          "elapsed_seconds": 19.384
+        },
+        {
+          "attempt": 3,
+          "gates": [],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 1717,
+          "latency_ms": 19925.82,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "failed",
+          "error": "Candidate modifies files outside the manifest allowlist",
+          "elapsed_seconds": 19.997
+        }
+      ]
+    }
+  ],
+  "gates": [],
+  "artifacts": {},
+  "elapsed_seconds": 68.44,
+  "error": "Task engine exhausted 3 attempts: Candidate modifies files outside the manifest allowlist"
+}
