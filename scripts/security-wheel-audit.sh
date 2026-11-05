@@ -29,7 +29,7 @@ python -m build --wheel --outdir "$DIST_DIR" "$ROOT"
 
 python -m venv "$VENV_DIR"
 "$VENV_DIR/bin/python" -m pip install --upgrade pip >/dev/null
-"$VENV_DIR/bin/python" -m pip install -c "$ROOT/constraints.txt" "$DIST_DIR"/mullm-*.whl "pip-audit>=2.7,<3.0"
+"$VENV_DIR/bin/python" -m pip install "$DIST_DIR"/mullm-*.whl "pip-audit>=2.7,<3.0"
 
 "$VENV_DIR/bin/python" -m pip freeze --all \
   | grep -viE '^(mullm|pip-audit)==|^mullm @|^pip-audit==' \

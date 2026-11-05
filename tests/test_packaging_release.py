@@ -94,7 +94,7 @@ def test_security_wheel_audit_script_checks_resolved_wheel_dependencies():
     text = script.read_text(encoding="utf-8")
     assert "-m build --wheel" in text
     assert "python -m venv \"$VENV_DIR\"" in text
-    assert "\"$VENV_DIR/bin/python\" -m pip install -c \"$ROOT/constraints.txt\"" in text
+    assert "\"$VENV_DIR/bin/python\" -m pip install \"$DIST_DIR\"" in text
     assert "mullm-*.whl" in text
     assert "pip freeze --all" in text
     assert "grep -viE '^(mullm|pip-audit)==" in text
@@ -138,7 +138,8 @@ def test_release_dry_run_workflow_exists():
     assert "macos-latest" in text
     assert "windows-latest" in text
     assert "python -m build" in text
-    assert "python -m pip install -c constraints.txt dist/*.whl" in text
+    assert "python -m pip install dist/*.whl" in text
+    assert ".release-venv/Scripts/activate" in text
     assert "Installed server smoke" in text
     assert "bash scripts/release-smoke.sh" in text
 
