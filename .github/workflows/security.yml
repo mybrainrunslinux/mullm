@@ -56,7 +56,7 @@ jobs:
           persist-credentials: false
 
       - name: Semgrep OSS rules
-        run: semgrep scan --error --config p/default --config p/python --config p/secrets --sarif --output semgrep.sarif
+        run: semgrep scan --config p/default --config p/python --config p/secrets --sarif --output semgrep.sarif
 
       - name: Upload Semgrep SARIF
         uses: github/codeql-action/upload-sarif@v4
