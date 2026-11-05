@@ -8,6 +8,8 @@ import json
 import os
 from pathlib import Path
 import signal
+import ssl
+from urllib.parse import urlsplit
 import subprocess
 import time
 import tomllib
@@ -120,8 +122,14 @@ async def run_factory(spec_path: Path, root: Path, api_url: str, *, dry_run=Fals
               "manifest_sha256": _digest(spec_path), "gates": [], "artifacts": {}}
     try:
         protected = {name: _digest(_path(work, name)) for name in spec.protected_files}
-        headers = {"Authorization": "Bearer " + os.environ["MULLM_API_KEY"]} if os.environ.get("MULLM_API_KEY") else {}
-        async with httpx.AsyncClient(timeout=30, follow_redirects=False, headers=headers) as client:
+        from router.config import settings
+        key = os.environ.get("MULLM_API_KEY") or settings.api_key
+        headers = {"Authorization": "Bearer " + key} if key else {}
+        verify = True
+        certificate = Path(settings.ssl_certfile) if settings.ssl_certfile else settings.cache_dir / "certs" / "mullm.crt"
+        if urlsplit(api_url).hostname in {"127.0.0.1", "localhost", "::1"} and certificate.is_file():
+            verify = ssl.create_default_context(cafile=str(certificate))
+        async with httpx.AsyncClient(timeout=30, follow_redirects=False, headers=headers, verify=verify) as client:
             for task in spec.tasks:
                 context = {name: _path(work, name).read_text()[:20_000]
                            for name in spec.writable_files if _path(work, name).is_file()}
@@ -166,7 +174,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("spec", type=Path)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--server-url", default="http://127.0.0.1:6856")
+    parser.add_argument("--server-url", default="https://127.0.0.1:6856")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     report = asyncio.run(run_factory(args.spec, args.root.resolve(), args.server_url, dry_run=args.dry_run))

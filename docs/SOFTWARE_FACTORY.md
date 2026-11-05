@@ -21,10 +21,12 @@ then run:
 
 ```bash
 mullm --factory factory.toml --dry-run
-mullm --factory factory.toml --server-url http://127.0.0.1:6856
+mullm --factory factory.toml --server-url https://127.0.0.1:6856
 ```
 
-For authenticated servers, set `MULLM_API_KEY`. The source project must be clean.
+The local generated TLS certificate is trusted explicitly; certificate verification
+is not disabled. For authenticated servers, set `MULLM_API_KEY` or configure the
+normal muLLM API key. The source project must be clean.
 The result names the candidate worktree and branch. Evidence is stored in the
 source repository's Git directory under `factory/<run-id>/report.json` and
 `gate-*.log`. The game example checks a pure scoring/reset contract and packages
