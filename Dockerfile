@@ -17,5 +17,5 @@ ENV MULLM_PORT=6856 MULLM_STATE_DIR=/data MULLM_DEV_MODE=false \
     PYTHONDONTWRITEBYTECODE=1 MULLM_OLLAMA_BASE_URL=http://host.containers.internal:11434
 EXPOSE 6856
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:6856/health', timeout=4).read()"
+    CMD python -c "import pathlib,ssl,urllib.request; c=pathlib.Path('/data/cache/data/certs/mullm.crt'); ctx=ssl.create_default_context(cafile=str(c)) if c.exists() else None; urllib.request.urlopen(('https' if ctx else 'http')+'://127.0.0.1:6856/health', context=ctx, timeout=4).read()"
 CMD ["mullm-server"]
