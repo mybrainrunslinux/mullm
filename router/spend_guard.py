@@ -5,6 +5,7 @@ have billed work even when no usage response reached us. Never retry for free.
 """
 from __future__ import annotations
 
+import asyncio
 from contextvars import ContextVar
 from functools import wraps
 import inspect
@@ -76,10 +77,10 @@ def metered(fn):
             raise RuntimeError("Cloud calls require a bounded positive output limit")
         # Reserve 2x standard input/output cost to cover cache writes and framing.
         amount = 2 * standard_cost(model, pricing, tokens, maximum)
-        token = reserve(amount)
+        token = await asyncio.to_thread(reserve, amount)
         result = await fn(*args, **kwargs)
         actual = result["cost"] if isinstance(result, dict) else result.cost
-        settle(token, 2 * float(actual))
+        await asyncio.to_thread(settle, token, 2 * float(actual))
         return result
     return wrapped
 
@@ -98,7 +99,7 @@ def metered_stream(fn):
         if pricing is None:
             raise RuntimeError(f"No budget pricing for model {model}")
         text = bound.arguments["prompt"] + (bound.arguments.get("system") or "")
-        reserve(2 * standard_cost(model, pricing, len(text.encode()) + 256, 4096))
+        await asyncio.to_thread(reserve, 2 * standard_cost(model, pricing, len(text.encode()) + 256, 4096))
         async for event in fn(*args, **kwargs):
             yield event
     return wrapped
