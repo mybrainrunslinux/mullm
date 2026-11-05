@@ -47,6 +47,7 @@ jobs:
       - name: Refactor-safe tests
         run: |
           python -m pytest \
+            tests/test_factory.py \
             tests/test_release_guards.py \
             tests/test_frontier_models.py \
             tests/test_cloud_strategy.py \

@@ -1,0 +1,19 @@
+name = "collect-the-stars"
+target = "web-game"
+goals = ["Deliver a playable browser game with keyboard movement, collectible stars, score, and restart."]
+business_rules = ["No external assets, analytics, accounts, network calls, or paid services.", "Keep controls usable with a keyboard."]
+preferences = ["Readable JavaScript; bright high-contrast visuals; responsive canvas."]
+tasks = ["Implement game.js and index.html. Export a pure collect(score) function returning score+1 and restart() returning 0. Use these functions in the playable game. The game must run from the built ZIP after extraction."]
+writable_files = ["game.js", "index.html"]
+protected_files = ["acceptance.mjs", "build.py", "factory.toml"]
+artifacts = ["dist/game.zip"]
+
+[[gates]]
+name = "gameplay-contract"
+command = ["node", "acceptance.mjs"]
+timeout_seconds = 30
+
+[[gates]]
+name = "package"
+command = ["python3", "build.py"]
+timeout_seconds = 30
