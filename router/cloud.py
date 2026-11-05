@@ -33,6 +33,7 @@ import httpx
 from router import provider_policy, policy
 from router.config import CLOUD_MODEL_PRICING, settings
 from router.frontier_models import standard_cost
+from router.spend_guard import metered, metered_stream
 
 logger = logging.getLogger("mullm.cloud")
 
@@ -69,7 +70,7 @@ _RETRYABLE_CODES = {429, 529, 500, 502, 503, 504}
 def _safe_log_kwargs(kwargs: dict) -> dict:
     """Return a copy of kwargs safe for logging — redact keys/secrets, drop messages."""
     return {k: ("***" if "key" in k.lower() or "secret" in k.lower() or "token" in k.lower() else v)
-            for k, v in kwargs.items() if k != "messages"}  # never log messages content
+            for k, v in kwargs.items() if k not in {"messages", "input", "instructions", "system", "prompt"}}  # never log messages content
 
 
 @dataclass
@@ -151,6 +152,7 @@ def _anthropic_text(content: list) -> str:
     return ""
 
 
+@metered
 async def _anthropic_complete(
     prompt: str,
     model: str,
@@ -199,6 +201,7 @@ def _openai_uses_responses(model: str) -> bool:
     """Models documented as Responses-only/current-frontier in this adapter."""
     return model.startswith(("gpt-5.6", "gpt-6")) or model == "gpt-5.5-pro"
 
+@metered
 async def _openai_complete(
     prompt: str,
     model: str,
@@ -257,6 +260,7 @@ async def _openai_complete(
 # Google (Gemini via google-genai)
 # ---------------------------------------------------------------------------
 
+@metered
 async def _google_complete(
     prompt: str,
     model: str,
@@ -304,6 +308,7 @@ async def _google_complete(
 # Cerebras  (OpenAI-compatible, base_url override)
 # ---------------------------------------------------------------------------
 
+@metered
 async def _cerebras_complete(
     prompt: str,
     model: str,
@@ -343,6 +348,7 @@ async def _cerebras_complete(
 # DeepSeek  (OpenAI-compatible, base_url override)
 # ---------------------------------------------------------------------------
 
+@metered
 async def _deepseek_complete(
     prompt: str,
     model: str,
@@ -382,6 +388,7 @@ async def _deepseek_complete(
 # GLM / Zhipu AI  (OpenAI-compatible, base_url override)
 # ---------------------------------------------------------------------------
 
+@metered
 async def _glm_complete(
     prompt: str,
     model: str,
@@ -604,6 +611,7 @@ def _pricing_cost(model: str, in_tok: int, out_tok: int) -> float:
     return standard_cost(MODEL_IDS.get(model, model), p, in_tok, out_tok)
 
 
+@metered
 async def _raw_anthropic(
     prompt: str,
     model: str,
@@ -649,6 +657,7 @@ async def _raw_anthropic(
     }
 
 
+@metered
 async def _raw_openai(
     prompt: str,
     model: str,
@@ -716,6 +725,7 @@ async def _raw_openai(
     }
 
 
+@metered
 async def _raw_google(
     prompt: str,
     model: str,
@@ -838,6 +848,7 @@ async def generate_image_local(prompt: str) -> dict:
 # Streaming generators
 # ---------------------------------------------------------------------------
 
+@metered_stream
 async def stream_anthropic(
     prompt: str,
     model: str | None = None,
@@ -890,6 +901,7 @@ async def stream_anthropic(
     }
 
 
+@metered_stream
 async def stream_openai(
     prompt: str,
     model: str | None = None,
@@ -904,6 +916,7 @@ async def stream_openai(
     }
     messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
     payload = {"model": _model, "messages": messages, "stream": True}
+    payload["max_completion_tokens" if _model.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4")) else "max_tokens"] = 4096
     client = _get_client()
     out_tok = 0
     async with client.stream("POST", "https://api.openai.com/v1/chat/completions", headers=headers, json=payload) as resp:
@@ -927,6 +940,7 @@ async def stream_openai(
     yield {"done": True, "tokens_in": in_tok, "tokens_out": out_tok, "cost": _pricing_cost(_model, in_tok, out_tok)}
 
 
+@metered_stream
 async def stream_google(
     prompt: str,
     model: str | None = None,
@@ -938,6 +952,7 @@ async def stream_google(
     key = _provider_key("google")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{_model}:streamGenerateContent?alt=sse&key={key}"
     payload = {
+        "generationConfig": {"maxOutputTokens": 4096},
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"maxOutputTokens": 4096},
     }

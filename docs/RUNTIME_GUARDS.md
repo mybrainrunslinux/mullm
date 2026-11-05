@@ -26,3 +26,12 @@ is under $0.25, excluding any provider pricing changes or account premiums.
 
 Sources: [OpenAI models](https://developers.openai.com/api/docs/models) and
 [Anthropic models](https://platform.claude.com/docs/en/models/overview).
+
+Cloud text adapters now reserve spend atomically in `spend_reservations.sqlite3`
+under the state cache directory before every provider attempt. Reservations obey
+session, rolling-day and rolling-week limits across processes sharing that file.
+Successful completions retain twice the reported standard cost as a conservative
+allowance; failed/cancelled calls and streams retain their full ceiling because
+usage may be unavailable or estimated. The ledger is a conservative admission
+budget, not an invoice. It starts when this version is installed; provider-side
+account caps remain appropriate for existing spend and non-text integrations.

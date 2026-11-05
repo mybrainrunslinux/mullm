@@ -83,3 +83,11 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if item.get_closest_marker("spend"):
                 item.add_marker(pytest.mark.skip(reason="Paid tests require --grep @spend"))
+
+
+import pytest
+
+@pytest.fixture(autouse=True)
+def isolated_spend_ledger(tmp_path, monkeypatch):
+    from router import spend_guard
+    monkeypatch.setattr(spend_guard, "LEDGER_PATH", tmp_path / "spend.sqlite3")

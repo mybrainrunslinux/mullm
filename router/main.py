@@ -675,7 +675,12 @@ async def query(request: Request, body: QueryRequest):
     # event loop. Rejected work never starts inference or consumes cloud tokens.
     if len(_active_query_tasks) >= settings.max_concurrent_queries:
         raise HTTPException(status_code=503, detail="Query capacity reached; retry later", headers={"Retry-After": "1"})
-    task = asyncio.create_task(_query_impl(request, body))
+    from router.spend_guard import SESSION
+    session_token = SESSION.set(body.session_id)
+    try:
+        task = asyncio.create_task(_query_impl(request, body))
+    finally:
+        SESSION.reset(session_token)
     _active_query_tasks.add(task)
     def completed(done):
         _active_query_tasks.discard(done)
