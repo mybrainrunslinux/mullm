@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     # Web framework
     "fastapi>=0.116,<1.0",
-    "uvicorn[standard]>=0.32,<1.0",
+    "uvicorn[standard]>=0.50,<1.0",
 
     # Validation & config
     "pydantic>=2.10,<3.0",
