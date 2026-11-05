@@ -1,0 +1,10 @@
+**
+!Dockerfile
+!pyproject.toml
+!README.md
+!LICENSE
+!router/
+!router/**
+router/**/__pycache__/
+router/**/*.pyc
+router/**/.env*
