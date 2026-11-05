@@ -57,9 +57,13 @@ Choose the path that fits your setup. All three expose the same API on port **68
 
 ### Path 1 — pip (simplest)
 
+The release target is `python -m pip install mullm`. Until this project is published
+on PyPI, clone the repository and install from its root. Add extras from the same
+checkout, for example `python -m pip install ".[classifier]"`.
+
 ```bash
-# Public tester release — install the universal wheel directly from GitHub
-pip install https://github.com/mybrainrunslinux/mullm/releases/download/v0.9.1/mullm-0.9.1-py3-none-any.whl
+# Install from a cloned checkout until the first PyPI publication
+python -m pip install .
 
 # Optional hardened install — explicit pin set for air-gapped or policy-bound envs
 pip install -c constraints.txt mullm
@@ -96,7 +100,6 @@ The base package includes the router, web UI, CLI, SQLite semantic cache, and cl
 | `pip install "mullm[vector-cache]"` | Optional ChromaDB cache; SQLite remains the safer dependency-free default |
 | `pip install "mullm[dev]"` | Developer tests, coverage, linting, and browser-test tools |
 
-Until the package is on PyPI, install an extra from the release wheel with direct-reference syntax, for example: `pip install "mullm[studio] @ https://github.com/mybrainrunslinux/mullm/releases/download/v0.9.1/mullm-0.9.1-py3-none-any.whl"`.
 
 The setup page separates installs from feature toggles. **Single User** keeps private workstation defaults; **Team / Proxy** configures a stricter shared-gateway posture. Studio, 3D, Game Studio, ComfyUI, benchmarks, experimental backends, and research/developer features can be enabled independently. Some changes require a restart.
 
@@ -430,3 +433,5 @@ mμ|LLM is a research project and production system developed at 0101 Technology
 muLLM is developed and stewarded by **0101 Technology LLC** (Oregon, USA). See [NOTICE](NOTICE).
 
 </div>
+
+[Runtime privacy, deadlines, and model verification](docs/RUNTIME_GUARDS.md) · [Software Factory mode](docs/SOFTWARE_FACTORY.md).
