@@ -154,3 +154,22 @@ async def test_audio_processing_does_not_block_api_event_loop(audio_source, monk
     }))
     result = await main.musaic_process(request)
     assert result['bucket'] == 'processed'
+def test_production_startup_requires_authentication_and_network_tls(monkeypatch):
+    from router import main
+    import pytest
+    monkeypatch.setattr(main.settings, 'dev_mode', False)
+    monkeypatch.setattr(main.settings, 'api_key', None)
+    with pytest.raises(RuntimeError, match='MULLM_API_KEY'):
+        main.serve()
+    monkeypatch.setattr(main.settings, 'dev_mode', True)
+    monkeypatch.setattr(main.settings, 'remote_access', True)
+    with pytest.raises(RuntimeError, match='Network access requires'):
+        main.serve()
+    monkeypatch.setattr(main.settings, 'dev_mode', False)
+    monkeypatch.setattr(main.settings, 'api_key', 'test-key')
+    monkeypatch.setattr(main.settings, 'auto_generate_cert', False)
+    monkeypatch.setattr(main.settings, 'ssl_certfile', None)
+    monkeypatch.setattr(main.settings, 'ssl_keyfile', None)
+    monkeypatch.setattr(main.settings, 'mtls_enabled', False)
+    with pytest.raises(RuntimeError, match='requires HTTPS'):
+        main.serve()

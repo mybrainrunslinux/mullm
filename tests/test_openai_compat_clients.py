@@ -24,7 +24,8 @@ Backend coverage notes (no separate .py files needed):
   - LiteLLM  — registered via OpenAICompatBackend in registry.py:85-96
 
 Known compatibility gap (model whitelist):
-  The endpoint validates model names against CLOUD_MODEL_PRICING | {"mullm-auto"}.
+  The endpoint validates model names against configured cloud models,
+  "mullm-auto", and the configured local Ollama model.
   Some CLIs default to model strings not in this list (e.g., Cline uses
   "claude-3-5-sonnet-20241022"). Those requests will receive HTTP 400 unless
   the user configures the CLI to use a model ID in the whitelist (e.g.,
@@ -50,7 +51,7 @@ from router.models import (
     PipelineResult,
     TierLabel,
 )
-from router.config import CLOUD_MODEL_PRICING
+from router.config import CLOUD_MODEL_PRICING, settings
 
 
 # ---------------------------------------------------------------------------
@@ -461,6 +462,21 @@ async def test_models_list_endpoint(app):
     assert len(data["data"]) > 0
     model_ids = [m["id"] for m in data["data"]]
     assert "mullm-auto" in model_ids
+    assert settings.ollama_model in model_ids
+
+
+@pytest.mark.asyncio
+async def test_advertised_local_model_forces_that_ollama_model(app, fake_pipeline):
+    """Every local model advertised by /v1/models must be callable as local."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post("/v1/chat/completions", json={
+            "model": settings.ollama_model,
+            "messages": [_user_msg("Review this locally.")],
+        })
+    assert r.status_code == 200
+    request = fake_pipeline.await_args.args[0]
+    assert request.tier_override == TierLabel.LOCAL
+    assert request.model_override == settings.ollama_model
 
 
 # ---------------------------------------------------------------------------

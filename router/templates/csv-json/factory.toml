@@ -1,0 +1,29 @@
+name = "CSV to JSON"
+target = "command-line utility"
+goals = ["Deliver a standalone Python CSV-to-JSON converter with no runtime dependencies"]
+business_rules = ["Follow contract.md exactly", "Use only the Python standard library", "Never modify acceptance or packaging files"]
+publish_events = false
+human_intervention = false
+writable_files = ["convert.py"]
+context_files = ["contract.md"]
+protected_files = ["acceptance.py", "build.py", "contract.md", "README.md"]
+artifacts = ["dist/csv-json.zip"]
+
+[[tasks]]
+id = "converter"
+instruction = "Implement convert.py as specified in contract.md. Read and validate the entire input before opening the output. Use csv.reader with strict=True, utf-8-sig for input, and preserve every cell as a string. Reject empty input, ANY individual blank or whitespace-only header (including a valid header mixed with a blank one), duplicate headers, and rows with the wrong number of cells. Handle missing input and malformed CSV with nonzero exit status."
+writable_files = ["convert.py"]
+context_files = ["contract.md"]
+gates = ["contract"]
+max_attempts = 3
+max_output_tokens = 2000
+
+[[gates]]
+name = "contract"
+command = ["python", "acceptance.py"]
+timeout_seconds = 30
+
+[[gates]]
+name = "package"
+command = ["python", "build.py"]
+timeout_seconds = 30

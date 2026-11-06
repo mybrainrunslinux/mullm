@@ -21,13 +21,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -49,12 +49,17 @@ jobs:
           python -m pytest \
             tests/test_factory.py \
             tests/test_factory_api.py \
+            tests/test_factory_templates.py \
             tests/test_spend_guard.py \
             tests/test_release_guards.py \
             tests/test_security_findings.py \
             tests/test_frontier_models.py \
             tests/test_cloud_strategy.py \
             tests/test_provider_selector.py \
+            tests/test_decision_classifier.py \
+            tests/test_train_classifier.py \
+            tests/test_external_classifier.py \
+            tests/test_retrain_scheduler.py \
             tests/test_storage.py \
             tests/test_classifier_lut.py \
             tests/test_orchestrator_patches.py \
@@ -79,7 +84,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip

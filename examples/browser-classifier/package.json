@@ -1,0 +1,8 @@
+{
+  "name": "mullm-browser-classifier",
+  "private": true,
+  "type": "module",
+  "scripts": {"build": "node build.mjs"},
+  "dependencies": {"@ai-ecoverse/kev.js": "1.2.0", "onnxruntime-web": "1.31.1"},
+  "devDependencies": {"esbuild": "0.28.2"}
+}

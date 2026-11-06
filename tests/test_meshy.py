@@ -51,6 +51,19 @@ async def test_text_to_3d_lowpoly_uses_meshy_server_side_mode():
 
 
 @pytest.mark.asyncio
+async def test_text_to_3d_creative_style_becomes_prompt_preset():
+    result = await meshy.text_to_3d(
+        prompt="friendly frog hero",
+        style="cartoon",
+        pose_mode="a-pose",
+        dry_run=True,
+    )
+    assert result["json"]["art_style"] == "realistic"
+    assert result["json"]["prompt"].endswith("cartoon animation art style")
+    assert result["json"]["pose_mode"] == "a-pose"
+
+
+@pytest.mark.asyncio
 async def test_text_to_3d_remesh_payload_can_target_polycount():
     result = await meshy.text_to_3d(
         prompt="upright siege sword",

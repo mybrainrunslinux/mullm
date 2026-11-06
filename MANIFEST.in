@@ -12,3 +12,13 @@ recursive-include router/code/ready *
 
 recursive-include router/static *
 recursive-include code/ready *
+
+recursive-include router/templates *
+
+prune docs/evidence
+prune docs/media
+prune scratch
+prune cache
+prune models
+prune node_modules
+global-exclude .env *.pyc

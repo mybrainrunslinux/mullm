@@ -27,6 +27,8 @@ class OpenAICompatBackend:
         input_cost_per_1k: float = 0.0,
         output_cost_per_1k: float = 0.0,
         extra_headers: dict | None = None,
+        api_path: str = "/v1",
+        responses_path: str | None = None,
     ):
         self.provider_name = provider_name
         self._base_url = base_url.rstrip("/")
@@ -37,6 +39,24 @@ class OpenAICompatBackend:
         self._input_cost = input_cost_per_1k
         self._output_cost = output_cost_per_1k
         self._extra_headers = extra_headers or {}
+        self._api_path = api_path
+        self._responses_path = responses_path
+
+    def _request(self, messages, model, stream, kwargs):
+        responses = self._responses_path or (
+            "/v1/responses" if self.provider_name == "openai" and model.startswith(("gpt-5", "gpt-6")) else None)
+        payload = {"model": model, "stream": stream, **kwargs}
+        payload.setdefault("max_tokens", 4096)
+        if responses:
+            payload["input"] = messages
+            payload["max_output_tokens"] = payload.pop("max_completion_tokens", payload.pop("max_tokens", 4096))
+            payload.pop("temperature", None)
+            payload.pop("top_p", None)
+            return self._base_url + responses, payload, True
+        payload["messages"] = messages
+        if model.startswith("glm-5.3"):
+            payload.update(thinking={"type": "enabled"}, reasoning_effort="low", temperature=1.0)
+        return self._base_url + self._api_path + "/chat/completions", payload, False
 
     def _headers(self) -> dict:
         h = {"Content-Type": "application/json"}
@@ -52,21 +72,35 @@ class OpenAICompatBackend:
 
         require_inference_allowed(self._base_url)
         m = model or self._default_model
-        payload = {"model": m, "messages": messages, "stream": False, **kwargs}
+        url, payload, responses = self._request(messages, m, False, kwargs)
+        from router.spend_guard import reserve_backend, settle
+        reservation = await reserve_backend(self.provider_name, m, self._default_model, messages,
+                                            payload.get("max_output_tokens", payload.get("max_tokens", 4096)),
+                                            self._input_cost, self._output_cost, self._base_url)
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
-                f"{self._base_url}/v1/chat/completions",
+                url,
                 json=payload,
                 headers=self._headers(),
             )
             resp.raise_for_status()
             data = resp.json()
 
-        choice = data["choices"][0]["message"]["content"]
+        choice = ("".join(part.get("text", "") for item in data.get("output", [])
+                         for part in item.get("content", []) if part.get("type") == "output_text")
+                  if responses else data["choices"][0]["message"]["content"])
         usage = data.get("usage", {})
-        in_tok = usage.get("prompt_tokens", 0)
-        out_tok = usage.get("completion_tokens", 0)
+        in_tok = usage.get("input_tokens" if responses else "prompt_tokens", 0)
+        out_tok = usage.get("output_tokens" if responses else "completion_tokens", 0)
         cost = (in_tok / 1000 * self._input_cost) + (out_tok / 1000 * self._output_cost)
+        from router.config import CLOUD_MODEL_PRICING
+        from router.frontier_models import standard_cost
+        pricing = CLOUD_MODEL_PRICING.get(m)
+        if pricing and pricing["provider"] == self.provider_name:
+            cost = standard_cost(m, pricing, in_tok, out_tok)
+        if reservation:
+            import asyncio
+            await asyncio.to_thread(settle, reservation, 2 * cost)
         return BackendResponse(
             text=choice,
             input_tokens=in_tok,
@@ -83,11 +117,16 @@ class OpenAICompatBackend:
 
         require_inference_allowed(self._base_url)
         m = model or self._default_model
-        payload = {"model": m, "messages": messages, "stream": True, **kwargs}
+        url, payload, responses = self._request(messages, m, True, kwargs)
+        from router.spend_guard import reserve_backend
+        # Keep the full reservation: streaming text chunks are not exact billing evidence.
+        await reserve_backend(self.provider_name, m, self._default_model, messages,
+                              payload.get("max_output_tokens", payload.get("max_tokens", 4096)),
+                              self._input_cost, self._output_cost, self._base_url)
         async with httpx.AsyncClient(timeout=120) as client:
             async with client.stream(
                 "POST",
-                f"{self._base_url}/v1/chat/completions",
+                url,
                 json=payload,
                 headers=self._headers(),
             ) as resp:
@@ -98,8 +137,13 @@ class OpenAICompatBackend:
                         if chunk == "[DONE]":
                             break
                         try:
+                            event = json.loads(chunk)
+                            if responses:
+                                if event.get("type") == "response.output_text.delta":
+                                    yield event.get("delta", "")
+                                continue
                             delta = (
-                                json.loads(chunk)["choices"][0]["delta"].get(
+                                event["choices"][0]["delta"].get(
                                     "content", ""
                                 )
                             )
@@ -112,7 +156,7 @@ class OpenAICompatBackend:
         try:
             async with httpx.AsyncClient(timeout=5) as client:
                 resp = await client.get(
-                    f"{self._base_url}/v1/models", headers=self._headers()
+                    f"{self._base_url}{self._api_path}/models", headers=self._headers()
                 )
                 return resp.status_code < 400
         except Exception:

@@ -215,7 +215,7 @@ command = [{json.dumps(sys.executable)}, "check.py"]
     assert 'needs_human' in snapshots
     assert result['tasks'][0]['attempts'][0]['gates'][0]['returncode'] != 0
     assert result['tasks'][0]['attempts'][1]['gates'][0]['returncode'] == 0
-    assert result['human_decisions']==[{'session_id':'agent-test','choice':'Retry'}]
+    assert result['human_decisions']==[{'session_id':'agent-test','choice':'Retry','source':'human'}]
 
 
 @pytest.mark.parametrize('decision,expected', [('Accept','accepted'),('Reject','rejected')])

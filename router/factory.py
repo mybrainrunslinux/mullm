@@ -12,6 +12,8 @@ import signal
 import ssl
 from urllib.parse import urlsplit
 import subprocess
+import sys
+import tempfile
 import time
 import tomllib
 import uuid
@@ -59,6 +61,16 @@ class FactoryQuestion(BaseModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9_-]+$")
     prompt: str = Field(min_length=1, max_length=8000)
     options: list[str] = Field(min_length=1, max_length=12)
+    mode: Literal['required', 'optional'] = 'required'
+    timeout_seconds: int | None = Field(default=None, ge=1, le=3600)
+
+    @model_validator(mode='after')
+    def decision_contract(self):
+        from router.factory_api import BlockedCard
+        card = BlockedCard(agent_id='factory', summary=self.prompt, options=self.options,
+                           mode=self.mode, timeout_seconds=self.timeout_seconds)
+        self.timeout_seconds = card.timeout_seconds
+        return self
 
 
 class FactorySpec(BaseModel):
@@ -153,7 +165,14 @@ def _digest(path: Path) -> str:
 
 def apply_candidate(root: Path, spec: FactorySpec, response: str) -> None:
     """Validate the entire candidate before writing any files."""
+    response = response.strip()
+    for fence in ("```json\n", "```\n"):
+        if response.startswith(fence) and response.endswith("```"):
+            response = response[len(fence):-3].strip()
+            break
     data = json.loads(response)
+    if not isinstance(data, dict):
+        raise ValueError("Model must return a JSON object")
     files = data.get("files")
     if not isinstance(files, dict) or not files:
         raise ValueError("Model must return a nonempty files object")
@@ -175,9 +194,15 @@ async def run_gate(root: Path, gate: Gate, log_path: Path) -> dict:
     env = {k: v for k, v in os.environ.items() if k in (
         "PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL")}
     env["DISABLE_CLOUD"] = "1"
-    with log_path.open("wb") as log:
+    command = list(gate.command)
+    if command[0] in ("python", "python3", "{python}"):
+        command[0] = sys.executable
+    # A fast same-size repair must not reuse stale timestamp-based bytecode.
+    with tempfile.TemporaryDirectory(prefix="mullm-gate-") as bytecode, log_path.open("wb") as log:
+        env["PYTHONPYCACHEPREFIX"] = bytecode
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
         process = await asyncio.create_subprocess_exec(
-            *gate.command, cwd=root, env=env, stdout=log, stderr=asyncio.subprocess.STDOUT,
+            *command, cwd=root, env=env, stdout=log, stderr=asyncio.subprocess.STDOUT,
             start_new_session=os.name != "nt")
         try:
             await asyncio.wait_for(process.wait(), timeout=gate.timeout_seconds)
@@ -239,7 +264,8 @@ async def run_factory(spec_path: Path, root: Path, api_url: str, *, dry_run=Fals
                 card = response.json()
                 if card.get('resolved'):
                     choice = card.get('choice', '')
-                    report.setdefault('human_decisions', []).append({'session_id': card_id, 'choice': choice})
+                    report.setdefault('human_decisions', []).append({'session_id': card_id, 'choice': choice,
+                                                                   'source': card.get('resolved_by', 'human')})
                     report.pop('human_request_id', None)
                     if (allowed is not None and choice.strip().lower().removeprefix('1. ').removeprefix('2. ') not in allowed) or (allowed is None and choice.strip().lower() in ('stop','cancel')):
                         report['status'] = rejected_status
@@ -263,7 +289,8 @@ async def run_factory(spec_path: Path, root: Path, api_url: str, *, dry_run=Fals
             for question in spec.questions:
                 response = await client.post(api_url.rstrip('/') + '/api/agents/blocked', json={
                     'agent_id': 'factory-' + run_id, 'run_id': run_id, 'block_reason': 'clarification',
-                    'summary': question.prompt, 'options': question.options, 'severity': 'medium'})
+                    'summary': question.prompt, 'options': question.options, 'severity': 'medium',
+                    'mode': question.mode, 'timeout_seconds': question.timeout_seconds})
                 response.raise_for_status()
                 answer = await await_human(client, response.json()['session_id'], allowed=None)
                 report.setdefault('answers', {})[question.id] = answer

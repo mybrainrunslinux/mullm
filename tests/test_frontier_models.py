@@ -60,3 +60,57 @@ def test_long_context_billing_boundary(model, limit, multiplier):
     rate = CLOUD_MODEL_PRICING[model]["cost_per_m_input"]
     assert cloud._pricing_cost(model, limit, 0) == pytest.approx(limit * rate / 1e6)
     assert cloud._pricing_cost(model, limit + 1, 0) == pytest.approx((limit + 1) * rate * multiplier / 1e6)
+
+
+@pytest.mark.parametrize("model,before,after,old,new", [
+    ("gemini-4-argon", "2026-11-30", "2026-12-01", 12, 24),
+    ("gemini-3.8-flash", "2026-12-31", "2027-01-01", 4.5, 9),
+])
+def test_google_price_changes_are_dated(model, before, after, old, new):
+    from datetime import datetime, timezone
+    from router.frontier_models import standard_cost
+    def cost(day):
+        return standard_cost(model, CLOUD_MODEL_PRICING[model], 1_000_000, 1_000_000,
+                             at=datetime.fromisoformat(day).replace(tzinfo=timezone.utc))
+    assert cost(before) == old
+    assert cost(after) == new
+
+
+async def test_google_raw_bills_thinking_and_omits_argon_sampling(monkeypatch):
+    response = SimpleNamespace(raise_for_status=lambda: None, json=lambda: {
+        "candidates": [{"content": {"parts": [{"text": "answer"}]}}],
+        "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "thoughtsTokenCount": 20}})
+    post = AsyncMock(return_value=response)
+    monkeypatch.setattr(cloud, "_get_client", lambda: SimpleNamespace(post=post))
+    monkeypatch.setattr(cloud, "_provider_key", lambda _: "test")
+    result = await cloud._raw_google("test", "gemini-4-argon", 128)
+    assert result["tokens_out"] == 25
+    assert "temperature" not in post.call_args.kwargs["json"]["generationConfig"]
+
+
+@pytest.mark.parametrize("provider,base,model,path", [
+    ("openai", "https://api.openai.com", "gpt-6.1-sol", "/v1/responses"),
+    ("google", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.8-flash", "/chat/completions"),
+    ("glm", "https://api.z.ai/api/paas/v4", "glm-5.3", "/chat/completions"),
+])
+async def test_backend_transport_preserves_provider_paths(monkeypatch, provider, base, model, path):
+    from router.backends.openai_compat import OpenAICompatBackend
+    responses = path.endswith("responses")
+    data = ({"output": [{"content": [{"type": "output_text", "text": "answer"}]}],
+             "usage": {"input_tokens": 10, "output_tokens": 5}} if responses else
+            {"choices": [{"message": {"content": "answer"}}], "usage": {"prompt_tokens": 10, "completion_tokens": 5}})
+    post = AsyncMock(return_value=SimpleNamespace(raise_for_status=lambda: None, json=lambda: data))
+    class Client:
+        def __init__(self, **kwargs): pass
+        async def __aenter__(self): return SimpleNamespace(post=post)
+        async def __aexit__(self, *args): pass
+    monkeypatch.setattr("router.backends.openai_compat.httpx.AsyncClient", Client)
+    backend = OpenAICompatBackend(provider, base, "test", model, api_path="/v1" if responses else "")
+    result = await backend.generate([{"role": "user", "content": "hello"}], max_tokens=128)
+    assert post.call_args.args[0] == base + path
+    assert result.text == "answer"
+    assert result.cost_usd > 0
+    if provider == "glm":
+        assert post.call_args.kwargs["json"]["thinking"] == {"type": "enabled"}
+    if responses:
+        assert post.call_args.kwargs["json"]["max_output_tokens"] == 128

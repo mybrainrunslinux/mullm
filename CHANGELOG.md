@@ -1,6 +1,27 @@
 # Changelog — muLLM
 
-## [1.0.0] — 2026-05-10
+## [1.0.0] — release preparation
+
+- Core wheel installs without repository constraints; SQLite remains the default
+  semantic cache while optional ChromaDB still has unresolved advisories.
+- Current OpenAI/Claude, Gemini, DeepSeek, GLM and Cerebras model catalogs;
+  corrected Google SDK dependency, thinking-token accounting and dated pricing.
+- Local Kev/System One classifier, optional Kev.js browser preview, and packaged
+  classifier training.
+- Software Factory with isolated candidate worktrees, executable acceptance gates,
+  project/task views, durable optional defaults and blocking Need Human decisions.
+- Optional notification outbox with Apprise adapters and HTTPS webhooks for 0101
+  and other receivers. No notification destinations are enabled by default.
+- Release, security and installation docs now distinguish tested core behavior
+  from optional integrations and remaining publication requirements.
+
+See [release readiness](docs/RELEASE_1_0.md) for verification and open blockers.
+
+## Historical 1.0 draft — 2026-05-10
+
+The following describes the earlier release plan and historical measurements.
+It is not evidence that a 1.0 package was published; current behavior and
+installation requirements are documented above and in the README.
 
 ### First public release
 

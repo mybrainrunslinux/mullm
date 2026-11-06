@@ -12,9 +12,9 @@
 [![RouterBench AIQ](https://img.shields.io/badge/RouterBench%20AIQ-0.6673%20SOTA-purple?style=for-the-badge)](#-benchmark-results)
 
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=for-the-badge)](#-quick-start)
-[![Backends](https://img.shields.io/badge/Backends-Ollama%20%7C%20ExLlamaV2%20%7C%20llama.cpp%20%7C%20MLX-94A3B8?style=for-the-badge)](#-supported-providers)
-[![Grype](https://img.shields.io/badge/Grype-0%20CVEs-brightgreen?style=for-the-badge)](SECURITY.md)
-[![Bandit](https://img.shields.io/badge/Bandit-0%20High-brightgreen?style=for-the-badge)](SECURITY.md)
+[![Backends](https://img.shields.io/badge/Local-TabbyAPI%20%7C%20vLLM%20%7C%20llama.cpp%20%7C%20Ollama-94A3B8?style=for-the-badge)](#-supported-providers)
+[![Security checks](https://img.shields.io/github/actions/workflow/status/mybrainrunslinux/mullm/security.yml?branch=main&style=for-the-badge&label=Security)](https://github.com/mybrainrunslinux/mullm/actions/workflows/security.yml)
+[![Release checks](https://img.shields.io/github/actions/workflow/status/mybrainrunslinux/mullm/release-dry-run.yml?branch=main&style=for-the-badge&label=Release%20checks)](https://github.com/mybrainrunslinux/mullm/actions/workflows/release-dry-run.yml)
 [![CI](https://img.shields.io/github/actions/workflow/status/mybrainrunslinux/mullm/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/mybrainrunslinux/mullm/actions/workflows/ci.yml)
 
 **[GitHub](https://github.com/mybrainrunslinux/mullm)** · **[Quick Start](#-quick-start)** · **[Benchmarks](#-benchmark-results)** · **[Providers](#-supported-providers)**
@@ -61,44 +61,34 @@ The Peg Bloom case study includes model-generated source, independent checks for
 
 ## 🚀 Quick Start
 
-Choose the path that fits your setup. All three expose the same API on port **6856**.
+Start muLLM on port **6856**, configure your providers, and open the web UI.
+Use a virtual environment with Python 3.11 or newer.
 
-> **0.9 pre-release note:** this tree also installs `mullm0.9` / `mullm0.9-server`
-> entry points that default to port **16856**, so the pre-release can run
-> side-by-side with an existing muLLM install. Same code, same API — only the
-> port and command name differ. Python 3.11–3.14 supported (3.14 verified,
-> including the ChromaDB vector-cache extra).
-
-### Path 1 — pip (simplest)
-
-The release target is `python -m pip install mullm`. Until this project is published
-on PyPI, clone the repository and install from its root. Add extras from the same
-checkout, for example `python -m pip install ".[classifier]"`.
+### Path 1 — Install the package
 
 ```bash
-# Install from a cloned checkout until the first PyPI publication
-python -m pip install .
-
-# Optional hardened install — explicit pin set for air-gapped or policy-bound envs
-pip install -c constraints.txt mullm
-
-# Optional extras
-pip install mullm[gpu]          # GPU monitoring (pynvml)
-pip install mullm[classifier]   # DeBERTa intent classifier
-pip install mullm[google]       # Google Gemini support
-pip install mullm[vector-cache] # ChromaDB semantic cache (optional/opt-in)
-pip install mullm[all]          # everything
-
-# Start the server
+python -m venv .venv
+# Linux / macOS:
+source .venv/bin/activate
+# Windows PowerShell instead: .venv\Scripts\Activate.ps1
+python -m pip install --upgrade mullm
 mullm-server
-
-# Ask anything (in a second terminal)
-mullm "what is the time complexity of merge sort?"
-mullm "write a Python function to flatten a nested list"
-mullm "what is 12345 * 6789"
 ```
 
-Installation itself does not start a process. The first `mullm-server` or `mullm --serve` detects an unconfigured install, prints the setup URL, and opens `http://127.0.0.1:6856/setup` in your browser. Set `MULLM_OPEN_BROWSER=0` for a headless first start. You can return to `/setup` at any time.
+Open the setup URL printed by the server. It uses HTTPS when a local certificate
+is available. The first interactive start opens setup automatically; installation
+itself starts no process. Set `MULLM_OPEN_BROWSER=0` for headless operation.
+
+**Windows with local inference:** connect your existing Ollama, TabbyAPI, vLLM,
+or llama.cpp runner in `/setup`. **Mac with API keys only:** add your provider
+keys and leave local inference disabled; MLX and model downloads are optional.
+
+Use `/chat` for queries and `/factory` to follow projects, tasks, and human
+requests. The optional `/classifier` page previews local Kev.js inference.
+[Factory guide](docs/SOFTWARE_FACTORY.md) · [Upgrade and configuration guide](docs/UPGRADING.md).
+
+The core install needs no separate constraints download. SQLite is the default
+cache. ChromaDB is an opt-in extra with unresolved advisories; see [Security](SECURITY.md).
 
 ### Optional installs, modes, and key storage
 
@@ -113,6 +103,8 @@ The base package includes the router, web UI, CLI, SQLite semantic cache, and cl
 | `pip install "mullm[sentence-transformers]"` | Local embedding models |
 | `pip install "mullm[vector-cache]"` | Optional ChromaDB cache; SQLite remains the safer dependency-free default |
 | `pip install "mullm[dev]"` | Developer tests, coverage, linting, and browser-test tools |
+| `pip install "mullm[google]"` | Current `google-genai` SDK |
+| `pip install "mullm[notifications]"` | Apprise adapters for factory notifications |
 
 
 The setup page separates installs from feature toggles. **Single User** keeps private workstation defaults; **Team / Proxy** configures a stricter shared-gateway posture. Studio, 3D, Game Studio, ComfyUI, benchmarks, experimental backends, and research/developer features can be enabled independently. Some changes require a restart.
@@ -123,13 +115,13 @@ Provider keys can be saved to the OS keychain (recommended), Unix `pass`, or a l
 
 ```bash
 git clone https://github.com/mybrainrunslinux/mullm.git && cd mullm
-podman build -t localhost/mullm:0.9.1 .
+podman build -t localhost/mullm:local .
 podman volume create mullm-data
 podman run --name mullm --replace -d \
   -p 127.0.0.1:6856:6856 \
   -v mullm-data:/data:Z \
   -e MULLM_REMOTE_ACCESS=true \
-  localhost/mullm:0.9.1
+  localhost/mullm:local
 ```
 
 This is a single muLLM container; run Ollama or another compatible inference backend separately. See [Deployment](docs/DEPLOYMENT.md) for secrets, persistent state, and remote access.
@@ -138,68 +130,73 @@ This is a single muLLM container; run Ollama or another compatible inference bac
 
 ```bash
 git clone https://github.com/mybrainrunslinux/mullm && cd mullm
-pip install -c constraints.txt -e .[all]
-cp .env.example .env   # edit API keys as needed
+python -m pip install -e ".[dev]"
+cp config/mullm.toml.example mullm.toml   # configure providers as needed
 mullm-server
 ```
 
-> **Prerequisite:** [Ollama](https://ollama.com) running locally with at least one model pulled (`ollama pull qwen3-coder:30b`).
+For local generation, configure a supported inference runner in `/setup`.
+Ollama is one option (`ollama pull qwen3-coder:30b`); TabbyAPI, vLLM,
+llama.cpp, and MLX are also supported. Deterministic lookups need no model.
 
 ---
 
-## 📊 Benchmark Results
+## 🚢 Production Deployment
 
-All results from a 22-day production run on real developer queries (N = 15,363). No cherry-picking, no synthetic benchmarks for the cost numbers.
+```bash
+# 1. Configure authentication and headless startup
+export MULLM_DEV_MODE=false
+export MULLM_API_KEY="your-long-random-server-token"
+export MULLM_OPEN_BROWSER=0
+# Add cloud provider keys through your normal secret store
 
-| Benchmark | Result | Notes |
-|---|---|---|
-| **Actual spend** | $27.87 | 22-day production run |
-| **Cloud-only baseline** | $772.00 | Same queries, cloud-only |
-| **Cost reduction** | **96.4%** | $744.13 saved |
-| **Free-tier resolution** | **87.5%** | Tier 0 + Tier 1 + Tier 2 |
-| **HumanEval pass@1** | **100%** | At $0.00 (local tier only) |
-| **MMLU accuracy** | ≥ cloud parity | Via quality-gated escalation |
-| **RouterBench AIQ** | **0.6673** | Highest published score |
-| **Production queries** | 15,363 | 22 days, real developer workload |
-| **Tier 0 latency** | < 1 ms | Groundtruth LUT, no model |
-| **Local tier latency** | ~ 5 s | 30B model, consumer GPU |
-| **Classifier size** | 44 MB | DeBERTa-v3-small, fine-tuned |
-| **Cloud providers** | 16 | See provider grid below |
+# 2. Start muLLM
+mullm-server
 
-<details>
-<summary>📈 Tier distribution breakdown</summary>
+# 3. Verify
+mullm --status
+```
 
-| Tier | Name | Queries Handled | Cost Per Query |
-|---|---|---|---|
-| Tier 0 | Groundtruth LUT | ~15% | $0.0000 |
-| Tier 1 | Semantic Cache | ~35% | $0.0000 |
-| Tier 2 | Local 30B Model | ~37.5% | $0.0000 |
-| Tier 3 | Cloud API | ~12.5% | varies |
+For concrete systemd, Podman, Kubernetes, and multi-replica guidance, see [Deployment](docs/DEPLOYMENT.md).
 
-87.5% of all queries cost nothing. Cloud is invoked only when the local tier fails a quality gate.
+---
 
-</details>
+## 🖥️ CLI Reference
+
+```bash
+mullm "your question"                          # auto-route
+mullm-server                                   # start server on :6856
+mullm --status                                 # health check
+mullm --cost                                   # session cost summary
+mullm --stream "tell me a story"               # SSE streaming
+mullm --model claude-haiku-5-5 "summarize X"   # force a specific model
+mullm --tier cloud_full "complex question"     # force a specific tier
+```
 
 ---
 
 ## 🌐 Supported Providers
 
-All 16 cloud providers are supported in Tier 3. Keys are optional — only providers with API keys configured are used.
+The tier router directly supports Anthropic, OpenAI, Google, DeepSeek, GLM,
+and Cerebras. Additional providers have backend/gateway integrations; these
+are not all interchangeable with the tier router. Keys are optional.
+Model documentation reviewed 2026-11-05; account availability varies.
 
 | Provider | Models Available | Pricing Tier |
 |---|---|---|
-| **Anthropic** | Claude Haiku · Sonnet · Opus | Low → High |
-| **OpenAI** | GPT-5.5 · GPT-5.4 Pro · GPT-5.3 Codex · GPT Image · configured compatible models | Low → High |
-| **Google** | Gemini Flash · Pro · Ultra | Low → High |
-| **DeepSeek** | DeepSeek-V3 · Reasoner | Very Low |
+| **Anthropic** | Haiku / Sonnet / Opus 5.5 · Fable 5.1 | Low → High |
+| **OpenAI** | GPT-6 Luna / Astra · GPT-6.1 Sol / Terra | Low → High |
+| **Google** | Gemini 3.5 Flash-Lite · 3.8 Flash · 4 Argon | Low → High |
+| **DeepSeek** | V4.1 Flash (`deepseek-flash`) · V4 Pro | Low |
+| **Cerebras** | GPT OSS 120B · Qwen 3.8 27B | Low |
 | **Mistral** | Mistral Small · Large | Low → Medium |
-| **Cohere** | Command R · Command R+ | Medium |
-| **Perplexity** | Sonar · Sonar Pro | Low → Medium |
+| **Cohere** | Command A+ | Account dependent |
+| **Perplexity** | Agent API / Sonar | Token and tool charges |
 | **OpenRouter** | All models via unified API | Varies |
 | **Venice** | Privacy-preserving inference | Low |
-| **GLM (Zhipu)** | GLM-4 series | Low |
-| **xAI** | Grok series | Medium |
-| **IBM BAM** | Granite series | Medium |
+| **GLM (Z.AI)** | GLM 5.3 · Flash · FlashX | Low |
+| **xAI** | Grok 4.7 | Medium |
+| **IBM / Venice** | Operator-configured model IDs | Account dependent |
 | **Ollama** | Any local model | **$0** |
 | **ExLlamaV2** | Quantized GPTQ/EXL2 | **$0** |
 | **llama.cpp** | GGUF models | **$0** |
@@ -357,20 +354,6 @@ The classifier assigns every query to one of eight categories, each with a defau
 
 ---
 
-## 🖥️ CLI Reference
-
-```bash
-mullm "your question"                          # auto-route
-mullm-server                                   # start server on :6856
-mullm --status                                 # health check
-mullm --cost                                   # session cost summary
-mullm --stream "tell me a story"               # SSE streaming
-mullm --model claude-haiku-4-5 "summarize X"   # force a specific model
-mullm --tier cloud_full "complex question"     # force a specific tier
-```
-
----
-
 ## 🔬 Research
 
 **mμ|LLM** is informed by ongoing research. The manuscript and evaluation methodology are still under critical review; no preprint is currently published.
@@ -388,23 +371,38 @@ Citation details will be added when the manuscript is ready for publication.
 
 ---
 
-## 🚢 Production Deployment
+## 📊 Benchmark Results
 
-```bash
-# 1. Configure environment
-cp .env.example .env
-# Set MULLM_DEV_MODE=false
-# Set MULLM_API_KEY=<strong-random-secret>
-# Add cloud API keys as needed
+All results from a 22-day production run on real developer queries (N = 15,363). No cherry-picking, no synthetic benchmarks for the cost numbers.
 
-# 2. Start muLLM
-mullm-server
+| Benchmark | Result | Notes |
+|---|---|---|
+| **Actual spend** | $27.87 | 22-day production run |
+| **Cloud-only baseline** | $772.00 | Same queries, cloud-only |
+| **Cost reduction** | **96.4%** | $744.13 saved |
+| **Free-tier resolution** | **87.5%** | Tier 0 + Tier 1 + Tier 2 |
+| **HumanEval pass@1** | **100%** | At $0.00 (local tier only) |
+| **MMLU accuracy** | ≥ cloud parity | Via quality-gated escalation |
+| **RouterBench AIQ** | **0.6673** | Highest published score |
+| **Production queries** | 15,363 | 22 days, real developer workload |
+| **Tier 0 latency** | < 1 ms | Groundtruth LUT, no model |
+| **Local tier latency** | ~ 5 s | 30B model, consumer GPU |
+| **Classifier size** | 44 MB | DeBERTa-v3-small, fine-tuned |
+| **Cloud providers** | 16 | See provider grid below |
 
-# 3. Verify
-curl http://localhost:6856/health
-```
+<details>
+<summary>📈 Tier distribution breakdown</summary>
 
-For concrete systemd, Podman, Kubernetes, and multi-replica guidance, see [Deployment](docs/DEPLOYMENT.md).
+| Tier | Name | Queries Handled | Cost Per Query |
+|---|---|---|---|
+| Tier 0 | Groundtruth LUT | ~15% | $0.0000 |
+| Tier 1 | Semantic Cache | ~35% | $0.0000 |
+| Tier 2 | Local 30B Model | ~37.5% | $0.0000 |
+| Tier 3 | Cloud API | ~12.5% | varies |
+
+87.5% of all queries cost nothing. Cloud is invoked only when the local tier fails a quality gate.
+
+</details>
 
 ---
 
@@ -449,3 +447,6 @@ muLLM is developed and stewarded by **0101 Technology LLC** (Oregon, USA). See [
 </div>
 
 [Runtime privacy, deadlines, and model verification](docs/RUNTIME_GUARDS.md) · [Software Factory mode](docs/SOFTWARE_FACTORY.md).
+[Current models and custom classifiers](docs/MODELS.md) · [Upgrade guide](docs/UPGRADING.md).
+
+Software Factory: `mullm --factory factory.toml` — [configuration and acceptance gates](docs/SOFTWARE_FACTORY.md).

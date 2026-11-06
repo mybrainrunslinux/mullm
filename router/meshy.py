@@ -60,16 +60,33 @@ async def text_to_3d(
     topology: str = "quad",
     target_polycount: int | None = None,
     should_remesh: bool | None = None,
+    pose_mode: str = "",
 ) -> dict[str, Any]:
     if not prompt.strip():
         raise MeshyError("prompt is required")
+    # Meshy-6 deprecated art_style and accepts only realistic/sculpture. Keep
+    # creative choices as prompt presets rather than sending invalid enums.
+    style_key = style.strip().lower().replace("_", "-") or "realistic"
+    prompt_styles = {
+        "cartoon": "cartoon animation art style",
+        "stylized": "stylized game art style",
+        "voxel": "voxel art style with clean cubic forms",
+        "lowpoly": "low-poly game art style",
+        "low-poly": "low-poly game art style",
+    }
+    api_style = "sculpture" if style_key == "sculpture" else "realistic"
+    effective_prompt = prompt.strip()
+    if style_key in prompt_styles:
+        effective_prompt = f"{effective_prompt}, {prompt_styles[style_key]}"
     payload: dict[str, Any] = {
         "mode": "preview",
-        "prompt": prompt,
-        "art_style": style,
+        "prompt": effective_prompt,
+        "art_style": api_style,
         "model_type": model_type,
         "ai_model": ai_model,
     }
+    if pose_mode in {"a-pose", "t-pose"}:
+        payload["pose_mode"] = pose_mode
     if model_type != "lowpoly":
         payload["topology"] = topology
         if target_polycount:

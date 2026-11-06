@@ -445,8 +445,10 @@ async def test_musaic_upload_library_status_and_process(monkeypatch, tmp_path, t
         stderr = ""
 
     def fake_run(cmd, **kwargs):
-        output = cmd[-1]
-        assert str(output).endswith(".mp3")
+        from pathlib import Path
+        assert cmd[-1] == "output"
+        assert 'mp3' in cmd and '-protocol_whitelist' in cmd
+        output = Path(kwargs['cwd']) / cmd[-1]
         with open(output, "wb") as fh:
             fh.write(b"ID3fake")
         return FakeCompleted()

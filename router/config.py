@@ -244,13 +244,13 @@ CLOUD_MODEL_PRICING.update(frontier_catalog())
 # Adaptive cache similarity thresholds per intent category.
 # Higher = stricter (fewer false hits).  Values tuned on production data.
 CACHE_THRESHOLDS_BY_CATEGORY: dict[str, float] = {
-    "code":         0.97,
-    "deploy":       0.95,
-    "note":         0.95,
-    "research":     0.93,  # paraphrases of the same tech question share the same answer
-    "lookup":       0.88,  # factual Q&A — word-order variants are safe hits
-    "conversation": 0.93,
-    "creative":     0.91,
+    "code":         0.98,
+    "deploy":       0.98,
+    "note":         0.98,
+    "research":     0.98,
+    "lookup":       0.98,
+    "conversation": 0.98,
+    "creative":     0.98,
 }
 
 # Temperature presets (deterministic → creative)
@@ -541,7 +541,7 @@ class Settings(BaseSettings):
 
     # ── Server ───────────────────────────────────────────────
     port: int = 6856
-    version: str = "0.9.1"
+    version: str = "1.0.0"
     dev_mode: bool = True          # When True, auth is skipped; set False in prod
     server_reload: bool = False    # Development hot-reload; keep off for installed/user runs
     log_level: str = "INFO"
@@ -655,7 +655,7 @@ class Settings(BaseSettings):
     )
     litellm_base_url: str = Field(default="", validation_alias=AliasChoices("LITELLM_BASE_URL", "MULLM_LITELLM_BASE_URL"))
     litellm_api_key: str | None = Field(default=None, validation_alias=AliasChoices("LITELLM_API_KEY", "MULLM_LITELLM_API_KEY"))
-    litellm_model: str = Field(default="gpt-4o-mini", validation_alias=AliasChoices("LITELLM_MODEL", "MULLM_LITELLM_MODEL"))
+    litellm_model: str = Field(default="gpt-6-luna", validation_alias=AliasChoices("LITELLM_MODEL", "MULLM_LITELLM_MODEL"))
     llamacpp_model_path: str = Field(default="", validation_alias=AliasChoices("LLAMACPP_MODEL_PATH", "MULLM_LLAMACPP_MODEL_PATH"))
     llamacpp_n_ctx: int = Field(default=8192, validation_alias=AliasChoices("LLAMACPP_N_CTX", "MULLM_LLAMACPP_N_CTX"))
     llamacpp_n_gpu_layers: int = Field(default=-1, validation_alias=AliasChoices("LLAMACPP_N_GPU_LAYERS", "MULLM_LLAMACPP_N_GPU_LAYERS"))
@@ -800,18 +800,19 @@ class Settings(BaseSettings):
     cloud_cheap_model_openai: str     = "gpt-6-luna"
     cloud_full_model_openai: str      = "gpt-6.1-sol"
     cloud_power_model_openai: str     = "gpt-6-astra"
-    cloud_cheap_model_google: str     = "gemini-2.5-flash"
-    cloud_full_model_google: str      = "gemini-3.5-flash"
-    cloud_power_model_google: str     = "gemini-3.1-pro-preview"
+    cloud_cheap_model_google: str     = "gemini-3.5-flash-lite"
+    cloud_full_model_google: str      = "gemini-3.8-flash"
+    cloud_power_model_google: str     = "gemini-4-argon"
     cloud_cheap_model_cerebras: str   = "gpt-oss-120b"
     cloud_full_model_cerebras: str    = "gpt-oss-120b"
     cloud_power_model_cerebras: str   = "gpt-oss-120b"
-    cloud_cheap_model_deepseek: str   = "deepseek-v4-flash"
+    cloud_cheap_model_deepseek: str   = "deepseek-flash"
     cloud_full_model_deepseek: str    = "deepseek-v4-pro"
     cloud_power_model_deepseek: str   = "deepseek-v4-pro"
-    cloud_cheap_model_glm: str        = "glm-5.1"
-    cloud_full_model_glm: str         = "glm-5.1"
-    cloud_power_model_glm: str        = "glm-5.1"
+    glm_base_url: str = "https://api.z.ai/api/paas/v4/"
+    cloud_cheap_model_glm: str        = "glm-5.3-flash"
+    cloud_full_model_glm: str         = "glm-5.3"
+    cloud_power_model_glm: str        = "glm-5.3"
     preferred_cloud_provider: str     = "anthropic"  # anthropic | openai | google | cerebras | deepseek | glm
 
     # ── Budget thresholds ($) ────────────────────────────────
@@ -835,11 +836,13 @@ class Settings(BaseSettings):
     scoring_log: Path = Field(default_factory=_default_scoring_log)
 
     # ── Intent classifier ─────────────────────────────────────
-    classifier_backend: Literal["auto", "rules", "deberta", "http", "onnx"] = "auto"
+    classifier_backend: Literal["auto", "rules", "deberta", "http", "onnx", "systemone"] = "auto"
     classifier_model_path: str = ""        # local DeBERTa/transformers path; empty = conventional fallback
     classifier_confidence_threshold: float = 0.80
     classifier_http_url: str = ""          # POST {"content": "..."}; expects category/complexity/confidence JSON
-    classifier_http_timeout_seconds: float = 0.35
+    classifier_http_model: str = ""       # optional model ID for custom classifier gateways
+    classifier_http_api_key: SecretStr | None = Field(default=None, exclude=True)
+    classifier_http_timeout_seconds: float = Field(default=0.35, gt=0, le=5)
     classifier_onnx_model_path: str = ""
     classifier_onnx_tokenizer_path: str = ""
     classifier_retrain_enabled: bool = False

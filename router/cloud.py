@@ -5,12 +5,12 @@ Unified async interface:
     async def complete(prompt, model, max_tokens, temperature) -> CloudResult
 
 Supported providers:
-    - Anthropic  (claude-haiku-4-5, claude-sonnet-4-6, claude-opus-4-7, …)
-    - OpenAI     (gpt-4o-mini, gpt-4o, gpt-5.5, gpt-5.5-pro, gpt-5.4-pro)
-    - Google     (gemini-1.5-flash, gemini-2.5-flash, gemini-3.1-pro-preview, …)
+    - Anthropic  (Claude 5.5 and Fable 5.1)
+    - OpenAI     (GPT-6 Luna, GPT-6.1 Sol/Terra, GPT-6 Astra)
+    - Google     (Gemini 3.5 Flash Lite, 3.8 Flash, 4 Argon)
     - Cerebras   (gpt-oss-120b) — OpenAI-compatible, ~3000 tok/s on WSE
-    - DeepSeek   (deepseek-v4-pro, deepseek-v4-flash) — OpenAI-compatible
-    - GLM/Zhipu  (glm-5.1) — OpenAI-compatible
+    - DeepSeek   (deepseek-v4-pro, deepseek-flash) — OpenAI-compatible
+    - GLM/Zhipu  (glm-5.3, glm-5.3-flash) — OpenAI-compatible
 
 All calls:
     - Retry with exponential backoff (3 attempts, 1s/2s/4s)
@@ -275,22 +275,21 @@ async def _google_complete(
     from google.genai import types as genai_types
 
     client = genai.Client(api_key=settings.google_api_key)
-    config = genai_types.GenerateContentConfig(
-        max_output_tokens=max_tokens,
-        temperature=temperature,
-        system_instruction=system,
-    )
+    config_args = {"max_output_tokens": max_tokens, "system_instruction": system}
+    if not model.startswith("gemini-4"):
+        config_args["temperature"] = temperature
+    config = genai_types.GenerateContentConfig(**config_args)
     contents = prompt
-    loop = asyncio.get_running_loop()
-    response = await loop.run_in_executor(
-        None,
-        lambda: client.models.generate_content(model=model, contents=contents, config=config),
-    )
+    try:
+        response = await client.aio.models.generate_content(model=model, contents=contents, config=config)
+    finally:
+        await client.aio.aclose()
+        client.close()
     text = response.text or ""
     try:
         usage = response.usage_metadata
         in_tok  = usage.prompt_token_count
-        out_tok = usage.candidates_token_count
+        out_tok = (usage.candidates_token_count or 0) + (getattr(usage, "thoughts_token_count", 0) or 0)
     except AttributeError:
         in_tok  = len(prompt) // 4
         out_tok = len(text) // 4
@@ -403,7 +402,7 @@ async def _glm_complete(
 
     client = openai.AsyncOpenAI(
         api_key=settings.glm_api_key,
-        base_url="https://open.bigmodel.cn/api/paas/v4/",
+        base_url=settings.glm_base_url,
     )
     messages: list[dict] = []
     if system:
@@ -411,6 +410,10 @@ async def _glm_complete(
     messages.append({"role": "user", "content": prompt})
 
     call_kwargs = {"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature}
+    if model.startswith("glm-5.3"):
+        call_kwargs["temperature"] = 1.0
+        call_kwargs["reasoning_effort"] = "low"
+        call_kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
     logger.debug("GLM call kwargs: %s", _safe_log_kwargs(call_kwargs))
     resp = await client.chat.completions.create(**call_kwargs)
     choice = resp.choices[0]
@@ -524,31 +527,34 @@ def is_configured(provider: str) -> bool:
 async def call_anthropic(
     prompt: str,
     system: str = "You are a helpful assistant.",
-    model: str = "claude-haiku-4-5",
+    model: str | None = None,
     max_tokens: int = 4096,
     **kwargs,
 ) -> dict:
-    return await _raw_anthropic(prompt, model, max_tokens, 0.4, system)
+    model = model or settings.cloud_cheap_model_anthropic
+    return await _raw_anthropic(prompt, MODEL_IDS.get(model, model), max_tokens, 0.4, system)
 
 
 async def call_openai(
     prompt: str,
     system: str = "You are a helpful assistant.",
-    model: str = "gpt-4o-mini",
+    model: str | None = None,
     max_tokens: int = 4096,
     **kwargs,
 ) -> dict:
-    return await _raw_openai(prompt, model, max_tokens, 0.4, system)
+    model = model or settings.cloud_cheap_model_openai
+    return await _raw_openai(prompt, MODEL_IDS.get(model, model), max_tokens, 0.4, system)
 
 
 async def call_google(
     prompt: str,
     system: str = "You are a helpful assistant.",
-    model: str = "gemini-2.5-flash",
+    model: str | None = None,
     max_tokens: int = 4096,
     **kwargs,
 ) -> dict:
-    return await _raw_google(prompt, model, max_tokens, 0.4, system)
+    model = model or settings.cloud_cheap_model_google
+    return await _raw_google(prompt, MODEL_IDS.get(model, model), max_tokens, 0.4, system)
 
 
 # ---------------------------------------------------------------------------
@@ -583,8 +589,8 @@ MODEL_IDS: dict[str, str] = {
     "claude-sonnet-46": "claude-sonnet-4-6",
     "claude-opus":   "claude-opus-5-5",
     "claude-fable":  "claude-fable-5-1",
-    "gemini-flash":  "gemini-2.5-flash",
-    "gemini-pro":    "gemini-3.1-pro-preview",
+    "gemini-flash":  "gemini-3.8-flash",
+    "gemini-pro":    "gemini-4-argon",
     # All canonical IDs map to themselves
     **{k: k for k in CLOUD_MODEL_PRICING},
 }
@@ -593,7 +599,7 @@ PROVIDER_DISPATCH: dict = {k: v for k, v in _PROVIDER_FNS.items()}
 
 
 def _get_pricing(model: str) -> dict:
-    """Pricing lookup with short-name alias support. Falls back to gemini-2.5-flash."""
+    """Pricing lookup with short-name alias support."""
     if model in CLOUD_MODEL_PRICING:
         return CLOUD_MODEL_PRICING[model]
     canonical = MODEL_IDS.get(model)
@@ -653,7 +659,7 @@ async def _raw_anthropic(
         "tokens_in": in_tok,
         "tokens_out": out_tok,
         "cost": _pricing_cost(model, in_tok, out_tok),
-        "model": model,
+        "model": data.get("model", model),
     }
 
 
@@ -743,6 +749,8 @@ async def _raw_google(
         "contents": contents,
         "generationConfig": {"maxOutputTokens": max_tokens, "temperature": temperature},
     }
+    if model.startswith("gemini-4"):
+        payload["generationConfig"].pop("temperature")
     client = _get_client()
     resp = await client.post(url, json=payload)
     resp.raise_for_status()
@@ -753,7 +761,7 @@ async def _raw_google(
         text = "".join(p.get("text", "") for p in parts)
     meta = data.get("usageMetadata", {})
     in_tok = meta.get("promptTokenCount", len(prompt) // 4)
-    out_tok = meta.get("candidatesTokenCount", len(text) // 4)
+    out_tok = meta.get("candidatesTokenCount", len(text) // 4) + (meta.get("thoughtsTokenCount", 0) or 0)
     return {
         "text": text,
         "response": text,
@@ -774,7 +782,7 @@ _RAW_DISPATCH: dict = {
 async def execute_cloud(
     prompt: str,
     system: str = "You are a helpful assistant.",
-    model_name: str = "claude-sonnet-4-6",
+    model_name: str = "claude-sonnet",
     provider: str = "anthropic",
 ) -> dict:
     policy.require_inference_allowed()
@@ -856,7 +864,7 @@ async def stream_anthropic(
 ) -> AsyncGenerator[dict, None]:
     policy.require_inference_allowed()
     from router.config import settings as _s
-    _model = model or getattr(_s, "cloud_cheap_model_anthropic", "claude-haiku-4-5")
+    _model = model or _s.cloud_cheap_model_anthropic
     headers = {
         "x-api-key": _provider_key("anthropic"),
         "anthropic-version": "2023-06-01",
@@ -909,7 +917,7 @@ async def stream_openai(
 ) -> AsyncGenerator[dict, None]:
     policy.require_inference_allowed()
     from router.config import settings as _s
-    _model = model or getattr(_s, "cloud_cheap_model_openai", "gpt-4o-mini")
+    _model = model or getattr(_s, "cloud_cheap_model_openai", "gpt-6-luna")
     headers = {
         "Authorization": f"Bearer {_provider_key('openai')}",
         "Content-Type": "application/json",
@@ -948,7 +956,7 @@ async def stream_google(
 ) -> AsyncGenerator[dict, None]:
     policy.require_inference_allowed()
     from router.config import settings as _s
-    _model = model or getattr(_s, "cloud_cheap_model_google", "gemini-2.5-flash")
+    _model = model or getattr(_s, "cloud_cheap_model_google", "gemini-3.5-flash-lite")
     key = _provider_key("google")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{_model}:streamGenerateContent?alt=sse&key={key}"
     payload = {
@@ -980,7 +988,7 @@ async def stream_google(
             meta = evt.get("usageMetadata", {})
             if meta:
                 in_tok = meta.get("promptTokenCount", in_tok) or in_tok
-                out_tok = meta.get("candidatesTokenCount", out_tok) or out_tok
+                out_tok = (meta.get("candidatesTokenCount", 0) or 0) + (meta.get("thoughtsTokenCount", 0) or 0)
     in_tok = in_tok or (len(prompt) // 4)
     yield {"done": True, "tokens_in": in_tok, "tokens_out": out_tok, "cost": _pricing_cost(_model, in_tok, out_tok)}
 

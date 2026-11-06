@@ -310,7 +310,7 @@ async def test_css_sample_auto_does_not_call_cloud(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_cloud_power_reports_full_when_same_model(monkeypatch):
+async def test_cloud_power_reports_power_with_distinct_google_models(monkeypatch):
     from router.cloud import CloudResult
     from router.tiers import run_cloud
 
@@ -335,13 +335,16 @@ async def test_cloud_power_reports_full_when_same_model(monkeypatch):
     )
 
     assert result.model_used == "gemini-3.1-pro-preview"
-    assert result.tier == TierLabel.CLOUD_FULL
+    assert result.tier == TierLabel.CLOUD_POWER
 
 
 @pytest.mark.asyncio
 async def test_cloud_escalation_reports_cheap_when_all_tiers_same_model(monkeypatch):
     from router.cloud import CloudResult
     from router.tiers import run_cloud
+    from router.config import settings
+    for tier in ("cheap", "full", "power"):
+        monkeypatch.setattr(settings, f"cloud_{tier}_model_glm", "glm-5.1")
 
     async def fake_complete(**kwargs):
         assert kwargs["model"] == "glm-5.1"

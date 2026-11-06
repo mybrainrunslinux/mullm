@@ -18,12 +18,21 @@ We aim to respond within 72 hours and provide a fix or mitigation plan within 14
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.x | Yes |
+| 1.0.x | Supported at release; optional extras audited separately |
 | Latest on `main` | Yes |
 | < 1.0 | No |
 
 muLLM 1.0.x and the latest `main` branch receive security fixes. Older pre-1.0 development
 branches are not supported.
+
+On 2026-11-05, a fresh core wheel installation without `constraints.txt` passed
+pip-audit. This is a dated result, not a permanent zero-CVE guarantee. A separate
+optional integration audit found four distinct unresolved advisories for
+ChromaDB 1.5.9: PYSEC-2026-311, PYSEC-2026-3813, PYSEC-2026-3814, and
+PYSEC-2026-3815 (the auditor reported five rows, including a duplicate).
+ChromaDB stays opt-in; SQLite is the core default. The optional constraints file
+cannot fix these unresolved advisories. Browser model assets and GPU/TTS extras
+need their own audits and are not covered by the core result.
 
 ## Dependency Vulnerability Scanning
 

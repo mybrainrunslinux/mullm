@@ -56,11 +56,8 @@ fi
 echo "==> Installing wheel into fresh venv"
 python -m venv "$RUN_VENV"
 "$RUN_VENV/bin/python" -m pip install --upgrade pip >/dev/null
-if [[ -f "$ROOT/constraints.txt" ]]; then
-  "$RUN_VENV/bin/python" -m pip install -c "$ROOT/constraints.txt" "$WHEEL"
-else
-  "$RUN_VENV/bin/python" -m pip install "$WHEEL"
-fi
+"$RUN_VENV/bin/python" -m pip install "$WHEEL"
+"$RUN_VENV/bin/python" -m pip check
 
 echo "==> Checking installed CLI"
 "$RUN_VENV/bin/mullm" --version
@@ -69,7 +66,7 @@ echo "==> Checking installed CLI"
 echo "==> Starting installed server on temporary port $PORT"
 (
   cd "$WORKDIR"
-  exec env MULLM_PORT="$PORT" \
+  exec env MULLM_OPEN_BROWSER=0 DISABLE_CLOUD=1 MULLM_PORT="$PORT" \
   MULLM_STATE_DIR="$STATE_DIR" \
   MULLM_ENABLE_STUDIO=true \
   MULLM_SERVER_RELOAD=false \
@@ -127,6 +124,7 @@ checks = [
     ("/chat", b"chat"),
     ("/factory", b"Production runs"),
     ("/api/factory/runs", b'"runs"'),
+    ("/classifier", b"Kev.js"),
     ("/swords", b"three"),
     ("/api/settings", b'"providers"'),
     ("/api/musaic/status", b'"ffmpeg_available"'),

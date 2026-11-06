@@ -27,8 +27,8 @@
     <nav>
       <div class="brand"><span class="mu">m&mu;</span><span class="pipe">|</span><span class="llm">LLM</span></div>
       <div class="links">
-        <a href="https://github.com/0101technology/mullm">GitHub</a>
-        <a href="/constraints.txt">constraints.txt</a>
+        <a href="https://github.com/mybrainrunslinux/mullm">GitHub</a>
+        <a href="/releases/1.0.0/constraints.txt">Optional constraints</a>
         <a href="https://0101technology.com">0101 Technology</a>
       </div>
     </nav>
@@ -39,8 +39,8 @@
       <h1>Use the right model only when the work actually needs it.</h1>
       <p class="lead">muLLM routes simple queries to local models, cache, and groundtruth first, then escalates to cloud models only when complexity or policy requires it.</p>
       <div class="actions">
-        <a class="btn primary" href="https://github.com/0101technology/mullm/releases">Download</a>
-        <a class="btn secondary" href="https://github.com/0101technology/mullm">View source</a>
+        <a class="btn primary" href="https://github.com/mybrainrunslinux/mullm/releases">Download</a>
+        <a class="btn secondary" href="https://github.com/mybrainrunslinux/mullm">View source</a>
       </div>
     </section>
     <section class="grid">
@@ -57,8 +57,11 @@
       </div>
     </section>
     <section>
-      <h2>Install preview</h2>
-      <pre>python -m pip install mullm==1.0.0 -c https://mullm.com/releases/1.0.0/constraints.txt</pre>
+      <h2>Install the 1.0 release candidate from source</h2>
+      <pre>git clone https://github.com/mybrainrunslinux/mullm.git
+cd mullm
+python -m pip install .
+mullm-server</pre><p>PyPI publication is pending. Core installs do not require constraints.txt. Open /factory to follow projects and answer Need Human decisions.</p>
     </section>
   </main>
   <footer>

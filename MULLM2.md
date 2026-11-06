@@ -91,7 +91,7 @@ keepalive = "30m"
 
 [backends.anthropic]
 # api_key read from ANTHROPIC_API_KEY, never stored in config
-default_model = "claude-haiku-4-5"
+default_model = "claude-haiku-5-5"
 
 [classify]
 deberta_model_path = "~/.mullm/models/routing-classifier/"
@@ -566,7 +566,7 @@ preferred; the user sets a `quality_weight` in config (0.0–1.0) to control the
 ```toml
 [ab_test]
 enabled = true
-variant_a = {backend = "anthropic", model = "claude-haiku-4-5", pct = 50}
+variant_a = {backend = "anthropic", model = "claude-haiku-5-5", pct = 50}
 variant_b = {backend = "openai", model = "gpt-4o-mini", pct = 50}
 task_filter = "code"   # only code-classified tasks participate
 ```
