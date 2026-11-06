@@ -9,6 +9,8 @@ import asyncio
 from contextvars import ContextVar
 from functools import wraps
 import inspect
+import json
+import math
 import sqlite3
 import time
 import uuid
@@ -18,6 +20,10 @@ from router.config import settings
 
 SESSION = ContextVar("mullm_spend_session", default="direct")
 LEDGER_PATH: Path | None = None
+
+
+class BudgetExceededError(RuntimeError):
+    """A local spend limit rejected a call before it reached the provider."""
 
 
 def _connect():
@@ -31,6 +37,8 @@ def _connect():
 def reserve(amount: float) -> str:
     from router import policy
     policy.require_inference_allowed()
+    if not math.isfinite(amount) or amount < 0:
+        raise ValueError("Reservation must be finite and nonnegative")
     now, token = time.time(), uuid.uuid4().hex
     with _connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -42,9 +50,43 @@ def reserve(amount: float) -> str:
         limits = ((daily, policy.effective_daily_limit()), (weekly, policy.effective_weekly_limit()),
                   (session, settings.budget_hard))
         if any(spent + amount > cap for spent, cap in limits):
-            raise RuntimeError("Cloud spend reservation exceeds hard budget")
+            raise BudgetExceededError("Cloud spend reservation exceeds hard budget")
         conn.execute("INSERT INTO charges VALUES (?,?,?,?)", (token, SESSION.get(), now, amount))
     return token
+
+
+async def reserve_backend(provider: str, model: str, default_model: str, messages: list,
+                          maximum: int, input_per_1k: float = 0, output_per_1k: float = 0,
+                          base_url: str | None = None) -> str | None:
+    """Apply the shared ledger to direct backend calls as well as tier routing."""
+    if provider in {"vllm", "tabbyapi", "sglang", "llamacpp", "mlx", "exllamav2"}:
+        return None
+    if provider == "custom" and base_url:
+        import ipaddress
+        from urllib.parse import urlsplit
+        host = urlsplit(base_url).hostname
+        if host == "localhost":
+            return None
+        try:
+            if ipaddress.ip_address(host or "").is_loopback:
+                return None
+        except ValueError:
+            pass
+    if not isinstance(maximum, int) or isinstance(maximum, bool) or maximum <= 0:
+        raise ValueError("Backend calls require a positive output token limit")
+    from router.config import CLOUD_MODEL_PRICING
+    from router.frontier_models import standard_cost
+    pricing = CLOUD_MODEL_PRICING.get(model)
+    tokens = len(json.dumps(messages, ensure_ascii=False).encode()) + 256
+    if pricing and (pricing["provider"] == provider or provider == "litellm"):
+        amount = 2 * standard_cost(model, pricing, tokens, maximum)
+    elif model == default_model and input_per_1k > 0 and output_per_1k > 0:
+        amount = 2 * (tokens * input_per_1k + maximum * output_per_1k) / 1000
+    elif (provider, model) in {("openrouter", "openrouter/free"), ("cohere", "command-a-plus-05-2026")}:
+        amount = 0
+    else:
+        raise RuntimeError(f"Configure verified budget pricing before calling {provider}/{model}")
+    return await asyncio.to_thread(reserve, amount)
 
 
 def settle(token: str, actual: float) -> None:

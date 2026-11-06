@@ -27,6 +27,11 @@ import time
 import httpx
 import pytest
 
+pytestmark = pytest.mark.skipif(
+    os.environ.get("MULLM_TEST_INTEGRATION") != "1",
+    reason="Live server tests require MULLM_TEST_INTEGRATION=1",
+)
+
 BASE = os.environ.get("MULLM_BASE_URL", "https://127.0.0.1:16856")
 VERIFY_TLS = os.environ.get("MULLM_TEST_VERIFY_TLS", "0").lower() in {"1", "true", "yes"}
 TIMEOUT = int(os.environ.get("MULLM_TEST_TIMEOUT", "300"))  # local model can be slow on first load
@@ -37,6 +42,7 @@ _RATE_GAP = 3.5
 
 
 def post(content: str, **kwargs) -> dict:
+    kwargs.setdefault("allow_cloud_escalation", False)
     r = httpx.post(f"{BASE}/query", json={"content": content, **kwargs}, timeout=TIMEOUT, verify=VERIFY_TLS)
     r.raise_for_status()
     return r.json()
@@ -152,6 +158,7 @@ class TestLocalModel:
 # Tier 3 — Cloud (opt-in, requires MULLM_TEST_CLOUD env var)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.spend
 @pytest.mark.skipif(
     not os.environ.get("MULLM_TEST_CLOUD"),
     reason="Set MULLM_TEST_CLOUD=1 and ensure cloud API keys are configured"
@@ -162,7 +169,7 @@ class TestCloud:
         r = post(
             "Write a formal proof that the square root of 2 is irrational, "
             "using the method of contradiction, formatted in LaTeX.",
-            force_tier=random.choice(["cloud_cheap", "cloud_full"])
+            force_tier=random.choice(["cloud_cheap", "cloud_full"]), allow_cloud_escalation=True
         )
         assert len(r["response"]) > 200
         tier = r.get("tier", "")

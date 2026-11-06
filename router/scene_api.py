@@ -489,6 +489,7 @@ async def generate_3d_text(request: Request):
             topology=str(body.get("topology", "quad")),
             target_polycount=int(target_polycount) if target_polycount else None,
             should_remesh=body.get("should_remesh"),
+            pose_mode=str(body.get("pose_mode", "")),
         )
     except meshy.MeshyError as exc:
         raise HTTPException(status_code=412, detail=str(exc)) from exc

@@ -51,7 +51,7 @@ You run one server, point mullm at it, and the routing lives in LiteLLM's config
 3. In `router/cloud.py` add a `call_litellm(model, messages, ...)` function that POSTs to
    `{LITELLM_BASE_URL}/v1/chat/completions` with an OpenAI-format body
 4. Map mullm's tier → model string as LiteLLM expects:
-   - `cloud_cheap` → `"haiku"` → LiteLLM routes to `claude-haiku-4-5-20251001`
+   - `cloud_cheap` → `"haiku"` → LiteLLM routes to `claude-haiku-5-5`
    - `cloud_full`  → `"sonnet"` → LiteLLM routes to `claude-sonnet-4-20250514`
    - `cloud_power` → `"opus"`   → LiteLLM routes to `claude-opus-4-7`
 5. LiteLLM config controls the actual model IDs — mullm stops caring about vendor-specific
@@ -68,7 +68,7 @@ replace with a single `call_via_litellm()`. Clean, but one more service to keep 
 model_list:
   - model_name: haiku
     litellm_params:
-      model: claude-haiku-4-5-20251001
+      model: claude-haiku-5-5
       api_key: os.environ/ANTHROPIC_API_KEY
 
   - model_name: sonnet

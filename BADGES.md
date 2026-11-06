@@ -1,19 +1,15 @@
-# Badge Plan
+# Release and benchmark badges
 
-Preview page:
+README badges use live GitHub workflow results for CI, Security, and release
+checks. The released-version
+badge points to GitHub releases and does not imply that PyPI has a package.
 
-- `badges/preview/index.html`
+- [CI](https://github.com/mybrainrunslinux/mullm/actions/workflows/ci.yml)
+- [Security](https://github.com/mybrainrunslinux/mullm/actions/workflows/security.yml)
+- [Release checks](https://github.com/mybrainrunslinux/mullm/actions/workflows/release-dry-run.yml)
+- [Container](https://github.com/mybrainrunslinux/mullm/actions/workflows/container.yml)
 
-Recommended public README badges once GitHub Actions is live:
-
-```markdown
-[![CI](https://github.com/0101technology/mullm/actions/workflows/ci.yml/badge.svg)](https://github.com/0101technology/mullm/actions/workflows/ci.yml)
-[![Security](https://github.com/0101technology/mullm/actions/workflows/security.yml/badge.svg)](https://github.com/0101technology/mullm/actions/workflows/security.yml)
-[![Container](https://github.com/0101technology/mullm/actions/workflows/container.yml/badge.svg)](https://github.com/0101technology/mullm/actions/workflows/container.yml)
-![PR-Gauntlet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0101technology/mullm/main/badges/benchmarks/pr-gauntlet.json)
-![muPatch](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0101technology/mullm/main/badges/benchmarks/mupatch.json)
-```
-
-The benchmark badges are intentionally JSON endpoints so PR-Gauntlet and
-muPatch runs can update score, pass count, cost, and color without changing the
-README by hand.
+Do not use static “zero CVEs” or “zero High” badges as current security evidence.
+Benchmark badges describe the historical runs documented in README; they are
+not a fresh benchmark of this candidate. The earlier proposed badge-preview and
+JSON score endpoints are not shipped in this repository.

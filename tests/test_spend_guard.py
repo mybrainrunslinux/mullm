@@ -6,6 +6,26 @@ from router import policy, spend_guard
 from router.config import settings
 
 
+async def test_budget_rejection_is_not_retried_or_marked_as_provider_failure(monkeypatch):
+    from unittest.mock import AsyncMock, Mock
+    from router import cloud, provider_policy, tiers
+    from router.models import IntentObject, QueryRequest
+
+    provider = AsyncMock(side_effect=spend_guard.BudgetExceededError("hard budget"))
+    failure = Mock()
+    monkeypatch.setattr(provider_policy, "record_failure", failure)
+
+    async def complete(**kwargs):
+        return await cloud._with_retry(provider, provider_name="anthropic")
+
+    monkeypatch.setattr(cloud, "complete", complete)
+    with pytest.raises(spend_guard.BudgetExceededError):
+        await tiers.run_cloud(QueryRequest(content="test", model="claude-fable-5-1"),
+                              IntentObject(content="test"))
+    provider.assert_awaited_once()
+    failure.assert_not_called()
+
+
 def test_concurrent_reservations_cannot_exceed_cap(monkeypatch):
     monkeypatch.setattr(settings, "disable_cloud", False)
     monkeypatch.setattr(settings, "budget_hard", 1.0)
@@ -37,3 +57,28 @@ async def test_cancelled_provider_reservation_remains_charged(monkeypatch):
         await call("hello", "gpt-6-astra")
     with spend_guard._connect() as conn:
         assert conn.execute("SELECT SUM(amount) FROM charges").fetchone()[0] > 0
+
+
+@pytest.mark.parametrize("amount", [-1, float("nan"), float("inf")])
+def test_invalid_reservation_cannot_poison_budget(amount, monkeypatch):
+    monkeypatch.setattr(policy, "local_only_forced", lambda: False)
+    with pytest.raises(ValueError):
+        spend_guard.reserve(amount)
+
+
+async def test_direct_backend_cap_stops_transport(monkeypatch):
+    from router.backends.openai_compat import OpenAICompatBackend
+    monkeypatch.setattr(settings, "budget_hard", 0.00001)
+    monkeypatch.setattr(policy, "local_only_forced", lambda: False)
+    def forbidden(**kwargs):
+        pytest.fail("Transport opened before budget admission")
+    monkeypatch.setattr("router.backends.openai_compat.httpx.AsyncClient", forbidden)
+    backend = OpenAICompatBackend("openai", "https://api.openai.com", "test", "gpt-6-astra")
+    with pytest.raises(RuntimeError, match="budget"):
+        await backend.generate([{"role": "user", "content": "hi"}])
+
+
+async def test_custom_loopback_engine_remains_free(monkeypatch):
+    monkeypatch.setattr(settings, "disable_cloud", True)
+    assert await spend_guard.reserve_backend("custom", "local-model", "local-model", [], 128,
+                                             base_url="http://127.0.0.1:8080") is None

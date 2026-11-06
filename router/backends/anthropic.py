@@ -24,7 +24,7 @@ class AnthropicBackend:
     def __init__(
         self,
         api_key: str,
-        default_model: str = "claude-haiku-4-5",
+        default_model: str = "claude-haiku-5-5",
     ):
         self._api_key = api_key
         self._default_model = default_model
@@ -48,6 +48,8 @@ class AnthropicBackend:
         )
         user_msgs = [msg for msg in messages if msg["role"] != "system"]
 
+        from router.spend_guard import reserve_backend, settle
+        reservation = await reserve_backend("anthropic", m, self._default_model, messages, kwargs.get("max_tokens", 4096))
         resp = await client.messages.create(
             model=m,
             messages=user_msgs,
@@ -59,6 +61,9 @@ class AnthropicBackend:
         in_tok = resp.usage.input_tokens
         out_tok = resp.usage.output_tokens
         cost = _pricing_cost(m, in_tok, out_tok)
+        if reservation:
+            import asyncio
+            await asyncio.to_thread(settle, reservation, 2 * cost)
         return BackendResponse(
             text=text,
             input_tokens=in_tok,
@@ -80,6 +85,8 @@ class AnthropicBackend:
         )
         user_msgs = [msg for msg in messages if msg["role"] != "system"]
 
+        from router.spend_guard import reserve_backend
+        await reserve_backend("anthropic", m, self._default_model, messages, kwargs.get("max_tokens", 4096))
         async with client.messages.stream(
             model=m,
             messages=user_msgs,

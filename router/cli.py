@@ -600,6 +600,8 @@ def main():
     parser.add_argument("--spend-cap", type=float, default=1.0,
                         help="Hard cap hint for spend-gated runs")
     parser.add_argument("--factory", metavar="SPEC", help="Run Software Factory from a TOML acceptance specification")
+    parser.add_argument("--factory-init", choices=["csv-json"], help="Create a committed starter project")
+    parser.add_argument("--factory-dir", default="csv-json", help="New directory for the starter project")
     parser.add_argument("--factory-batch", metavar="WORKSPACE", help="Build independent factory projects with shared inference scheduling")
     parser.add_argument("--orchestrate", metavar="TASK_OR_FILE",
                         help="Plan and execute a repo task or markdown task file")
@@ -701,6 +703,12 @@ def main():
     if args.apk:
         apk_path = _build_apk(args.apk, output_dir=args.apk_output_dir, keep_project=args.keep_apk_project)
         print(apk_path)
+        return
+
+    if args.factory_init:
+        from router.factory_templates import initialize
+        destination = initialize(args.factory_init, Path(args.factory_dir))
+        print(f"Created {destination}. Run: cd {destination}; mullm --factory factory.toml")
         return
 
     if args.factory_batch:

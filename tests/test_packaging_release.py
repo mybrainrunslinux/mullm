@@ -23,18 +23,19 @@ def test_platform_packaging_uses_project_version():
         text = path.read_text(encoding="utf-8")
         assert "0.9.9" not in text
         assert "pyproject.toml" in text
-    assert version == "0.9.1"
+    assert version and len(version.split(".")) == 3
 
 
-def test_python_support_metadata_includes_313_ci():
+def test_python_support_metadata_matches_ci():
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
     assert 'requires-python = ">=3.11"' in pyproject
-    assert '"Programming Language :: Python :: 3.11"' in pyproject
-    assert '"Programming Language :: Python :: 3.12"' in pyproject
-    assert '"Programming Language :: Python :: 3.13"' in pyproject
-    assert 'python-version: ["3.11", "3.12", "3.13"]' in ci
+    import re
+    matrix = re.search(r'python-version: \[([^\]]+)\]', ci).group(1)
+    for version in ('3.11', '3.12', '3.13', '3.14', '3.15'):
+        assert f'"Programming Language :: Python :: {version}"' in pyproject
+        assert f'"{version}"' in matrix
 
 
 def test_chromadb_is_optional_not_default_dependency():

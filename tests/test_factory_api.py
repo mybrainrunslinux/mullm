@@ -81,3 +81,42 @@ def test_concurrent_interrupts_share_one_decision(client):
         decisions=list(workers.map(lambda _: client.post('/api/factory/runs/run/interrupt').json(), range(4)))
     assert len({item['session_id'] for item in decisions}) == 1
     assert client.get('/api/sessions').json()['count'] == 1
+
+
+def test_optional_deadline_and_required_wait_are_server_owned(client, monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(factory_api.time, 'time', lambda: clock[0])
+    base = {'agent_id': 'test', 'summary': 'Choose layout', 'options': ['A', 'B', 'C']}
+    optional = client.post('/api/agents/blocked', json={**base, 'mode': 'optional', 'timeout_seconds': 2}).json()['session_id']
+    required = client.post('/api/agents/blocked', json=base).json()['session_id']
+    assert client.post('/api/agents/blocked', json={**base, 'timeout_seconds': 1}).status_code == 422
+    clock[0] += 3
+    # No browser timer or submission runs. A worker poll resolves the default.
+    card = client.get('/api/sessions/' + optional).json()
+    assert card['choice'] == 'A' and card['resolved_by'] == 'default'
+    assert client.post('/api/sessions/' + optional + '/unblock', json={'choice': 'B'}).status_code == 409
+    clock[0] += 999999
+    assert not client.get('/api/sessions/' + required).json()['resolved']
+    assert client.post('/api/sessions/' + required + '/unblock', json={'choice': 'C'}).status_code == 200
+
+
+def test_notification_retry_deduplicates_successful_targets_and_excludes_prompt(client):
+    from router.factory_notify import deliver_one
+    import json
+    card = client.post('/api/agents/blocked', json={'agent_id': 'test', 'summary': 'PRIVATE PROMPT'}).json()['session_id']
+    targets = [{'url': 'https://one.example'}, {'url': 'https://two.example'}]
+    calls = []
+    def sender(target, event):
+        assert 'PRIVATE PROMPT' not in json.dumps(event)
+        calls.append(target['url'])
+        return target['url'].endswith('one.example')
+    assert deliver_one(targets, sender)
+    with factory_api.database() as db:
+        db.execute('UPDATE notifications SET available=0,lease_until=0')
+    assert deliver_one(targets, lambda target, event: calls.append(target['url']) or True)
+    assert calls == ['https://one.example', 'https://two.example', 'https://two.example']
+    assert not deliver_one(targets, lambda *_: pytest.fail('Already sent'))
+    waiting = client.post('/api/agents/blocked', json={'agent_id': 'test', 'summary': 'cancel me'}).json()['session_id']
+    client.post('/api/sessions/' + waiting + '/unblock', json={'choice': 'Stop'})
+    assert deliver_one(targets, lambda *_: pytest.fail('Resolved request must not send'))
+    assert client.get('/api/sessions/' + card).json()['resolved'] is False

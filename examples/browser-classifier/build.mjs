@@ -1,0 +1,11 @@
+import {build} from "esbuild";
+import {mkdir, readdir, copyFile} from "node:fs/promises";
+import {resolve, dirname} from "node:path";
+import {fileURLToPath} from "node:url";
+const here = dirname(fileURLToPath(import.meta.url));
+const out = resolve(process.argv[2] || resolve(here, "dist"));
+await mkdir(out, {recursive: true});
+await build({entryPoints:[resolve(here,"runtime.js")],outfile:resolve(out,"runtime.js"),bundle:true,format:"esm",platform:"browser",target:"es2022",minify:true});
+const ort = resolve(here,"node_modules/onnxruntime-web/dist");
+for (const file of await readdir(ort)) if (/\.(wasm|mjs)$/.test(file)) await copyFile(resolve(ort,file),resolve(out,file));
+console.log("Browser runtime built at " + out);

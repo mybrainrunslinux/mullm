@@ -1,7 +1,7 @@
 """Lightweight scheduled classifier retraining runner.
 
 The scheduler is intentionally conservative: it validates the configured CSV
-and runs `scripts/retrain_classifier.py --dry-run` unless the operator disables
+and runs `router.train_classifier --dry-run` unless the operator disables
 `classifier_retrain_dry_run`.
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import json
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -111,8 +112,9 @@ async def run_once(force: bool = False) -> dict[str, Any]:
         Path.home() / ".mullm" / "models" / "routing-classifier-scheduled"
     )
     cmd = [
-        "python",
-        "scripts/retrain_classifier.py",
+        sys.executable,
+        "-m",
+        "router.train_classifier",
         "--data",
         str(data),
         "--output",
@@ -120,6 +122,8 @@ async def run_once(force: bool = False) -> dict[str, Any]:
         "--mode",
         settings.classifier_retrain_mode,
     ]
+    if settings.classifier_model_path:
+        cmd.extend(["--base-model", settings.classifier_model_path])
     if settings.classifier_retrain_dry_run:
         cmd.append("--dry-run")
 

@@ -124,7 +124,7 @@ def init_backends() -> None:
     anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
     if anthropic_key:
         from .anthropic import AnthropicBackend
-        register_backend("anthropic", AnthropicBackend(api_key=anthropic_key))
+        register_backend("anthropic", AnthropicBackend(api_key=anthropic_key, default_model=settings.cloud_cheap_model_anthropic))
 
     # OpenAI
     openai_key = os.getenv("OPENAI_API_KEY", "")
@@ -135,9 +135,9 @@ def init_backends() -> None:
                 "openai",
                 "https://api.openai.com",
                 openai_key,
-                "gpt-4o-mini",
-                input_cost_per_1k=0.00015,
-                output_cost_per_1k=0.0006,
+                settings.cloud_cheap_model_openai,
+                input_cost_per_1k=0.0001,
+                output_cost_per_1k=0.0005,
             ),
         )
 
@@ -150,9 +150,10 @@ def init_backends() -> None:
                 "google",
                 "https://generativelanguage.googleapis.com/v1beta/openai",
                 google_key,
-                "gemini-1.5-flash",
-                input_cost_per_1k=0.000075,
-                output_cost_per_1k=0.0003,
+                settings.cloud_cheap_model_google,
+                input_cost_per_1k=0.0003,
+                output_cost_per_1k=0.0025,
+                api_path="",
             ),
         )
 
@@ -165,9 +166,9 @@ def init_backends() -> None:
                 "deepseek",
                 "https://api.deepseek.com",
                 deepseek_key,
-                "deepseek-chat",
-                input_cost_per_1k=0.00014,
-                output_cost_per_1k=0.00028,
+                settings.cloud_cheap_model_deepseek,
+                input_cost_per_1k=0.0003,
+                output_cost_per_1k=0.0012,
             ),
         )
 
@@ -195,9 +196,7 @@ def init_backends() -> None:
                 "cohere",
                 "https://api.cohere.com/compatibility",
                 cohere_key,
-                "command-r",
-                input_cost_per_1k=0.00015,
-                output_cost_per_1k=0.0006,
+                os.getenv("COHERE_MODEL", "command-a-plus-05-2026"),
             ),
         )
 
@@ -210,9 +209,10 @@ def init_backends() -> None:
                 "perplexity",
                 "https://api.perplexity.ai",
                 perplexity_key,
-                "llama-3.1-sonar-small-128k-online",
-                input_cost_per_1k=0.0002,
-                output_cost_per_1k=0.0002,
+                os.getenv("PERPLEXITY_MODEL", "perplexity/sonar"),
+                input_cost_per_1k=0.00025,
+                output_cost_per_1k=0.0025,
+                responses_path="/v1/agent",
             ),
         )
 
@@ -225,7 +225,7 @@ def init_backends() -> None:
                 "openrouter",
                 os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api"),
                 openrouter_key,
-                "meta-llama/llama-3.1-8b-instruct:free",
+                os.getenv("OPENROUTER_MODEL", "openrouter/free"),
                 extra_headers={
                     "HTTP-Referer": "https://github.com/mybrainrunslinux/mullm",
                     "X-Title": "muLLM",
@@ -250,14 +250,14 @@ def init_backends() -> None:
 
     # Venice AI — privacy-preserving, no logging
     venice_key = os.getenv("VENICE_API_KEY", "")
-    if venice_key:
+    if venice_key and os.getenv("VENICE_MODEL"):
         register_backend(
             "venice",
             OpenAICompatBackend(
                 "venice",
                 "https://api.venice.ai/api",
                 venice_key,
-                "llama-3.3-70b",
+                os.environ["VENICE_MODEL"],
                 input_cost_per_1k=0.0005,
                 output_cost_per_1k=0.0015,
             ),
@@ -270,11 +270,12 @@ def init_backends() -> None:
             "glm",
             OpenAICompatBackend(
                 "glm",
-                "https://open.bigmodel.cn/api/paas/v4",
+                settings.glm_base_url,
                 glm_key,
-                "glm-4-flash",
-                input_cost_per_1k=0.0001,
-                output_cost_per_1k=0.0001,
+                settings.cloud_cheap_model_glm,
+                input_cost_per_1k=0.00015,
+                output_cost_per_1k=0.0005,
+                api_path="",
             ),
         )
 
@@ -287,23 +288,24 @@ def init_backends() -> None:
                 "xai",
                 "https://api.x.ai",
                 xai_key,
-                "grok-3-mini",
-                input_cost_per_1k=0.0003,
-                output_cost_per_1k=0.0005,
+                os.getenv("XAI_MODEL", "grok-4.7"),
+                input_cost_per_1k=0.002,
+                output_cost_per_1k=0.006,
+                responses_path="/v1/responses",
             ),
         )
 
     # IBM BAM (Build on AI Models)
     ibm_key = os.getenv("IBM_BAM_API_KEY", "")
     ibm_url = os.getenv("IBM_BAM_BASE_URL", "https://bam-api.res.ibm.com/v2")
-    if ibm_key:
+    if ibm_key and os.getenv("IBM_BAM_MODEL"):
         register_backend(
             "ibm",
             OpenAICompatBackend(
                 "ibm",
                 ibm_url,
                 ibm_key,
-                "ibm/granite-13b-instruct-v2",
+                os.environ["IBM_BAM_MODEL"],
                 extra_headers={"IBM-API-Version": "2024-01-10"},
             ),
         )

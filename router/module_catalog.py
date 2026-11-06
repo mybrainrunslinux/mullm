@@ -42,7 +42,7 @@ MODULES: tuple[ModuleSpec, ...] = (
         requires_download=False,
         installer="bundled",
         size_hint="included",
-        routes=("/chat", "/dashboard", "/setup", "/privacy", "/security", "/cost", "/performance"),
+        routes=("/chat", "/dashboard", "/factory", "/classifier", "/setup", "/privacy", "/security", "/cost", "/performance"),
     ),
     ModuleSpec(
         id="code",

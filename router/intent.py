@@ -486,6 +486,10 @@ def _coerce_external_intent(payload: dict[str, Any], method: str) -> IntentObjec
         confidence = float(payload.get("confidence", 0.5))
     except (TypeError, ValueError):
         confidence = 0.5
+    import math
+
+    if not math.isfinite(confidence):
+        return None
     confidence = max(0.0, min(1.0, confidence))
 
     raw_keywords = payload.get("keywords", [])
@@ -510,13 +514,19 @@ def _http_classify(text: str) -> IntentObject | None:
     try:
         import httpx
         from router.policy import require_inference_allowed
-        require_inference_allowed(settings.classifier_http_url)
 
+        require_inference_allowed(settings.classifier_http_url)
+        payload = {"content": text[:4000], "text": text[:4000]}
+        if settings.classifier_http_model:
+            payload["model"] = settings.classifier_http_model
+        headers = {"User-Agent": "mullm-classifier/1.0"}
+        if settings.classifier_http_api_key:
+            headers["Authorization"] = "Bearer " + settings.classifier_http_api_key.get_secret_value()
         with httpx.Client(timeout=settings.classifier_http_timeout_seconds) as client:
             resp = client.post(
                 settings.classifier_http_url,
-                json={"content": text[:4000], "text": text[:4000]},
-                headers={"User-Agent": "mullm-classifier/1.0"},
+                json=payload,
+                headers=headers,
             )
         resp.raise_for_status()
         data = resp.json()
@@ -677,6 +687,7 @@ def classifier_status() -> dict[str, Any]:
         "local_path_exists": bool(model_path and model_path.exists()),
         "http_enabled": bool(settings.classifier_http_url),
         "http_url": settings.classifier_http_url,
+        "http_model": settings.classifier_http_model,
         "http_timeout_seconds": settings.classifier_http_timeout_seconds,
         "onnx_enabled": bool(settings.classifier_onnx_model_path),
         "onnx_model_path": str(onnx_path) if onnx_path else "",
@@ -750,11 +761,19 @@ def classify(
     from router.config import settings
 
     backend = settings.classifier_backend
+    if backend == "systemone":
+        try:
+            from router.decision_classifier import classify as decision_classify
+
+            payload = decision_classify(enriched_text, settings)
+            result = _coerce_external_intent(payload, "systemone") if payload else None
+            if result is not None and result.confidence >= settings.classifier_confidence_threshold:
+                return result
+        except Exception:
+            logger.debug("System One classifier unavailable; using local fallback")
     if backend in ("http", "auto"):
         external = _http_classify(enriched_text)
         if external is not None and external.confidence >= settings.classifier_confidence_threshold:
-            return external
-        if backend == "http" and external is not None:
             return external
 
     if backend in ("onnx", "auto"):

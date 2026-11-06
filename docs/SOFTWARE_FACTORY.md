@@ -68,6 +68,61 @@ prompt = "Can someone complete the main workflow comfortably, with clear feedbac
 review_url = "http://127.0.0.1:8080"
 ```
 
+## Start with a small autonomous job
+
+The shortest complete loop is a standalone CSV-to-JSON converter. The installed
+package includes its requirements, independent checks, and packaging script;
+Factory generates the implementation using your local model.
+
+```bash
+mullm --factory-init csv-json
+cd csv-json
+mullm --factory factory.toml
+```
+
+Git must be installed. Initialization creates a new directory and commits the
+starter contract; it never overwrites an existing project. The returned report
+points to the candidate worktree and `dist/csv-json.zip`. No extra packages are
+needed to run the resulting converter.
+
+This contract has no questions or human review gates. After the initial contract
+is approved, Factory generates, tests, repairs within its attempt budget, and
+packages automatically. A failed check still fails the run. Python gate commands
+use the same interpreter as muLLM, including on Windows.
+
+A local verification run passed quoted CSV, Unicode, empty-field, invalid-input,
+output-preservation, and deterministic-output checks, then packaged the result
+in 7.1 seconds without a human checkpoint. Earlier contracts produced rejected
+runs. This demonstrates autonomous delivery for this defined utility, not a
+success rate across arbitrary projects. Expand the workload by adding another
+small executable contract and measuring its unattended results.
+
+## Optional choices and notifications
+
+Questions default to required and wait for an answer. For a nonblocking preference,
+set `mode = "optional"` and `timeout_seconds = 30` in a `[[questions]]` entry.
+Offer two or three options; the first is default A. The server resolves elapsed
+deadlines when the worker polls, even with the browser closed. A late browser
+answer cannot replace the recorded default. Required questions reject timeouts.
+
+Need Human notifications use an opt-in delivery worker. Install
+`mullm[notifications]` for Apprise adapters (Slack, Teams, email, SMS providers,
+Signal gateways, PagerDuty, WhatsApp providers). HTTPS JSON webhooks support
+0101 and custom/APM receivers. Configure supported destinations and credentials:
+
+```bash
+export MULLM_FACTORY_PUBLIC_URL=https://mullm.example.com
+export MULLM_FACTORY_NOTIFICATIONS='[{"name":"0101","kind":"webhook","url":"https://notify.example.com/events","token_env":"NOTIFY_TOKEN"}]'
+python -m router.factory_notify             # validate without sending
+python -m router.factory_notify --deliver   # explicit delivery loop
+```
+
+The worker must share the server's state directory. Alerts contain a generic
+message, IDs, and an Unblock link; prompts and source files are excluded. The
+outbox retries failed destinations and remembers successful ones. Receivers
+should deduplicate `Idempotency-Key`; delivery is at least once. Delivery failure
+never answers a human request. No external destinations were contacted in tests.
+
 ## Try a complete game
 
 The [Peg Bloom example](../examples/factory-peg-bloom/README.md) supplies three independently verified peg-solitaire puzzles, public interface contracts, protected acceptance tests, and packaging instructions. Its generation manifest asks the model for the rules engine, rendering, styling, and controller. The captured wooden edition combines the locally generated engine and controller with a supplied presentation component; the evidence distinguishes those contributions.

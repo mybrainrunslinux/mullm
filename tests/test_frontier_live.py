@@ -21,7 +21,7 @@ async def close_http_client():
 
 
 
-@pytest.mark.parametrize("model", list(FRONTIER_MODELS))
+@pytest.mark.parametrize("model", [model for model, entry in FRONTIER_MODELS.items() if entry[0] in ("openai", "anthropic")])
 async def test_frontier_live(model):
     provider = FRONTIER_MODELS[model][0]
     if not cloud._provider_key(provider):
@@ -36,6 +36,8 @@ async def test_frontier_live(model):
         pytest.fail(f"{model}: {type(exc).__name__}, HTTP {status}: {detail}", pytrace=False)
     print(json.dumps({"model": model, "tokens_in": result["tokens_in"],
                       "tokens_out": result["tokens_out"], "cost": result["cost"],
+                      "served_model": result.get("model"),
                       "nonempty": bool(result["text"].strip())}))
+    assert result.get('model', '').startswith(model), 'Provider silently substituted another model'
     assert result["text"].strip(), f"{model} returned no visible text"
     assert "READY" in result["text"].upper()

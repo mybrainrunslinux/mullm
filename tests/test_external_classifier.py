@@ -161,3 +161,36 @@ def test_onnx_classifier_contract(monkeypatch, tmp_path):
 
     assert result.category.value == "code"
     assert result.confidence > 0.9
+
+
+def test_custom_classifier_model_and_auth(monkeypatch):
+    from pydantic import SecretStr
+    from router import config, intent
+
+    captured = {}
+
+    class Client(_FakeClient):
+        def post(self, *args, **kwargs):
+            captured.update(kwargs)
+            return _FakeResponse()
+
+    monkeypatch.setattr(config.settings, "classifier_http_url", "http://127.0.0.1:9001/classify")
+    monkeypatch.setattr(config.settings, "classifier_http_model", "custom-model")
+    monkeypatch.setattr(config.settings, "classifier_http_api_key", SecretStr("private-test-key"))
+    monkeypatch.setattr("httpx.Client", Client)
+    assert intent._http_classify("hello").category.value == "code"
+    assert captured["json"]["model"] == "custom-model"
+    assert captured["headers"]["Authorization"] == "Bearer private-test-key"
+    assert "classifier_http_api_key" not in config.settings.model_dump()
+
+
+def test_low_confidence_http_falls_back(monkeypatch):
+    from router import config, intent
+
+    monkeypatch.setattr(config.settings, "classifier_backend", "http")
+    monkeypatch.setattr(config.settings, "classifier_confidence_threshold", 0.8)
+    monkeypatch.setattr(intent, "_http_classify", lambda _: intent._coerce_external_intent(
+        {"category": "code", "complexity": 5, "confidence": 0.1}, "http"))
+    result = intent.classify("hello")
+    assert result.confidence != 0.1
+    assert intent._coerce_external_intent({"category": "code", "confidence": float("nan")}, "http") is None

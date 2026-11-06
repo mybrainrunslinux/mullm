@@ -17,10 +17,10 @@ def test_cost_mode_picks_cheapest_configured_same_tier(tmp_path, monkeypatch):
     assert selection.tier == "cloud_cheap"
 
 
-def test_google_models_keep_cheap_stable_and_preview_tiers_distinct():
-    assert provider_selector.settings.cloud_cheap_model_google == "gemini-2.5-flash"
-    assert provider_selector.settings.cloud_full_model_google == "gemini-3.5-flash"
-    assert provider_selector.settings.cloud_power_model_google == "gemini-3.1-pro-preview"
+def test_google_models_keep_lite_flash_and_argon_tiers_distinct():
+    assert provider_selector.settings.cloud_cheap_model_google == "gemini-3.5-flash-lite"
+    assert provider_selector.settings.cloud_full_model_google == "gemini-3.8-flash"
+    assert provider_selector.settings.cloud_power_model_google == "gemini-4-argon"
 
 
 def test_manual_order_cannot_cross_tier_guard(tmp_path, monkeypatch):

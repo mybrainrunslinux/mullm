@@ -47,7 +47,15 @@ def _init_cache(tmp_path):
 
 
 @pytest.fixture
-def transport():
+def transport(monkeypatch):
+    from router import tiers
+    from router.models import PipelineResult, TierLabel
+    monkeypatch.setattr(tiers.settings, 'disable_cloud', True)
+    async def local(request, intent):
+        return PipelineResult(response='A deterministic local test answer with enough detail to pass the quality gate.',
+                              tier=TierLabel.LOCAL, cost=0, tokens_used=20, latency_ms=1,
+                              model_used='test-local', session_id=request.session_id, intent=intent)
+    monkeypatch.setattr(tiers, 'run_local', local)
     return ASGITransport(app=app)
 
 
@@ -97,7 +105,6 @@ async def test_note_goes_to_cache(transport):
 
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(300)  # two live local-model generations; 35B answers can take >90s
 async def test_cache_hit_on_repeat(transport):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         query = {"content": "How do I configure Nginx for WebSocket proxying?"}
@@ -226,8 +233,8 @@ async def test_cloud_openai_mock():
     from router.cloud import call_openai
 
     mock_response = {
-        "choices": [{"message": {"content": "Hello World!"}}],
-        "usage": {"prompt_tokens": 50, "completion_tokens": 100},
+        "output": [{"content": [{"type": "output_text", "text": "Hello World!"}]}],
+        "usage": {"input_tokens": 50, "output_tokens": 100},
     }
 
     with patch("router.cloud._get_client") as mock_get:

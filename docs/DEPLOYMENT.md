@@ -2,16 +2,21 @@
 
 `pip install` installs muLLM but never starts it automatically. For a desktop first run:
 
-To install from source, clone this repository and run `python -m pip install .`
-from its root. Add extras with `python -m pip install ".[classifier]"`.
+Install in a virtual environment, then start explicitly:
 
 ```bash
-python -m pip install .
+python -m pip install --upgrade mullm
 mullm-server
-# Open http://127.0.0.1:6856/setup
 ```
 
+Open the setup URL printed by the server. Existing configuration can be reused;
+see [Upgrading](UPGRADING.md). The core install does not require constraints.
+
 The interactive first start opens the setup page automatically. Set `MULLM_OPEN_BROWSER=0` for headless environments; installed services do this automatically.
+
+For the factory, open `/factory`. Workers publish progress and decisions to the
+configured server. Keep its state directory when upgrading. See the
+[factory guide](SOFTWARE_FACTORY.md).
 
 ## Persistent local service
 
@@ -115,10 +120,10 @@ spec:
           volumeMounts:
             - {name: state, mountPath: /data}
           readinessProbe:
-            httpGet: {path: /health, port: http}
+            httpGet: {path: /health, port: http, scheme: HTTPS}
             initialDelaySeconds: 5
           livenessProbe:
-            httpGet: {path: /health, port: http}
+            httpGet: {path: /health, port: http, scheme: HTTPS}
             initialDelaySeconds: 20
             periodSeconds: 30
           resources:

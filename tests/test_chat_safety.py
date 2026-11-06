@@ -19,6 +19,46 @@ def test_query_request_defaults_are_safe():
     assert req.allow_cloud_escalation is False
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("permission,local_only,exhausted,override,expected", [
+    (True, False, False, None, True),
+    (False, False, False, None, False),
+    (True, True, False, None, False),
+    (True, False, True, None, False),
+    (True, False, False, "local", False),
+])
+async def test_unavailable_local_escalates_only_when_allowed(
+    monkeypatch, permission, local_only, exhausted, override, expected
+):
+    from unittest.mock import AsyncMock
+    from router import tiers
+
+    monkeypatch.setattr(tiers, "run_groundtruth", AsyncMock(return_value=None))
+    monkeypatch.setattr(tiers, "run_cache", AsyncMock(return_value=None))
+    monkeypatch.setattr("router.realtime.try_resolve_weather_async", AsyncMock(return_value=None))
+    monkeypatch.setattr("router.policy.local_only_forced", lambda: local_only)
+    monkeypatch.setattr(scorer, "is_budget_exhausted", lambda _: exhausted)
+    monkeypatch.setattr(scorer, "select_tier", lambda *a, **k: TierLabel.LOCAL)
+    monkeypatch.setattr(tiers, "run_local", AsyncMock(side_effect=RuntimeError("No local runner")))
+    monkeypatch.setattr(tiers, "_post_process", lambda *a, **k: None)
+    cloud = AsyncMock(return_value=PipelineResult(
+        response="Cloud answer", tier=TierLabel.CLOUD_CHEAP, model_used="test-cloud",
+        cost=0.001, tokens_used=3, latency_ms=1,
+    ))
+    monkeypatch.setattr(tiers, "run_cloud", cloud)
+    request = QueryRequest(content="Explain this paragraph", allow_cloud_escalation=permission,
+                           tier_override=override)
+    if expected:
+        result = await execute_pipeline(request)
+        assert result.tier == TierLabel.CLOUD_CHEAP
+        assert result.quality_escalated
+        cloud.assert_awaited_once()
+    else:
+        with pytest.raises(RuntimeError, match="No local runner"):
+            await execute_pipeline(request)
+        cloud.assert_not_awaited()
+
+
 def test_query_request_maps_legacy_cloud_multi_to_cloud_power():
     req = QueryRequest(content="hard task", force_tier="cloud_multi")
 
@@ -310,7 +350,7 @@ async def test_css_sample_auto_does_not_call_cloud(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_cloud_power_reports_full_when_same_model(monkeypatch):
+async def test_cloud_power_reports_power_with_distinct_google_models(monkeypatch):
     from router.cloud import CloudResult
     from router.tiers import run_cloud
 
@@ -335,13 +375,16 @@ async def test_cloud_power_reports_full_when_same_model(monkeypatch):
     )
 
     assert result.model_used == "gemini-3.1-pro-preview"
-    assert result.tier == TierLabel.CLOUD_FULL
+    assert result.tier == TierLabel.CLOUD_POWER
 
 
 @pytest.mark.asyncio
 async def test_cloud_escalation_reports_cheap_when_all_tiers_same_model(monkeypatch):
     from router.cloud import CloudResult
     from router.tiers import run_cloud
+    from router.config import settings
+    for tier in ("cheap", "full", "power"):
+        monkeypatch.setattr(settings, f"cloud_{tier}_model_glm", "glm-5.1")
 
     async def fake_complete(**kwargs):
         assert kwargs["model"] == "glm-5.1"

@@ -89,33 +89,28 @@ logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
 # OpenTelemetry — optional production tracing
 # ---------------------------------------------------------------------------
 
-try:
-    from opentelemetry import trace as _otel_trace
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
-        OTLPSpanExporter as _OTLPSpanExporter,
-    )
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor as _FastAPIInstrumentor
-    from opentelemetry.sdk.resources import Resource as _Resource
-    from opentelemetry.sdk.trace import TracerProvider as _TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor as _BatchSpanProcessor
+_tracer = None
+_otel_available = False
+# Installing an optional dependency does not opt a user into trace export.
+_otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip()
+if _otel_endpoint:
+    try:
+        from opentelemetry import trace as _otel_trace
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as _OTLPSpanExporter
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor as _FastAPIInstrumentor
+        from opentelemetry.sdk.resources import Resource as _Resource
+        from opentelemetry.sdk.trace import TracerProvider as _TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor as _BatchSpanProcessor
 
-    _otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-    _resource = _Resource.create({"service.name": "mullm"})
-    _provider = _TracerProvider(resource=_resource)
-    _provider.add_span_processor(
-        _BatchSpanProcessor(_OTLPSpanExporter(endpoint=_otel_endpoint, insecure=True))
-    )
-    _otel_trace.set_tracer_provider(_provider)
-    _tracer = _otel_trace.get_tracer("mullm.query")
-    _otel_available = True
-    logger.info("OpenTelemetry tracing enabled → %s", _otel_endpoint)
-except ImportError:
-    _tracer = None  # type: ignore[assignment]
-    _otel_available = False
-    logger.warning(
-        "opentelemetry packages not installed — tracing disabled. "
-        "Install: pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-instrumentation-fastapi"
-    )
+        _provider = _TracerProvider(resource=_Resource.create({"service.name": "mullm"}))
+        _provider.add_span_processor(_BatchSpanProcessor(
+            _OTLPSpanExporter(endpoint=_otel_endpoint, insecure=_otel_endpoint.startswith("http://"))))
+        _otel_trace.set_tracer_provider(_provider)
+        _tracer = _otel_trace.get_tracer("mullm.query")
+        _otel_available = True
+        logger.info("OpenTelemetry tracing enabled")
+    except ImportError:
+        logger.warning("Tracing was configured but its optional OpenTelemetry packages are unavailable")
 
 
 
@@ -131,7 +126,7 @@ async def lifespan(app: FastAPI):
 
     # Apply persisted /setup toggles that map onto runtime settings
     # (fable_top_tier swaps the Anthropic power model: Fable 5 vs Opus).
-    _apply_fable_toggle(_load_toggles().get("fable_top_tier", True))
+    _apply_fable_toggle(_load_toggles().get("fable_top_tier", settings.fable_top_tier))
 
     from router.secrets import load_pass_secrets_into_env
     loaded_secret_names = load_pass_secrets_into_env()
@@ -198,6 +193,7 @@ from router.bench_api import router as bench_router
 from router.factory_api import router as factory_router
 from router.civitai_api import router as civitai_router
 from router.comfyui_api import router as comfyui_router
+from router.composition_api import router as composition_router
 from router.coverage_api import router as coverage_router
 from router.dataviz3d_api import router as dataviz3d_router
 from router.dialogue_api import router as dialogue_router
@@ -217,6 +213,7 @@ app.include_router(bench_router)
 app.include_router(factory_router)
 app.include_router(image_api_router)  # must come before comfyui_router (owns /api/image/*)
 app.include_router(comfyui_router)
+app.include_router(composition_router)
 app.include_router(coverage_router)
 app.include_router(civitai_router)
 app.include_router(dataviz3d_router)
@@ -320,6 +317,8 @@ async def security_headers(request: Request, call_next):
         csp = _TERRAIN_CSP
     else:
         csp = _CSP
+    if request.url.path in {"/classifier", "/static/kev-worker.js"}:
+        csp = csp.replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'")
     response.headers["Content-Security-Policy"] = csp
     if not settings.dev_mode:
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
@@ -372,10 +371,12 @@ _AUTH_EXEMPT = {"/health", "/docs", "/redoc", "/openapi.json"}
 
 @app.middleware("http")
 async def bearer_auth(request: Request, call_next):
-    if settings.dev_mode or settings.api_key is None:
+    if settings.dev_mode:
         return await call_next(request)
     if request.url.path in _AUTH_EXEMPT:
         return await call_next(request)
+    if not settings.api_key:
+        return JSONResponse(status_code=503, content={"detail": "Server authentication is not configured"})
 
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -1667,7 +1668,7 @@ async def gpu_advisor():
 # OpenAI-compatible endpoints
 # ---------------------------------------------------------------------------
 
-_VALID_MODELS = set(CLOUD_MODEL_PRICING.keys()) | {"mullm-auto"}
+_VALID_MODELS = set(CLOUD_MODEL_PRICING.keys()) | {"mullm-auto", settings.ollama_model}
 
 
 @app.post("/v1/chat/completions")
@@ -1691,10 +1692,13 @@ async def openai_chat_completions(body: ChatCompletionRequest):
     content = user_messages[-1].text()
     history = [{"role": m.role, "content": m.text()} for m in body.messages[:-1]]
 
+    explicit_local = body.model == settings.ollama_model
     request = QueryRequest(
         content=content,
         history=history,
         temperature=body.temperature,
+        tier_override=TierLabel.LOCAL if explicit_local else None,
+        model_override=settings.ollama_model if explicit_local else None,
     )
 
     from router.tiers import execute_pipeline
@@ -4023,19 +4027,19 @@ _DEFAULT_TOGGLES = {
     "search_merge_cite": True,
     "experimental_configs": False,
     "nightly_configs": False,
-    "fable_top_tier": True,
+    "fable_top_tier": settings.fable_top_tier,
 }
 
 
-def _apply_fable_toggle(enabled: bool) -> None:
-    """Swap the Anthropic power model between Claude Fable 5 and Opus.
+_configured_anthropic_power_model = settings.cloud_power_model_anthropic
 
-    Off restores the exact pre-0.9 configuration (settings field default).
+
+def _apply_fable_toggle(enabled: bool) -> None:
+    """Opt into Fable; disabling restores the configured power model.
     """
     settings.fable_top_tier = bool(enabled)  # type: ignore[assignment]
-    field_default = type(settings).model_fields["cloud_power_model_anthropic"].default
     settings.cloud_power_model_anthropic = (  # type: ignore[assignment]
-        "claude-fable-5-1" if enabled else field_default
+        "claude-fable-5-1" if enabled else _configured_anthropic_power_model
     )
 
 
@@ -4258,7 +4262,7 @@ async def set_setup_toggles(payload: dict):
 
     # Hot-apply Fable ↔ Opus power-model swap.
     try:
-        _apply_fable_toggle(saved.get("fable_top_tier", True))
+        _apply_fable_toggle(saved.get("fable_top_tier", settings.fable_top_tier))
     except Exception:
         pass
 
@@ -4976,12 +4980,13 @@ async def tts_backends():
 
     # Kokoro (local) — check if importable
     kokoro_device = os.getenv("MULLM_KOKORO_DEVICE", "cpu").strip() or "cpu"
+    kokoro_sidecar = os.getenv("MULLM_KOKORO_SIDECAR_URL", "").rstrip("/")
     try:
         import importlib
         importlib.import_module("kokoro")
         kokoro_avail = True
     except ImportError:
-        kokoro_avail = False
+        kokoro_avail = bool(kokoro_sidecar)
 
     backends.append({
         "name": "kokoro",
@@ -5649,6 +5654,22 @@ async def _tts_synthesize_bytes(body: dict[str, Any]) -> tuple[bytes, str]:
         return r.content, "audio/mpeg"
 
     elif backend == "kokoro":
+        kokoro_sidecar = os.getenv("MULLM_KOKORO_SIDECAR_URL", "").rstrip("/")
+        if kokoro_sidecar:
+            require_inference_allowed(kokoro_sidecar)
+            async with httpx.AsyncClient(timeout=120) as client:
+                response = await client.post(
+                    f"{kokoro_sidecar}/synth",
+                    json={"text": text, "voice": voice, "speed": speed},
+                )
+            if response.status_code != 200:
+                raise HTTPException(status_code=503, detail=f"Kokoro sidecar error: {response.text[:200]}")
+            wav_bytes = response.content
+            if fmt == "mp3":
+                mp3_bytes = _transcode_wav_to_mp3(wav_bytes)
+                if mp3_bytes:
+                    return mp3_bytes, "audio/mpeg"
+            return wav_bytes, "audio/wav"
         try:
             import kokoro as _kokoro
             import numpy as _np
@@ -6131,6 +6152,10 @@ async def apk_build_status(job_id: str):
 # ---------------------------------------------------------------------------
 
 app.mount("/static", StaticFiles(directory=str(_HTML_DIR / "static")), name="static")
+for _prefix, _env_name in (("kev-assets", "MULLM_KEV_ASSET_DIR"), ("kev-model", "MULLM_KEV_MODEL_DIR")):
+    _optional_dir = os.environ.get(_env_name)
+    if _optional_dir and Path(_optional_dir).is_dir():
+        app.mount("/" + _prefix, StaticFiles(directory=_optional_dir), name=_prefix)
 _ASSETS_DIR = _HTML_DIR.parent / "assets"
 if _ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="assets")
@@ -6206,6 +6231,10 @@ def serve():
     """Start the uvicorn server. Called by `mullm-server` CLI entry point."""
     import uvicorn
 
+    if not settings.dev_mode and not settings.api_key:
+        raise RuntimeError("Set MULLM_API_KEY before starting with MULLM_DEV_MODE=false")
+    if settings.remote_access and (settings.dev_mode or not settings.api_key):
+        raise RuntimeError("Network access requires MULLM_DEV_MODE=false and MULLM_API_KEY")
     host = "0.0.0.0" if settings.remote_access else "127.0.0.1"  # nosec B104 — gated by remote_access setting
     port = settings.port
     use_https = bool(settings.ssl_certfile and settings.ssl_keyfile)
@@ -6234,6 +6263,8 @@ def serve():
             use_https = True
     if settings.mtls_enabled and not use_https:
         raise RuntimeError("mTLS requires an HTTPS server certificate and key")
+    if settings.remote_access and not use_https:
+        raise RuntimeError("Network access requires HTTPS; configure a server certificate and key")
     scheme = "https" if use_https else "http"
     local_url = f"{scheme}://127.0.0.1:{port}"
     setup_url = f"{scheme}://{ips[0]}:{port}/setup" if settings.remote_access else f"{local_url}/setup"
