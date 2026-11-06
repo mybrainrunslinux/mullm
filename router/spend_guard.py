@@ -22,6 +22,10 @@ SESSION = ContextVar("mullm_spend_session", default="direct")
 LEDGER_PATH: Path | None = None
 
 
+class BudgetExceededError(RuntimeError):
+    """A local spend limit rejected a call before it reached the provider."""
+
+
 def _connect():
     path = LEDGER_PATH or settings.cache_dir / "spend_reservations.sqlite3"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -46,7 +50,7 @@ def reserve(amount: float) -> str:
         limits = ((daily, policy.effective_daily_limit()), (weekly, policy.effective_weekly_limit()),
                   (session, settings.budget_hard))
         if any(spent + amount > cap for spent, cap in limits):
-            raise RuntimeError("Cloud spend reservation exceeds hard budget")
+            raise BudgetExceededError("Cloud spend reservation exceeds hard budget")
         conn.execute("INSERT INTO charges VALUES (?,?,?,?)", (token, SESSION.get(), now, amount))
     return token
 

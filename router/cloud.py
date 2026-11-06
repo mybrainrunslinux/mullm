@@ -33,7 +33,7 @@ import httpx
 from router import provider_policy, policy
 from router.config import CLOUD_MODEL_PRICING, settings
 from router.frontier_models import standard_cost
-from router.spend_guard import metered, metered_stream
+from router.spend_guard import BudgetExceededError, metered, metered_stream
 
 logger = logging.getLogger("mullm.cloud")
 
@@ -102,6 +102,8 @@ async def _with_retry(coro_fn, *args, provider_name: str | None = None, **kwargs
             if provider_name:
                 provider_policy.record_success(provider_name)
             return result
+        except BudgetExceededError:
+            raise
         except TimeoutError as exc:
             last_exc = exc
             if provider_name:

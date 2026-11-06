@@ -538,6 +538,8 @@ async def run_cloud(
             max_tokens=4096,
             temperature=temperature,
         )
+    except cloud.BudgetExceededError:
+        raise
     except Exception:
         from router import provider_policy
         provider_policy.record_failure(provider)

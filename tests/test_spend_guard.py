@@ -6,6 +6,26 @@ from router import policy, spend_guard
 from router.config import settings
 
 
+async def test_budget_rejection_is_not_retried_or_marked_as_provider_failure(monkeypatch):
+    from unittest.mock import AsyncMock, Mock
+    from router import cloud, provider_policy, tiers
+    from router.models import IntentObject, QueryRequest
+
+    provider = AsyncMock(side_effect=spend_guard.BudgetExceededError("hard budget"))
+    failure = Mock()
+    monkeypatch.setattr(provider_policy, "record_failure", failure)
+
+    async def complete(**kwargs):
+        return await cloud._with_retry(provider, provider_name="anthropic")
+
+    monkeypatch.setattr(cloud, "complete", complete)
+    with pytest.raises(spend_guard.BudgetExceededError):
+        await tiers.run_cloud(QueryRequest(content="test", model="claude-fable-5-1"),
+                              IntentObject(content="test"))
+    provider.assert_awaited_once()
+    failure.assert_not_called()
+
+
 def test_concurrent_reservations_cannot_exceed_cap(monkeypatch):
     monkeypatch.setattr(settings, "disable_cloud", False)
     monkeypatch.setattr(settings, "budget_hard", 1.0)
