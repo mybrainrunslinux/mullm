@@ -1,0 +1,32 @@
+name = "Campaign planner"
+target = "business-web-app"
+goals = ["A useful, editable marketing workspace with persistent drafts, evidence provenance and export."]
+business_rules = ["Shared UI and browser acceptance are supplied components. Implement the domain logic against contract.md.", "Never invent research findings or source URLs. No cloud services or external requests."]
+publish_events = true
+human_intervention = true
+writable_files = ["workflow.mjs"]
+context_files = ["contract.md", "product.json"]
+protected_files = ["factory.toml", "contract.md", "product.json", "index.html", "ui.mjs", "style.css", "acceptance.mjs", "browser_acceptance.py", "build.py"]
+artifacts = ["dist/workspace.zip"]
+[[tasks]]
+id = "domain-logic"
+instruction = "Implement workflow.mjs exactly as contract.md specifies. Export buildPlan(input,sources=[]), including all common output fields and domain fields. Keep the implementation concise and deterministic."
+writable_files = ["workflow.mjs"]
+context_files = ["contract.md", "product.json"]
+gates = ["domain"]
+max_output_tokens = 1900
+[[gates]]
+name = "domain"
+command = ["node", "acceptance.mjs"]
+[[gates]]
+name = "browser"
+command = ["python3", "browser_acceptance.py"]
+timeout_seconds = 45
+[[gates]]
+name = "package"
+command = ["python3", "build.py"]
+[[gates]]
+name = "product-review"
+kind = "human"
+prompt = "Review Campaign planner: does the brief produce useful output, are assumptions and evidence clear, and can you comfortably edit, save and export the work? Accept only if the experience is useful; otherwise Reject with what needs changing."
+review_url = "http://127.0.0.1:16858/campaign/"

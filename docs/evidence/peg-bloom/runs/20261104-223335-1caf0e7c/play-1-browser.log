@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "$EVALUATION_ROOT/peg-bloom-factory-20261104-223335-1caf0e7c/browser_acceptance.py", line 45, in <module>
+    assert page.locator(f'#board [data-cell="{first[0]}"].selected').count() == 1, 'hint must select the next solution peg'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: hint must select the next solution peg

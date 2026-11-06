@@ -1,0 +1,36 @@
+name = "peg-bloom"
+target = "browser-game"
+publish_events = true
+human_intervention = true
+goals = ["Build Peg Bloom: three solvable peg-solitaire boards revealing a final constellation, including 24- and 26-move puzzles."]
+business_rules = ["Use only local files and browser APIs. Preserve fixture data and acceptance tests.", "Implement the exact interfaces in contract.md. Keep each response under 1800 tokens by writing compact code."]
+preferences = ["Deep midnight background, mint pegs, warm gold goal rings, clear focus outlines; usable on phones and desktop."]
+writable_files = ["engine.mjs", "render.mjs", "app.mjs", "style.css"]
+context_files = ["contract.md", "engine-contract.md", "index.html"]
+protected_files = ["factory.toml", "engine-contract.md", "contract.md", "index.html", "puzzles.json", "acceptance.mjs", "browser_acceptance.py", "build.py"]
+artifacts = ["dist/peg-bloom.zip"]
+
+[[tasks]]
+id = "responsive"
+instruction = "Fix only style.css. The game already passes every gameplay check on all three boards. The browser gate now fails because document.documentElement.scrollWidth exceeds innerWidth on a 390px-wide mobile viewport. Make main/nav/board fit the viewport. Allow nav controls to wrap. Board has up to 9 grid columns and inline gap 4px; avoid fixed minimum sizes that overflow. Use border-box everywhere, responsive main width, zero min-width on board buttons, square board cells with at least 24px tap targets, compact margins/padding. Preserve theme and all peg/goal/selected/target visual distinctions. Do not just hide horizontal overflow; all cells must be visible and clickable. Fewer than 30 concise CSS rules."
+writable_files = ["style.css"]
+context_files = ["index.html"]
+gates = ["browser"]
+max_output_tokens = 1400
+
+[[gates]]
+name = "rules"
+command = ["node", "acceptance.mjs"]
+timeout_seconds = 30
+[[gates]]
+name = "render-syntax"
+command = ["node", "--check", "render.mjs"]
+timeout_seconds = 10
+[[gates]]
+name = "browser"
+command = ["python3", "browser_acceptance.py"]
+timeout_seconds = 60
+[[gates]]
+name = "package"
+command = ["python3", "build.py"]
+timeout_seconds = 15

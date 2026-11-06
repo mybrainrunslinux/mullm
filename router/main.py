@@ -195,6 +195,7 @@ if _otel_available:
 
 from router import research_exports
 from router.bench_api import router as bench_router
+from router.factory_api import router as factory_router
 from router.civitai_api import router as civitai_router
 from router.comfyui_api import router as comfyui_router
 from router.coverage_api import router as coverage_router
@@ -213,6 +214,7 @@ from router.terrain_api import router as terrain_router
 
 app.include_router(review_router)
 app.include_router(bench_router)
+app.include_router(factory_router)
 app.include_router(image_api_router)  # must come before comfyui_router (owns /api/image/*)
 app.include_router(comfyui_router)
 app.include_router(coverage_router)
@@ -5171,17 +5173,48 @@ def _musaic_asset_path(asset_id: str) -> tuple[str, Path]:
     return bucket, path
 
 
+_MUSAIC_FORMATS = {
+    "mp3_128": (".mp3", ["-codec:a", "libmp3lame", "-b:a", "128k", "-f", "mp3"]),
+    "mp3_256": (".mp3", ["-codec:a", "libmp3lame", "-b:a", "256k", "-f", "mp3"]),
+    "wav_16": (".wav", ["-codec:a", "pcm_s16le", "-f", "wav"]),
+    "wav_24": (".wav", ["-codec:a", "pcm_s24le", "-f", "wav"]),
+    "opus_32": (".ogg", ["-codec:a", "libopus", "-b:a", "32k", "-vbr", "on", "-f", "ogg"]),
+}
+
+
 def _musaic_format(value: str) -> tuple[str, list[str]]:
-    fmt = str(value or "mp3_128").lower()
-    if fmt == "mp3_256":
-        return ".mp3", ["-codec:a", "libmp3lame", "-b:a", "256k"]
-    if fmt == "wav_16":
-        return ".wav", ["-codec:a", "pcm_s16le"]
-    if fmt == "wav_24":
-        return ".wav", ["-codec:a", "pcm_s24le"]
-    if fmt == "opus_32":
-        return ".ogg", ["-codec:a", "libopus", "-b:a", "32k", "-vbr", "on"]
-    return ".mp3", ["-codec:a", "libmp3lame", "-b:a", "128k"]
+    try:
+        return _MUSAIC_FORMATS[str(value or "mp3_128").lower()]
+    except KeyError:
+        raise HTTPException(status_code=400, detail="unsupported audio output format")
+
+
+def _musaic_transcode(source: Path, dest: Path, fmt: str, filters: list[str]) -> None:
+    # Neither user filenames nor arbitrary command options cross the process boundary.
+    _, codec_args = _musaic_format(fmt)
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise HTTPException(status_code=503, detail="ffmpeg is required for Audio Studio processing")
+    with tempfile.TemporaryDirectory(prefix="mullm-audio-") as directory:
+        work = Path(directory)
+        shutil.copyfile(source, work / "input")
+        cmd = [ffmpeg, "-hide_banner", "-nostdin", "-y",
+               "-protocol_whitelist", "file",
+               "-format_whitelist", "wav,mp3,mov,matroska,webm,ogg,aac",
+               "-i", "input", "-map", "0:a:0", "-vn"]
+        if filters:
+            cmd.extend(["-af", ",".join(filters)])
+        cmd.extend(codec_args)
+        cmd.append("output")
+        try:
+            result = subprocess.run(cmd, cwd=directory, capture_output=True, text=True,
+                                    timeout=120, check=False)  # nosec B603
+        except subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail="audio processing timed out")
+        if result.returncode != 0 or not (work / "output").is_file():
+            logger.warning("Audio processing failed: %s", result.stderr[-500:])
+            raise HTTPException(status_code=502, detail="ffmpeg could not process this audio asset")
+        shutil.copyfile(work / "output", dest)
 
 
 _FOLEY_PRESETS = {
@@ -5536,14 +5569,11 @@ async def musaic_process(request: Request):
     """Process an uploaded audio asset with ffmpeg filters and export format."""
     body = await request.json()
     _, source = _musaic_asset_path(str(body.get("asset_id") or ""))
-    fmt_ext, codec_args = _musaic_format(str(body.get("format") or "mp3_128"))
+    fmt = str(body.get("format") or "mp3_128").lower()
+    fmt_ext, _ = _musaic_format(fmt)
     output_bucket = "game" if bool(body.get("game_optimized")) or str(body.get("format")) == "opus_32" else "processed"
     output_name = _musaic_safe_filename(f"{source.stem}-{output_bucket}{fmt_ext}")
     dest = _musaic_path(output_bucket, output_name)
-
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        raise HTTPException(status_code=503, detail="ffmpeg is required for Audio Studio processing")
 
     filters: list[str] = []
     if body.get("denoise"):
@@ -5553,15 +5583,7 @@ async def musaic_process(request: Request):
     if body.get("trim_silence"):
         filters.append("silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.2")
 
-    cmd = [ffmpeg, "-hide_banner", "-y", "-i", str(source)]
-    if filters:
-        cmd.extend(["-af", ",".join(filters)])
-    cmd.extend(codec_args)
-    cmd.append(str(dest))
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, check=False)  # nosec B603
-    if result.returncode != 0 or not dest.exists():
-        dest.unlink(missing_ok=True)
-        raise HTTPException(status_code=502, detail=f"ffmpeg failed: {result.stderr[-500:]}")
+    await asyncio.to_thread(_musaic_transcode, source, dest, fmt, filters)
     record = _musaic_record(dest, output_bucket)
     return {
         **record,
@@ -6210,6 +6232,8 @@ def serve():
             settings.ssl_certfile = str(_certfile)  # type: ignore[assignment]
             settings.ssl_keyfile = str(_keyfile)    # type: ignore[assignment]
             use_https = True
+    if settings.mtls_enabled and not use_https:
+        raise RuntimeError("mTLS requires an HTTPS server certificate and key")
     scheme = "https" if use_https else "http"
     local_url = f"{scheme}://127.0.0.1:{port}"
     setup_url = f"{scheme}://{ips[0]}:{port}/setup" if settings.remote_access else f"{local_url}/setup"
@@ -6248,35 +6272,20 @@ def serve():
     print()
     # ─────────────────────────────────────────────────────────────────────────
 
-    # ── TLS context: TLS 1.3, ECDHE, no insecure ciphers ────────────────────
-    ssl_context = None
-    if use_https:
-        import ssl as _ssl
-        ssl_context = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
-        ssl_context.minimum_version = _ssl.TLSVersion.TLSv1_3
-        ssl_context.load_cert_chain(settings.ssl_certfile, settings.ssl_keyfile)
-        if getattr(settings, "mtls_enabled", False) and getattr(settings, "ssl_ca_certs", None):
-            ssl_context.verify_mode = _ssl.CERT_REQUIRED
-            ssl_context.load_verify_locations(cafile=settings.ssl_ca_certs)
-            print("  mTLS:    enabled (client cert required)")
-        # Prefer ECDHE-384 ciphers; Python ssl inherits OS defaults which exclude RC4/3DES
-        ssl_context.set_ciphers(
-            "ECDHE-ECDSA-AES256-GCM-SHA384:"
-            "ECDHE-RSA-AES256-GCM-SHA384:"
-            "ECDHE-ECDSA-CHACHA20-POLY1305:"
-            "ECDHE-RSA-CHACHA20-POLY1305"
-        )
     uvicorn_kwargs: dict = dict(
         host=host,
         port=port,
         log_level=settings.log_level.lower(),
         reload=settings.server_reload,
     )
-    if ssl_context is not None:
-        # uvicorn.run() doesn't accept ssl= directly; pass cert/key files
-        if use_https:
-            uvicorn_kwargs["ssl_keyfile"] = settings.ssl_keyfile
-            uvicorn_kwargs["ssl_certfile"] = settings.ssl_certfile
+    if use_https:
+        from router.server_tls import tls_options
+        uvicorn_kwargs.update(tls_options(
+            settings.ssl_certfile, settings.ssl_keyfile,
+            mtls=settings.mtls_enabled, ca_certs=settings.ssl_ca_certs,
+        ))
+        if settings.mtls_enabled:
+            print("  mTLS:    enabled (client cert required)")
     uvicorn.run("router.main:app", **uvicorn_kwargs)
 
 

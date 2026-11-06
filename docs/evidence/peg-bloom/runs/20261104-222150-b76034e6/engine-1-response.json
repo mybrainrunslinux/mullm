@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\": {\"engine.mjs\": \"export function legalMoves(puzzle, pegs) {\\n  const pegSet = new Set(pegs);\\n  const moves = [];\\n  for (const [fx, fy] of pegs) {\\n    for (const [dx, dy] of puzzle.directions) {\\n      const ox = fx + dx, oy = fy + dy;\\n      const tx = fx + 2 * dx, ty = fy + 2 * dy;\\n      if (pegSet.has(`${ox},${oy}`) && !pegSet.has(`${tx},${ty}`) && puzzle.cells.includes(`${tx},${ty}`)) {\\n        moves.push([[fx, fy], [ox, oy], [tx, ty]]);\\n      }\\n    }\\n  }\\n  return moves;\\n}\\n\\nexport function applyMove(puzzle, pegs, move) {\\n  const [from, over, to] = move;\\n  const fromKey = `${from[0]},${from[1]}`;\\n  const overKey = `${over[0]},${over[1]}`;\\n  const toKey = `${to[0]},${to[1]}`;\\n  const pegSet = new Set(pegs);\\n  if (!pegSet.has(fromKey) || !pegSet.has(overKey) || pegSet.has(toKey) || !puzzle.cells.includes(toKey)) {\\n    throw new Error('Illegal move');\\n  }\\n  const newPegs = pegs.filter(p => `${p[0]},${p[1]}` !== fromKey && `${p[0]},${p[1]}` !== overKey);\\n  newPegs.push(to);\\n  return newPegs;\\n}\\n\\nexport function isSolved(puzzle, pegs) {\\n  const goalSet = new Set(puzzle.goal);\\n  const pegSet = new Set(pegs);\\n  if (goalSet.size !== pegSet.size) return false;\\n  for (const p of pegs) {\\n    if (!goalSet.has(`${p[0]},${p[1]}`)) return false;\\n  }\\n  return true;\\n}\"}}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 1540,
+  "latency_ms": 14443.98,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-222150-b76034e6",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "82e1cedb-8131-47bb-86cb-3796be226544",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "code",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "engine.mjs",
+      "pure-function",
+      "contract"
+    ],
+    "confidence": 0.7,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T06:21:51.039702Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

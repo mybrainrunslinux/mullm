@@ -1,0 +1,76 @@
+{
+  "status": "needs_human",
+  "run_id": "20261104-231518-77e06bf8",
+  "branch": "factory/20261104-231518-77e06bf8",
+  "worktree": "$EVALUATION_ROOT/business-repair/research-factory-20261104-231518-77e06bf8",
+  "source_commit": "8e3431c434edc6210cebed818577426c633d227c",
+  "name": "Marketing research planner",
+  "plan": [
+    {
+      "id": "domain-logic",
+      "instruction": "Repair workflow.mjs per contract.md. Use exactly FOUR schedule phases (recruit, collect, synthesize, decide), with days bounded 1..input.days. Replace awkward questions that insert input.audience or input.method into sentences with the four neutral real-work questions provided in the contract. Keep the hypothesis untested, summary, metrics, sections and validation behavior.",
+      "depends_on": [],
+      "writable_files": [
+        "workflow.mjs"
+      ],
+      "gates": [
+        "domain"
+      ],
+      "context_files": [
+        "contract.md",
+        "product.json"
+      ],
+      "max_output_tokens": 1900,
+      "verification_only": false,
+      "max_attempts": 3
+    }
+  ],
+  "manifest_sha256": "a7f90daa7055b5ecca05a07d94b2efbefbc55f2824627aad430812043ba51173",
+  "tasks": [
+    {
+      "id": "domain-logic",
+      "depends_on": [],
+      "status": "passed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [
+            {
+              "name": "domain",
+              "returncode": 0,
+              "log": "$EVALUATION_ROOT/business-repair/research/.git/factory/20261104-231518-77e06bf8/domain-logic-1-domain.log"
+            }
+          ],
+          "phase": "testing",
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 2314,
+          "latency_ms": 14362.28,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "passed",
+          "elapsed_seconds": 53.54
+        }
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "name": "domain",
+      "returncode": 0,
+      "log": "$EVALUATION_ROOT/business-repair/research/.git/factory/20261104-231518-77e06bf8/gate-0.log"
+    },
+    {
+      "name": "browser",
+      "returncode": 0,
+      "log": "$EVALUATION_ROOT/business-repair/research/.git/factory/20261104-231518-77e06bf8/gate-1.log"
+    },
+    {
+      "name": "package",
+      "returncode": 0,
+      "log": "$EVALUATION_ROOT/business-repair/research/.git/factory/20261104-231518-77e06bf8/gate-2.log"
+    }
+  ],
+  "artifacts": {},
+  "elapsed_seconds": 55.158,
+  "human_request_id": "agent-53f7caf0ca854429b52cc58c49c26549"
+}

@@ -1,0 +1,10 @@
+{
+  "run_id": "20261104-230308-05c1952d",
+  "rules_and_controller": "local-model-generated, with diagnostic guidance in follow-up specifications",
+  "presentation": "supplied wooden presentation component, authored during guided product review",
+  "human_review": "accepted",
+  "artifact": {
+    "sha256": "dc8519d616c237699593d7ee5cb189b420c74d74bb4151aa60c2aeb15272b0e7",
+    "bytes": 9522
+  }
+}

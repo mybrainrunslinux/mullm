@@ -1,0 +1,82 @@
+[
+  {
+    "run_id": "20261104-221941-38806bd6",
+    "project": "peg-bloom",
+    "status": "failed",
+    "wall_seconds": 68.44,
+    "task_attempt_seconds": 68.398,
+    "source_commit": "9cfc5343ef80309e3365e685a8332fea426ab508"
+  },
+  {
+    "run_id": "20261104-222150-b76034e6",
+    "project": "peg-bloom",
+    "status": "failed",
+    "wall_seconds": 49.471,
+    "task_attempt_seconds": 49.432,
+    "source_commit": "9cfc5343ef80309e3365e685a8332fea426ab508"
+  },
+  {
+    "run_id": "20261104-222316-52abef87",
+    "project": "peg-bloom",
+    "status": "failed",
+    "wall_seconds": 112.4,
+    "task_attempt_seconds": 112.361,
+    "source_commit": "27de4672f7ae18995ce0f9c3ab4504b72348ce75"
+  },
+  {
+    "run_id": "20261104-223059-9a88dd20",
+    "project": "peg-bloom",
+    "status": "stopped",
+    "wall_seconds": 251.026,
+    "task_attempt_seconds": 42.682,
+    "source_commit": "69d44a7daa56b49e897e8b5b128a2115574b7879"
+  },
+  {
+    "run_id": "20261104-223335-1caf0e7c",
+    "project": "peg-bloom",
+    "status": "stopped",
+    "wall_seconds": 1712.102,
+    "task_attempt_seconds": 112.411,
+    "source_commit": "72e9e8d6e5d78769ebc3ab47119a544df9caa027"
+  },
+  {
+    "run_id": "20261104-223753-12729be1",
+    "project": "peg-bloom-repair",
+    "status": "stopped",
+    "wall_seconds": 1454.617,
+    "task_attempt_seconds": 88.648,
+    "source_commit": "09aef37433977547e0aa5856a108a1eb14d827c4"
+  },
+  {
+    "run_id": "20261104-224109-1a54a6c9",
+    "project": "peg-bloom-responsive",
+    "status": "accepted",
+    "wall_seconds": 32.366,
+    "task_attempt_seconds": 25.851,
+    "source_commit": "fb3f9f1f69002b7e5af0445cd5709f567d81e7f9"
+  },
+  {
+    "run_id": "20261104-224315-106e2ef5",
+    "project": "peg-bloom-final",
+    "status": "stopped",
+    "wall_seconds": 1132.124,
+    "task_attempt_seconds": 103.681,
+    "source_commit": "34c7d2252ae638b43f2284b05e9d8eb119b6c049"
+  },
+  {
+    "run_id": "20261104-224442-4b8faaff",
+    "project": "peg-bloom-visual",
+    "status": "accepted",
+    "wall_seconds": 61.53,
+    "task_attempt_seconds": 54.967,
+    "source_commit": "3b65eff8c877548ba4b1637b0f4881a5ca1d6a6e"
+  },
+  {
+    "run_id": "20261104-230308-05c1952d",
+    "project": "peg-bloom-wooden",
+    "status": "accepted",
+    "wall_seconds": 166.694,
+    "task_attempt_seconds": 0,
+    "source_commit": "b3c7b2826ebc5e50952c6884cc79c21fde22a982"
+  }
+]

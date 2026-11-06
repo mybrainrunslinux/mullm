@@ -2,10 +2,11 @@
 
 `pip install` installs muLLM but never starts it automatically. For a desktop first run:
 
-The 1.0 installation target is `python -m pip install mullm`. PyPI does not yet publish this project (checked 2026-11-04). Until publication, clone this repository and run `python -m pip install .` from its root; add extras with `python -m pip install ".[classifier]"`.
+To install from source, clone this repository and run `python -m pip install .`
+from its root. Add extras with `python -m pip install ".[classifier]"`.
 
 ```bash
-python -m pip install mullm
+python -m pip install .
 mullm-server
 # Open http://127.0.0.1:6856/setup
 ```

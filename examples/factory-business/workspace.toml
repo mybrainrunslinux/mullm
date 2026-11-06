@@ -1,0 +1,11 @@
+[[projects]]
+root = "campaign"
+spec = "factory.toml"
+
+[[projects]]
+root = "competitors"
+spec = "factory.toml"
+
+[[projects]]
+root = "research"
+spec = "factory.toml"

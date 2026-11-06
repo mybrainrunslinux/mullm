@@ -1,0 +1,50 @@
+[
+  {
+    "phase": "business",
+    "project": "campaign",
+    "run_id": "20261104-231046-8c28a14f",
+    "status": "stopped",
+    "wall_seconds": 272.458,
+    "attempts": 3
+  },
+  {
+    "phase": "business",
+    "project": "competitors",
+    "run_id": "20261104-231046-bbb66a12",
+    "status": "stopped",
+    "wall_seconds": 272.883,
+    "attempts": 3
+  },
+  {
+    "phase": "business",
+    "project": "research",
+    "run_id": "20261104-231046-0268b9b3",
+    "status": "rejected",
+    "wall_seconds": 272.52,
+    "attempts": 1
+  },
+  {
+    "phase": "business-repair",
+    "project": "campaign",
+    "run_id": "20261104-231518-e3f60a4b",
+    "status": "needs_human",
+    "wall_seconds": 20.315,
+    "attempts": 1
+  },
+  {
+    "phase": "business-repair",
+    "project": "competitors",
+    "run_id": "20261104-231518-4176148f",
+    "status": "needs_human",
+    "wall_seconds": 40.578,
+    "attempts": 1
+  },
+  {
+    "phase": "business-repair",
+    "project": "research",
+    "run_id": "20261104-231518-77e06bf8",
+    "status": "needs_human",
+    "wall_seconds": 55.158,
+    "attempts": 1
+  }
+]

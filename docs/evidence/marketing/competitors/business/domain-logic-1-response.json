@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\": {\"workflow.mjs\": \"export function buildPlan(input, sources = []) {\\n  const { name = '', audience = '', competitors = '', focus = '' } = input || {};\\n  const warnings = [];\\n\\n  const companyNames = competitors\\n    .split('\\\\n')\\n    .map(n => n.trim())\\n    .filter(n => n.length > 0);\\n\\n  const comparisons = companyNames.map(company => {\\n    const matchingSources = sources.filter(s =>\\n      s.owner && s.owner.toLowerCase() === company.toLowerCase()\\n    );\\n\\n    const evidenceCount = matchingSources.length;\\n    const reviewedCount = matchingSources.filter(s => s.reviewed === true).length;\\n    const claims = matchingSources.map(s => s.claim).filter(c => c !== undefined && c !== null);\\n\\n    if (evidenceCount === 0) {\\n      warnings.push(`No evidence found for ${company}.`);\\n    }\\n\\n    return {\\n      name: company,\\n      evidence_count: evidenceCount,\\n      reviewed_count: reviewedCount,\\n      claims: claims\\n    };\\n  });\\n\\n  const citations = sources\\n    .filter(s => s.url)\\n    .map(s => s.url);\\n\\n  const totalEvidence = comparisons.reduce((sum, c) => sum + c.evidence_count, 0);\\n  const totalReviewed = comparisons.reduce((sum, c) => sum + c.reviewed_count, 0);\\n  const totalClaims = comparisons.reduce((sum, c) => sum + c.claims.length, 0);\\n\\n  const sections = [];\\n\\n  if (companyNames.length > 0) {\\n    const companySummary = comparisons.map(c => `${c.name} (${c.evidence_count} evidence, ${c.reviewed_count} reviewed)`).join(', ');\\n    sections.push({\\n      title: 'Companies',\\n      items: [companySummary]\\n    });\\n  }\\n\\n  sections.push({\\n    title: 'Counts',\\n    items: [\\n      `Total evidence: ${totalEvidence}`,\\n      `Total reviewed: ${totalReviewed}`,\\n      `Total claims: ${totalClaims}`\\n    ]\\n  });\\n\\n  const supportedClaims = comparisons.flatMap(c => c.claims.map(claim => `${c.name}: ${claim}`));\\n  if (supportedClaims.length > 0) {\\n    sections.push({\\n      title: 'Supported Claims',\\n      items: supportedClaims\\n    });\\n  }\\n\\n  const evidenceGaps = comparisons.filter(c => c.evidence_count === 0).map(c => c.name);\\n  if (evidenceGaps.length > 0) {\\n    sections.push({\\n      title: 'Evidence Gaps',\\n      items: evidenceGaps.map(g => `No evidence for ${g}`)\\n    });\\n  }\\n\\n  sections.push({\\n    title: 'Next Actions',\\n    items: [\\n      'Review unverified evidence.',\\n      'Add missing sources.',\\n      'Validate claims against sources.'\\n    ]\\n  });\\n\\n  return {\\n    summary: `Plan for ${name || 'Untitled'} targeting ${audience || 'general audience'}.`,\\n    metrics: [\\n      { label: 'Companies', value: companyNames.length },\\n      { label: 'Evidence', value: totalEvidence },\\n      { label: 'Claims', value: totalClaims }\\n    ],\\n    sections: sections,\\n    warnings: warnings,\\n    comparisons: comparisons,\\n    citations: citations\\n  };\\n}\"}\n}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 1612,
+  "latency_ms": 18900.84,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-231046-bbb66a12",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "34ad27d7-0572-4148-8aa6-548a9f7cc514",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "research",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "workflow.mjs",
+      "exactly",
+      "contract.md"
+    ],
+    "confidence": 0.9,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T07:11:20.911497Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

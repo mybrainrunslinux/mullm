@@ -40,6 +40,8 @@ DEMO_PAGES = [
 ]
 
 DEV_PAGES = [
+    {"href": "/factory", "label": "Factory", "group": "dev", "color": "#2DD4BF"},
+    {"href": "/unblock", "label": "Needs you", "group": "dev", "color": "#FB923C"},
     {"href": "/code", "label": "Code", "group": "dev", "color": "#60A5FA"},
     {"href": "/studio", "label": "Studio", "group": "studio", "color": "#EC4899"},
     {"href": "/scene", "label": "Scene", "group": "studio", "color": "#EC4899"},

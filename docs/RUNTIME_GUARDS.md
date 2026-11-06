@@ -16,9 +16,7 @@ New cloud defaults are Luna / Sol / Astra for OpenAI and Haiku 5.5 / Sonnet 5.5 
 Opus 5.5 for Anthropic. The existing Fable toggle selects Fable 5.1. Terra 6.1 is
 also registered. Explicit configured model overrides remain available.
 
-All eight model IDs passed paid text smoke calls on 2026-11-05. The test discovered
-that Haiku 5.5 rejects temperature; all current Claude 5.5 calls now omit it.
-This validates text API access on the tested account, not application task quality.
+Claude 5.5 requests omit unsupported sampling parameters.
 Run `python -m pytest tests/test_frontier_live.py --grep=@spend -s` explicitly;
 ordinary test runs skip paid cases. Each model uses one short fixed prompt, no
 retries and a 1024-token output ceiling. The combined standard-price upper bound

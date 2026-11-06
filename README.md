@@ -45,6 +45,20 @@
 
 ---
 
+## Software Factory: from specification to evidence
+
+Build small, dependent tasks with local inference, protected executable tests, bounded repair loops, and a human handoff when the worker needs help. Inspect the work on a flat operations board, or switch on the animated 3D factory.
+
+[![The muLLM Software Factory](docs/media/factory-tour.gif)](docs/SOFTWARE_FACTORY.md)
+
+**[How it works](docs/SOFTWARE_FACTORY.md)** · **[Watch the tour](docs/media/factory-tour.webm)** · **[Spec → working game: evidence](docs/evidence/peg-bloom/README.md)** · **[Try Peg Bloom](examples/factory-peg-bloom/README.md)**
+
+Build several projects together and see which need a human: [three marketing workspaces, their contracts, repairs, and review evidence](docs/evidence/marketing/README.md). Executable checks establish technical behavior; a separate product gate asks whether the result is useful and usable.
+
+The Peg Bloom case study includes model-generated source, independent checks for three puzzle boards and 63 legal jumps, browser validation, failed attempts, diagnostic guidance, and an artifact hash. An accepted artifact means its configured checks passed; the evidence makes that claim inspectable.
+
+---
+
 ## 🚀 Quick Start
 
 Choose the path that fits your setup. All three expose the same API on port **6856**.

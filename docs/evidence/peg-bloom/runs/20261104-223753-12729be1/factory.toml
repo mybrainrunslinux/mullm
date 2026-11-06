@@ -1,0 +1,36 @@
+name = "peg-bloom"
+target = "browser-game"
+publish_events = true
+human_intervention = true
+goals = ["Build Peg Bloom: three solvable peg-solitaire boards revealing a final constellation, including 24- and 26-move puzzles."]
+business_rules = ["Use only local files and browser APIs. Preserve fixture data and acceptance tests.", "Implement the exact interfaces in contract.md. Keep each response under 1800 tokens by writing compact code."]
+preferences = ["Deep midnight background, mint pegs, warm gold goal rings, clear focus outlines; usable on phones and desktop."]
+writable_files = ["engine.mjs", "render.mjs", "app.mjs", "style.css"]
+context_files = ["contract.md", "engine-contract.md", "index.html"]
+protected_files = ["factory.toml", "engine-contract.md", "contract.md", "index.html", "puzzles.json", "acceptance.mjs", "browser_acceptance.py", "build.py"]
+artifacts = ["dist/peg-bloom.zip"]
+
+[[tasks]]
+id = "interaction-repair"
+instruction = "Repair app.mjs while retaining all controls. Two defects: handleClick returns early for EMPTY cells, so jumping is impossible. First check whether selected plus clicked destination matches a legal move; apply it if so; only otherwise select an occupied cell or clear selection. Second: hint() incorrectly applies every solution move to CURRENT pegs. Instead replay from a COPY OF currentPuzzle.start, comparing sorted sets with current pegs BEFORE each replay step. If they match, select solution[i][0], updateUI and return. Otherwise advance the replay state using applyMove. If no match, show restart suggestion. Never execute an illegal replay move on current board. Keep undo, restart, puzzle selection and counter working."
+writable_files = ["app.mjs"]
+context_files = ["contract.md", "engine.mjs", "render.mjs"]
+gates = ["browser"]
+max_output_tokens = 2200
+
+[[gates]]
+name = "rules"
+command = ["node", "acceptance.mjs"]
+timeout_seconds = 30
+[[gates]]
+name = "render-syntax"
+command = ["node", "--check", "render.mjs"]
+timeout_seconds = 10
+[[gates]]
+name = "browser"
+command = ["python3", "browser_acceptance.py"]
+timeout_seconds = 60
+[[gates]]
+name = "package"
+command = ["python3", "build.py"]
+timeout_seconds = 15

@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\": {\"app.mjs\": \"import { legalMoves, applyMove, isSolved } from './engine.mjs';\\nimport { renderBoard } from './render.mjs';\\n\\nlet puzzles = [];\\nlet currentPuzzle = null;\\nlet pegs = [];\\nlet selected = null;\\nlet history = [];\\nlet solution = [];\\nlet solutionIndex = 0;\\n\\nasync function init() {\\n  const res = await fetch('puzzles.json');\\n  puzzles = await res.json();\\n  const choice = document.getElementById('board-choice');\\n  puzzles.forEach(p => {\\n    const opt = document.createElement('option');\\n    opt.value = p.id;\\n    opt.textContent = p.title;\\n    choice.appendChild(opt);\\n  });\\n  choice.addEventListener('change', () => loadPuzzle(choice.value));\\n  document.getElementById('board').addEventListener('click', handleClick);\\n  document.getElementById('undo').addEventListener('click', undo);\\n  document.getElementById('restart').addEventListener('click', restart);\\n  document.getElementById('hint').addEventListener('click', hint);\\n  loadPuzzle(puzzles[0].id);\\n}\\n\\nfunction loadPuzzle(id) {\\n  currentPuzzle = puzzles.find(p => p.id == id);\\n  pegs = [...currentPuzzle.start];\\n  selected = null;\\n  history = [];\\n  solution = [...currentPuzzle.solution];\\n  solutionIndex = 0;\\n  updateUI();\\n}\\n\\nfunction handleClick(e) {\\n  const btn = e.target.closest('button[data-cell]');\\n  if (!btn) return;\\n  const cell = btn.dataset.cell;\\n  const isOccupied = pegs.includes(cell);\\n\\n  if (isOccupied) {\\n    selected = cell;\\n  } else if (selected) {\\n    const move = findMove(selected, cell);\\n    if (move) {\\n      history.push([...pegs]);\\n      pegs = applyMove(currentPuzzle, pegs, move);\\n      selected = null;\\n      checkWin();\\n    }\\n  }\\n  updateUI();\\n}\\n\\nfunction findMove(from, to) {\\n  const [fx, fy] = from.split(',').map(Number);\\n  const [tx, ty] = to.split(',').map(Number);\\n  const dx = tx - fx, dy = ty - fy;\\n  if (Math.abs(dx) !== 2 || Math.abs(dy) !== 2 || (dx !== 0 && dy !== 0)) return null;\\n  const mx = fx + dx / 2, my = fy + dy / 2;\\n  const mid = `${mx},${my}`;\\n  if (!pegs.includes(mid) || pegs.includes(to)) return null;\\n  return [from, mid, to];\\n}\\n\\nfunction undo() {\\n  if (history.length === 0) return;\\n  pegs = history.pop();\\n  selected = null;\\n  updateUI();\\n}\\n\\nfunction restart() {\\n  pegs = [...currentPuzzle.start];\\n  selected = null;\\n  history = [];\\n  solutionIndex = 0;\\n  updateUI();\\n}\\n\\nfunction hint() {\\n  if (solutionIndex >= solution.length) return;\\n  const copyStart = [...currentPuzzle.start];\\n  let state = [...copyStart];\\n  for (let i = 0; i < solutionIndex; i++) {\\n    state = applyMove(currentPuzzle, state, solution[i]);\\n  }\\n  const targetState = applyMove(currentPuzzle, state, solution[solutionIndex]);\\n  if (arraysEqual(new Set(pegs), new Set(state))) {\\n    selected = solution[solutionIndex][0];\\n    updateUI();\\n    solutionIndex++;\\n  } else {\\n    alert('Restart to align with the solution path.');\\n  }\\n}\\n\\nfunction arraysEqual(a, b) {\\n  if (a.size !== b.size) return false;\\n  for (const item of a) {\\n    if (!b.has(item)) return false;\\n  }\\n  return true;\\n}\\n\\nfunction checkWin() {\\n  if (isSolved(currentPuzzle, pegs)) {\\n    document.getElementById('status').textContent = 'Solved';\\n  }\\n}\\n\\nfunction updateUI() {\\n  const targets = selected ? legalMoves(currentPuzzle, pegs).filter(m => m[0] === selected).map(m => m[2]) : [];\\n  renderBoard(currentPuzzle, pegs, selected, targets);\\n  document.getElementById('counter').textContent = `Moves: ${history.length} / ${currentPuzzle.start.length - currentPuzzle.goal.length}`;\\n  if (!isSolved(currentPuzzle, pegs)) {\\n    document.getElementById('status').textContent = '';\\n  }\\n}\\n\\ninit();\"}}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 4070,
+  "latency_ms": 26447.87,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-224315-106e2ef5",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "173a99e0-c25d-4c7e-ab89-b36b6040eb90",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "code",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "app.mjs",
+      "complete",
+      "playable"
+    ],
+    "confidence": 0.93,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T06:44:32.360472Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

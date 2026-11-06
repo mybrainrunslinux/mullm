@@ -69,7 +69,7 @@ echo "==> Checking installed CLI"
 echo "==> Starting installed server on temporary port $PORT"
 (
   cd "$WORKDIR"
-  MULLM_PORT="$PORT" \
+  exec env MULLM_PORT="$PORT" \
   MULLM_STATE_DIR="$STATE_DIR" \
   MULLM_ENABLE_STUDIO=true \
   MULLM_SERVER_RELOAD=false \
@@ -125,6 +125,8 @@ checks = [
     ("/health", b'"status":"ok"'),
     ("/setup", b"setup"),
     ("/chat", b"chat"),
+    ("/factory", b"Production runs"),
+    ("/api/factory/runs", b'"runs"'),
     ("/swords", b"three"),
     ("/api/settings", b'"providers"'),
     ("/api/musaic/status", b'"ffmpeg_available"'),

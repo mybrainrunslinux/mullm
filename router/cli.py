@@ -600,6 +600,7 @@ def main():
     parser.add_argument("--spend-cap", type=float, default=1.0,
                         help="Hard cap hint for spend-gated runs")
     parser.add_argument("--factory", metavar="SPEC", help="Run Software Factory from a TOML acceptance specification")
+    parser.add_argument("--factory-batch", metavar="WORKSPACE", help="Build independent factory projects with shared inference scheduling")
     parser.add_argument("--orchestrate", metavar="TASK_OR_FILE",
                         help="Plan and execute a repo task or markdown task file")
     parser.add_argument("--code", action="store_true", help="Ask orchestrator for code patches")
@@ -701,6 +702,12 @@ def main():
         apk_path = _build_apk(args.apk, output_dir=args.apk_output_dir, keep_project=args.keep_apk_project)
         print(apk_path)
         return
+
+    if args.factory_batch:
+        from router.factory import run_batch
+        report = asyncio.run(run_batch(Path(args.factory_batch).resolve(), args.server_url, dry_run=args.dry_run))
+        print(json.dumps(report, indent=2))
+        raise SystemExit(0 if report['status'] in ('accepted', 'planned') else 1)
 
     if args.factory:
         from router.factory import run_factory

@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\": {\"engine.mjs\": \"export function legalMoves(puzzle, pegs) {\\n  const pegSet = new Set(pegs);\\n  const cells = new Set(puzzle.cells);\\n  const moves = [];\\n  for (const from of pegs) {\\n    const [fx, fy] = from.split(',').map(Number);\\n    for (const [dx, dy] of puzzle.directions) {\\n      const ox = fx + dx, oy = fy + dy;\\n      const tx = fx + 2 * dx, ty = fy + 2 * dy;\\n      const over = `${ox},${oy}`;\\n      const to = `${tx},${ty}`;\\n      if (cells.has(from) && cells.has(over) && cells.has(to) && pegSet.has(over) && !pegSet.has(to)) {\\n        moves.push([from, over, to]);\\n      }\\n    }\\n  }\\n  return moves;\\n}\\n\\nexport function applyMove(puzzle, pegs, move) {\\n  const legal = legalMoves(puzzle, pegs);\\n  const match = legal.find(m => m[0] === move[0] && m[1] === move[1] && m[2] === move[2]);\\n  if (!match) throw new Error('Illegal move');\\n  const [from, over] = move;\\n  return pegs.filter(p => p !== from && p !== over).concat(move[2]);\\n}\\n\\nexport function isSolved(puzzle, pegs) {\\n  if (pegs.length !== puzzle.goal.length) return false;\\n  const goalSet = new Set(puzzle.goal);\\n  for (const p of pegs) {\\n    if (!goalSet.has(p)) return false;\\n  }\\n  return true;\\n}\"}\n}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 1569,
+  "latency_ms": 12656.37,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-222316-52abef87",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "473b19ca-050e-4510-86fc-7eb1fa645742",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "code",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "engine.mjs",
+      "critical",
+      "cells"
+    ],
+    "confidence": 0.7,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T06:23:16.531239Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

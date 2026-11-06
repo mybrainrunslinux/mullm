@@ -1,0 +1,41 @@
+{
+  "response": "{\"files\": {\"engine.mjs\": \"const parse = s => s.split(',').map(Number);\\nconst stringify = c => c.join(',');\\nconst onBoard = (c, cells) => cells.some(cell => cell[0] === c[0] && cell[1] === c[1]);\\nconst occupied = (c, pegs) => pegs.some(peg => peg[0] === c[0] && peg[1] === c[1]);\\nconst empty = (c, pegs) => !occupied(c, pegs);\\n\\nexport function legalMoves(cells, pegs) {\\n  const moves = [];\\n  const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];\\n  for (const fromStr of pegs) {\\n    const from = parse(fromStr);\\n    for (const [dx, dy] of dirs) {\\n      const over = [from[0] + dx, from[1] + dy];\\n      const to = [over[0] + dx, over[1] + dy];\\n      if (onBoard(over, cells) && onBoard(to, cells) && occupied(over, pegs) && empty(to, pegs)) {\\n        moves.push([fromStr, stringify(over), stringify(to)]);\\n      }\\n    }\\n  }\\n  return moves;\\n}\\n\\nexport function applyMove(cells, pegs, move) {\\n  const legal = legalMoves(cells, pegs);\\n  if (!legal.some(m => m[0] === move[0] && m[1] === move[1] && m[2] === move[2])) {\\n    return pegs;\\n  }\\n  const from = parse(move[0]);\\n  const over = parse(move[1]);\\n  const to = parse(move[2]);\\n  return pegs.filter(p => stringify(p) !== move[0] && stringify(p) !== move[1]).concat([stringify(to)]);\\n}\\n\\nexport function isSolved(pegs, goal) {\\n  if (pegs.length !== goal.length) return false;\\n  const pegSet = new Set(pegs);\\n  for (const g of goal) {\\n    if (!pegSet.has(g)) return false;\\n  }\\n  return true;\\n}\"}\n}",
+  "tier": "local",
+  "tier_used": "local",
+  "cost": 0.0,
+  "tokens_used": 869,
+  "latency_ms": 12439.57,
+  "model_used": "qwen3.6-35b-a3b-chat:latest",
+  "cached": false,
+  "from_cache": false,
+  "session_id": "factory-20261104-223059-9a88dd20",
+  "session_cost_total": 0.0,
+  "intent": {
+    "id": "92f996ed-6baa-4601-8680-b906dad2a00f",
+    "content": "",
+    "modality": "text",
+    "source": "api",
+    "session_id": null,
+    "context": {},
+    "category": "code",
+    "complexity": 4,
+    "keywords": [
+      "user",
+      "task",
+      "implement",
+      "engine.mjs",
+      "critical",
+      "cells"
+    ],
+    "confidence": 0.7,
+    "needs_vision": false,
+    "needs_web": false,
+    "raw_scores": null,
+    "embedding": [],
+    "images": [],
+    "history": [],
+    "timestamp": "2026-11-05T06:30:59.144580Z"
+  },
+  "groundtruth_category": null,
+  "quality_escalated": false
+}

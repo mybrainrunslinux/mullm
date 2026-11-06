@@ -55,7 +55,7 @@ MODULES: tuple[ModuleSpec, ...] = (
         requires_download=True,
         installer="background-pip-extra",
         size_hint="small; repo tooling only",
-        routes=("/dev", "/coverage", "/bench"),
+        routes=("/dev", "/coverage", "/bench", "/factory", "/unblock"),
     ),
     ModuleSpec(
         id="studio",

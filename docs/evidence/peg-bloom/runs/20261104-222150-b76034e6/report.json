@@ -1,0 +1,75 @@
+{
+  "status": "failed",
+  "run_id": "20261104-222150-b76034e6",
+  "branch": "factory/20261104-222150-b76034e6",
+  "worktree": "$EVALUATION_ROOT/peg-bloom-factory-20261104-222150-b76034e6",
+  "source_commit": "9cfc5343ef80309e3365e685a8332fea426ab508",
+  "manifest_sha256": "6a2b402d5c7c0023edbfd881c012b1b2afdab1d12d483e2caa21bb82b57f7c3f",
+  "tasks": [
+    {
+      "id": "engine",
+      "depends_on": [],
+      "status": "failed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "gates": [
+            {
+              "name": "rules",
+              "returncode": 1,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-222150-b76034e6/engine-1-rules.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 1540,
+          "latency_ms": 14443.98,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "failed",
+          "error": "Gate rules failed:\nnode:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: triangle: all legal moves must match the independent oracle\n+ actual - expected\n\n+ []\n- [\n-   '[\"0,2\",\"1,3\",\"2,4\"]',\n-   '[\"0,4\",\"1,4\",\"2,4\"]',\n-   '[\"2,2\",\"2,3\",\"2,4\"]',\n-   '[\"4,4\",\"3,4\",\"2,4\"]'\n- ]\n\n    at file://$EVALUATION_ROOT/peg-bloom-factory-20261104-222150-b76034e6/acceptance.mjs:22:10\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: [],\n  expected: [\n    '[\"0,2\",\"1,3\",\"2,4\"]',\n    '[\"0,4\",\"1,4\",\"2,4\"]',\n    '[\"2,2\",\"2,3\",\"2,4\"]',\n    '[\"4,4\",\"3,4\",\"2,4\"]'\n  ],\n  operator: 'deepStrictEqual',\n  diff: 'simple'\n}\n\nNode.js v22.22.0\n",
+          "elapsed_seconds": 14.531
+        },
+        {
+          "attempt": 2,
+          "gates": [
+            {
+              "name": "rules",
+              "returncode": 1,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-222150-b76034e6/engine-2-rules.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 2500,
+          "latency_ms": 17379.49,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "failed",
+          "error": "Gate rules failed:\nnode:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: triangle: all legal moves must match the independent oracle\n+ actual - expected\n\n+ []\n- [\n-   '[\"0,2\",\"1,3\",\"2,4\"]',\n-   '[\"0,4\",\"1,4\",\"2,4\"]',\n-   '[\"2,2\",\"2,3\",\"2,4\"]',\n-   '[\"4,4\",\"3,4\",\"2,4\"]'\n- ]\n\n    at file://$EVALUATION_ROOT/peg-bloom-factory-20261104-222150-b76034e6/acceptance.mjs:22:10\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: [],\n  expected: [\n    '[\"0,2\",\"1,3\",\"2,4\"]',\n    '[\"0,4\",\"1,4\",\"2,4\"]',\n    '[\"2,2\",\"2,3\",\"2,4\"]',\n    '[\"4,4\",\"3,4\",\"2,4\"]'\n  ],\n  operator: 'deepStrictEqual',\n  diff: 'simple'\n}\n\nNode.js v22.22.0\n",
+          "elapsed_seconds": 17.461
+        },
+        {
+          "attempt": 3,
+          "gates": [
+            {
+              "name": "rules",
+              "returncode": 1,
+              "log": "$EVALUATION_ROOT/peg-bloom/.git/factory/20261104-222150-b76034e6/engine-3-rules.log"
+            }
+          ],
+          "model_used": "qwen3.6-35b-a3b-chat:latest",
+          "tokens_used": 2583,
+          "latency_ms": 17361.68,
+          "cost": 0.0,
+          "tier": "local",
+          "status": "failed",
+          "error": "Gate rules failed:\nnode:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: triangle: all legal moves must match the independent oracle\n+ actual - expected\n\n+ []\n- [\n-   '[\"0,2\",\"1,3\",\"2,4\"]',\n-   '[\"0,4\",\"1,4\",\"2,4\"]',\n-   '[\"2,2\",\"2,3\",\"2,4\"]',\n-   '[\"4,4\",\"3,4\",\"2,4\"]'\n- ]\n\n    at file://$EVALUATION_ROOT/peg-bloom-factory-20261104-222150-b76034e6/acceptance.mjs:22:10\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: [],\n  expected: [\n    '[\"0,2\",\"1,3\",\"2,4\"]',\n    '[\"0,4\",\"1,4\",\"2,4\"]',\n    '[\"2,2\",\"2,3\",\"2,4\"]',\n    '[\"4,4\",\"3,4\",\"2,4\"]'\n  ],\n  operator: 'deepStrictEqual',\n  diff: 'simple'\n}\n\nNode.js v22.22.0\n",
+          "elapsed_seconds": 17.44
+        }
+      ]
+    }
+  ],
+  "gates": [],
+  "artifacts": {},
+  "elapsed_seconds": 49.471,
+  "error": "Task engine exhausted 3 attempts: Gate rules failed:\nnode:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: triangle: all legal moves must match the independent oracle\n+ actual - expected\n\n+ []\n- [\n-   '[\"0,2\",\"1,3\",\"2,4\"]',\n-   '[\"0,4\",\"1,4\",\"2,4\"]',\n-   '[\"2,2\",\"2,3\",\"2,4\"]',\n-   '[\"4,4\",\"3,4\",\"2,4\"]'\n- ]\n\n    at file://$EVALUATION_ROOT/peg-bloom-factory-20261104-222150-b76034e6/acceptance.mjs:22:10\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: [],\n  expected: [\n    '[\"0,2\",\"1,3\",\"2,4\"]',\n    '[\"0,4\",\"1,4\",\"2,4\"]',\n    '[\"2,2\",\"2,3\",\"2,4\"]',\n    '[\"4,4\",\"3,4\",\"2,4\"]'\n  ],\n  operator: 'deepStrictEqual',\n  diff: 'simple'\n}\n\nNode.js v22.22.0\n"
+}
