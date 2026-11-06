@@ -89,33 +89,28 @@ logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
 # OpenTelemetry — optional production tracing
 # ---------------------------------------------------------------------------
 
-try:
-    from opentelemetry import trace as _otel_trace
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
-        OTLPSpanExporter as _OTLPSpanExporter,
-    )
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor as _FastAPIInstrumentor
-    from opentelemetry.sdk.resources import Resource as _Resource
-    from opentelemetry.sdk.trace import TracerProvider as _TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor as _BatchSpanProcessor
+_tracer = None
+_otel_available = False
+# Installing an optional dependency does not opt a user into trace export.
+_otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip()
+if _otel_endpoint:
+    try:
+        from opentelemetry import trace as _otel_trace
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as _OTLPSpanExporter
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor as _FastAPIInstrumentor
+        from opentelemetry.sdk.resources import Resource as _Resource
+        from opentelemetry.sdk.trace import TracerProvider as _TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor as _BatchSpanProcessor
 
-    _otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-    _resource = _Resource.create({"service.name": "mullm"})
-    _provider = _TracerProvider(resource=_resource)
-    _provider.add_span_processor(
-        _BatchSpanProcessor(_OTLPSpanExporter(endpoint=_otel_endpoint, insecure=True))
-    )
-    _otel_trace.set_tracer_provider(_provider)
-    _tracer = _otel_trace.get_tracer("mullm.query")
-    _otel_available = True
-    logger.info("OpenTelemetry tracing enabled → %s", _otel_endpoint)
-except ImportError:
-    _tracer = None  # type: ignore[assignment]
-    _otel_available = False
-    logger.warning(
-        "opentelemetry packages not installed — tracing disabled. "
-        "Install: pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-instrumentation-fastapi"
-    )
+        _provider = _TracerProvider(resource=_Resource.create({"service.name": "mullm"}))
+        _provider.add_span_processor(_BatchSpanProcessor(
+            _OTLPSpanExporter(endpoint=_otel_endpoint, insecure=_otel_endpoint.startswith("http://"))))
+        _otel_trace.set_tracer_provider(_provider)
+        _tracer = _otel_trace.get_tracer("mullm.query")
+        _otel_available = True
+        logger.info("OpenTelemetry tracing enabled")
+    except ImportError:
+        logger.warning("Tracing was configured but its optional OpenTelemetry packages are unavailable")
 
 
 
@@ -131,7 +126,7 @@ async def lifespan(app: FastAPI):
 
     # Apply persisted /setup toggles that map onto runtime settings
     # (fable_top_tier swaps the Anthropic power model: Fable 5 vs Opus).
-    _apply_fable_toggle(_load_toggles().get("fable_top_tier", True))
+    _apply_fable_toggle(_load_toggles().get("fable_top_tier", settings.fable_top_tier))
 
     from router.secrets import load_pass_secrets_into_env
     loaded_secret_names = load_pass_secrets_into_env()
@@ -4032,19 +4027,19 @@ _DEFAULT_TOGGLES = {
     "search_merge_cite": True,
     "experimental_configs": False,
     "nightly_configs": False,
-    "fable_top_tier": True,
+    "fable_top_tier": settings.fable_top_tier,
 }
 
 
-def _apply_fable_toggle(enabled: bool) -> None:
-    """Swap the Anthropic power model between Claude Fable 5 and Opus.
+_configured_anthropic_power_model = settings.cloud_power_model_anthropic
 
-    Off restores the exact pre-0.9 configuration (settings field default).
+
+def _apply_fable_toggle(enabled: bool) -> None:
+    """Opt into Fable; disabling restores the configured power model.
     """
     settings.fable_top_tier = bool(enabled)  # type: ignore[assignment]
-    field_default = type(settings).model_fields["cloud_power_model_anthropic"].default
     settings.cloud_power_model_anthropic = (  # type: ignore[assignment]
-        "claude-fable-5-1" if enabled else field_default
+        "claude-fable-5-1" if enabled else _configured_anthropic_power_model
     )
 
 
@@ -4267,7 +4262,7 @@ async def set_setup_toggles(payload: dict):
 
     # Hot-apply Fable ↔ Opus power-model swap.
     try:
-        _apply_fable_toggle(saved.get("fable_top_tier", True))
+        _apply_fable_toggle(saved.get("fable_top_tier", settings.fable_top_tier))
     except Exception:
         pass
 

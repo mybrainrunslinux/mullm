@@ -8,6 +8,17 @@ from router.config import CLOUD_MODEL_PRICING
 from router.frontier_models import FRONTIER_MODELS
 
 
+def test_fable_opt_in_restores_the_configured_power_model(monkeypatch):
+    from router import main
+    monkeypatch.setattr(main, '_configured_anthropic_power_model', 'claude-opus-5-5')
+    monkeypatch.setattr(main.settings, 'fable_top_tier', False)
+    monkeypatch.setattr(main.settings, 'cloud_power_model_anthropic', 'claude-opus-5-5')
+    main._apply_fable_toggle(True)
+    assert main.settings.cloud_power_model_anthropic == 'claude-fable-5-1'
+    main._apply_fable_toggle(False)
+    assert main.settings.cloud_power_model_anthropic == 'claude-opus-5-5'
+
+
 @pytest.mark.parametrize("model", [m for m in FRONTIER_MODELS if m.startswith("gpt-")])
 async def test_openai_frontier_sdk_and_http_use_responses(monkeypatch, model):
     import openai

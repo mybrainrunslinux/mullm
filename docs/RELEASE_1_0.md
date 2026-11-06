@@ -46,7 +46,7 @@ after interruption; automatic resumption of a crashed worker is not implemented.
 
 ## Verification on the integration branch
 
-- Python 3.15.2: 528 passed, 53 skipped, 4 expected failures, 40 passing subtests.
+- Python 3.15.2: 534 passed, 53 skipped, 4 expected failures, 40 passing subtests.
 - Fresh core wheel: dependency check, CLI, installed server/UI/API smoke passed
   without constraints. Core pip-audit reported no known vulnerabilities.
 - Rootless Podman build and authenticated HTTPS/query smoke passed.

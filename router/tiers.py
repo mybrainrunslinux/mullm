@@ -378,6 +378,10 @@ async def run_local(
             data = resp.json()
     except httpx.TimeoutException:
         raise RuntimeError(f"Ollama timed out after {settings.request_timeout_seconds}s")
+    except httpx.ConnectError as exc:
+        raise RuntimeError(
+            "Local inference is unavailable. Start your local runner or select a cloud model in Chat."
+        ) from exc
     except httpx.HTTPStatusError as exc:
         detail = ""
         try:
@@ -804,7 +808,16 @@ async def execute_pipeline(
     quality_escalated = False
 
     if selected_tier == TierLabel.LOCAL:
-        result = await run_local(request, intent)
+        try:
+            result = await run_local(request, intent)
+        except (RuntimeError, httpx.TransportError):
+            if not request.allow_cloud_escalation:
+                raise
+            _check_cancel()
+            result = await run_cloud(request, intent, cheap=True)
+            result.quality_escalated = True
+            _post_process(request, result, intent, quality_escalated=True)
+            return result
         # Quality gate: escalate to cheap cloud if local is poor
         _check_cancel()
         if request.allow_cloud_escalation and not _passes_quality_gate(result):

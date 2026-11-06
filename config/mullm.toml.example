@@ -38,9 +38,9 @@ keepalive     = "30m"
 # API keys: leave blank to disable that provider
 # Or set via env vars: ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.
 anthropic_default_model = "claude-haiku-5-5"
-openai_default_model    = "gpt-4o-mini"
-google_default_model    = "gemini-1.5-flash"
-deepseek_default_model  = "deepseek-chat"
+openai_default_model    = "gpt-6-luna"
+google_default_model    = "gemini-3.5-flash-lite"
+deepseek_default_model  = "deepseek-flash"
 mistral_default_model   = "mistral-small-latest"
 
 [cache]

@@ -792,11 +792,8 @@ class Settings(BaseSettings):
     cloud_cheap_model_anthropic: str  = "claude-haiku-5-5"
     cloud_full_model_anthropic: str   = "claude-sonnet-5-5"
     cloud_power_model_anthropic: str  = "claude-opus-5-5"
-    # When True, Claude Fable 5 replaces the Opus power model (top tier and
-    # WITH RICE). Toggled from /setup ("fable_top_tier"); off = exact pre-0.9
-    # behavior (Opus). Fable requests carry a server-side fallback to Opus so
-    # a safety refusal degrades gracefully instead of failing the query.
-    fable_top_tier: bool = True
+    # Optional Fable power-tier selection. Persisted setup choices are preserved.
+    fable_top_tier: bool = False
     cloud_cheap_model_openai: str     = "gpt-6-luna"
     cloud_full_model_openai: str      = "gpt-6.1-sol"
     cloud_power_model_openai: str     = "gpt-6-astra"

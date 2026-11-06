@@ -26,6 +26,8 @@ python3 -m venv "$HOME/mullm-env"
 
 For a keys-only Mac, add provider keys in setup and leave local inference off.
 MLX, Ollama, PyTorch, and model downloads are not required for cloud queries.
+Select a cloud tier and model in Chat. Automatic local-to-cloud escalation is
+opt-in; API clients can enable it with `allow_cloud_escalation: true`.
 
 ## Reuse your configuration
 
