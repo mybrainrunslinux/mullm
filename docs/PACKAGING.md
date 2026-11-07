@@ -61,10 +61,14 @@ This smoke intentionally uses a temporary port and does not exercise local-model
 or ComfyUI queueing. Those remain integration checks because they can consume VRAM, paid credits, or
 large model downloads.
 
-## Module Split
+## Proposed future module split
 
 Default `mullm` should remain the router trust boundary: classifier, cache, groundtruth, privacy
 logs, setup, chat, dashboard, and API compatibility.
+
+These names are design proposals, not all published packages or commands.
+The current coding harness ships in the core package as `mullm --orchestrate`;
+see [the coding assistant guide](CODING_ASSISTANT.md).
 
 Optional modules should be explicit:
 

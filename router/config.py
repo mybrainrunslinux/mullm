@@ -541,7 +541,7 @@ class Settings(BaseSettings):
 
     # ── Server ───────────────────────────────────────────────
     port: int = 6856
-    version: str = "1.0.0"
+    version: str = "1.0.1"
     dev_mode: bool = True          # When True, auth is skipped; set False in prod
     server_reload: bool = False    # Development hot-reload; keep off for installed/user runs
     log_level: str = "INFO"
@@ -551,7 +551,9 @@ class Settings(BaseSettings):
     mtls_enabled: bool = False
     tls_min_version: str = "TLSv1.3"
     security_contact_email: str = "contact@mullm.com"
-    auto_generate_cert: bool = True
+    # Loopback HTTP works in browsers without installing a local certificate.
+    # Self-signed TLS is an explicit development option, never a desktop default.
+    auto_generate_cert: bool = False
     # Bind to 0.0.0.0 (all interfaces) instead of 127.0.0.1 (localhost only).
     # Required if you want to reach mullm from your phone or another machine
     # on the same network.  Set MULLM_REMOTE_ACCESS=true or remote_access=true
@@ -892,6 +894,12 @@ class Settings(BaseSettings):
 
 # Module-level singleton — import this everywhere
 settings = Settings()
+
+
+def local_server_url() -> str:
+    """Match CLI and local clients to the configured server protocol and port."""
+    scheme = "https" if (settings.ssl_certfile and settings.ssl_keyfile) or settings.auto_generate_cert else "http"
+    return f"{scheme}://127.0.0.1:{settings.port}"
 
 # Ensure cache directory exists at import time
 settings.cache_dir.mkdir(parents=True, exist_ok=True)

@@ -129,7 +129,7 @@ The [Peg Bloom example](../examples/factory-peg-bloom/README.md) supplies three 
 
 ```bash
 mullm --factory factory.toml --dry-run
-mullm --factory factory.toml --server-url https://127.0.0.1:6856
+mullm --factory factory.toml --server-url http://127.0.0.1:6856
 ```
 
 The source project must be clean and committed. Factory creates a separate Git worktree and branch. The returned report names that candidate and the evidence directory under `.git/factory/<run-id>/`. Factory does not merge or deploy the result.
@@ -181,7 +181,7 @@ spec = "factory.toml"
 
 ```bash
 mullm --factory-batch workspace.toml --dry-run
-mullm --factory-batch workspace.toml --server-url https://127.0.0.1:6856
+mullm --factory-batch workspace.toml --server-url http://127.0.0.1:6856
 ```
 
 Workers run concurrently, each in its own worktree. Published runs share a FIFO inference lease, so a project waits outside the `/query` deadline while another uses the local model. Tests and packaging can proceed independently. The lease expires if its worker disappears. This scheduler coordinates Factory workers using the same server; other inference clients do not participate in it.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mullm"
-version = "1.0.0"
+version = "1.0.1"
 description = "Local-first LLM router. 96.4% cost reduction. Free tier first."
 readme = "README.md"
 license = "Apache-2.0"

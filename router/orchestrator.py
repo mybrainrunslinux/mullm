@@ -9,7 +9,7 @@ Also loads project context (CLAUDE.md, MULLM.md) for code-gen tasks.
 
 Usage:
     from router.orchestrator import Orchestrator
-    orch = Orchestrator(api_url="https://127.0.0.1:6856")
+    orch = Orchestrator(api_url="http://127.0.0.1:6856")
     plan = await orch.plan_from_file("BUGS.md")
     results = await orch.execute(plan)
 """
@@ -162,14 +162,15 @@ class Orchestrator:
 
     def __init__(
         self,
-        api_url: str = "https://127.0.0.1:6856",
+        api_url: str | None = None,
         repo_root: str | None = None,
         max_context_chars: int = 4000,
         verify_cmd: str = "",
         max_retries: int = 2,
         task_timeout: int = 600,
     ):
-        self.api_url = api_url.rstrip("/")
+        from router.config import local_server_url
+        self.api_url = (api_url or local_server_url()).rstrip("/")
         self.repo_root = Path(repo_root or os.getcwd())
         self.max_context_chars = max_context_chars
         self.verify_cmd = verify_cmd  # e.g. "npx playwright test tts.spec.js"
@@ -924,10 +925,7 @@ class Orchestrator:
             git_commit: Auto-commit applied patches after execution
             feature_branches: Split tasks across N feature branches then merge (0=off)
         """
-        import requests  # type: ignore[import-untyped]
-        import urllib3
-
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        import httpx  # type: ignore[import-untyped]
 
         # ── Resume: load checkpoint and pre-mark done tasks ──
         checkpoint: dict = {}
@@ -961,9 +959,7 @@ class Orchestrator:
         api_url = self.api_url
         # For the consolidation block below we need api_url resolved first — run detection inline
         try:
-            import requests as _req_probe  # type: ignore[import-untyped]
-            import urllib3 as _u3
-            _u3.disable_warnings(_u3.exceptions.InsecureRequestWarning)
+            import httpx as _req_probe  # type: ignore[import-untyped]
             _req_probe.get(f"{api_url}/health", timeout=3, verify=False)  # nosec B501
         except Exception:
             _flip = api_url.replace("https://", "http://", 1) if api_url.startswith("https://") else api_url.replace("http://", "https://", 1)
@@ -977,7 +973,7 @@ class Orchestrator:
         # When onefile + target doesn't exist: split tasks into component groups,
         # run each group as a parallel agent, then merge all components into one file.
         if onefile and target_file and not (self.repo_root / target_file).exists():
-            import requests as _req  # type: ignore[import-untyped]
+            import httpx as _req  # type: ignore[import-untyped]
             _pending = [t for t in plan.tasks if t.status != "done"]
             if _pending:
                 _ext = Path(target_file).suffix.lower()
@@ -1132,7 +1128,7 @@ class Orchestrator:
 
         api_url = self.api_url
         try:
-            requests.get(f"{api_url}/health", timeout=3, verify=False) # nosec B501 -- local backend health probe, SSL not applicable
+            httpx.get(f"{api_url}/health", timeout=3, verify=False) # nosec B501 -- local backend health probe, SSL not applicable
         except Exception:
             # Flip protocol
             if api_url.startswith("https://"):
@@ -1140,7 +1136,7 @@ class Orchestrator:
             else:
                 api_url = api_url.replace("http://", "https://", 1)
             try:
-                requests.get(f"{api_url}/health", timeout=3, verify=False) # nosec B501 -- local backend health probe, SSL not applicable
+                httpx.get(f"{api_url}/health", timeout=3, verify=False) # nosec B501 -- local backend health probe, SSL not applicable
                 log.info("protocol_fallback", url=api_url)
             except Exception:
                 pass  # will fail per-task with a clear error
@@ -1293,7 +1289,7 @@ class Orchestrator:
                             print(f"     ⏫ pre-escalate {current_tier}→{new_tier} (est ~{est_s}s > {escalate_timeout}s threshold)", flush=True)
 
                     def _post(url, pld, timeout):
-                        return requests.post(
+                        return httpx.post(
                             url,
                             json=pld,
                             timeout=timeout,
@@ -1321,7 +1317,7 @@ class Orchestrator:
                                 payload,
                                 15,
                             )
-                        except requests.Timeout:
+                        except httpx.TimeoutException:
                             log.info("fast_escalate", task_id=task.id)
                             payload["force_tier"] = "cloud_cheap"
                             payload["skip_cache"] = True
@@ -1706,7 +1702,7 @@ class Orchestrator:
 
         # Synthesis pass: reconcile files touched by multiple tasks
         if code_mode and apply:
-            import requests as _req
+            import httpx as _req
             for file_key, fres in file_results.items():
                 patched_count = sum(1 for r in fres if r.get("patches_applied", 0) > 0)
                 if patched_count > 1 and file_key != "_none":
@@ -1894,7 +1890,7 @@ class Orchestrator:
     ) -> bool:
         """Merge all generated files into one self-contained HTML file."""
 
-        import requests
+        import httpx
 
         output = Path(output_path)
         # Collect all patched + existing files from this run
@@ -1943,7 +1939,7 @@ class Orchestrator:
         )
 
         try:
-            resp = requests.post(
+            resp = httpx.post(
                 f"{api_url}/query",
                 json={"content": prompt, "force_tier": "cloud_cheap", "source": "api", "skip_cache": True},
                 timeout=300, verify=False, # nosec B501 -- internal local service call

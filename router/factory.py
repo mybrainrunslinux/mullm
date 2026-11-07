@@ -479,11 +479,12 @@ async def run_batch(manifest: Path, api_url: str, *, dry_run=False) -> dict:
 
 
 def main(argv=None):
+    from router.config import local_server_url
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("spec", type=Path, nargs="?")
     parser.add_argument("--batch", type=Path)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--server-url", default="https://127.0.0.1:6856")
+    parser.add_argument("--server-url", default=local_server_url())
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     if args.batch:

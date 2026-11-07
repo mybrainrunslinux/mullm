@@ -1,6 +1,8 @@
 name: Release Dry Run
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
   pull_request:
     branches: [main]
@@ -91,4 +93,13 @@ jobs:
           cache: pip
 
       - name: Fresh wheel install and server smoke
+        env:
+          MULLM_RELEASE_SMOKE_DIR: ${{ runner.temp }}/mullm-browser-wheel
+          MULLM_RELEASE_SMOKE_KEEP: '1'
         run: bash scripts/release-smoke.sh
+
+      - name: Firefox and Chromium desktop startup (normal certificate checks)
+        run: |
+          "${{ runner.temp }}/mullm-browser-wheel/run-venv/bin/python" -m pip install playwright
+          "${{ runner.temp }}/mullm-browser-wheel/run-venv/bin/python" -m playwright install --with-deps firefox chromium
+          "${{ runner.temp }}/mullm-browser-wheel/run-venv/bin/python" scripts/browser-startup-smoke.py
