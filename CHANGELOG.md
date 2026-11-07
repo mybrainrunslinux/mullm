@@ -1,5 +1,18 @@
 # Changelog — muLLM
 
+## [1.0.1] — 2026-11-07
+
+- Local startup uses loopback HTTP without automatically creating an untrusted
+  certificate. Explicit HTTPS and authenticated network access remain supported.
+- Running `mullm` starts the app; startup and install guidance explain how to launch it.
+- CLI, Factory, notifications, and orchestrator defaults follow the configured
+  protocol and port. Incomplete explicit TLS configuration fails clearly.
+- Release Checks now runs on main so its badge reflects main-branch results.
+- Installed-browser checks cover Firefox and Chromium without certificate bypasses.
+- Coding harness uses the core HTTP client instead of missing optional Requests;
+  failed or unverified tasks return a nonzero exit code. A dedicated
+  [coding assistant guide](docs/CODING_ASSISTANT.md) documents the shipped commands.
+
 ## [1.0.0] — 2026-11-07
 
 Published on [PyPI](https://pypi.org/project/mullm/1.0.0/) and

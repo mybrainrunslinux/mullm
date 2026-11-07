@@ -72,12 +72,15 @@ python -m venv .venv
 source .venv/bin/activate
 # Windows PowerShell instead: .venv\Scripts\Activate.ps1
 python -m pip install --upgrade mullm
-mullm-server
+mullm
 ```
 
-Open the setup URL printed by the server. It uses HTTPS when a local certificate
-is available. The first interactive start opens setup automatically; installation
-itself starts no process. Set `MULLM_OPEN_BROWSER=0` for headless operation.
+**After installation, run `mullm`** (or `mullm-server`) to start the app.
+Open **http://127.0.0.1:6856/setup**. The local default needs no certificate or
+browser exception. HTTPS is used when you explicitly configure a certificate
+and key; network access still requires HTTPS and authentication.
+The first interactive start opens setup automatically; installation itself
+starts no process. Set `MULLM_OPEN_BROWSER=0` for headless operation.
 
 **Windows with local inference:** connect your existing Ollama, TabbyAPI, vLLM,
 or llama.cpp runner in `/setup`. **Mac with API keys only:** add your provider
@@ -85,7 +88,7 @@ keys and leave local inference disabled; MLX and model downloads are optional.
 
 Use `/chat` for queries and `/factory` to follow projects, tasks, and human
 requests. The optional `/classifier` page previews local Kev.js inference.
-[Factory guide](docs/SOFTWARE_FACTORY.md) · [Upgrade and configuration guide](docs/UPGRADING.md).
+[Coding assistant and harness](docs/CODING_ASSISTANT.md) · [Factory guide](docs/SOFTWARE_FACTORY.md) · [Upgrade and configuration guide](docs/UPGRADING.md).
 
 The core install needs no separate constraints download. SQLite is the default
 cache. ChromaDB is an opt-in extra with unresolved advisories; see [Security](SECURITY.md).

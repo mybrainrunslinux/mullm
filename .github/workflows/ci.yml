@@ -52,6 +52,7 @@ jobs:
             tests/test_factory_templates.py \
             tests/test_spend_guard.py \
             tests/test_release_guards.py \
+            tests/test_local_startup.py \
             tests/test_chat_safety.py \
             tests/test_security_findings.py \
             tests/test_frontier_models.py \

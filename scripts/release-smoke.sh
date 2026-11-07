@@ -75,10 +75,10 @@ echo "==> Starting installed server on temporary port $PORT"
 SERVER_PID="$!"
 
 BASE_URL=""
-for scheme in https http; do
+for scheme in http; do
   url="$scheme://127.0.0.1:$PORT"
   for _ in $(seq 1 60); do
-    if curl -fsSk "$url/health" >/dev/null 2>&1; then
+    if curl -fsS "$url/health" >/dev/null 2>&1; then
       BASE_URL="$url"
       break 2
     fi
@@ -102,19 +102,17 @@ export BASE_URL
 "$RUN_VENV/bin/python" - <<'PY'
 import json
 import os
-import ssl
 import sys
 import urllib.request
 
 base = os.environ["BASE_URL"].rstrip("/")
-ctx = ssl._create_unverified_context() if base.startswith("https://") else None
 
 
 def fetch(path: str, *, method: str = "GET", body: bytes | None = None) -> tuple[int, bytes]:
     req = urllib.request.Request(base + path, data=body, method=method)
     if body is not None:
         req.add_header("content-type", "application/json")
-    with urllib.request.urlopen(req, context=ctx, timeout=20) as response:
+    with urllib.request.urlopen(req, timeout=20) as response:
         return response.status, response.read()
 
 

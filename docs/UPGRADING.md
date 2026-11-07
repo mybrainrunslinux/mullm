@@ -3,11 +3,21 @@
 Use the published package or the reviewed release wheel. Keep configuration and
 runtime data outside the virtual environment so upgrades preserve them.
 
+After installing, run **`mullm`** or **`mullm-server`**, then open
+**http://127.0.0.1:6856/setup**. Version 1.0.1 uses loopback HTTP by default,
+so no certificate installation or browser exception is needed. Previously
+auto-generated certificates are ignored unless you explicitly enable TLS.
+
+If still running 1.0.0, stop it and upgrade below. The temporary macOS/Linux
+workaround is `MULLM_AUTO_GENERATE_CERT=false MULLM_REMOTE_ACCESS=false mullm-server`,
+followed by the HTTP URL above. Explicit certificate/key settings must also be
+removed if you previously configured them yourself.
+
 ## Windows (PowerShell)
 
 ```powershell
 py -3.12 -m venv "$HOME\mullm-env"
-& "$HOME\mullm-env\Scripts\python.exe" -m pip install --upgrade "mullm==1.0.0"
+& "$HOME\mullm-env\Scripts\python.exe" -m pip install --upgrade "mullm==1.0.1"
 & "$HOME\mullm-env\Scripts\mullm.exe" --version
 & "$HOME\mullm-env\Scripts\mullm-server.exe"
 ```
@@ -19,7 +29,7 @@ Your existing local inference runner can stay installed separately.
 
 ```bash
 python3 -m venv "$HOME/mullm-env"
-"$HOME/mullm-env/bin/python" -m pip install --upgrade 'mullm==1.0.0'
+"$HOME/mullm-env/bin/python" -m pip install --upgrade 'mullm==1.0.1'
 "$HOME/mullm-env/bin/mullm" --version
 "$HOME/mullm-env/bin/mullm-server"
 ```
@@ -54,7 +64,7 @@ mode do not still require local-only operation.
 
 ## Verify after restarting
 
-1. Confirm `mullm --version` and `/health` report **1.0.0** on port **6856**.
+1. Confirm `mullm --version` and `/health` report **1.0.1** on port **6856**.
 2. Open the setup/chat URL printed at startup. Check that integrations loaded.
 3. Ask an arithmetic question and confirm a free deterministic answer.
 4. Make one short explicitly selected cloud-model call and check its provider,

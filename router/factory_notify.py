@@ -71,7 +71,8 @@ def deliver_one(targets: list[dict], sender=send) -> bool:
         db.execute("UPDATE notifications SET lease_until=?, attempts=attempts+1 WHERE id=?", (now + 600, event_id))
     payload = json.loads(row["payload"])
     run_id = payload.get("run_id", "")
-    base = os.environ.get("MULLM_FACTORY_PUBLIC_URL", "https://127.0.0.1:6856").rstrip("/")
+    from router.config import local_server_url
+    base = os.environ.get("MULLM_FACTORY_PUBLIC_URL", local_server_url()).rstrip("/")
     event = {"id": event_id, "type": "factory.need_human", "version": 1,
              "decision_id": row["decision_id"], "run_id": run_id,
              "message": "A factory task needs your decision.",

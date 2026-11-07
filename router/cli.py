@@ -2,6 +2,7 @@
 muLLM CLI — works with or without the server running.
 
 Usage:
+    mullm                             # start the local app
     mullm "your question"              # send to server, or run inline
     mullm --serve                      # start server
     mullm --status                     # health check
@@ -25,7 +26,9 @@ import tempfile
 import uuid
 from pathlib import Path
 
-_SERVER_URL = os.environ.get("MULLM_SERVER_URL", "https://127.0.0.1:6856")
+from router.config import local_server_url
+
+_SERVER_URL = os.environ.get("MULLM_SERVER_URL") or local_server_url()
 
 # Session ID persisted for the lifetime of the process
 _SESSION_ID = str(uuid.uuid4())
@@ -389,7 +392,10 @@ async def _orchestrate_from_cli(args: argparse.Namespace) -> int:
         target_file=args.target_file or "",
     )
     print(json.dumps(results, indent=2, default=str))
-    return 0
+    return 0 if results and all(
+        result.get("status") == "done" and result.get("verified") is not False
+        for result in results
+    ) else 1
 
 
 # ---------------------------------------------------------------------------
@@ -569,6 +575,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog="mullm",
         description="muLLM - local-first LLM router (port 6856)",
+        epilog="After installation, run mullm to start the app. mullm-server and mullm --serve also work.",
     )
     parser.add_argument("query", nargs="?", help="Question or prompt to route")
     parser.add_argument("--serve",   action="store_true", help="Start the muLLM server")
@@ -767,7 +774,11 @@ def main():
         return
 
     if not args.query:
-        parser.print_help()
+        if len(sys.argv) == 1:
+            from router.main import serve
+            serve()
+        else:
+            parser.print_help()
         return
 
     # ── Query mode ───────────────────────────────────────────────────────
@@ -793,15 +804,14 @@ def main_09():
     Explicit MULLM_SERVER_URL / MULLM_PORT environment variables still win.
     """
     global _SERVER_URL
-    os.environ.setdefault("MULLM_SERVER_URL", "https://127.0.0.1:16856")
     os.environ.setdefault("MULLM_PORT", "16856")
-    _SERVER_URL = os.environ["MULLM_SERVER_URL"]
     try:
         from router.config import settings as _s
         if _s.port == 6856:  # only override the stock default
             _s.port = 16856  # type: ignore[assignment]
     except Exception:
         pass
+    _SERVER_URL = os.environ.get("MULLM_SERVER_URL") or local_server_url()
     main()
 
 

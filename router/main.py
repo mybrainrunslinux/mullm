@@ -6238,6 +6238,8 @@ def serve():
     host = "0.0.0.0" if settings.remote_access else "127.0.0.1"  # nosec B104 — gated by remote_access setting
     port = settings.port
     use_https = bool(settings.ssl_certfile and settings.ssl_keyfile)
+    if bool(settings.ssl_certfile) != bool(settings.ssl_keyfile):
+        raise RuntimeError("HTTPS requires both MULLM_SSL_CERTFILE and MULLM_SSL_KEYFILE")
     ips = _local_ips()
     if not use_https and getattr(settings, "auto_generate_cert", False):
         _cert_dir = Path(settings.cache_dir) / "certs"
@@ -6272,6 +6274,8 @@ def serve():
     # ── Startup banner ────────────────────────────────────────────────────────
     print(f"\n  mu|LLM  v{settings.version}  -  port {port}")
     print(f"  Local:   {local_url}")
+    print("  Start again: mullm  (or mullm-server)")
+    print("  Stop: Ctrl+C")
     if settings.remote_access:
         for ip in ips:
             print(f"  Network: {scheme}://{ip}:{port}")
@@ -6280,25 +6284,26 @@ def serve():
         print("  Network: disabled  (set MULLM_REMOTE_ACCESS=true to enable)")
 
     first_run = _is_first_run()
-    # Interactive first start is the onboarding event. Installed services set
+    # Interactive starts open the app. Installed services set
     # MULLM_OPEN_BROWSER=0 explicitly so login/boot never launches a browser.
     open_browser = os.environ.get("MULLM_OPEN_BROWSER", "1").strip().lower() in {"1", "true", "yes", "on"}
     if first_run:
         print("\n  First run detected - open the setup wizard:")
         print(f"    {setup_url}\n")
-        if open_browser:
-            try:
-                import threading
-                import webbrowser
-
-                # Give uvicorn time to bind before the browser requests /setup.
-                opener = threading.Timer(1.0, webbrowser.open, args=(local_url + "/setup",))
-                opener.daemon = True
-                opener.start()
-            except Exception:
-                pass
     else:
         print(f"  Setup:   {local_url}/setup")
+    if open_browser:
+        try:
+            import threading
+            import webbrowser
+
+            # Give uvicorn time to bind before the browser opens the app.
+            opener = threading.Timer(1.0, webbrowser.open,
+                                     args=(local_url + ("/setup" if first_run else "/chat"),))
+            opener.daemon = True
+            opener.start()
+        except Exception:
+            pass
 
     print()
     # ─────────────────────────────────────────────────────────────────────────
