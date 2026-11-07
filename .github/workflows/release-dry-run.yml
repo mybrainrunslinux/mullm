@@ -100,6 +100,6 @@ jobs:
 
       - name: Firefox and Chromium desktop startup (normal certificate checks)
         run: |
-          python -m pip install playwright
-          python -m playwright install --with-deps firefox chromium
-          python scripts/browser-startup-smoke.py --launcher "${{ runner.temp }}/mullm-browser-wheel/run-venv/bin/mullm"
+          "${{ runner.temp }}/mullm-browser-wheel/run-venv/bin/python" -m pip install playwright
+          "${{ runner.temp }}/mullm-browser-wheel/run-venv/bin/python" -m playwright install --with-deps firefox chromium
+          "${{ runner.temp }}/mullm-browser-wheel/run-venv/bin/python" scripts/browser-startup-smoke.py

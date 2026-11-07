@@ -1,11 +1,11 @@
 """Exercise an installed desktop launch in real browsers, with normal TLS checks."""
-import argparse
 import http.client
 import json
 import os
 from pathlib import Path
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -13,12 +13,9 @@ from playwright.sync_api import sync_playwright
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--launcher', type=Path, required=True)
-    args = parser.parse_args()
-    launcher_path = args.launcher.resolve()
-    if launcher_path.name not in ('mullm', 'mullm.exe') or not launcher_path.is_file():
-        parser.error('--launcher must name the installed mullm executable')
+    # Run this script with the freshly installed wheel's Python environment.
+    launcher_path = Path(sys.executable).parent / ('mullm.exe' if os.name == 'nt' else 'mullm')
+    assert launcher_path.is_file(), 'Install the wheel into this Python environment first'
     launcher = str(launcher_path)
     with tempfile.TemporaryDirectory(prefix='mullm-browser-startup-') as temp:
         root = Path(temp)
@@ -31,8 +28,7 @@ def main():
                    MULLM_OPEN_BROWSER='0', DISABLE_CLOUD='1', PYTHONUNBUFFERED='1')
         base = f'http://127.0.0.1:{port}'
         with (root / 'server.log').open('w') as log:
-            # The operator selects the installed executable; argv is fixed and no shell is used.
-            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
+            # The executable belongs to this interpreter environment; no shell is used.
             proc = subprocess.Popen([launcher], cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT)
             try:
                 for _ in range(100):
@@ -52,8 +48,7 @@ def main():
                 else:
                     raise RuntimeError('Default HTTP startup failed: ' + (root / 'server.log').read_text())
                 assert not (root / 'cache/data/certs').exists(), 'Desktop startup generated a certificate'
-                # Same operator-selected executable and literal argument, without a shell.
-                # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
+                # Same installed executable and literal argument, without a shell.
                 status = subprocess.run([launcher, '--status'], cwd=root, env=env,
                                         capture_output=True, text=True, timeout=15)
                 assert status.returncode == 0, status.stderr + status.stdout
