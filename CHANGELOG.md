@@ -1,6 +1,9 @@
 # Changelog — muLLM
 
-## [1.0.0] — release preparation
+## [1.0.0] — 2026-11-07
+
+Published on [PyPI](https://pypi.org/project/mullm/1.0.0/) and
+[GitHub Releases](https://github.com/mybrainrunslinux/mullm/releases/tag/v1.0.0).
 
 - Core wheel installs without repository constraints; SQLite remains the default
   semantic cache while optional ChromaDB still has unresolved advisories.
@@ -15,7 +18,7 @@
 - Release, security and installation docs now distinguish tested core behavior
   from optional integrations and remaining publication requirements.
 
-See [release readiness](docs/RELEASE_1_0.md) for verification and open blockers.
+See [the release record](docs/RELEASE_1_0.md) for verification and remaining scope.
 
 ## Historical 1.0 draft — 2026-05-10
 

@@ -1,6 +1,6 @@
 # 1.0 release record
 
-PR #15 is merged. This follow-up combines the reviewed Factory interface with
+PRs #15 and #16 are merged. Version 1.0.0 combines the reviewed Factory interface with
 current model transports, optional browser classification, durable optional
 choices, notification adapters, and a packaged autonomous utility starter.
 
@@ -10,17 +10,29 @@ qualification. Their original captured reports are retained as historical eviden
 
 ## Publication
 
-Configure the `mullm` PyPI pending publisher for owner `mybrainrunslinux`, repository
-`mullm`, workflow `publish.yml`, environment `pypi`. TestPyPI uses a separate
-publisher and environment `testpypi`. Both GitHub environments exist. Trusted
-publishing requires no long-lived upload token in the repository.
+Published **November 7, 2026** on [PyPI](https://pypi.org/project/mullm/1.0.0/)
+and [GitHub Releases](https://github.com/mybrainrunslinux/mullm/releases/tag/v1.0.0).
+The GitHub release includes the production wheel, source archive, and SHA-256 checksums.
+
+Trusted publishing succeeded for owner `mybrainrunslinux`, repository `mullm`,
+workflow `publish.yml`, with environments `testpypi` and `pypi` respectively.
+No long-lived upload token was required.
 
 The manual Publish workflow accepts a reviewed version tag on main, checks its
 metadata, builds distributions, audits the installed core, and installs the same
-wheel on Linux, macOS, and Windows before upload. Start with TestPyPI, then PyPI.
+wheel on Linux, macOS, and Windows before upload. Both runs passed all 15
+OS/Python install combinations (Python 3.11–3.15):
+[TestPyPI](https://github.com/mybrainrunslinux/mullm/actions/runs/42409440104),
+[PyPI](https://github.com/mybrainrunslinux/mullm/actions/runs/42409750362).
 The package does not require a separate constraints download.
 
-Follow [the upgrade checklist](UPGRADING.md) after publication, including restored
+Fresh downloads from both indexes passed dependency, version, UI, and deterministic
+query checks on port 6856. The PyPI-installed server also reused existing provider
+configuration and returned READY from Fable ($0.0004). Its wheel SHA-256 matched
+the production CI artifact:
+`d9c90283dabd19ddd1db455ae12b224d0031b0bb58ad8a6c5caaaffc6c82f5a4`.
+
+Follow [the upgrade checklist](UPGRADING.md), including restored
 configuration, restart, version/port checks, a remote API call, and Windows local
 inference. The Mac test is keys-only; MLX is not required.
 
@@ -46,7 +58,7 @@ after interruption; automatic resumption of a crashed worker is not implemented.
 
 ## Verification on the integration branch
 
-- Python 3.15.2: 534 passed, 53 skipped, 4 expected failures, 40 passing subtests.
+- Python 3.15.2: 535 passed, 53 skipped, 4 expected failures, 40 passing subtests.
 - Fresh core wheel: dependency check, CLI, installed server/UI/API smoke passed
   without constraints. Core pip-audit reported no known vulnerabilities.
 - Rootless Podman build and authenticated HTTPS/query smoke passed.
@@ -58,13 +70,13 @@ after interruption; automatic resumption of a crashed worker is not implemented.
   `40656976cb4df15775a992d2456fa0fd1f73ad33991c3d5cec77d9df3b008f40`.
   Earlier failed contracts remain rejected; this is one scoped demonstration.
 
-Hosted checks must pass on the final commit before tagging/upload. This record
-is local validation, not a claim that PyPI publication or personal Windows/Mac
-acceptance has already happened.
+All 32 hosted checks passed on the final release PR before merge and tagging.
+Personal Windows/local-inference and Mac/keys-only acceptance remain with the
+maintainer; automated platform checks do not replace those configuration checks.
 
 ## Older automation PRs
 
-- #7 (setup-python v7): incorporated across workflows here.
+- #7 (setup-python v7): incorporated across workflows and closed as superseded.
 - #9 (pin CodeQL 4.37.4): the existing v4 major reference already tracks its
   updates; pinning an older patch is not required for this release.
 - #11 (15 runtime upgrades): its OpenTelemetry 1.44 pins are superseded by the
