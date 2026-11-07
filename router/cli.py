@@ -371,12 +371,18 @@ async def _orchestrate_from_cli(args: argparse.Namespace) -> int:
         plan = await orch.plan_from_file(args.orchestrate)
     else:
         plan = await orch.plan_from_tasks([args.orchestrate])
+    tier = getattr(args, "tier", None)
+    if tier:
+        if tier not in {"local", "local_multi", "cloud_cheap", "cloud_full"}:
+            raise SystemExit("Orchestration --tier must be local, local_multi, cloud_cheap, or cloud_full")
+        for task in plan.tasks:
+            task.suggested_tier = tier
     if args.dry_run:
         print(json.dumps({
             "mode": "orchestrate",
             "dry_run": True,
             "tasks": [task.__dict__ for task in plan.tasks],
-            "estimated_cost": plan.total_estimated_cost,
+            "estimated_cost": plan.total_estimated_cost if not tier else None,
         }, indent=2))
         return 0
     results = await orch.execute(

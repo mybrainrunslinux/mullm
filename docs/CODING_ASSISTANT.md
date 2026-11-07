@@ -20,7 +20,9 @@ second terminal with the same environment activated.
 
 To require local inference, start the server with `DISABLE_CLOUD=1` (PowerShell:
 `$env:DISABLE_CLOUD = "1"`). Local-only mode needs a working local model. A
-keys-only Mac can use cloud providers; its tasks may consume API credits.
+keys-only Mac should pass **`--tier cloud_cheap`** or **`--tier cloud_full`** to
+`--orchestrate`; without an override, coding tasks normally prefer local models.
+Cloud tasks consume API credits and obey the server's budget/privacy settings.
 
 ## Ask a coding question
 
@@ -59,6 +61,12 @@ command:
 
 ```bash
 mullm --orchestrate BUGS.md --code --apply --self-update --verify "python -m pytest tests/"
+```
+
+On a keys-only Mac, for example:
+
+```bash
+mullm --orchestrate BUGS.md --tier cloud_cheap --code --apply --self-update --verify "python -m pytest tests/"
 ```
 
 The current CLI requires **both `--apply` and `--self-update` for any repository

@@ -111,3 +111,21 @@ async def test_harness_exit_status_reflects_results(monkeypatch, results, code):
                      code=True, cost_optimize=False, no_tdd=False, bugfix_tdd=False,
                      onefile=False, target_file='')
     assert await cli._orchestrate_from_cli(args) == code
+
+
+@pytest.mark.asyncio
+async def test_harness_explicit_cloud_tier_reaches_execution(monkeypatch):
+    from argparse import Namespace
+    from unittest.mock import AsyncMock
+    from router import cli, orchestrator
+    plan = Namespace(tasks=[Namespace(suggested_tier='local_multi')])
+    orch = Mock()
+    orch.plan_from_tasks = AsyncMock(return_value=plan)
+    orch.execute = AsyncMock(return_value=[{'status': 'done'}])
+    monkeypatch.setattr(orchestrator, 'Orchestrator', lambda **kwargs: orch)
+    args = Namespace(self_update=False, apply=False, server_url='http://127.0.0.1:6856',
+                     verify='', timeout=60, orchestrate='test task', dry_run=False,
+                     code=True, cost_optimize=False, no_tdd=False, bugfix_tdd=False,
+                     onefile=False, target_file='', tier='cloud_cheap')
+    assert await cli._orchestrate_from_cli(args) == 0
+    assert orch.execute.call_args.args[0].tasks[0].suggested_tier == 'cloud_cheap'
