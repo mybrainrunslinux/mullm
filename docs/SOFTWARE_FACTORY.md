@@ -1,6 +1,6 @@
 # Software Factory
 
-**A specification goes in. A tested artifact—and the evidence behind it—comes out.**
+**A specification goes in. A tested artifact comes out, with the evidence behind it.**
 
 muLLM Factory turns a committed project contract into small, dependent implementation tasks. Each task has a narrow write scope and executable checks. Failed checks feed the repair loop. When its attempt budget runs out, the worker asks for a decision through **Unblock** and waits.
 
@@ -28,6 +28,8 @@ flowchart LR
     Q -->|Accept| F[Accepted artifact and hash]
     Q -->|Reject| E[Rejected: evidence preserved]
 ```
+
+For the proposed chapter, vertical-slice, and full-game workflow, see the [1.1/2.0 Game Factory roadmap](GAME_FACTORY_ROADMAP.md). It separates current capabilities from the next implementation milestones.
 
 ## See what is happening
 

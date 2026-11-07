@@ -2,7 +2,7 @@
 
 # mμ|LLM
 
-### Cost-Optimal LLM Routing — 96.4% cheaper than cloud-only
+### Cost-Optimal LLM Routing: 96.4% cheaper than cloud-only
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green?style=for-the-badge)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
@@ -27,9 +27,9 @@
 
 <div align="center">
 
-> **$27.87 actual spend vs $772 cloud-only baseline — across 15,363 production queries over 22 days.**
+> **$27.87 actual spend vs $772 cloud-only baseline across 15,363 production queries over 22 days.**
 >
-> 87.5% of queries resolved at $0.00. 100% HumanEval pass@1 at $0.00. RouterBench AIQ 0.6673 — highest published.
+> 87.5% of queries resolved at $0.00. 100% HumanEval pass@1 at $0.00. RouterBench AIQ 0.6673, the highest published score.
 
 </div>
 
@@ -41,7 +41,7 @@
 
 ![muLLM four-tier routing architecture](docs/tier-routing.svg)
 
-**The classifier** — DeBERTa-v3-small (44 MB) — reads the query once and predicts tier + intent category before any LLM is invoked. Tier 0 overhead: **<1 ms**.
+**The classifier**, DeBERTa-v3-small (44 MB), reads the query once and predicts tier + intent category before any LLM is invoked. Tier 0 overhead: **<1 ms**.
 
 ---
 
@@ -51,7 +51,7 @@ Build small, dependent tasks with local inference, protected executable tests, b
 
 [![The muLLM Software Factory](docs/media/factory-tour.gif)](docs/SOFTWARE_FACTORY.md)
 
-**[How it works](docs/SOFTWARE_FACTORY.md)** · **[Watch the tour](docs/media/factory-tour.webm)** · **[Spec → working game: evidence](docs/evidence/peg-bloom/README.md)** · **[Try Peg Bloom](examples/factory-peg-bloom/README.md)**
+**[How it works](docs/SOFTWARE_FACTORY.md)** · **[Game Factory roadmap](docs/GAME_FACTORY_ROADMAP.md)** · **[Watch the tour](docs/media/factory-tour.webm)** · **[Spec → working game: evidence](docs/evidence/peg-bloom/README.md)** · **[Try Peg Bloom](examples/factory-peg-bloom/README.md)**
 
 Build several projects together and see which need a human: [three marketing workspaces, their contracts, repairs, and review evidence](docs/evidence/marketing/README.md). Executable checks establish technical behavior; a separate product gate asks whether the result is useful and usable.
 
@@ -64,7 +64,7 @@ The Peg Bloom case study includes model-generated source, independent checks for
 Start muLLM on port **6856**, configure your providers, and open the web UI.
 Use a virtual environment with Python 3.11 or newer.
 
-### Path 1 — Install the package
+### Path 1: Install the package
 
 ```bash
 python -m venv .venv
@@ -114,7 +114,7 @@ The setup page separates installs from feature toggles. **Single User** keeps pr
 
 Provider keys can be saved to the OS keychain (recommended), Unix `pass`, or a local `.env` file with owner-only permissions. **Best available** selects the OS keychain when usable and otherwise falls back to `.env`. For containers and Kubernetes, inject keys through environment variables or mounted secrets rather than baking them into the image.
 
-### Path 2 — Rootless Podman
+### Path 2: Rootless Podman
 
 ```bash
 git clone https://github.com/mybrainrunslinux/mullm.git && cd mullm
@@ -129,7 +129,7 @@ podman run --name mullm --replace -d \
 
 This is a single muLLM container; run Ollama or another compatible inference backend separately. See [Deployment](docs/DEPLOYMENT.md) for secrets, persistent state, and remote access.
 
-### Path 3 — Source / development
+### Path 3: Source / development
 
 ```bash
 git clone https://github.com/mybrainrunslinux/mullm && cd mullm
@@ -363,10 +363,10 @@ The classifier assigns every query to one of eight categories, each with a defau
 
 ### Key claims (verified on production data)
 
-- **96.4% cost reduction** — $27.87 vs $772 baseline, N = 15,363 queries, 22 days
-- **87.5% free-tier resolution** — Tiers 0–2 combined, zero cloud spend
-- **100% HumanEval pass@1 at $0.00** — local tier only, no cloud escalation
-- **RouterBench AIQ 0.6673** — highest published score on this benchmark at time of submission
+- **96.4% cost reduction**: $27.87 vs $772 baseline, N = 15,363 queries, 22 days
+- **87.5% free-tier resolution**: Tiers 0–2 combined, zero cloud spend
+- **100% HumanEval pass@1 at $0.00**: local tier only, no cloud escalation
+- **RouterBench AIQ 0.6673**: highest published score on this benchmark at time of submission
 - **DeBERTa-v3-small (44 MB)** classifier achieves production-grade intent classification
 - Four-tier waterfall architecture generalizes to any local + cloud backend combination
 
@@ -422,10 +422,10 @@ npx playwright test --grep @spend  # paid cloud tests (explicit opt-in)
 ```
 
 **Guidelines:**
-- Tests must never spend money by default — cloud tests go behind `--grep @spend`
+- Tests must never spend money by default; cloud tests go behind `--grep @spend`
 - Use Podman over Docker for container-based tests
-- Cost accuracy matters — real API keys, real money
-- Local-first — default to the cheapest capable tier
+- Cost accuracy matters: real API keys, real money
+- Local-first: default to the cheapest capable tier
 
 ---
 
@@ -435,7 +435,7 @@ npx playwright test --grep @spend  # paid cloud tests (explicit opt-in)
 
 **Built by [0101 Technology](https://0101technology.com)**
 
-mμ|LLM is a research project and production system developed at 0101 Technology. The tardigrade mascot was chosen for its resilience — surviving extremes, running anywhere, needing nothing external.
+mμ|LLM is a research project and production system developed at 0101 Technology. The tardigrade mascot was chosen for its resilience: surviving extremes, running anywhere, needing nothing external.
 
 ---
 
@@ -452,4 +452,4 @@ muLLM is developed and stewarded by **0101 Technology LLC** (Oregon, USA). See [
 [Runtime privacy, deadlines, and model verification](docs/RUNTIME_GUARDS.md) · [Software Factory mode](docs/SOFTWARE_FACTORY.md).
 [Current models and custom classifiers](docs/MODELS.md) · [Upgrade guide](docs/UPGRADING.md).
 
-Software Factory: `mullm --factory factory.toml` — [configuration and acceptance gates](docs/SOFTWARE_FACTORY.md).
+Software Factory: `mullm --factory factory.toml`; [configuration and acceptance gates](docs/SOFTWARE_FACTORY.md).
