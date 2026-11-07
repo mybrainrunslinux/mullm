@@ -2,7 +2,7 @@
 
 **Proposal, November 2026.** Build a cohesive playable chapter from a creative brief, then expand the same production system to vertical slices and complete games. This is a design roadmap; the implementation shipped today is described in [Software Factory](SOFTWARE_FACTORY.md).
 
-The quality references are Boiling Frog Games' Oiche and Eclosion Season. Reference footage and playable builds still need to be reviewed before turning those names into a concrete acceptance rubric. The aim is coherent art, believable spaces, connected game systems, and a story that flows through play.
+The quality references are Boiling Frog Games' Oíche and Eclosion Season (the local Eclosion Garden build). Initial source inspection found useful production patterns in both; complete playthroughs still need to establish a concrete acceptance rubric. The aim is coherent art, believable spaces, connected game systems, and a story that flows through play.
 
 ## The release targets
 
@@ -14,7 +14,7 @@ The quality references are Boiling Frog Games' Oiche and Eclosion Season. Refere
 | 1.1: first Level 5 workload | Approve a bounded brief and acceptance contract before starting | A small complete game or chapter in one qualified template, delivered without human code writing, code review, or intervention during the run |
 | 2.0: broader Level 5 production | Specify the game and its delivery policy | Multiple connected chapters or a complete game within qualified genres, including continuity, progression, packaging, and acceptance evidence |
 
-Start with a proposed 10–15 minute chapter: one environment, a small cast, three story beats, and two or three mechanics that reinforce one another. Include a real ending, save/load, controls, audio, and recovery from failure. Choose one engine and one template for the first qualification workload after reviewing the references. Existing browser game tooling is a useful candidate; native engine support can use the same contracts later.
+Start with a proposed 10–15 minute chapter: one environment, a small cast, three story beats, and two or three mechanics that reinforce one another. Include a real ending, save/load, controls, audio, and recovery from failure. Start with Three.js and one template: both local reference projects already use it. Keep engine-specific import, replay, and packaging behind adapters so native engine support can use the same contracts later.
 
 A run that needs a human can still produce a good game. Record it as assisted, rather than counting it as an unattended success. Human playtesting between briefs improves the next contract; mandatory human approval inside a run belongs to the Level 4 mode.
 
@@ -24,7 +24,16 @@ The current system already provides isolated worktrees, task dependencies, bound
 
 The largest additions are a shared game/asset model, reproducible gameplay, selective audiovisual evidence, durable worker recovery, and production templates. A dead worker is not currently reconstructed just because the web server restarts.
 
-Meshy operations already exist in [router/meshy.py](../router/meshy.py), and Tripo and Rodin submission adapters exist in [router/world_providers.py](../router/world_providers.py). These are starting points, not a verified end-to-end game asset pipeline. TopologyAI currently has a custom-adapter catalog entry; the intended “Topo” integration needs clarification. Blender and TRELLIS integration are proposed work.
+Meshy operations already exist in [router/meshy.py](../router/meshy.py), and Tripo and Rodin submission adapters exist in [router/world_providers.py](../router/world_providers.py). These are starting points, not a verified end-to-end game asset pipeline. The requested provider is Tripo, distinct from the existing TopologyAI catalog entry. Hitem3D, Polyfork, Blender, and TRELLIS integration are proposed work.
+
+## Patterns already present in the reference games
+
+Initial read-only inspection found these concrete foundations:
+
+- **Eclosion:** a simulation solver and shipping-seed witness, replay hooks, milestone screenshots, region-specific palette probes, fixed-camera scenery galleries, and distinct structural versus GPU performance checks. Its scenery harness records a useful failure case: logic tests can pass while every biome still looks like the same neighborhood.
+- **Oíche:** separate game, engine, and siege systems; Polyfork loading helpers; sector-based mesh instancing and culling; bot fight/campaign tools; and real-input smoke tests that inspect audio activation, menus, movement, attacks, and pause/resume.
+
+Generalize these into reusable template capabilities: an observable game-state interface, input replay, semantic milestones, named camera views, asset provenance, and performance probes. Inspecting a test's source does not establish that the current build passes it. Preserve the distinction between source inspection, a captured scene, and a completed playthrough.
 
 ## One contract for story, systems, and assets
 
@@ -43,13 +52,21 @@ Templates should contain tested systems with extension points: traversal, camera
 
 ## Asset production and model routing
 
-Use a common asset-job interface for Meshy, Rodin, the clarified Topo provider, and local generators such as [Microsoft TRELLIS.2](https://github.com/microsoft/TRELLIS.2). Record provider/model revision, source references, job ID, cost, license, and output hashes. Qualification must cover submission, polling, downloading, import, and failure recovery. A provider being configured is not evidence that its output works in the game.
+Use a common asset-job interface for Meshy, Rodin, Tripo, [Hitem3D](https://docs.hi3d.ai/en/api/api-reference/list/create-task), and local generators such as [Microsoft TRELLIS.2](https://github.com/microsoft/TRELLIS.2). Record provider/model revision, source references, job ID, cost, license, and output hashes. Qualification must cover submission, polling, downloading, import, and failure recovery. A provider being configured is not evidence that its output works in the game.
 
 Use [MCP for Blender](https://github.com/ahujasid/mcp-for-blender) for agent-directed inspection and authoring. Its documented tools include scene inspection, visual inspection, Python execution, and asset generation/import. Save the resulting Blender scripts and source files so normalization and exports can be replayed in controlled build jobs.
 
 Every accepted asset needs a manifest: units, pivot, bounding box, mesh budget, UVs, texture maps and color spaces, material slots, collision, LODs, skeleton, animation clips, root motion, and interaction sockets where applicable. Validate imports in the target engine. Check deformation and transitions in motion, and materials under the chapter's actual lighting. A good standalone render is only one piece of evidence.
 
 Routing should consider capability, measured success rate, latency, privacy, GPU availability, and total cost. Reuse validated assets and templates first. Use deterministic tools for conversion and checks, local models for suitable generation/repair, vision models for visual diagnosis, and stronger remote models when the task and budget justify escalation. Asset credits and retries count toward the same project budget as inference. Never silently switch provider or model in a way that breaks style consistency or reproducibility.
+
+## Polyfork as a curated asset source
+
+Start with a searchable Polyfork picker and an agent-facing search/import interface. Its [agent API](https://polyfork.dev/prompt.txt) exposes dimensions, palette, triangle budgets, rig information, and themed kit contracts. Select coherent kits before generating missing assets; preserve the asset ID, parameters, source URL, hash, and license choice in the project manifest.
+
+The [current pricing](https://polyfork.dev/pricing) makes low-poly models free and reserves HD editions for paid plans. The [licensing terms](https://polyfork.dev/licensing) explicitly allow products to search and load free models directly from Polyfork's CDN. Fetch on demand, identify muLLM, respect rate limits, and name Polyfork in the picker. Free mesh files also offer CC BY 4.0 with attribution; source modules and HD files have different redistribution terms. Plan offline exports around the selected license. Do not turn its restricted source/catalog into a competing commercial asset generator. Hosting restricted assets for Factory users requires appropriate platform rights.
+
+A contextual “View HD options at Polyfork” link can be useful when an HD edition exists and fits the project's performance budget. No public affiliate program was found in the reviewed pages or search. Treat commissions as an unconfirmed partnership opportunity; disclose any future affiliate link and keep asset ranking based on project fit. An ordinary integration is worthwhile independently of referral revenue.
 
 ## Evidence selected by change impact
 
